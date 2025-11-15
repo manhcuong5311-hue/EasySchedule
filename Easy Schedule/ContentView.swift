@@ -604,120 +604,117 @@ struct CustomizableCalendarView: View {
             VStack(spacing: 12) {
                 
                 // MARK: - Calendar grid
-                CalendarGridView(
-                    selectedDate: $selectedDate,
-                    eventsByDay: eventManager.groupedByDay,
-                    offDays: offDays
-                )
-                .padding(.top, 8)
+        CalendarGridView(
+        selectedDate: $selectedDate,
+        eventsByDay: eventManager.groupedByDay,
+        offDays: offDays
+    )
+        .padding(.top, 8)
                 
-                // MARK: - Toggle cho phép trùng lịch
-                Toggle("Cho phép trùng lịch", isOn: Binding(
-                    get: { eventManager.allowDuplicateEvents },
-                    set: { eventManager.allowDuplicateEvents = $0 }
-                ))
-                .padding(.horizontal)
-                .padding(.bottom, 4)
+        // MARK: - Toggle cho phép trùng lịch
+    Toggle("Cho phép trùng lịch", isOn: Binding(
+        get: { eventManager.allowDuplicateEvents },
+        set: { eventManager.allowDuplicateEvents = $0 }
+    ))
+        .padding(.horizontal)
+        .padding(.bottom, 4)
                 
-                Divider()
+        Divider()
                 
                 // MARK: - Nút chia sẻ
-                Button {
-                    generateShareLink()
-                    showShareSheet = true
-                } label: {
-                    HStack {
-                        Image(systemName: "square.and.arrow.up")
-                        Text("Chia sẻ lịch")
-                            .bold()
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color.blue.opacity(0.2))
-                    .cornerRadius(10)
-                }
-                .padding(.horizontal)
-                .sheet(isPresented: $showShareSheet) {
-                    if let link = shareLink {
-                        ActivityView(activityItems: [link])
-                    }
-                }
-                
-                // MARK: - Ngày được chọn
-                if let date = selectedDate {
-                    VStack(spacing: 10) {
-                        
+    Button {
+        generateShareLink()
+        showShareSheet = true
+            } label: {
+                HStack {
+            Image(systemName: "square.and.arrow.up")
+                Text("Chia sẻ lịch")
+                    .bold()
+        }
+        .frame(maxWidth: .infinity)
+        .padding()
+        .background(Color.blue.opacity(0.2))
+        .cornerRadius(10)
+    }
+        .padding(.horizontal)
+        .sheet(isPresented: $showShareSheet) {
+        if let link = shareLink {
+        ActivityView(activityItems: [link])
+    }
+}
+        // MARK: - Ngày được chọn
+        if let date = selectedDate {
+            VStack(spacing: 10) {
                         // ✅ Nút đặt / huỷ ngày nghỉ
-                        Button {
-                            toggleOffDay(for: date)
-                        } label: {
-                            HStack {
-                                Image(systemName: isOffDay(date) ? "xmark.circle" : "bed.double.fill")
-                                Text(isOffDay(date) ? "Mở lại ngày này" : "Đặt ngày nghỉ")
-                                    .bold()
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(isOffDay(date) ? Color.green.opacity(0.2) : Color.gray.opacity(0.2))
-                            .cornerRadius(10)
-                        }
-                        .padding(.horizontal)
+                Button {
+                    toggleOffDay(for: date)
+                } label: {
+            HStack {
+                Image(systemName: isOffDay(date) ? "xmark.circle" :"bed.double.fill")
+                Text(isOffDay(date) ? "Mở lại ngày này" : "Đặt ngày nghỉ")
+                    .bold()
+    }
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(isOffDay(date) ? Color.green.opacity(0.2) : Color.gray.opacity(0.2))
+                    .cornerRadius(10)
+    }
+                .padding(.horizontal)
                         
-                        if isOffDay(date) {
-                            Text("Ngày này đang được đặt là *ngày nghỉ*.")
-                                .foregroundColor(.red)
-                                .font(.subheadline)
-                        } else if eventManager.events(for: date).isEmpty {
-                            Text("Không có sự kiện nào trong ngày này.")
-                                .foregroundColor(.secondary)
-                                .padding(.vertical, 12)
-                        } else {
-                            List {
-                                ForEach(eventManager.events(for: date)) { event in
-                                    HStack(alignment: .top, spacing: 8) {
-                                        // Circle màu sự kiện
-                                        Circle()
-                                            .fill(Color(hex: event.colorHex.isEmpty ? "#FF0000" : event.colorHex))
-                                            .frame(width: 12, height: 12)
-                                        
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            HStack {
-                                                Text(event.title)
-                                                    .font(.headline)
-                                                Spacer()
-                                                Button {
-                                                    showDeleteConfirmation(for: event)
-                                                } label: {
-                                                    Image(systemName: "trash")
-                                                        .foregroundColor(.red)
-                                                        .padding(8)
-                                                }
-                                                .buttonStyle(.plain)
-                                            }
-                                            Text(event.owner).font(.subheadline)
-                                            Text("\(formattedTime(event.startTime)) - \(formattedTime(event.endTime))")
-                                                .font(.caption)
-                                                .foregroundColor(.secondary)
-                                        }
-                                    }
-                                    .padding(.vertical, 4)
-                                }
-                                .onDelete { indexSet in
-                                    for index in indexSet {
-                                        let event = eventManager.events(for: date)[index]
-                                        eventManager.deleteEvent(event)
-                                    }
-                                }
-                            }
-                            .listStyle(.inset)
-                            .frame(maxHeight: 300)
-                        }
-                    }
-                } else {
-                    Text("Chọn một ngày để xem sự kiện.")
+                if isOffDay(date) {
+                Text("Ngày này đang được đặt là *ngày nghỉ*.")
+                    .foregroundColor(.red)
+                    .font(.subheadline)
+                    } else if eventManager.events(for: date).isEmpty {
+                        Text("Không có sự kiện nào trong ngày này.")
                         .foregroundColor(.secondary)
                         .padding(.vertical, 12)
-                }
+                        } else {
+                List {
+                    ForEach(eventManager.events(for: date)) { event in
+                    HStack(alignment: .top, spacing: 8) {
+                        // Circle màu sự kiện
+                        Circle()
+                            .fill(Color(hex: event.colorHex.isEmpty ? "#FF0000" : event.colorHex))
+                                .frame(width: 12, height: 12)
+                                        
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                                Text(event.title)
+                                .font(.headline)
+                        Spacer()
+                    Button {
+                            showDeleteConfirmation(for: event)
+                        } label: {
+                            Image(systemName: "trash")
+                                .foregroundColor(.red)
+                                .padding(8)
+      }                                .buttonStyle(.plain)
+    }
+                Text(event.owner).font(.subheadline)
+                Text("\(formattedTime(event.startTime)) - \(formattedTime(event.endTime))")
+                        .font(.caption)
+                       .foregroundColor(.secondary)
+    }
+}
+                        .padding(.vertical, 4)
+}
+                        .onDelete { indexSet in
+                    for index in indexSet {
+                 let event = eventManager.events(for: date)[index]
+                                        eventManager.deleteEvent(event)
+        }
+    }
+}
+                .listStyle(.inset)
+                .frame(maxHeight: 300)
+        }
+    }
+        } else {
+            Text("Chọn một ngày để xem sự kiện.")
+                .foregroundColor(.secondary)
+                .padding(.vertical, 12)
+            }
             }
             .navigationTitle("Lịch của tôi")
             .toolbar {
@@ -982,27 +979,28 @@ struct CalendarGridView: View {
             // MARK: - Lưới ngày
             LazyVGrid(columns: columns, spacing: 12) {
                 let allDays = daysInMonth(for: currentMonth)
-                
-                // Số ô trống trước ngày 1
+                    .map { calendar.startOfDay(for: $0) }
+
                 if let firstDay = allDays.first {
                     let weekday = calendar.component(.weekday, from: firstDay)
                     let emptySlots = weekday - calendar.firstWeekday
                     if emptySlots > 0 {
-                        ForEach(0..<emptySlots, id: \.self) { _ in
+                        ForEach(0..<emptySlots, id: \.self) { idx in
                             Text("")
-                                .frame(width: 36, height: 36)
+                                .id("empty_\(currentMonth)_\(idx)") // ép ID duy nhất
                         }
                     }
                 }
                 
                 // Hiển thị các ngày trong tháng
-                ForEach(allDays, id: \.self) { date in
+                ForEach(allDays.indices, id: \.self) { index in
+                    let date = allDays[index]
+
                     let day = calendar.component(.day, from: date)
                     let isSelected = selectedDate.map { calendar.isDate($0, inSameDayAs: date) } ?? false
-                    let hasEvents = eventsByDay[calendar.startOfDay(for: date)]?.isEmpty == false
                     let isToday = calendar.isDateInToday(date)
                     let isOffDay = offDays.contains(where: { calendar.isDate($0, inSameDayAs: date) })
-                    
+
                     VStack(spacing: 4) {
                         Text("\(day)")
                             .font(.body)
@@ -1016,16 +1014,15 @@ struct CalendarGridView: View {
                                 )
                             )
                             .foregroundColor(isSelected ? .white : .primary)
-                        
-                        if let events = eventsByDay[calendar.startOfDay(for: date)], !events.isEmpty {
-                            Circle()
-                                .frame(width: 6, height: 6)
-                                .foregroundColor(Color(hex: events.first?.colorHex ?? "#FF0000"))
-                        } else {
-                            Circle()
-                                .frame(width: 6, height: 6)
-                                .foregroundColor(.clear)
-                        }
+
+                        Circle()
+                            .frame(width: 6, height: 6)
+                            .foregroundColor(
+                                (eventsByDay[calendar.startOfDay(for: date)]?.isEmpty == false)
+                                ? Color(hex: eventsByDay[calendar.startOfDay(for: date)]!.first!.colorHex)
+                                : .clear
+                            )
+
                     }
                     .frame(maxWidth: .infinity)
                     .contentShape(Rectangle())
@@ -1037,6 +1034,7 @@ struct CalendarGridView: View {
                         }
                     }
                 }
+
             }
             .padding(.horizontal)
         }

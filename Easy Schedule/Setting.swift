@@ -145,9 +145,6 @@ struct SettingsView: View {
                         
                     }
                     .pickerStyle(.segmented)
-                    .onChange(of: selectedLanguage) { newValue in
-                        languageManager.setLanguage(newValue)
-                    }
                 }
                 
                 // MARK: - Thông tin & Hỗ trợ
@@ -460,10 +457,13 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
             print("FCM token: \(fcmToken ?? "")")
         }
-        func application(_ app: UIApplication, open url: URL,
-                           options: [UIApplication.OpenURLOptionsKey : Any] = [:]) -> Bool {
-              return GIDSignIn.sharedInstance.handle(url)
-          }
+        func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
+            guard let urlContext = URLContexts.first else { return }
+            let url = urlContext.url
+            GIDSignIn.sharedInstance.handle(url)
+        }
+
+          
         
     }
 }
