@@ -77,10 +77,27 @@ struct SettingsView: View {
             Form {
                 // MARK: - Notifications
                 Section("Thông báo") {
-                    Toggle("Bật thông báo sắp đến lịch", isOn: $notificationsEnabled)
-                        .onChange(of: notificationsEnabled) { newValue in
-                            if newValue { NotificationManager.shared.requestPermission() }
+                    Toggle("Thông báo khi có lịch mới", isOn: $pushNotificationsEnabled)
+                        .onChange(of: pushNotificationsEnabled) { oldValue, newValue in
+                            if newValue {
+                                Messaging.messaging().subscribe(toTopic: "admin") { error in
+                                    if let error = error {
+                                        print("❌ Subscribe topic lỗi: \(error.localizedDescription)")
+                                    } else {
+                                        print("✅ Đã bật thông báo khi có lịch mới")
+                                    }
+                                }
+                            } else {
+                                Messaging.messaging().unsubscribe(fromTopic: "admin") { error in
+                                    if let error = error {
+                                        print("❌ Unsubscribe topic lỗi: \(error.localizedDescription)")
+                                    } else {
+                                        print("✅ Đã tắt thông báo khi có lịch mới")
+                                    }
+                                }
+                            }
                         }
+                    
                     
                     Picker("Thời gian nhắc trước", selection: $leadTime) {
                         ForEach(leadTimeOptions, id: \.self) { value in
@@ -90,7 +107,7 @@ struct SettingsView: View {
                     .disabled(!notificationsEnabled)
                     
                     Toggle("Thông báo khi có lịch mới", isOn: $pushNotificationsEnabled)
-                        .onChange(of: pushNotificationsEnabled) { newValue in
+                        .onChange(of: pushNotificationsEnabled) { oldValue, newValue in
                             if newValue {
                                 Messaging.messaging().subscribe(toTopic: "admin") { error in
                                     if let error = error {
