@@ -205,9 +205,6 @@ struct ContentView: View {
     }
 }
 
-// MARK: - Tab 1: Danh sách lịch
-// MARK: - Tab 1: Danh sách lịch
-// MARK: - Helper grouping tối ưu (dùng nhớ tạm để tránh tái tính)
 private func rememberGroupedByMonth(events: [CalendarEvent]) -> [Date: [CalendarEvent]] {
     Dictionary(grouping: events) { event in
         let comps = Calendar.current.dateComponents([.year, .month], from: event.date)
@@ -227,8 +224,7 @@ private func rememberGroupedByDay(events: [CalendarEvent]) -> [Date: [CalendarEv
     }
 }
 
-// MARK: - Danh sách lịch đã qua
-// MARK: - Tab 1: Danh sách lịch (đã chỉnh sửa + thêm tìm kiếm)
+
 struct EventListView: View {
     @EnvironmentObject var eventManager: EventManager
     @Binding var showPastEvents: Bool
@@ -570,11 +566,7 @@ struct EventListView: View {
     }
 }
 
-// MARK: - Tab 2: Lịch có thể thêm/sửa
 
-import SwiftUI
-
-import SwiftUI
 
 struct CustomizableCalendarView: View {
     @EnvironmentObject var eventManager: EventManager
@@ -776,7 +768,7 @@ struct CustomizableCalendarView: View {
     }
 }
 
-// MARK: - UIKit wrapper cho Share Sheet
+
 struct ActivityView: UIViewControllerRepresentable {
     let activityItems: [Any]
     let applicationActivities: [UIActivity]? = nil
@@ -788,7 +780,6 @@ struct ActivityView: UIViewControllerRepresentable {
     func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
-import SwiftUI
 
 struct AddEventView: View {
     
@@ -935,7 +926,7 @@ struct AddEventView: View {
     
 }
 
-import SwiftUI
+
 
 struct CalendarGridView: View {
     @Binding var selectedDate: Date?
@@ -1107,9 +1098,6 @@ struct DayEventsSheetView: View {
     }
 }
 
-// MARK: - Add/Edit Event
-// Thay thế hoàn toàn AddOrEditEventView bằng đoạn này
-import SwiftUI
 
 struct AddOrEditEventView: View {
     enum Mode {

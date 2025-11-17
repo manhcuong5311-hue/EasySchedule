@@ -11,6 +11,7 @@ import FirebaseMessaging
 import FirebaseCore
 import FirebaseAuth
 import GoogleSignIn
+import LocalAuthentication
 final class NotificationManager: ObservableObject {
     static let shared = NotificationManager()
     @Published var notificationsEnabled = false
@@ -47,9 +48,6 @@ final class NotificationManager: ObservableObject {
 }
 
 // MARK: - SettingsView
-import SwiftUI
-import FirebaseAuth
-import FirebaseMessaging
 
 struct SettingsView: View {
     // MARK: - AppStorage
@@ -257,8 +255,6 @@ struct UpgradeAccountView: View {
 }
 
 // MARK: - Security View
-import SwiftUI
-import LocalAuthentication
 
 struct SecuritySettingsView: View {
     // MARK: - AppStorage để lưu trạng thái
@@ -408,13 +404,6 @@ struct LockScreenView: View {
         SecuritySettingsView()
     }
 }
-
-
-import SwiftUI
-import FirebaseCore
-import UserNotifications
-
-
 
 class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate, MessagingDelegate {
     

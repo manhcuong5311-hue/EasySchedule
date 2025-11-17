@@ -44,8 +44,6 @@ final class TimeSlotManager: ObservableObject {
 
 import SwiftUI
 
-import SwiftUI
-
 struct TimeSlotPickerGridView: View {
     @StateObject private var manager = TimeSlotManager()
     @Environment(\.dismiss) private var dismiss
