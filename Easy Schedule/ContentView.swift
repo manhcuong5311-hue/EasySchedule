@@ -40,18 +40,23 @@ final class EventManager: ObservableObject {
     
     // Lưu dữ liệu
     private func saveEvents() {
-        if let data = try? JSONEncoder().encode(events) {
+        let allEvents = events + pastEvents
+        if let data = try? JSONEncoder().encode(allEvents) {
             UserDefaults.standard.set(data, forKey: "savedEvents")
         }
     }
+
     
     // Tải lại dữ liệu
     private func loadEvents() {
         if let data = UserDefaults.standard.data(forKey: "savedEvents"),
            let decoded = try? JSONDecoder().decode([CalendarEvent].self, from: data) {
             self.events = decoded
+            cleanUpPastEvents()   // tách lại past vs upcoming
+            updateGroupedEvents()
         }
     }
+
     
     // Tách sự kiện đã qua
     func cleanUpPastEvents() {
