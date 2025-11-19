@@ -12,6 +12,8 @@ import FirebaseCore
 import FirebaseAuth
 import GoogleSignIn
 import LocalAuthentication
+
+
 final class NotificationManager: ObservableObject {
     static let shared = NotificationManager()
     @Published var notificationsEnabled = false
@@ -57,7 +59,8 @@ struct SettingsView: View {
     @AppStorage("proPlan") private var proPlan = "Miễn phí"
     @AppStorage("isPremiumUser") var isPremiumUser: Bool = false
     @AppStorage("pushNotificationsEnabled") private var pushNotificationsEnabled = true
-    
+    @AppStorage("appTheme") private var appTheme: String = "system"
+
     // MARK: - State
     @State private var showLogoutAlert = false
     @State private var showPrivacySheet = false
@@ -75,7 +78,7 @@ struct SettingsView: View {
             Form {
                 // MARK: - Notifications
                 Section("Thông báo") {
-                    Toggle("Thông báo khi có lịch mới", isOn: $pushNotificationsEnabled)
+                    Toggle("Thông báo khi có lịch", isOn: $pushNotificationsEnabled)
                         .onChange(of: pushNotificationsEnabled) { oldValue, newValue in
                             if newValue {
                                 Messaging.messaging().subscribe(toTopic: "admin") { error in
@@ -103,28 +106,16 @@ struct SettingsView: View {
                         }
                     }
                     .disabled(!notificationsEnabled)
-                    
-                    Toggle("Thông báo khi có lịch mới", isOn: $pushNotificationsEnabled)
-                        .onChange(of: pushNotificationsEnabled) { oldValue, newValue in
-                            if newValue {
-                                Messaging.messaging().subscribe(toTopic: "admin") { error in
-                                    if let error = error {
-                                        print("❌ Subscribe topic lỗi: \(error.localizedDescription)")
-                                    } else {
-                                        print("✅ Đã bật thông báo khi có lịch mới")
-                                    }
-                                }
-                            } else {
-                                Messaging.messaging().unsubscribe(fromTopic: "admin") { error in
-                                    if let error = error {
-                                        print("❌ Unsubscribe topic lỗi: \(error.localizedDescription)")
-                                    } else {
-                                        print("✅ Đã tắt thông báo khi có lịch mới")
-                                    }
-                                }
-                            }
-                        }
                 }
+                // MARK: - Giao diện
+                Section("Giao diện") {
+                    Picker("Chế độ hiển thị", selection: $appTheme) {
+                        Text("Sáng").tag("system")
+                        Text("Tối").tag("dark")
+                    }
+                    .pickerStyle(.segmented)
+                }
+
                 
                 // MARK: - Tài khoản & Bảo mật
                 Section("Tài khoản & Bảo mật") {
