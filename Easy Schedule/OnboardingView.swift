@@ -14,13 +14,14 @@ struct EnhancedOnboardingView: View {
                 description: "Giữ cho mọi cuộc hẹn và công việc ngăn nắp.",
                 gradient: LinearGradient(colors: [Color.orange, Color.red], startPoint: .topLeading, endPoint: .bottomTrailing),
                 useSystemImage: false
+                
             )
             
             // Slide 2: Calendar SF Symbol
             featureSlide(
                 imageName: "calendar",
                 title: "Không bỏ lỡ cuộc hẹn nào",
-                description: "Nhận thông báo và nhắc hẹn cho sự kiện quan trọng của bạn.",
+                description: "Bạn có thể gửi đường dẫn cho khách hàng và đối tác họ có thể thêm cuộc hẹn của họ trực tiếp vào lịch của bạn",
                 gradient: LinearGradient(colors: [Color.blue, Color.purple], startPoint: .topLeading, endPoint: .bottomTrailing),
                 useSystemImage: true
             )
@@ -29,7 +30,7 @@ struct EnhancedOnboardingView: View {
             featureSlide(
                 imageName: "bell",
                 title: "Dễ dàng và thuận tiện sắp xếp.",
-                description: "Nhanh chóng sắp xếp sự kiện mới và kiểm soát lịch của bạn hiệu quả hơn.",
+                description: "Nhanh chóng sắp xếp sự kiện mới và kiểm soát lịch của bạn hiệu quả hơn, Nhận thông báo và nhắc hẹn cho sự kiện quan trọng của bạn.",
                 gradient: LinearGradient(colors: [Color.green, Color.teal], startPoint: .topLeading, endPoint: .bottomTrailing),
                 useSystemImage: true,
                 showButton: true

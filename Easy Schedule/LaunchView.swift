@@ -32,7 +32,8 @@ struct LaunchView: View {
                     .animation(.easeOut(duration: 1.0), value: logoScale)
                 
                 // Text Welcome với fade in
-                Text("Welcome to Easy Schedule")
+                Text("Chào mừng bạn đến với Easy Schedule!")
+                    .multilineTextAlignment(.center)
                     .font(.title)
                     .fontWeight(.bold)
                     .foregroundColor(.white)
