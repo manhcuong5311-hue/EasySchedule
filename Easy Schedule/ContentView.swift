@@ -9,6 +9,8 @@ import Combine
 import FirebaseCore
 import FirebaseMessaging
 import UserNotifications
+import FirebaseAuth
+import FirebaseFirestore
 // MARK: - Mô hình dữ liệu
 struct CalendarEvent: Identifiable, Hashable, Codable {
     var id = UUID()
@@ -18,10 +20,14 @@ struct CalendarEvent: Identifiable, Hashable, Codable {
     var startTime: Date
     var endTime: Date
     var colorHex: String = "#007AFF" // Mặc định màu xanh dương (giống accentColor)
+    
 }
 
-final class EventManager: ObservableObject {
-    
+final class EventManager: ObservableObject { //final class EventManager chứa quản lý lịch cá nhân (events, pastEvents, add/delete/update)
+    @State private var shareLink: String?
+    @State private var showShareSheet = false
+
+
     @Published var events: [CalendarEvent] = [] {
         didSet {
             saveEvents()
@@ -35,10 +41,18 @@ final class EventManager: ObservableObject {
         loadEvents()
         cleanUpPastEvents()
         updateGroupedEvents()
+        syncBusySlotsToFirebase()
+
+        // Lắng nghe realtime
+        if let uid = currentUserId {
+            listenToAppointments(forSharedUser: uid)
+            listenToBusySlots(sharedUserId: uid)
+        }
     }
+
     
     
-    // Lưu dữ liệu
+    //  ✅Lưu tất cả event + pastEvent vào UserDefaults
     private func saveEvents() {
         let allEvents = events + pastEvents
         if let data = try? JSONEncoder().encode(allEvents) {
@@ -47,7 +61,7 @@ final class EventManager: ObservableObject {
     }
 
     
-    // Tải lại dữ liệu
+    //  ✅Load lại dữ liệu từ UserDefaults khi khởi động app
     private func loadEvents() {
         if let data = UserDefaults.standard.data(forKey: "savedEvents"),
            let decoded = try? JSONDecoder().decode([CalendarEvent].self, from: data) {
@@ -58,7 +72,7 @@ final class EventManager: ObservableObject {
     }
 
     
-    // Tách sự kiện đã qua
+    // ✅Tách sự kiện đã qua sang pastEvents
     func cleanUpPastEvents() {
         let now = Date()
         let (past, upcoming) = events.partitioned { $0.endTime < now }
@@ -66,7 +80,7 @@ final class EventManager: ObservableObject {
         events = upcoming
     }
     
-    // ✅ Gom sẵn theo ngày — để CalendarView dùng
+    // ✅ Gom event theo ngày, cache trong groupedByDay
     func updateGroupedEvents() {
         groupedByDay = Dictionary(grouping: events) { event in
             Calendar.current.startOfDay(for: event.date)
@@ -81,7 +95,8 @@ final class EventManager: ObservableObject {
     
 }
 // MARK: - Giới hạn và xử lý logic sự kiện
-extension EventManager {
+extension EventManager { //có thể chứa hàm liên quan tới share link, fetch lịch bận của người khác, add appointment của khách
+    
     var isPremium: Bool {
         // TODO: sau này bạn gắn với StoreKit
         return UserDefaults.standard.bool(forKey: "isPremiumUser")
@@ -160,6 +175,159 @@ extension EventManager {
             saveEvents()
         }
     }
+    func listenToAppointments(forSharedUser sharedUserId: String) {
+        let db = Firestore.firestore()
+        db.collection("appointments")
+            .whereField("sharedUser", isEqualTo: sharedUserId)
+            .addSnapshotListener { snapshot, error in
+                guard let docs = snapshot?.documents, error == nil else { return }
+                let events = docs.compactMap { doc -> CalendarEvent? in
+                    let data = doc.data()
+                    guard let start = data["start"] as? TimeInterval,
+                          let end = data["end"] as? TimeInterval,
+                          let owner = data["owner"] as? String else { return nil }
+                    return CalendarEvent(
+                        title: data["title"] as? String ?? "Lịch web",
+                        owner: owner,
+                        date: Date(timeIntervalSince1970: start),
+                        startTime: Date(timeIntervalSince1970: start),
+                        endTime: Date(timeIntervalSince1970: end)
+                    )
+                }
+                DispatchQueue.main.async {
+                    // Thêm các appointment mới vào events
+                    for ev in events {
+                        if !self.events.contains(ev) {
+                            self.events.append(ev)
+                        }
+                    }
+                    self.updateGroupedEvents()
+                }
+            }
+    }
+    func listenToBusySlots(sharedUserId: String) {
+        Firestore.firestore()
+            .collection("publicCalendar")
+            .document(sharedUserId)
+            .addSnapshotListener { snapshot, error in
+                guard let data = snapshot?.data(), error == nil else { return }
+                let slots = (data["busySlots"] as? [[String: TimeInterval]])?.compactMap { dict -> CalendarEvent? in
+                    guard let start = dict["start"], let end = dict["end"] else { return nil }
+                    return CalendarEvent(
+                        title: "Bận",
+                        owner: sharedUserId,
+                        date: Date(timeIntervalSince1970: start),
+                        startTime: Date(timeIntervalSince1970: start),
+                        endTime: Date(timeIntervalSince1970: end)
+                    )
+                } ?? []
+                DispatchQueue.main.async {
+                    for ev in slots {
+                        if !self.events.contains(ev) {
+                            self.events.append(ev)
+                        }
+                    }
+                    self.updateGroupedEvents()
+                }
+            }
+    }
+
+    //✅ Đồng bộ danh sách sự kiện của user lên Firestore (document của chính họ)
+    func syncBusySlotsToFirebase() {
+        guard let uid = currentUserId else { return }
+
+        let busySlots = events.map { e in
+            return [
+                "start": e.startTime.timeIntervalSince1970,
+                "end": e.endTime.timeIntervalSince1970
+            ]
+        }
+
+        Firestore.firestore()
+            .collection("publicCalendar")
+            .document(uid)
+            .setData(["busySlots": busySlots], merge: true)
+    }
+    func fetchAppointments(completion: @escaping ([CalendarEvent]) -> Void) {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        Firestore.firestore().collection("appointments")
+            .whereField("owner", isEqualTo: uid)
+            .getDocuments { snapshot, error in
+                guard let docs = snapshot?.documents, error == nil else {
+                    completion([])
+                    return
+                }
+                let events = docs.compactMap { doc -> CalendarEvent? in
+                    let data = doc.data()
+                    guard let start = data["start"] as? TimeInterval,
+                          let end = data["end"] as? TimeInterval else { return nil }
+                    return CalendarEvent(title: "Lịch web",
+                                         owner: uid,
+                                         date: Date(timeIntervalSince1970: start),
+                                         startTime: Date(timeIntervalSince1970: start),
+                                         endTime: Date(timeIntervalSince1970: end))
+                }
+                completion(events)
+            }
+    }
+
+    //✅ Lấy lịch bận của người share link từ Firestore. Chuyển dữ liệu thành [CalendarEvent] để app hiển thị / kiểm tra trùng.
+    func fetchBusySlots(for userId: String, completion: @escaping ([CalendarEvent]) -> Void) {
+        Firestore.firestore()
+            .collection("publicCalendar")
+            .document(userId)
+            .getDocument { snapshot, error in
+                guard let data = snapshot?.data(), error == nil else {
+                    completion([])
+                    return
+                }
+                let slots = (data["busySlots"] as? [[String: TimeInterval]])?.compactMap { dict -> CalendarEvent? in
+                    guard let start = dict["start"], let end = dict["end"] else { return nil }
+                    return CalendarEvent(title: "Bận", owner: userId, date: Date(timeIntervalSince1970: start), startTime: Date(timeIntervalSince1970: start), endTime: Date(timeIntervalSince1970: end))
+                } ?? []
+                completion(slots)
+            }
+    }
+    
+    //✅ Cho phép khách thêm lịch của riêng họ vào người share link. Nếu trùng với lịch bận → trả về thông báo. Ghi event vào collection appointments (không ghi đè document của chủ).
+    
+    func addAppointment(forSharedUser sharedUserId: String, title: String, start: Date, end: Date, completion: @escaping (Bool, String?) -> Void) {
+        
+        fetchBusySlots(for: sharedUserId) { busySlots in
+            let overlap = busySlots.contains { $0.startTime < end && $0.endTime > start }
+            if overlap {
+                completion(false, "Giờ này đã bận!")
+                return
+            }
+
+            // Thêm vào collection "appointments"
+            guard let uid = Auth.auth().currentUser?.uid else { return }
+            let newEvent: [String: Any] = [
+                "owner": uid,
+                "sharedUser": sharedUserId,
+                "title": title,
+                "start": start.timeIntervalSince1970,
+                "end": end.timeIntervalSince1970
+            ]
+            Firestore.firestore().collection("appointments").addDocument(data: newEvent)
+            completion(true, nil)
+        }
+    }
+
+
+
+
+
+    // Lấy user UID
+      var currentUserId: String? {
+          Auth.auth().currentUser?.uid
+      }
+
+      // Tạo link share lịch
+      var shareCalendarLink: String? {
+          guard let uid = currentUserId else { return nil }
+          return "https://myapp.web.app/calendar/\(uid)"
+      }
 }
 
 extension Array {
@@ -619,26 +787,41 @@ struct CustomizableCalendarView: View {
         Divider()
                 
                 // MARK: - Nút chia sẻ
-    Button {
-        generateShareLink()
-        showShareSheet = true
-            } label: {
-                HStack {
-            Image(systemName: "square.and.arrow.up")
-                Text("Chia sẻ lịch")
-                    .bold()
-        }
-        .frame(maxWidth: .infinity)
-        .padding()
-        .background(Color.blue.opacity(0.2))
-        .cornerRadius(10)
-    }
-        .padding(.horizontal)
-        .sheet(isPresented: $showShareSheet) {
-        if let link = shareLink {
-        ActivityView(activityItems: [link])
-    }
-}
+                Button {
+                    eventManager.syncBusySlotsToFirebase() // cập nhật Firebase trước khi share
+                    
+                    // Lấy UID hiện tại từ Firebase Auth
+                    if let uid = Auth.auth().currentUser?.uid {
+                        // Tạo URL chia sẻ
+                        if let url = URL(string: "https://easyschedule-ce98a.web.app/calendar/\(uid)") {
+                            shareLink = url
+                            showShareSheet = true
+                        } else {
+                            print("❌ Tạo URL thất bại")
+                        }
+                    } else {
+                        print("❌ Chưa đăng nhập, không thể tạo link")
+                    }
+                } label: {
+                    HStack {
+                        Image(systemName: "square.and.arrow.up")
+                        Text("Chia sẻ lịch").bold()
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.blue.opacity(0.2))
+                    .cornerRadius(10)
+                }
+                .padding(.horizontal)
+                .sheet(isPresented: $showShareSheet) {
+                    if let link = shareLink {
+                        ActivityView(activityItems: [link])
+                    }
+                }
+
+
+
+
         // MARK: - Ngày được chọn
         if let date = selectedDate {
             VStack(spacing: 10) {
