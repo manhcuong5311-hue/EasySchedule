@@ -455,7 +455,12 @@ struct ContentView: View {
             .tabItem {
                 Label(NSLocalizedString("Lịch của tôi ", comment: ""), systemImage: "calendar")
             }
-            
+            NavigationStack {
+                          PartnerCalendarTabView()
+                      }
+                      .tabItem {
+                          Label("Đối tác", systemImage: "person.2.fill")
+                      }
             NavigationStack {
                 SettingsView()
             }
