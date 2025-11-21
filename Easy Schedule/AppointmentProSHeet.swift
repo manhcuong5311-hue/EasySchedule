@@ -26,6 +26,7 @@ struct AppointmentProSheet: View {
     @State private var busySlots: [CalendarEvent] = []
     @State private var loading: Bool = true
     @State private var errorMessage: String? = nil
+    @State private var partnerOffDays: Set<Date> = []
 
     @State private var titleText: String = "Cuộc hẹn"
 
@@ -50,8 +51,19 @@ struct AppointmentProSheet: View {
                 .padding(.horizontal)
 
                 // Mini calendar
-                CalendarMiniView(selectedDate: $selectedDate, busySlots: busySlots)
+                CalendarMiniView(
+                    selectedDate: $selectedDate,
+                    busySlots: busySlots,
+                    offDays: partnerOffDays
+                )
                     .frame(height: 260)
+                // ⭐ THÔNG BÁO NGÀY NGHỈ
+                if partnerOffDays.contains(Calendar.current.startOfDay(for: selectedDate)) {
+                    Text("Chủ lịch nghỉ ngày này — không thể đặt lịch.")
+                        .foregroundColor(.orange)
+                        .font(.subheadline)
+                        .padding(.top, 4)
+                }
 
                 Divider()
 
@@ -111,14 +123,36 @@ struct AppointmentProSheet: View {
             errorMessage = "Không xác định UID người nhận."
             return
         }
+        // 🔥 Lưu vào lịch sử của người B
+        let fullLink = "https://easyschedule-ce98a.web.app/calendar/\(uid)"
+
+        let link = SharedLink(
+            id: UUID().uuidString,
+            uid: uid,
+            url: fullLink,
+            createdAt: Date()
+        )
+
+        eventManager.sharedLinks.append(link)
+
         loading = true
+
+        // 1️⃣ Load bận
         eventManager.fetchBusySlots(for: uid) { slots in
             DispatchQueue.main.async {
                 self.busySlots = slots
+            }
+        }
+
+        // 2️⃣ Load ngày nghỉ
+        eventManager.fetchOffDays(for: uid) { offDays in
+            DispatchQueue.main.async {
+                self.partnerOffDays = offDays
                 self.loading = false
             }
         }
     }
+
 
     private func handleCreate() {
         guard let uid = sharedUserId else {
@@ -146,8 +180,11 @@ struct AppointmentProSheet: View {
     }
 
     private func checkBusy(_ slot: ProSlot) -> Bool {
-        busySlots.contains { $0.startTime < slot.end && $0.endTime > slot.start }
+        let day = Calendar.current.startOfDay(for: slot.start)
+        if partnerOffDays.contains(day) { return true }   // 🔥 Block cả ngày
+        return busySlots.contains { $0.startTime < slot.end && $0.endTime > slot.start }
     }
+
 
     private func generateSlots(for date: Date) -> [ProSlot] {
         var arr: [ProSlot] = []
@@ -170,6 +207,7 @@ struct AppointmentProSheet: View {
 struct CalendarMiniView: View {
     @Binding var selectedDate: Date
     let busySlots: [CalendarEvent]
+    let offDays: Set<Date>
 
     @State private var month: Date = Date()
     private var calendar: Calendar {
@@ -195,6 +233,7 @@ struct CalendarMiniView: View {
                 ForEach(days, id: \.self) { day in
                     let isSelected = Calendar.current.isDate(selectedDate, inSameDayAs: day)
                     let isBusy = busySlots.contains(where: { Calendar.current.isDate($0.date, inSameDayAs: day) })
+                    let isOffDay = offDays.contains(Calendar.current.startOfDay(for: day))
 
                     VStack {
                         Text("\(Calendar.current.component(.day, from: day))")
@@ -202,9 +241,11 @@ struct CalendarMiniView: View {
                             .background(
                                 Circle().fill(
                                     isSelected ? Color.accentColor :
-                                        (isBusy ? Color.red.opacity(0.25) : Color.clear)
+                                    (isOffDay ? Color.orange.opacity(0.4) :
+                                    (isBusy ? Color.red.opacity(0.25) : Color.clear))
                                 )
                             )
+
                             .foregroundColor(isSelected ? .white : .primary)
                     }
                     .contentShape(Rectangle())
@@ -262,6 +303,33 @@ struct SlotRowPro: View {
 
     private func timeString(_ d: Date) -> String {
         let f = DateFormatter(); f.timeStyle = .short; f.locale = Locale(identifier: "vi_VN")
+        return f.string(from: d)
+    }
+}
+struct HistoryView: View {
+    @EnvironmentObject var eventManager: EventManager
+
+    var body: some View {
+        NavigationStack {
+            List {
+                ForEach(eventManager.sharedLinks.sorted { $0.createdAt > $1.createdAt }) { link in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(link.url)
+                            .font(.subheadline)
+                        Text(format(link.createdAt))
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.vertical, 6)
+                }
+            }
+            .navigationTitle("Lịch sử đã xem")
+        }
+    }
+
+    private func format(_ d: Date) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "dd/MM/yyyy HH:mm"
         return f.string(from: d)
     }
 }

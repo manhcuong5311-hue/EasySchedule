@@ -43,6 +43,7 @@ struct Easy_scheduleApp: App {
                     .onAppear {
                         session.listen()
                     }
+
             }
         }
     }

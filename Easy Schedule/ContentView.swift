@@ -37,6 +37,9 @@ final class EventManager: ObservableObject {
     @Published var isAdding = false
     @Published var alertMessage: String = ""
     @Published var showAlert = false
+    @Published var sharedLinks: [SharedLink] = [] {
+        didSet { saveSharedLinks() }
+    }
 
     // NOTE: CalendarEvent must have pendingDelete
     @Published var events: [CalendarEvent] = [] {
@@ -53,13 +56,13 @@ final class EventManager: ObservableObject {
 
     init() {
         loadEvents()
+        loadSharedLinks()
         updateGroupedEvents()
-
-        // restore pending deletes
+                               // restore pending deletes
         retryPendingDeletes()
-
         // publish busy slot
         syncBusySlotsToFirebase()
+        
 
         if let uid = currentUserId {
             listenToAppointments(forSharedUser: uid)
@@ -88,6 +91,31 @@ final class EventManager: ObservableObject {
             self.pastEvents = decoded
         }
         updateGroupedEvents()
+    }
+    private func saveSharedLinks() {
+        if let data = try? JSONEncoder().encode(sharedLinks) {
+            UserDefaults.standard.set(data, forKey: "shared_links")
+        }
+    }
+
+    private func loadSharedLinks() {
+        if let data = UserDefaults.standard.data(forKey: "shared_links"),
+           let decoded = try? JSONDecoder().decode([SharedLink].self, from: data) {
+            self.sharedLinks = decoded
+        }
+    }
+   private func addHistoryLink(uid: String, url: String) {
+        // Tránh trùng
+        if sharedLinks.contains(where: { $0.url == url }) { return }
+
+        let link = SharedLink(
+            id: UUID().uuidString,
+            uid: uid,
+            url: url,
+            createdAt: Date()
+        )
+
+        sharedLinks.append(link)
     }
 
     // MARK: - PENDING DELETE
@@ -142,6 +170,20 @@ final class EventManager: ObservableObject {
 
         saveEvents()
         updateGroupedEvents()
+    }
+    func fetchOffDays(for userId: String, completion: @escaping (Set<Date>) -> Void) {
+        db.collection("publicCalendar")
+            .document(userId)
+            .getDocument { snap, error in
+                guard let data = snap?.data() else {
+                    completion([])
+                    return
+                }
+
+                let timestamps = data["offDays"] as? [Double] ?? []
+                let dates = timestamps.map { Date(timeIntervalSince1970: $0) }
+                completion(Set(dates))
+            }
     }
 
     // MARK: - Grouping
@@ -481,6 +523,15 @@ extension EventManager {
         db.collection("publicCalendar").document(uid)
             .setData(["busySlots": slots], merge: true)
     }
+    // MARK: Sync offDays
+    func syncOffDaysToFirebase(offDays: Set<Date>) {
+        guard let uid = currentUserId else { return }
+
+        let timestamps = offDays.map { $0.timeIntervalSince1970 }
+
+        db.collection("publicCalendar").document(uid)
+            .setData(["offDays": timestamps], merge: true)
+    }
 
     // MARK: Helpers
 
@@ -732,7 +783,7 @@ struct EventListView: View {
                                                         }
                                                         .buttonStyle(.plain)
                                                     }
-                                                    Text(event.owner).font(.subheadline)
+                                                    
                                                     Text("\(timeFormatter.string(from: event.startTime)) - \(timeFormatter.string(from: event.endTime))")
                                                         .font(.caption)
                                                         .foregroundColor(.secondary)
@@ -834,7 +885,7 @@ struct EventListView: View {
                     ForEach(eventsForDate) { event in
                         VStack(alignment: .leading, spacing: 4) {
                             Text(event.title).font(.headline)
-                            Text(event.owner).font(.subheadline)
+                           
                             Text("\(formattedTime(event.startTime)) - \(formattedTime(event.endTime))")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
@@ -916,8 +967,20 @@ struct CustomizableCalendarView: View {
     @State private var shareLink: URL? = nil
     
     // ✅ thêm biến quản lý ngày nghỉ
-    @State private var offDays: Set<Date> = []
-    
+    @State private var offDays: Set<Date> = [] {
+        didSet { saveOffDaysToLocal() }
+    }
+    private func saveOffDaysToLocal() {
+        let timestamps = offDays.map { $0.timeIntervalSince1970 }
+        UserDefaults.standard.set(timestamps, forKey: "offDays")
+    }
+
+    private func loadOffDaysFromLocal() {
+        let timestamps = UserDefaults.standard.array(forKey: "offDays") as? [Double] ?? []
+        let dates = timestamps.map { Date(timeIntervalSince1970: $0) }
+        self.offDays = Set(dates)
+    }
+   
     private var calendar: Calendar {
         var cal = Calendar.current
         cal.firstWeekday = 2 // 2 = Monday bắt đầu tuần
@@ -961,6 +1024,7 @@ struct CustomizableCalendarView: View {
                         if let url = URL(string: "https://easyschedule-ce98a.web.app/calendar/\(uid)") {
                             shareLink = url
                             showShareSheet = true
+                            
                         } else {
                             print("❌ Tạo URL thất bại")
                         }
@@ -993,7 +1057,9 @@ struct CustomizableCalendarView: View {
                         // ✅ Nút đặt / huỷ ngày nghỉ
                 Button {
                     toggleOffDay(for: date)
+                    eventManager.syncOffDaysToFirebase(offDays: offDays)
                 } label: {
+
             HStack {
                 Image(systemName: isOffDay(date) ? "xmark.circle" :"bed.double.fill")
                 Text(isOffDay(date) ? "Mở lại ngày này" : "Đặt ngày nghỉ")
@@ -1036,7 +1102,7 @@ struct CustomizableCalendarView: View {
                                 .padding(8)
       }                                .buttonStyle(.plain)
     }
-                Text(event.owner).font(.subheadline)
+
                 Text("\(formattedTime(event.startTime)) - \(formattedTime(event.endTime))")
                         .font(.caption)
                        .foregroundColor(.secondary)
@@ -1090,6 +1156,10 @@ struct CustomizableCalendarView: View {
                 Text("Bạn có chắc muốn xoá sự kiện “\(eventToDelete?.title ?? "")”?")
             }
             .padding(.horizontal)
+            .onAppear {
+                loadOffDaysFromLocal()
+            }
+
         }
     }
     
@@ -1430,8 +1500,11 @@ struct DayEventsSheetView: View {
             List(eventManager.events(for: date)) { event in
                 VStack(alignment: .leading, spacing: 4) {
                     Text(event.title).font(.headline)
-                    Text(event.owner).font(.subheadline)
+                    Text("\(formattedTime(event.startTime)) - \(formattedTime(event.endTime))")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
+
                 .padding(.vertical, 4)
             }
             .navigationTitle("Ngày \(formattedDate(date))")
@@ -1442,7 +1515,12 @@ struct DayEventsSheetView: View {
             }
         }
     }
-    
+    func formattedTime(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm"
+        return f.string(from: date)
+    }
+
     private func formattedDate(_ date: Date) -> String {
         let f = DateFormatter()
         f.locale = Locale(identifier: "vi_VN")

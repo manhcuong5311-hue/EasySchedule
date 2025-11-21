@@ -27,6 +27,7 @@ struct PartnerCalendarTabView: View {
     // Alert
     @State private var showAlert: Bool = false
     @State private var alertMessage: String = ""
+    @State private var showHistorySheet: Bool = false
 
     // Group by day for UI
     private var groupedByDay: [Date: [CalendarEvent]] {
@@ -40,6 +41,33 @@ struct PartnerCalendarTabView: View {
             VStack(spacing: 12) {
                 inputArea
                 Divider()
+                // MARK: - Lịch sử đã xem
+                Button {
+                    // hiện sheet lịch sử
+                    showHistorySheet = true
+                } label: {
+                    HStack {
+                        Image(systemName: "clock.arrow.circlepath")
+                        Text("Lịch sử đã xem")
+                            .bold()
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(10)
+                    .background(Color.blue.opacity(0.15))
+                    .cornerRadius(10)
+                }
+                .padding(.horizontal)
+                .sheet(isPresented: $showHistorySheet) {
+                    HistoryLinksView { link in
+                        // Khi ấn vào lịch sử, set text + load
+                        self.linkText = link
+                        self.parseAndLoad()
+                        self.showHistorySheet = false
+                    }
+                    .environmentObject(eventManager)
+                }
+
+
                 uidInfoArea
                 errorArea
                 contentArea
@@ -293,6 +321,69 @@ struct PartnerCalendarTabView: View {
         return f.string(from: date)
     }
 }
+
+struct HistoryLinksView: View {
+    @EnvironmentObject var eventManager: EventManager
+    var onSelect: (String) -> Void
+
+
+    @State private var showCopied = false
+
+    var body: some View {
+        NavigationStack {
+            List {
+                ForEach(eventManager.sharedLinks.sorted(by: { $0.createdAt > $1.createdAt })) { link in
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(link.url)
+                            .font(.body)
+                            .lineLimit(1)
+
+                        Text("UID: \(link.uid)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+
+                        Text(formatDate(link.createdAt))
+                            .font(.caption2)
+                            .foregroundColor(.gray)
+                    }
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        // Ấn vào → load ngay
+                        onSelect(link.url)
+                    }
+                    .onLongPressGesture {
+                        // Nhấn giữ → copy
+                        UIPasteboard.general.string = link.url
+                        showCopied = true
+                    }
+                }
+            }
+            .navigationTitle("Lịch sử đã xem")
+            .alert("Đã copy link!", isPresented: $showCopied) {
+                Button("OK", role: .cancel) {}
+            }
+        }
+    }
+    private func formatDate(_ d: Date) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "vi_VN")
+        f.dateStyle = .medium
+        f.timeStyle = .short
+        return f.string(from: d)
+    }
+}
+
+
+    private func formatDate(_ d: Date) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "vi_VN")
+        f.dateStyle = .medium
+        f.timeStyle = .short
+        return f.string(from: d)
+    }
+
+
 
 // MARK: - Preview
 struct PartnerCalendarTabView_Previews: PreviewProvider {
