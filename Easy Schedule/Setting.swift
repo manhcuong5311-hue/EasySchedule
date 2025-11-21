@@ -395,56 +395,74 @@ struct LockScreenView: View {
         SecuritySettingsView()
     }
 }
+import UIKit
+import SwiftUI
+import FirebaseCore
+import FirebaseFirestore
+import FirebaseMessaging
+import UserNotifications
 
 class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate, MessagingDelegate {
-    
+
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
-        
+
+        // 1️⃣ Khởi tạo Firebase
         FirebaseApp.configure()
-        
-        // 1️⃣ Set delegate
+
+        // 2️⃣ Firestore Settings (offline persistence)
+        let db = Firestore.firestore()
+        let settings = FirestoreSettings()
+
+        // Sử dụng PersistentCacheSettings
+        let persistentCache = PersistentCacheSettings()  // mặc định size ~100MB theo tài liệu :contentReference[oaicite:3]{index=3}
+        settings.cacheSettings = persistentCache
+
+        db.settings = settings
+        // 3️⃣ Notification
         UNUserNotificationCenter.current().delegate = self
         Messaging.messaging().delegate = self
-        
-        // 2️⃣ Xin quyền notification
+
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
             if granted {
                 DispatchQueue.main.async {
-                    // 3️⃣ Đăng ký APNs token
                     UIApplication.shared.registerForRemoteNotifications()
                 }
             } else if let error = error {
-                print("❌ Xin quyền notification lỗi: \(error.localizedDescription)")
+                print("❌ Notification permission error:", error.localizedDescription)
             }
         }
-        
+
         return true
     }
-    
-    // 4️⃣ Khi APNs token được cấp
-    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
-        // Set APNs token cho FCM
-        Messaging.messaging().apnsToken = deviceToken
-    }
-    
-    // 5️⃣ Nhận notification khi app foreground
+
+    // MARK: - UNUserNotificationCenterDelegate
     func userNotificationCenter(_ center: UNUserNotificationCenter,
                                 willPresent notification: UNNotification,
                                 withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
-        completionHandler([.banner, .sound])
-        
-        func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
-            print("FCM token: \(fcmToken ?? "")")
-        }
-        func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
-            guard let urlContext = URLContexts.first else { return }
-            let url = urlContext.url
-            GIDSignIn.sharedInstance.handle(url)
-        }
+        completionHandler([.banner, .sound, .badge])
+    }
 
-          
-        
+    func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                didReceive response: UNNotificationResponse,
+                                withCompletionHandler completionHandler: @escaping () -> Void) {
+        completionHandler()
+    }
+
+    // MARK: - MessagingDelegate
+    func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
+        print("✅ FCM token: \(fcmToken ?? "")")
+    }
+
+    // MARK: - Remote Notification
+    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        Messaging.messaging().apnsToken = deviceToken
+    }
+
+    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        print("❌ Failed to register remote notifications:", error.localizedDescription)
     }
 }
+
+
 
