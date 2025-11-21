@@ -14,114 +14,154 @@ import FirebaseFirestore
 
 // MARK: - Mô hình dữ liệu
 struct CalendarEvent: Identifiable, Hashable, Codable {
-    var id: String?
+    var id: String = UUID().uuidString
     var title: String
     var owner: String
     var date: Date
     var startTime: Date
     var endTime: Date
     var colorHex: String = "#007AFF" // Mặc định màu xanh dương (giống accentColor)
-    
+    var pendingDelete: Bool = false
+
 }
 
-final class EventManager: ObservableObject { //final class EventManager chứa quản lý lịch cá nhân (events, pastEvents, add/delete/update)
+
+final class EventManager: ObservableObject {
+    var allowDuplicateEvents: Bool {
+        get { UserDefaults.standard.bool(forKey: "allowDuplicateEvents") }
+        set { UserDefaults.standard.set(newValue, forKey: "allowDuplicateEvents") }
+    }
+
     @State private var shareLink: String?
     @State private var showShareSheet = false
     @Published var isAdding = false
     @Published var alertMessage: String = ""
     @Published var showAlert = false
 
-
+    // NOTE: CalendarEvent must have pendingDelete
     @Published var events: [CalendarEvent] = [] {
         didSet {
             saveEvents()
             updateGroupedEvents()
         }
     }
+
     @Published var pastEvents: [CalendarEvent] = []
-    @Published var groupedByDay: [Date: [CalendarEvent]] = [:] // ✅ thêm cache dùng cho cả 2 tab
-    
+    @Published var groupedByDay: [Date: [CalendarEvent]] = [:]
+
+    private let db = Firestore.firestore()
+
     init() {
         loadEvents()
         updateGroupedEvents()
+
+        // restore pending deletes
+        retryPendingDeletes()
+
+        // publish busy slot
         syncBusySlotsToFirebase()
-    
-        // Lắng nghe realtime
+
         if let uid = currentUserId {
             listenToAppointments(forSharedUser: uid)
             listenToBusySlots(sharedUserId: uid)
         }
     }
 
-    
-    
-    //  ✅Lưu tất cả event + pastEvent vào UserDefaults
+    // MARK: - Local storage
+
     private func saveEvents() {
-        // Lưu cả upcoming và past events
-        let allEvents = events + pastEvents
-        if let data = try? JSONEncoder().encode(allEvents) {
-            UserDefaults.standard.set(data, forKey: "savedEvents")
-            UserDefaults.standard.synchronize() // đảm bảo lưu ngay
+        if let data = try? JSONEncoder().encode(events) {
+            UserDefaults.standard.set(data, forKey: "upcomingEvents")
+        }
+        if let data = try? JSONEncoder().encode(pastEvents) {
+            UserDefaults.standard.set(data, forKey: "pastEvents")
         }
     }
 
-
-    
-    //  ✅Load lại dữ liệu từ UserDefaults khi khởi động app
     private func loadEvents() {
-        if let data = UserDefaults.standard.data(forKey: "savedEvents"),
+        if let data = UserDefaults.standard.data(forKey: "upcomingEvents"),
            let decoded = try? JSONDecoder().decode([CalendarEvent].self, from: data) {
+            self.events = decoded
+        }
+        if let data = UserDefaults.standard.data(forKey: "pastEvents"),
+           let decoded = try? JSONDecoder().decode([CalendarEvent].self, from: data) {
+            self.pastEvents = decoded
+        }
+        updateGroupedEvents()
+    }
 
-            // Xóa trước khi phân tách
-            self.events.removeAll()
-            self.pastEvents.removeAll()
+    // MARK: - PENDING DELETE
 
-            let now = Date()
-            let (past, upcoming) = decoded.partitioned { $0.endTime < now }
-            self.pastEvents = past
-            self.events = upcoming
-            updateGroupedEvents()
+    /// App mở lại → thử xoá lại tất cả event pendingDelete
+    private func retryPendingDeletes() {
+        let pendings = events.filter { $0.pendingDelete }
+
+        for ev in pendings {
+            deleteRemoteOnly(ev)
         }
     }
 
+    /// Xoá remote nhưng không xoá local lần nữa
+    private func deleteRemoteOnly(_ ev: CalendarEvent) {
+        guard !ev.id.isEmpty else { return }
 
-    
-    // ✅Tách sự kiện đã qua sang pastEvents
+        db.collection("events").document(ev.id).delete { error in
+            if let error = error {
+                print("⚠ Pending delete FAILED:", error.localizedDescription)
+                return
+            }
+
+            // also remove busySlots
+            self.removeBusySlotFromPublicCalendar(event: ev)
+
+            // remove final local copy once server is clean
+            DispatchQueue.main.async {
+                self.events.removeAll { $0.id == ev.id }
+                self.saveEvents()
+                self.updateGroupedEvents()
+            }
+
+            print("✅ Pending delete SUCCESS:", ev.id)
+        }
+    }
+
+    // MARK: - Expired
+
     func cleanUpPastEvents() {
         let now = Date()
-        let (past, upcoming) = events.partitioned { $0.endTime < now }
-        pastEvents.append(contentsOf: past)
-        events = upcoming
+        var upcoming: [CalendarEvent] = []
+        var expired: [CalendarEvent] = []
+
+        for e in events {
+            if e.endTime < now { expired.append(e) }
+            else { upcoming.append(e) }
+        }
+
+        self.events = upcoming
+        self.pastEvents.append(contentsOf: expired)
+
+        saveEvents()
+        updateGroupedEvents()
     }
-    
-    // ✅ Gom event theo ngày, cache trong groupedByDay
+
+    // MARK: - Grouping
+
     func updateGroupedEvents() {
-        groupedByDay = Dictionary(grouping: events) { event in
-            Calendar.current.startOfDay(for: event.date)
+        groupedByDay = Dictionary(grouping: events) {
+            Calendar.current.startOfDay(for: $0.date)
         }
     }
-    
-    // ✅ Lấy sự kiện trong 1 ngày (cho cả tab 1 và tab 2)
+
     func events(for date: Date) -> [CalendarEvent] {
-        let day = Calendar.current.startOfDay(for: date)
-        return groupedByDay[day]?.sorted(by: { $0.startTime < $1.startTime }) ?? []
+        let d = Calendar.current.startOfDay(for: date)
+        return groupedByDay[d]?.sorted { $0.startTime < $1.startTime } ?? []
     }
-    
 }
-// MARK: - Giới hạn và xử lý logic sự kiện
-extension EventManager { //có thể chứa hàm liên quan tới share link, fetch lịch bận của người khác, add appointment của khách
-    
-    var isPremium: Bool {
-        // TODO: sau này bạn gắn với StoreKit
-        return UserDefaults.standard.bool(forKey: "isPremiumUser")
-    }
-    
-    var allowDuplicateEvents: Bool {
-        get { UserDefaults.standard.bool(forKey: "allowDuplicateEvents") }
-        set { UserDefaults.standard.set(newValue, forKey: "allowDuplicateEvents") }
-    }
-    
-    /// Thêm sự kiện có kiểm tra logic Premium, trùng, ngày, giới hạn số lượng
+
+// MARK: CRUD + Firestore
+extension EventManager {
+
+    @discardableResult
     func addEvent(title: String,
                   owner: String,
                   date: Date,
@@ -129,299 +169,326 @@ extension EventManager { //có thể chứa hàm liên quan tới share link, fe
                   endTime: Date,
                   colorHex: String = "#007AFF") -> Bool {
 
-        // 1️⃣ Tạo event local
         let newEvent = CalendarEvent(
-            id: nil,   // Chưa có Firestore ID
+            id: UUID().uuidString,
             title: title,
-            owner: owner,
+            owner: self.currentUserId ?? "",   // 👈 Sửa chỗ này
             date: date,
             startTime: startTime,
             endTime: endTime,
-            colorHex: colorHex
+            colorHex: colorHex,
+            pendingDelete: false
         )
 
-        // 2️⃣ Lưu ngay vào local (offline)
-        events.append(newEvent)
-        saveEvents()
-        updateGroupedEvents()
 
-        // 3️⃣ Đồng bộ lên Firestore
-        var ref: DocumentReference? = nil
-        ref = Firestore.firestore().collection("events").addDocument(data: [
+        DispatchQueue.main.async {
+            self.events.append(newEvent)
+        }
+        let uid = self.currentUserId ?? ""
+
+        let data: [String: Any] = [
             "title": newEvent.title,
-            "owner": newEvent.owner,
+            "owner": uid,           // chủ
+            "sharedUser": uid,      // chủ = sharedUser khi tự tạo
             "date": Timestamp(date: newEvent.date),
             "startTime": Timestamp(date: newEvent.startTime),
             "endTime": Timestamp(date: newEvent.endTime),
             "colorHex": newEvent.colorHex
-        ]) { error in
-            if let error = error {
-                print("❌ Firestore add error:", error.localizedDescription)
+        ]
+
+
+        var ref: DocumentReference?
+        ref = db.collection("events").addDocument(data: data) { err in
+            if let err = err {
+                print("❌ Firestore add error:", err)
                 return
             }
 
-            // 4️⃣ Gán Firestore documentID vào event local
-            if let docId = ref?.documentID,
-               let idx = self.events.firstIndex(where: { $0.id == nil && $0.startTime == newEvent.startTime && $0.title == newEvent.title }) {
-                self.events[idx].id = docId
-                self.saveEvents()
+            if let docId = ref?.documentID {
+                DispatchQueue.main.async {
+                    if let i = self.events.firstIndex(where: { $0.id == newEvent.id }) {
+                        self.events[i].id = docId
+                        self.saveEvents()
+                    }
+                }
             }
         }
 
         return true
     }
 
-    func updateEvent(_ event: CalendarEvent, newTitle: String, newOwner: String, newDate: Date, newStart: Date, newEnd: Date, newColorHex: String) {
+    func updateEvent(_ event: CalendarEvent,
+                     newTitle: String,
+                     newDate: Date,
+                     newStart: Date,
+                     newEnd: Date,
+                     newColorHex: String) {
+
         guard let idx = events.firstIndex(where: { $0.id == event.id }) else { return }
 
+        // Update local
         events[idx].title = newTitle
-        events[idx].owner = newOwner
         events[idx].date = newDate
         events[idx].startTime = newStart
         events[idx].endTime = newEnd
         events[idx].colorHex = newColorHex
-        saveEvents()
-        updateGroupedEvents()
 
-        // Đồng bộ lên Firestore nếu có id
-        if let docId = event.id {
-            Firestore.firestore().collection("events").document(docId).updateData([
+        // Update Firestore (không đụng owner/sharedUser)
+        if !event.id.isEmpty {
+            db.collection("events").document(event.id).updateData([
                 "title": newTitle,
-                "owner": newOwner,
                 "date": Timestamp(date: newDate),
                 "startTime": Timestamp(date: newStart),
                 "endTime": Timestamp(date: newEnd),
                 "colorHex": newColorHex
-            ]) { error in
-                if let error = error {
-                    print("❌ Firestore update error:", error.localizedDescription)
-                }
-            }
+            ])
         }
     }
 
+
+    // MARK: DELETE EVENT with PENDING DELETE
     func deleteEvent(_ event: CalendarEvent) {
-        events.removeAll { $0.id == event.id }
+
+        guard let idx = events.firstIndex(where: { $0.id == event.id }) else { return }
+
+        // 1️⃣ Mark pending
+        events[idx].pendingDelete = true
+        saveEvents()
+
+        // 2️⃣ Xoá local NGAY
+        let evId = event.id
+        events.removeAll { $0.id == evId }
         saveEvents()
         updateGroupedEvents()
 
-        if let docId = event.id {
-            Firestore.firestore().collection("events").document(docId).delete { error in
-                if let error = error {
-                    print("❌ Firestore delete error:", error.localizedDescription)
-                }
-            }
-        }
+        // 3️⃣ Xoá remote (kệ nếu fail — pendingDelete sẽ retry khi app mở lại)
+        deleteRemoteOnly(event)
+
+        // 4️⃣ Remove busySlot remote
+        removeBusySlotFromPublicCalendar(event: event)
+
+        // 5️⃣ Sync busySlots mới
+        syncBusySlotsToFirebase()
     }
-
-    
-    func listenToAppointments(forSharedUser sharedUserId: String) {
-        let db = Firestore.firestore()
-        db.collection("appointments")
-            .whereField("sharedUser", isEqualTo: sharedUserId)
-            .addSnapshotListener { snapshot, error in
-                guard let docs = snapshot?.documents, error == nil else { return }
-                let events = docs.compactMap { doc -> CalendarEvent? in
-                    let data = doc.data()
-                    guard let start = data["start"] as? TimeInterval,
-                          let end = data["end"] as? TimeInterval,
-                          let owner = data["owner"] as? String else { return nil }
-                    return CalendarEvent(
-                        title: data["title"] as? String ?? "Lịch web",
-                        owner: owner,
-                        date: Date(timeIntervalSince1970: start),
-                        startTime: Date(timeIntervalSince1970: start),
-                        endTime: Date(timeIntervalSince1970: end)
-                    )
-                }
-                DispatchQueue.main.async {
-                    // Thêm các appointment mới vào events
-                    for ev in events {
-                        if !self.events.contains(ev) {
-                            self.events.append(ev)
-                        }
-                    }
-                    self.updateGroupedEvents()
-                }
-            }
-    }
-    func listenToBusySlots(sharedUserId: String) {
-        Firestore.firestore()
-            .collection("publicCalendar")
-            .document(sharedUserId)
-            .addSnapshotListener { snapshot, error in
-                guard let data = snapshot?.data(), error == nil else { return }
-
-                let slots = (data["busySlots"] as? [[String: Any]])?.compactMap { dict -> CalendarEvent? in
-                    guard let start = dict["start"] as? TimeInterval,
-                          let end = dict["end"] as? TimeInterval,
-                          let id = dict["id"] as? String else { return nil }
-
-                    let title = dict["title"] as? String ?? "Bận"
-                    let owner = dict["owner"] as? String ?? sharedUserId
-
-                    return CalendarEvent(
-                        id: id,   // ✔ Firestore ID dạng String
-                        title: title,
-                        owner: owner,
-                        date: Date(timeIntervalSince1970: start),
-                        startTime: Date(timeIntervalSince1970: start),
-                        endTime: Date(timeIntervalSince1970: end)
-                    )
-                } ?? []
-
-                DispatchQueue.main.async {
-                    for ev in slots {
-                        // Append nếu chưa có event cùng ID
-                        if !self.events.contains(where: { $0.id == ev.id }) {
-                            self.events.append(ev)
-                        }
-                    }
-                    self.updateGroupedEvents()
-                }
-            }
-    }
-
-
-
-    //✅ Đồng bộ danh sách sự kiện của user lên Firestore (document của chính họ)
-    func syncBusySlotsToFirebase() {
-        guard let uid = currentUserId else { return }
-
-        let busySlots = events.map { e in
-            return [
-                "start": e.startTime.timeIntervalSince1970,
-                "end": e.endTime.timeIntervalSince1970
-            ]
-        }
-
-        Firestore.firestore()
-            .collection("publicCalendar")
-            .document(uid)
-            .setData(["busySlots": busySlots], merge: true)
-    }
-    func fetchAppointments(completion: @escaping ([CalendarEvent]) -> Void) {
-        guard let uid = Auth.auth().currentUser?.uid else { return }
-        Firestore.firestore().collection("appointments")
-            .whereField("owner", isEqualTo: uid)
-            .getDocuments { snapshot, error in
-                guard let docs = snapshot?.documents, error == nil else {
-                    completion([])
-                    return
-                }
-                let events = docs.compactMap { doc -> CalendarEvent? in
-                    let data = doc.data()
-                    guard let start = data["start"] as? TimeInterval,
-                          let end = data["end"] as? TimeInterval else { return nil }
-                    return CalendarEvent(title: "Lịch web",
-                                         owner: uid,
-                                         date: Date(timeIntervalSince1970: start),
-                                         startTime: Date(timeIntervalSince1970: start),
-                                         endTime: Date(timeIntervalSince1970: end))
-                }
-                completion(events)
-            }
-    }
-
-    //✅ Lấy lịch bận của người share link từ Firestore. Chuyển dữ liệu thành [CalendarEvent] để app hiển thị / kiểm tra trùng.
+    // MARK: - Fetch busy slots (one-shot)
     func fetchBusySlots(for userId: String, completion: @escaping ([CalendarEvent]) -> Void) {
-        Firestore.firestore()
-            .collection("publicCalendar")
+        db.collection("publicCalendar")
             .document(userId)
             .getDocument { snapshot, error in
                 guard let data = snapshot?.data(), error == nil else {
                     completion([])
                     return
                 }
-                let slots = (data["busySlots"] as? [[String: TimeInterval]])?.compactMap { dict -> CalendarEvent? in
-                    guard let start = dict["start"], let end = dict["end"] else { return nil }
-                    return CalendarEvent(title: "Bận", owner: userId, date: Date(timeIntervalSince1970: start), startTime: Date(timeIntervalSince1970: start), endTime: Date(timeIntervalSince1970: end))
-                } ?? []
+
+                let rawSlots = data["busySlots"] as? [[String: Any]] ?? []
+
+                let slots = rawSlots.compactMap { dict -> CalendarEvent? in
+                    guard let start = dict["start"] as? TimeInterval,
+                          let end = dict["end"] as? TimeInterval else { return nil }
+
+                    let id = dict["id"] as? String ?? "\(start)-\(end)-busy-\(userId)"
+                    let title = dict["title"] as? String ?? "Bận"
+                    let owner = dict["owner"] as? String ?? userId
+
+                    return CalendarEvent(
+                        id: id,
+                        title: title,
+                        owner: owner,
+                        date: Date(timeIntervalSince1970: start),
+                        startTime: Date(timeIntervalSince1970: start),
+                        endTime: Date(timeIntervalSince1970: end)
+                    )
+                }
+
                 completion(slots)
             }
     }
-    
-    //✅ Cho phép khách thêm lịch của riêng họ vào người share link. Nếu trùng với lịch bận → trả về thông báo. Ghi event vào collection appointments (không ghi đè document của chủ).
-    
+
+    // MARK: - Remove busy slot
+    private func removeBusySlotFromPublicCalendar(event: CalendarEvent) {
+        guard let uid = currentUserId else { return }
+
+        let doc = db.collection("publicCalendar").document(uid)
+        doc.getDocument { snap, err in
+            guard let data = snap?.data() else { return }
+
+            var slots = data["busySlots"] as? [[String: Any]] ?? []
+
+            slots.removeAll {
+                ($0["id"] as? String) == event.id
+            }
+
+            doc.setData(["busySlots": slots], merge: true)
+        }
+    }
+    // MARK: - Add Appointment (khách đặt lịch cho người share UID)
     func addAppointment(forSharedUser sharedUserId: String,
                         title: String,
                         start: Date,
                         end: Date,
                         completion: @escaping (Bool, String?) -> Void) {
-
+        
         self.isAdding = true
-
+        
+        // 1️⃣ Kiểm tra trùng giờ
         fetchBusySlots(for: sharedUserId) { busySlots in
             let overlap = busySlots.contains { $0.startTime < end && $0.endTime > start }
             if overlap {
-                self.isAdding = false
+                DispatchQueue.main.async { self.isAdding = false }
                 completion(false, "Giờ này đã bận!")
                 return
             }
-
-            guard let uid = Auth.auth().currentUser?.uid else { return }
-
-            let newEvent: [String: Any] = [
-                "owner": uid,
-                "sharedUser": sharedUserId,
+            
+            // 2️⃣ Kiểm tra đăng nhập
+            guard let uid = Auth.auth().currentUser?.uid else {
+                DispatchQueue.main.async { self.isAdding = false }
+                completion(false, "Bạn cần đăng nhập.")
+                return
+            }
+            
+            // 3️⃣ Dữ liệu appointment
+            let appointmentData: [String: Any] = [
+                "owner": sharedUserId,     // CHỦ lịch A
+                "sharedUser": uid,         // KHÁCH B
                 "title": title,
                 "start": start.timeIntervalSince1970,
                 "end": end.timeIntervalSince1970
             ]
-
-            Firestore.firestore()
-                .collection("appointments")
-                .addDocument(data: newEvent) { error in
-                    self.isAdding = false
-                    if let error = error {
-                        completion(false, "Lỗi tạo lịch: \(error.localizedDescription)")
+            
+            // 4️⃣ Ghi vào APPOINTMENTS
+            self.db.collection("appointments").addDocument(data: appointmentData) { error in
+                
+                if let error = error {
+                    DispatchQueue.main.async { self.isAdding = false }
+                    completion(false, "Lỗi tạo lịch: \(error.localizedDescription)")
+                    return
+                }
+                
+                // 5️⃣ Ghi vào EVENTS để chủ lịch A có thể XOÁ
+                let eventData: [String: Any] = [
+                    "title": title,
+                    "owner": sharedUserId,            // A
+                    "sharedUser": uid,                // B
+                    "date": Timestamp(date: start),
+                    "startTime": Timestamp(date: start),
+                    "endTime": Timestamp(date: end),
+                    "colorHex": "#007AFF"
+                ]
+                
+                self.db.collection("events").addDocument(data: eventData) { err in
+                    DispatchQueue.main.async { self.isAdding = false }
+                    
+                    if let err = err {
+                        completion(false, "Tạo event thất bại: \(err.localizedDescription)")
                     } else {
                         completion(true, nil)
                     }
                 }
-        }
-    }
-
-    
-
-    private func updateEventInFirestore(_ old: CalendarEvent, _ new: CalendarEvent) {
-        let db = Firestore.firestore()
-        
-        // Kiểm tra ID Firestore
-        guard let id = old.id else {
-            print("❌ Lỗi: event không có Firestore ID")
-            return
-        }
-
-        db.collection("events").document(id).updateData([
-            "title": new.title,
-            "owner": new.owner,
-            "date": Timestamp(date: new.date),
-            "startTime": Timestamp(date: new.startTime),
-            "endTime": Timestamp(date: new.endTime)
-        ]) { error in
-            if let error = error {
-                print("❌ Firestore update error:", error.localizedDescription)
-            } else {
-                print("✅ Firestore update success")
             }
         }
     }
 
+    // MARK: - Listeners (prevent revival)
+    func listenToAppointments(forSharedUser sharedUserId: String) {
+        db.collection("appointments")
+            .whereField("sharedUser", isEqualTo: sharedUserId)
+            .addSnapshotListener { snap, err in
+                guard let docs = snap?.documents else { return }
 
+                let arrivals = docs.compactMap { doc -> CalendarEvent? in
+                    let data = doc.data()
+                    guard let start = data["start"] as? TimeInterval,
+                          let end = data["end"] as? TimeInterval else { return nil }
+                    return CalendarEvent(
+                        id: doc.documentID,
+                        title: data["title"] as? String ?? "Lịch web",
+                        owner: data["owner"] as? String ?? "khách",
+                        date: Date(timeIntervalSince1970: start),
+                        startTime: Date(timeIntervalSince1970: start),
+                        endTime: Date(timeIntervalSince1970: end)
+                    )
+                }
 
+                DispatchQueue.main.async {
+                    for ev in arrivals {
+                        if let exist = self.events.first(where: { $0.id == ev.id }),
+                           exist.pendingDelete {
+                            continue
+                        }
+                        if let idx = self.events.firstIndex(where: { $0.id == ev.id }) {
+                            self.events[idx] = ev
+                        } else {
+                            self.events.append(ev)
+                        }
+                    }
+                }
+            }
+    }
 
-    // Lấy user UID
-      var currentUserId: String? {
-          Auth.auth().currentUser?.uid
-      }
+    func listenToBusySlots(sharedUserId: String) {
+        db.collection("publicCalendar").document(sharedUserId)
+            .addSnapshotListener { snap, err in
+                guard let data = snap?.data() else { return }
 
-      // Tạo link share lịch
-      var shareCalendarLink: String? {
-          guard let uid = currentUserId else { return nil }
-          return "https://myapp.web.app/calendar/\(uid)"
-      }
+                let raw = data["busySlots"] as? [[String: Any]] ?? []
+
+                let slots = raw.compactMap { dict -> CalendarEvent? in
+                    guard let start = dict["start"] as? TimeInterval,
+                          let end = dict["end"] as? TimeInterval else { return nil }
+                    let id = dict["id"] as? String ?? "\(start)-\(end)-local"
+                    let owner = dict["owner"] as? String ?? sharedUserId
+                    return CalendarEvent(
+                        id: id,
+                        title: dict["title"] as? String ?? "Bận",
+                        owner: owner,
+                        date: Date(timeIntervalSince1970: start),
+                        startTime: Date(timeIntervalSince1970: start),
+                        endTime: Date(timeIntervalSince1970: end)
+                    )
+                }
+
+                DispatchQueue.main.async {
+                    for ev in slots {
+                        if let exist = self.events.first(where: { $0.id == ev.id }),
+                           exist.pendingDelete {
+                            continue
+                        }
+                        if let idx = self.events.firstIndex(where: { $0.id == ev.id }) {
+                            self.events[idx] = ev
+                        } else {
+                            self.events.append(ev)
+                        }
+                    }
+                }
+            }
+    }
+
+    // MARK: Sync busySlots
+    func syncBusySlotsToFirebase() {
+        guard let uid = currentUserId else { return }
+
+        let slots = events.filter { !$0.pendingDelete }.map { e in
+            [
+                "id": e.id,
+                "title": e.title,
+                "owner": self.currentUserId ?? ""
+,
+                "start": e.startTime.timeIntervalSince1970,
+                "end": e.endTime.timeIntervalSince1970
+            ]
+        }
+
+        db.collection("publicCalendar").document(uid)
+            .setData(["busySlots": slots], merge: true)
+    }
+
+    // MARK: Helpers
+
+    var currentUserId: String? {
+        Auth.auth().currentUser?.uid
+    }
 }
+
 
 extension Array {
     func partitioned(by condition: (Element) -> Bool) -> (matches: [Element], nonMatches: [Element]) {
@@ -537,7 +604,7 @@ struct EventListView: View {
         }
         .navigationTitle(showPastEvents ? "Lịch đã qua" : "Lịch hiện tại")
         .onAppear {
-            eventManager.cleanUpPastEvents()
+            
         }
         // Sheet mở danh sách sự kiện trong ngày
         // Thay đoạn này:

@@ -1,15 +1,12 @@
 //
-//  PartnerCalendarTabView.swift
-//  Easy schedule
+// PartnerCalendarTabView.swift
+// Easy Schedule
 //
-//  Created by ChatGPT for Sam Manh Cuong on 11/11/25.
-//  Usage: Thêm file này vào project. ContentView đã reference PartnerCalendarTabView().
+// Updated for EventManager v2 (stable IDs, pendingDelete handling).
 //
 
 import SwiftUI
 import FirebaseAuth
-
-
 
 struct PartnerCalendarTabView: View {
     @EnvironmentObject var eventManager: EventManager
@@ -25,105 +22,28 @@ struct PartnerCalendarTabView: View {
 
     // Sheet for creating appointment
     @State private var showAddAppointmentSheet: Bool = false
-    @State private var appointmentDate: Date = Date()
-    @State private var appointmentStart: Date = Date()
-    @State private var appointmentEnd: Date = Date().addingTimeInterval(3600)
-    @State private var appointmentTitle: String = ""
     @State private var selectedSharedUserId: String?
 
     // Alert
     @State private var showAlert: Bool = false
     @State private var alertMessage: String = ""
 
+    // Group by day for UI
     private var groupedByDay: [Date: [CalendarEvent]] {
         Dictionary(grouping: fetchedEvents) { event in
             Calendar.current.startOfDay(for: event.date)
         }
     }
 
-    // MARK: - BODY
     var body: some View {
         NavigationStack {
             VStack(spacing: 12) {
-
-                // ------- INPUT LINK ------
-                VStack(spacing: 8) {
-                    HStack {
-                        Image(systemName: "link")
-                        TextField("Dán link chia sẻ hoặc UID", text: $linkText)
-                            .textFieldStyle(.roundedBorder)
-                            .autocapitalization(.none)
-                            .disableAutocorrection(true)
-                    }
-
-                    HStack {
-                        Button(action: { parseAndLoad() }) {
-                            HStack {
-                                if isLoading { ProgressView().scaleEffect(0.7) }
-                                Text("Load lịch")
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding(10)
-                        }
-                        .buttonStyle(.borderedProminent)
-
-                        Button(action: {
-                            linkText = ""
-                            parsedUID = nil
-                            fetchedEvents.removeAll()
-                            errorMessage = nil
-                        }) {
-                            Image(systemName: "xmark.circle")
-                        }
-                        .buttonStyle(.plain)
-                        .padding(.leading, 4)
-                    }
-                }
-                .padding()
-
+                inputArea
                 Divider()
-
-                // ------- UID INFO ------
-                if let uid = parsedUID {
-                    HStack {
-                        Text("UID:").bold()
-                        Text(uid)
-                        Spacer()
-                        Text(Auth.auth().currentUser == nil ? "Chưa đăng nhập" : "Đã đăng nhập")
-                            .font(.caption)
-                            .foregroundColor(Auth.auth().currentUser == nil ? .red : .green)
-                    }
-                    .padding(.horizontal)
-                }
-
-                // ------- ERROR -------
-                if let err = errorMessage {
-                    Text(err)
-                        .foregroundColor(.red)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal)
-                }
-
-                // ------- LIST EVENTS -------
-                if isLoading {
-                    Spacer()
-                    ProgressView("Đang tải lịch...")
-                    Spacer()
-                }
-                else if fetchedEvents.isEmpty {
-                    Spacer()
-                    Text(parsedUID == nil
-                         ? "Chưa có UID. Dán link rồi bấm Load."
-                         : "Không có lịch bận.")
-                        .foregroundColor(.secondary)
-                    Spacer()
-                }
-                else {
-                    scheduleListView
-                }
+                uidInfoArea
+                errorArea
+                contentArea
             }
-
-            // ------- TOOLBAR (+) -------
             .navigationTitle("Lịch đối tác")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -135,39 +55,108 @@ struct PartnerCalendarTabView: View {
                 }
             }
             .padding(.bottom, 8)
-
-            // ------- SHEET -------
             .sheet(isPresented: $showAddAppointmentSheet) {
+                // AppointmentProSheet expected to accept sharedUserId param
                 AppointmentProSheet(
                     isPresented: $showAddAppointmentSheet,
                     sharedUserId: selectedSharedUserId
                 )
                 .environmentObject(eventManager)
             }
-
-            // ------- ALERT -------
             .alert(isPresented: $showAlert) {
-                Alert(
-                    title: Text("Thông báo"),
-                    message: Text(alertMessage),
-                    dismissButton: .default(Text("Đóng"))
-                )
+                Alert(title: Text("Thông báo"), message: Text(alertMessage), dismissButton: .default(Text("Đóng")))
             }
         }
     }
 
-    // MARK: - LIST VIEW (TÁCH RA CHO NHẸ)
+    // MARK: - Subviews
+
+    private var inputArea: some View {
+        VStack(spacing: 8) {
+            HStack {
+                Image(systemName: "link")
+                TextField("Dán link chia sẻ hoặc UID", text: $linkText)
+                    .textFieldStyle(.roundedBorder)
+                    .autocapitalization(.none)
+                    .disableAutocorrection(true)
+            }
+
+            HStack {
+                Button(action: { parseAndLoad() }) {
+                    HStack {
+                        if isLoading { ProgressView().scaleEffect(0.7) }
+                        Text("Load lịch")
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(10)
+                }
+                .buttonStyle(.borderedProminent)
+
+                Button(action: {
+                    linkText = ""
+                    parsedUID = nil
+                    fetchedEvents.removeAll()
+                    errorMessage = nil
+                }) {
+                    Image(systemName: "xmark.circle")
+                }
+                .buttonStyle(.plain)
+                .padding(.leading, 4)
+            }
+        }
+        .padding()
+    }
+
+    private var uidInfoArea: some View {
+        Group {
+            if let uid = parsedUID {
+                HStack {
+                    Text("UID:").bold()
+                    Text(uid).lineLimit(1)
+                    Spacer()
+                    Text(Auth.auth().currentUser == nil ? "Chưa đăng nhập" : "Đã đăng nhập")
+                        .font(.caption)
+                        .foregroundColor(Auth.auth().currentUser == nil ? .red : .green)
+                }
+                .padding(.horizontal)
+            }
+        }
+    }
+
+    private var errorArea: some View {
+        Group {
+            if let err = errorMessage {
+                Text(err)
+                    .foregroundColor(.red)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+            }
+        }
+    }
+
+    private var contentArea: some View {
+        Group {
+            if isLoading {
+                Spacer()
+                ProgressView("Đang tải lịch...")
+                Spacer()
+            } else if fetchedEvents.isEmpty {
+                Spacer()
+                Text(parsedUID == nil ? "Chưa có UID. Dán link rồi bấm Load." : "Không có lịch bận.")
+                    .foregroundColor(.secondary)
+                Spacer()
+            } else {
+                scheduleListView
+            }
+        }
+    }
+
     private var scheduleListView: some View {
         List {
             let days = groupedByDay.keys.sorted(by: >)
-
             ForEach(days, id: \.self) { day in
                 Section(header: Text(sectionHeader(for: day))) {
-
-                    // Tách event để compiler dễ xử lý
-                    let events = (groupedByDay[day] ?? [])
-                        .sorted { $0.startTime < $1.startTime }
-
+                    let events = (groupedByDay[day] ?? []).sorted { $0.startTime < $1.startTime }
                     ForEach(events) { ev in
                         eventRow(ev)
                     }
@@ -177,7 +166,6 @@ struct PartnerCalendarTabView: View {
         .listStyle(.insetGrouped)
     }
 
-    // MARK: - EVENT ROW (TÁCH RA CHO NHẸ)
     private func eventRow(_ ev: CalendarEvent) -> some View {
         HStack {
             Circle()
@@ -200,25 +188,17 @@ struct PartnerCalendarTabView: View {
                 if Auth.auth().currentUser == nil {
                     alertMessage = "Bạn cần đăng nhập để đặt lịch."
                     showAlert = true
-                    return
+                } else {
+                    // ensure uid is set before opening sheet
+                    if let uid = parsedUID {
+                        selectedSharedUserId = uid
+                        // open pro sheet (your AppointmentProSheet should read sharedUserId)
+                        showAddAppointmentSheet = true
+                    } else {
+                        alertMessage = "Bạn cần load UID trước."
+                        showAlert = true
+                    }
                 }
-
-                // 🔥 SỬA LỖI UID — kiểm tra chắc chắn trước khi mở sheet
-                guard let uid = parsedUID, !uid.isEmpty else {
-                    alertMessage = "Không xác định UID người nhận."
-                    showAlert = true
-                    return
-                }
-
-                // Prefill
-                appointmentDate = ev.startTime
-                appointmentStart = ev.startTime
-                appointmentEnd = ev.startTime.addingTimeInterval(1800)
-                appointmentTitle = "Cuộc hẹn"
-
-                selectedSharedUserId = uid    // 🔥 chuyển sang UID đã kiểm tra
-                showAddAppointmentSheet = true
-
             } label: {
                 Text("Đặt")
             }
@@ -227,11 +207,10 @@ struct PartnerCalendarTabView: View {
         .padding(.vertical, 6)
     }
 
-
-    // MARK: - ACTIONS
+    // MARK: - Actions & Helpers
 
     private func addAppointmentPressed() {
-        guard let uid = parsedUID, !uid.isEmpty else {
+        guard let uid = parsedUID else {
             alertMessage = "Bạn cần nhập link hoặc UID trước."
             showAlert = true
             return
@@ -242,12 +221,9 @@ struct PartnerCalendarTabView: View {
             return
         }
 
-        selectedSharedUserId = uid   // 🔥 UID đảm bảo chắc chắn hợp lệ
+        selectedSharedUserId = uid
         showAddAppointmentSheet = true
     }
-
-
-    // MARK: - HELPERS
 
     private func parseAndLoad() {
         errorMessage = nil
@@ -281,12 +257,23 @@ struct PartnerCalendarTabView: View {
         errorMessage = nil
         fetchedEvents.removeAll()
 
+        // fetch from EventManager (one-shot)
         eventManager.fetchBusySlots(for: uid) { slots in
             DispatchQueue.main.async {
                 self.isLoading = false
-                self.fetchedEvents = slots.sorted { $0.startTime < $1.startTime }
-                if slots.isEmpty {
-                    self.errorMessage = "Không tìm thấy lịch bận cho UID này."
+
+                // filter out slots that match a local event pendingDelete
+                let filtered = slots.filter { slot in
+                    !self.eventManager.events.contains(where: { local in
+                        // if local is pendingDelete and id matches slot.id -> drop slot
+                        return local.pendingDelete && local.id == slot.id
+                    })
+                }
+
+                self.fetchedEvents = filtered.sorted { $0.startTime < $1.startTime }
+
+                if filtered.isEmpty {
+                    self.errorMessage = "Không tìm thấy lịch bận cho UID này (hoặc chưa có dữ liệu)."
                 }
             }
         }
@@ -307,108 +294,6 @@ struct PartnerCalendarTabView: View {
     }
 }
 
-
-// MARK: - Appointment create sheet
-struct AppointmentCreateSheet: View {
-    @EnvironmentObject var eventManager: EventManager
-
-    @Binding var isPresented: Bool
-    let sharedUserId: String?
-
-    @Binding var date: Date
-    @Binding var start: Date
-    @Binding var end: Date
-    @Binding var titleText: String
-
-    // completion handler (success, optional message)
-    var completion: ((Bool, String?) -> Void)? = nil
-
-    @State private var isAdding: Bool = false
-    @State private var localMessage: String? = nil
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section("Thông tin") {
-                    TextField("Tiêu đề", text: $titleText)
-                }
-                Section("Ngày & giờ") {
-                    DatePicker("Ngày", selection: $date, displayedComponents: .date)
-                    DatePicker("Bắt đầu", selection: $start, displayedComponents: .hourAndMinute)
-                    DatePicker("Kết thúc", selection: $end, displayedComponents: .hourAndMinute)
-                }
-                if let msg = localMessage {
-                    Section {
-                        Text(msg).foregroundColor(.red)
-                    }
-                }
-            }
-            .navigationTitle("Tạo cuộc hẹn")
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button {
-                        createAppointment()
-                    } label: {
-                        if isAdding { ProgressView() }
-                        else { Text("Gửi") }
-                    }
-                }
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Huỷ") { isPresented = false }
-                }
-            }
-        }
-    }
-
-    private func createAppointment() {
-        guard let sharedId = sharedUserId else {
-            localMessage = "Không xác định được UID người nhận."
-            return
-        }
-        guard !titleText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            localMessage = "Vui lòng nhập tiêu đề."
-            return
-        }
-
-        // Merge date + times
-        let startDT = combine(date: date, time: start)
-        let endDT = combine(date: date, time: end)
-        if endDT <= startDT {
-            localMessage = "Thời gian kết thúc phải sau thời gian bắt đầu."
-            return
-        }
-
-        guard Auth.auth().currentUser != nil else {
-            localMessage = "Bạn cần đăng nhập để đặt lịch."
-            return
-        }
-
-        isAdding = true
-        eventManager.addAppointment(forSharedUser: sharedId, title: titleText, start: startDT, end: endDT) { success, message in
-            DispatchQueue.main.async {
-                self.isAdding = false
-                if success {
-                    completion?(true, nil)
-                    isPresented = false
-                } else {
-                    localMessage = message ?? "Lỗi khi tạo lịch."
-                    completion?(false, message)
-                }
-            }
-        }
-    }
-
-    private func combine(date day: Date, time: Date) -> Date {
-        let cal = Calendar.current
-        let d = cal.dateComponents([.year, .month, .day], from: day)
-        let t = cal.dateComponents([.hour, .minute, .second], from: time)
-        var comps = DateComponents()
-        comps.year = d.year; comps.month = d.month; comps.day = d.day
-        comps.hour = t.hour ?? 0; comps.minute = t.minute ?? 0; comps.second = t.second ?? 0
-        return cal.date(from: comps) ?? day
-    }
-}
-
 // MARK: - Preview
 struct PartnerCalendarTabView_Previews: PreviewProvider {
     static var previews: some View {
@@ -418,5 +303,3 @@ struct PartnerCalendarTabView_Previews: PreviewProvider {
         }
     }
 }
-
-
