@@ -10,7 +10,7 @@ struct Easy_scheduleApp: App {
     @AppStorage("appTheme") private var appTheme: String = "system"
     @State private var showLaunch = true
     @State private var showOnboarding: Bool = !UserDefaults.standard.bool(forKey: "hasSeenOnboarding")
-
+    @StateObject var premiumManager = PremiumManager.shared
     var body: some Scene {
         WindowGroup {
             if showLaunch {
@@ -39,7 +39,8 @@ struct Easy_scheduleApp: App {
                                            appTheme == "dark" ? .dark : nil
                                        )
                     .environmentObject(session)
-                    .environmentObject(languageManager)               // ✅ SỬA 2
+                    .environmentObject(languageManager) // ✅ SỬA 2
+                    .environmentObject(premiumManager)
                     .onAppear {
                         session.listen()
                     }
@@ -54,13 +55,15 @@ struct Easy_scheduleApp: App {
 
 struct RootView: View {
     @EnvironmentObject var session: SessionStore
+    @EnvironmentObject var premiumManager: PremiumManager
 
     var body: some View {
         if session.currentUser == nil {
             LoginView()
         } else {
             ContentView()
-                .environmentObject(SessionStore())
+                .environmentObject(session)
+                .environmentObject(premiumManager)
         }
     }
 }

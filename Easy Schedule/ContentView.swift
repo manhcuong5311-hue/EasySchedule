@@ -27,6 +27,12 @@ struct CalendarEvent: Identifiable, Hashable, Codable {
 
 
 final class EventManager: ObservableObject {
+
+    // ⭐ PREMIUM FLAG
+    private var isPremiumUser: Bool {
+        PremiumManager.shared.isPremiumUser
+    }
+
     var allowDuplicateEvents: Bool {
         get { UserDefaults.standard.bool(forKey: "allowDuplicateEvents") }
         set { UserDefaults.standard.set(newValue, forKey: "allowDuplicateEvents") }
@@ -41,7 +47,6 @@ final class EventManager: ObservableObject {
         didSet { saveSharedLinks() }
     }
 
-    // NOTE: CalendarEvent must have pendingDelete
     @Published var events: [CalendarEvent] = [] {
         didSet {
             saveEvents()
@@ -54,15 +59,14 @@ final class EventManager: ObservableObject {
 
     private let db = Firestore.firestore()
 
+    // MARK: - INIT
     init() {
         loadEvents()
         loadSharedLinks()
         updateGroupedEvents()
-                               // restore pending deletes
+
         retryPendingDeletes()
-        // publish busy slot
         syncBusySlotsToFirebase()
-        
 
         if let uid = currentUserId {
             listenToAppointments(forSharedUser: uid)
@@ -70,8 +74,7 @@ final class EventManager: ObservableObject {
         }
     }
 
-    // MARK: - Local storage
-
+    // MARK: - LOCAL SAVE
     private func saveEvents() {
         if let data = try? JSONEncoder().encode(events) {
             UserDefaults.standard.set(data, forKey: "upcomingEvents")
@@ -92,6 +95,7 @@ final class EventManager: ObservableObject {
         }
         updateGroupedEvents()
     }
+
     private func saveSharedLinks() {
         if let data = try? JSONEncoder().encode(sharedLinks) {
             UserDefaults.standard.set(data, forKey: "shared_links")
@@ -104,15 +108,14 @@ final class EventManager: ObservableObject {
             self.sharedLinks = decoded
         }
     }
-   
+
     func togglePin(_ link: SharedLink) {
         if let idx = sharedLinks.firstIndex(where: { $0.id == link.id }) {
             sharedLinks[idx].isPinned.toggle()
         }
     }
-   
+
     private func addHistoryLink(uid: String, url: String) {
-        // Tránh trùng
         if sharedLinks.contains(where: { $0.url == url }) { return }
 
         let link = SharedLink(
@@ -121,22 +124,15 @@ final class EventManager: ObservableObject {
             url: url,
             createdAt: Date()
         )
-
         sharedLinks.append(link)
     }
 
     // MARK: - PENDING DELETE
-
-    /// App mở lại → thử xoá lại tất cả event pendingDelete
     private func retryPendingDeletes() {
         let pendings = events.filter { $0.pendingDelete }
-
-        for ev in pendings {
-            deleteRemoteOnly(ev)
-        }
+        for ev in pendings { deleteRemoteOnly(ev) }
     }
 
-    /// Xoá remote nhưng không xoá local lần nữa
     private func deleteRemoteOnly(_ ev: CalendarEvent) {
         guard !ev.id.isEmpty else { return }
 
@@ -146,22 +142,18 @@ final class EventManager: ObservableObject {
                 return
             }
 
-            // also remove busySlots
             self.removeBusySlotFromPublicCalendar(event: ev)
 
-            // remove final local copy once server is clean
             DispatchQueue.main.async {
                 self.events.removeAll { $0.id == ev.id }
                 self.saveEvents()
                 self.updateGroupedEvents()
             }
-
             print("✅ Pending delete SUCCESS:", ev.id)
         }
     }
 
-    // MARK: - Expired
-
+    // MARK: - PAST EVENTS CLEAN
     func cleanUpPastEvents() {
         let now = Date()
         var upcoming: [CalendarEvent] = []
@@ -178,6 +170,8 @@ final class EventManager: ObservableObject {
         saveEvents()
         updateGroupedEvents()
     }
+
+    // MARK: - OFF DAYS
     func fetchOffDays(for userId: String, completion: @escaping (Set<Date>) -> Void) {
         db.collection("publicCalendar")
             .document(userId)
@@ -193,8 +187,7 @@ final class EventManager: ObservableObject {
             }
     }
 
-    // MARK: - Grouping
-
+    // MARK: - GROUPING
     func updateGroupedEvents() {
         groupedByDay = Dictionary(grouping: events) {
             Calendar.current.startOfDay(for: $0.date)
@@ -205,6 +198,7 @@ final class EventManager: ObservableObject {
         let d = Calendar.current.startOfDay(for: date)
         return groupedByDay[d]?.sorted { $0.startTime < $1.startTime } ?? []
     }
+
 }
 
 // MARK: CRUD + Firestore
@@ -218,30 +212,28 @@ extension EventManager {
                   endTime: Date,
                   colorHex: String = "#007AFF") -> Bool {
 
-        let isPremiumUser = UserDefaults.standard.bool(forKey: "isPremiumUser")
-        let now = Date()
-        let calendar = Calendar.current
+        let isPremium = PremiumManager.shared.isPremiumUser
 
-        // PREMIUM CHECK
-        if !isPremiumUser {
+        // FREE USER LIMITS
+        if !isPremium {
 
-            // ❌ Kiểm tra 7 ngày
-            if let maxDate = calendar.date(byAdding: .day, value: 7, to: now),
+            // ❌ 1) hạn 7 ngày
+            let now = Date()
+            if let maxDate = Calendar.current.date(byAdding: .day, value: 7, to: now),
                date > maxDate {
-                print("🚫 Premium limit: too far date")
+                print("🚫 FREE USER: Không được tạo lịch quá 7 ngày")
                 return false
             }
 
-            // ❌ Giới hạn 4 lịch/ngày
-            let sameDay = events.filter { calendar.isDate($0.date, inSameDayAs: date) }
-            if sameDay.count >= 4 {
-                print("🚫 Premium limit: max 4 events/day")
+            // ❌ 2) max 4 events / day
+            let eventsSameDay = events.filter { Calendar.current.isDate($0.date, inSameDayAs: date) }
+            if eventsSameDay.count >= 4 {
+                print("🚫 FREE USER: Quá 4 lịch/ngày")
                 return false
             }
         }
 
-        // ---- PASS PREMIUM => tạo event ----
-
+        // PASSES → TẠO LỊCH
         let newEvent = CalendarEvent(
             id: UUID().uuidString,
             title: title,
@@ -253,17 +245,17 @@ extension EventManager {
             pendingDelete: false
         )
 
-        // GHI LOCAL SAU KHI PASS CHECK
+        // Local
         DispatchQueue.main.async {
             self.events.append(newEvent)
         }
 
-        // GHI FIREBASE
-        let uid = self.currentUserId ?? ""
+        // Remote
+        let uid = currentUserId ?? ""
         let data: [String: Any] = [
             "title": newEvent.title,
-            "owner": uid,
-            "sharedUser": uid,
+            "owner": owner,
+            "sharedUser": currentUserId ?? "",
             "date": Timestamp(date: newEvent.date),
             "startTime": Timestamp(date: newEvent.startTime),
             "endTime": Timestamp(date: newEvent.endTime),
@@ -273,22 +265,21 @@ extension EventManager {
         var ref: DocumentReference?
         ref = db.collection("events").addDocument(data: data) { err in
             if let err = err {
-                print("❌ Firestore add error:", err)
+                print("❌ Firestore add error:", err.localizedDescription)
                 return
             }
-
             if let docId = ref?.documentID {
                 DispatchQueue.main.async {
                     if let i = self.events.firstIndex(where: { $0.id == newEvent.id }) {
                         self.events[i].id = docId
                     }
                 }
+                self.syncBusySlotsToFirebase()
             }
         }
 
         return true
     }
-
 
     func updateEvent(_ event: CalendarEvent,
                      newTitle: String,
@@ -343,36 +334,60 @@ extension EventManager {
         // 5️⃣ Sync busySlots mới
         syncBusySlotsToFirebase()
     }
+    
+    func fetchPremiumStatus(for userId: String, completion: @escaping (Bool) -> Void) {
+        db.collection("premiumStatus")
+            .document(userId)
+            .getDocument { snap, err in
+                if let data = snap?.data(),
+                   let value = data["isPremium"] as? Bool {
+                    completion(value)
+                } else {
+                    completion(false)
+                }
+            }
+    }
+
+    
     // MARK: - Fetch busy slots (one-shot)
     func fetchBusySlots(for userId: String,
                         completion: @escaping ([CalendarEvent], Bool) -> Void) {
-        db.collection("publicCalendar").document(userId).getDocument { snap, error in
-            guard let data = snap?.data() else {
-                completion([], false)
-                return
-            }
 
-            // lấy busySlots
-            let raw = data["busySlots"] as? [[String: Any]] ?? []
-            let slots = raw.compactMap { dict -> CalendarEvent? in
-                guard let start = dict["start"] as? TimeInterval,
-                      let end   = dict["end"]   as? TimeInterval else { return nil }
-                return CalendarEvent(
-                    id: dict["id"] as? String ?? UUID().uuidString,
-                    title: dict["title"] as? String ?? "Bận",
-                    owner: dict["owner"] as? String ?? "",
-                    date: Date(timeIntervalSince1970: start),
-                    startTime: Date(timeIntervalSince1970: start),
-                    endTime: Date(timeIntervalSince1970: end)
-                )
-            }
+        fetchPremiumStatus(for: userId) { isPremium in
 
-            // lấy trạng thái premium (firebase field)
-            let isPremiumUser = data["isPremiumUser"] as? Bool ?? false
+            self.db.collection("publicCalendar").document(userId)
+                .getDocument { snapshot, error in
 
-            completion(slots, isPremiumUser)
+                    guard let data = snapshot?.data(), error == nil else {
+                        completion([], isPremium)
+                        return
+                    }
+
+                    // ưu tiên publicCalendar nếu có
+                    let premiumFlag = data["isPremium"] as? Bool ?? isPremium
+
+                    let rawSlots = data["busySlots"] as? [[String: Any]] ?? []
+
+                    let slots = rawSlots.compactMap { dict -> CalendarEvent? in
+                        guard let start = dict["start"] as? TimeInterval,
+                              let end = dict["end"] as? TimeInterval else { return nil }
+
+                        return CalendarEvent(
+                            id: dict["id"] as? String ?? UUID().uuidString,
+                            title: dict["title"] as? String ?? "Bận",
+                            owner: userId,
+                            date: Date(timeIntervalSince1970: start),
+                            startTime: Date(timeIntervalSince1970: start),
+                            endTime: Date(timeIntervalSince1970: end)
+                        )
+                    }
+
+                    completion(slots, premiumFlag)
+                }
         }
     }
+
+
 
 
 
@@ -403,14 +418,28 @@ extension EventManager {
         self.isAdding = true
         
         // 1️⃣ Kiểm tra trùng giờ
-        fetchBusySlots(for: sharedUserId) { busySlots, isPremiumUser in
+        fetchBusySlots(for: sharedUserId) { busySlots, ownerIsPremium in
             let overlap = busySlots.contains { $0.startTime < end && $0.endTime > start }
             if overlap {
                 DispatchQueue.main.async { self.isAdding = false }
                 completion(false, "Giờ này đã bận!")
                 return
             }
-            
+
+            // ⭐ PREMIUM CHECK – đúng chân lý
+            if !ownerIsPremium {
+                let now = Date()
+                if let maxDate = Calendar.current.date(byAdding: .day, value: 7, to: now),
+                   start > maxDate {
+
+                    DispatchQueue.main.async { self.isAdding = false }
+                    completion(false,
+                               "Chủ lịch chưa Premium — bạn chỉ được đặt lịch trong 7 ngày tới.")
+                    return
+                }
+            }
+
+
             // 2️⃣ Kiểm tra đăng nhập
             guard let uid = Auth.auth().currentUser?.uid else {
                 DispatchQueue.main.async { self.isAdding = false }
@@ -545,18 +574,18 @@ extension EventManager {
             [
                 "id": e.id,
                 "title": e.title,
-                "owner": self.currentUserId ?? "",
+                "owner": e.owner,
                 "start": e.startTime.timeIntervalSince1970,
                 "end": e.endTime.timeIntervalSince1970
             ]
         }
 
-        let isPremium = UserDefaults.standard.bool(forKey: "isPremiumUser")
+        let premium = PremiumManager.shared.isPremiumUser
 
         db.collection("publicCalendar").document(uid)
             .setData([
                 "busySlots": slots,
-                "isPremium": isPremium       // ⭐ QUAN TRỌNG: thêm dòng này
+                "isPremium": premium
             ], merge: true)
     }
 

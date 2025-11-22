@@ -56,26 +56,28 @@ struct SettingsView: View {
     @AppStorage("notificationsEnabled") private var notificationsEnabled = false
     @AppStorage("leadTime") private var leadTime = 15
     @AppStorage("selectedLanguage") private var selectedLanguage = "vi"
-    @AppStorage("proPlan") private var proPlan = "Miễn phí"
-    @AppStorage("isPremiumUser") var isPremiumUser: Bool = false
     @AppStorage("pushNotificationsEnabled") private var pushNotificationsEnabled = true
     @AppStorage("appTheme") private var appTheme: String = "system"
 
     // MARK: - State
     @State private var showLogoutAlert = false
     @State private var showPrivacySheet = false
-    
+    @State private var showUpgradeSheet = false
+
     // MARK: - Environment Objects
     @EnvironmentObject var session: SessionStore
     @EnvironmentObject var languageManager: LanguageManager
+    @EnvironmentObject var premiumManager: PremiumManager   // ⭐ QUAN TRỌNG
     
+
     // MARK: - Constants
     let leadTimeOptions = [5, 10, 15, 30, 60]
     let appVersion = "1.0.0"
-    
+
     var body: some View {
         NavigationStack {
             Form {
+
                 // MARK: - Notifications
                 Section("Thông báo") {
                     Toggle("Thông báo khi có lịch", isOn: $pushNotificationsEnabled)
@@ -98,8 +100,7 @@ struct SettingsView: View {
                                 }
                             }
                         }
-                    
-                    
+
                     Picker("Thời gian nhắc trước", selection: $leadTime) {
                         ForEach(leadTimeOptions, id: \.self) { value in
                             Text("\(value) phút trước").tag(value)
@@ -107,6 +108,7 @@ struct SettingsView: View {
                     }
                     .disabled(!notificationsEnabled)
                 }
+
                 // MARK: - Giao diện
                 Section("Giao diện") {
                     Picker("Chế độ hiển thị", selection: $appTheme) {
@@ -116,27 +118,34 @@ struct SettingsView: View {
                     .pickerStyle(.segmented)
                 }
 
-                
-                // MARK: - Tài khoản & Bảo mật
-                Section("Tài khoản & Bảo mật") {
-                    NavigationLink("Nâng cấp tài khoản (\(proPlan))") {
-                        UpgradeAccountView(currentPlan: $proPlan)
+                // MARK: - Tài khoản & Premium
+                Section("Tài khoản & Premium") {
+
+                    Button {
+                        showUpgradeSheet = true
+                    } label: {
+                        HStack {
+                            Text("Nâng cấp tài khoản")
+                            Spacer()
+                            Text(premiumManager.isPremiumUser ? "⭐ Premium" : "Miễn phí")
+                                .foregroundColor(premiumManager.isPremiumUser ? .yellow : .secondary)
+                        }
                     }
+
                     NavigationLink("Quản lý bảo mật") {
                         SecuritySettingsView()
                     }
                 }
-                
+
                 // MARK: - Ngôn ngữ
                 Section("Ngôn ngữ") {
                     Picker("Ngôn ngữ hiển thị", selection: $selectedLanguage) {
                         Text("Tiếng Việt").tag("vi")
-                        
                     }
                     .pickerStyle(.segmented)
                 }
-                
-                // MARK: - Thông tin & Hỗ trợ
+
+                // MARK: - Support
                 Section("Thông tin & Hỗ trợ") {
                     Button("🧾 Privacy Policy & App Info") {
                         showPrivacySheet = true
@@ -145,8 +154,8 @@ struct SettingsView: View {
                         contactSupport()
                     }
                 }
-                
-                // MARK: - Đăng xuất
+
+                // MARK: - Logout
                 Section {
                     Button(role: .destructive) {
                         showLogoutAlert = true
@@ -162,31 +171,38 @@ struct SettingsView: View {
             } message: {
                 Text("Bạn sẽ cần đăng nhập lại để tiếp tục sử dụng.")
             }
+            .sheet(isPresented: $showUpgradeSheet) {
+                PremiumUpgradeSheet()    // ⭐ màn nâng cấp premium
+                    .environmentObject(premiumManager)
+            }
             .sheet(isPresented: $showPrivacySheet) {
                 PrivacyPolicyView()
             }
         }
     }
-    
-    // MARK: - Hành động phụ
+
+    // MARK: - Actions
     private func contactSupport() {
         let supportEmail = "Manhcuong5311@gmail.com"
-        let subject = "Hỗ trợ Easy Schedule".addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        let subject = "Hỗ trợ Easy Schedule".addingPercentEncoding(
+            withAllowedCharacters: .urlQueryAllowed
+        ) ?? ""
         if let url = URL(string: "mailto:\(supportEmail)?subject=\(subject)") {
             UIApplication.shared.open(url)
         }
     }
-    
+
     private func performLogout() {
         do {
             try Auth.auth().signOut()
             session.currentUser = nil
             print("✅ Đăng xuất Firebase thành công (SettingsView).")
-        } catch let error as NSError {
+        } catch let error {
             print("❌ Lỗi khi đăng xuất: \(error.localizedDescription)")
         }
     }
 }
+
 
 
 // MARK: - Privacy Policy View
@@ -466,3 +482,86 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
 
 
 
+//
+// PremiumManager.swift
+//
+
+import Foundation
+import StoreKit
+import SwiftUI
+
+@MainActor
+final class PremiumManager: ObservableObject {
+
+    static let shared = PremiumManager()
+
+    // ⭐ Premium state
+    @Published var isPremiumUser: Bool = UserDefaults.standard.bool(forKey: "isPremiumUser")
+
+    // ⭐ Fake mode (cho dev test khi chưa publish)
+    @Published var isFakePremium: Bool = false
+
+    // ⭐ StoreKit products
+    @Published var products: [Product] = []
+
+    private init() { }
+
+    // MARK: - Load products
+    func loadProducts() async {
+        do {
+            products = try await Product.products(for: [
+                "premium_month",
+                "premium_year",
+                "premium_lifetime"
+            ])
+        } catch {
+            print("❌ Load sản phẩm lỗi:", error.localizedDescription)
+        }
+    }
+
+    // MARK: - Buy
+    func purchase(_ product: Product) async -> Bool {
+        
+        // 🚀 Fake Mode
+        if isFakePremium {
+            print("⚠️ Fake Premium Enabled → auto success")
+            isPremiumUser = true
+            UserDefaults.standard.set(true, forKey: "isPremiumUser")
+            return true
+        }
+
+        // 🚀 Thật
+        do {
+            let result = try await product.purchase()
+            switch result {
+            case .success(_):
+                print("✅ Mua thành công:", product.id)
+                isPremiumUser = true
+                UserDefaults.standard.set(true, forKey: "isPremiumUser")
+                return true
+
+            default:
+                return false
+            }
+        } catch {
+            print("❌ Purchase Error:", error.localizedDescription)
+            return false
+        }
+    }
+
+    // MARK: - Restore Purchase
+    func restore() async -> Bool {
+        do {
+            let results: () = try await AppStore.sync()
+            print("🔄 Restore:", results)
+
+            // Nếu từng mua trước đây → mở lại Premium
+            isPremiumUser = true
+            UserDefaults.standard.set(true, forKey: "isPremiumUser")
+            return true
+        } catch {
+            print("❌ Restore lỗi:", error.localizedDescription)
+            return false
+        }
+    }
+}

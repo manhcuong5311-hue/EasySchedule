@@ -124,6 +124,10 @@ struct AppointmentProSheet: View {
                         let maxPremiumDate = calendar.date(byAdding: .day, value: 7, to: now)!
                         let dayBlocked = (!partnerIsPremium && selectedDate > maxPremiumDate)
 
+                        Toggle("Dùng giờ tuỳ chỉnh", isOn: $useCustomTime)
+                            .disabled(dayBlocked)
+                            .opacity(dayBlocked ? 0.35 : 1)
+
                         ScrollView {
                             LazyVStack(spacing: 8) {
                                 ForEach(slots, id: \.self) { slot in
@@ -191,6 +195,17 @@ struct AppointmentProSheet: View {
             }
             .padding(.bottom)
         }
+       
+        .onChange(of: selectedDate) { oldValue, newValue in
+            let limitDate = calendar.date(byAdding: .day, value: 7, to: Date())!
+            let dayBlocked = (!partnerIsPremium && newValue > limitDate)
+
+            if dayBlocked {
+                selectedSlot = nil
+            }
+        }
+
+
     }
 
     // MARK: Load dữ liệu
@@ -218,11 +233,6 @@ struct AppointmentProSheet: View {
             DispatchQueue.main.async {
                 self.busySlots = slots
                 self.partnerIsPremium = isPremium
-
-                if !isPremium {
-                    self.errorMessage = "Người này chưa đăng Premium — bạn chỉ xem lịch trong 7 ngày tới."
-                    self.showPremiumAlert = true
-                }
             }
         }
 
@@ -271,6 +281,7 @@ struct AppointmentProSheet: View {
                 else { errorMessage = msg ?? "Tạo lịch thất bại." }
             }
         }
+        
     }
 
     // MARK: Helper
