@@ -11,5 +11,6 @@ struct SharedLink: Identifiable, Codable, Hashable {
     let uid: String               // UID đối tác / người nhận
     let url: String               // Link chia sẻ
     let createdAt: Date           // Ngày tạo link
+    var isPinned: Bool = false
 }
 

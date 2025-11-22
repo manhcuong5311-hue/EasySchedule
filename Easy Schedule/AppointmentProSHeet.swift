@@ -27,6 +27,9 @@ struct AppointmentProSheet: View {
     @State private var loading: Bool = true
     @State private var errorMessage: String? = nil
     @State private var partnerOffDays: Set<Date> = []
+    @State private var customStart: Date = Date()
+    @State private var customEnd: Date = Date()
+    @State private var useCustomTime: Bool = false
 
     @State private var titleText: String = "Cuộc hẹn"
 
@@ -69,11 +72,49 @@ struct AppointmentProSheet: View {
 
                 // Title + slots
                 Form {
+                    // TIÊU ĐỀ
                     Section(header: Text("Tiêu đề")) {
                         TextField("Tiêu đề cuộc hẹn", text: $titleText)
                     }
-                    Section(header: Text("Chọn khung giờ (30 phút)")) {
-                        let slots = generateSlots(for: selectedDate) // precompute to help compiler
+
+                    // ⭐ KHUNG GIỜ TÙY CHỈNH — ĐƯA LÊN TRÊN
+                    Section(header: Text("Khung giờ tuỳ chỉnh")) {
+
+                        Toggle("Dùng giờ tuỳ chỉnh", isOn: $useCustomTime)
+
+                        if useCustomTime {
+
+                            DatePicker("Bắt đầu", selection: $customStart, displayedComponents: .hourAndMinute)
+
+                            DatePicker("Kết thúc", selection: $customEnd, displayedComponents: .hourAndMinute)
+                                .onChange(of: customEnd) {
+                                    if customEnd <= customStart {
+                                        customEnd = Calendar.current.date(
+                                            byAdding: .minute,
+                                            value: 15,
+                                            to: customStart
+                                        )!
+                                    }
+                                }
+
+                            // Gộp ngày đã chọn vào giờ tùy chỉnh
+                            let merged = ProSlot(
+                                start: combine(selectedDate, customStart),
+                                end: combine(selectedDate, customEnd)
+                            )
+
+                            if checkBusy(merged) {
+                                Text("Khung giờ này đã bận hoặc rơi vào ngày nghỉ.")
+                                    .foregroundColor(.red)
+                                    .font(.caption)
+                            }
+                        }
+                    }
+
+                    // ⭐ KHUNG GIỜ 30 PHÚT — BÊN DƯỚI
+                    Section(header: Text("Khung giờ (30 phút)")) {
+                        let slots = generateSlots(for: selectedDate)
+
                         ScrollView {
                             LazyVStack(spacing: 8) {
                                 ForEach(slots, id: \.self) { slot in
@@ -82,8 +123,10 @@ struct AppointmentProSheet: View {
                                         isBusy: checkBusy(slot),
                                         isSelected: selectedSlot == slot
                                     ) {
-                                        if !checkBusy(slot) {
-                                            selectedSlot = slot
+                                        if !useCustomTime {        // 🔥 Nếu bật custom → khóa
+                                            if !checkBusy(slot) {
+                                                selectedSlot = slot
+                                            }
                                         }
                                     }
                                 }
@@ -93,6 +136,7 @@ struct AppointmentProSheet: View {
                         .frame(maxHeight: 300)
                     }
                 }
+
             }
             .navigationTitle("Tạo cuộc hẹn")
             .toolbar {
@@ -100,9 +144,23 @@ struct AppointmentProSheet: View {
                     Button("Huỷ") { isPresented = false }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Đặt") { handleCreate() }
-                        .disabled(selectedSlot == nil || sharedUserId == nil)
+                    Button("Đặt") {
+
+                        if useCustomTime {
+                            let custom = ProSlot(
+                                start: combine(selectedDate, customStart),
+                                end: combine(selectedDate, customEnd)
+                            )
+                            self.selectedSlot = custom
+                        }
+
+                        handleCreate()
+                    }
+                    .disabled((!useCustomTime && selectedSlot == nil) || sharedUserId == nil)
+
+                    .disabled((!useCustomTime && selectedSlot == nil) || sharedUserId == nil)
                 }
+
             }
             .onAppear { loadBusy() }
             .alert(item: Binding(
@@ -177,6 +235,19 @@ struct AppointmentProSheet: View {
                 }
             }
         }
+    }
+    private func combine(_ date: Date, _ time: Date) -> Date {
+        let cal = Calendar.current
+        let d = cal.dateComponents([.year, .month, .day], from: date)
+        let t = cal.dateComponents([.hour, .minute], from: time)
+
+        return cal.date(from: DateComponents(
+            year: d.year,
+            month: d.month,
+            day: d.day,
+            hour: t.hour,
+            minute: t.minute
+        ))!
     }
 
     private func checkBusy(_ slot: ProSlot) -> Bool {
@@ -308,31 +379,75 @@ struct SlotRowPro: View {
 }
 struct HistoryView: View {
     @EnvironmentObject var eventManager: EventManager
+    var onSelect: (String) -> Void = { _ in }
+
+    @State private var showCopied = false
 
     var body: some View {
         NavigationStack {
             List {
-                ForEach(eventManager.sharedLinks.sorted { $0.createdAt > $1.createdAt }) { link in
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(link.url)
-                            .font(.subheadline)
-                        Text(format(link.createdAt))
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                // ⭐ Sắp xếp: pinned trước, sau đó theo thời gian
+                let sortedLinks = eventManager.sharedLinks.sorted {
+                    if $0.isPinned == $1.isPinned { return $0.createdAt > $1.createdAt }
+                    return $0.isPinned && !$1.isPinned
+                }
+
+                ForEach(sortedLinks) { link in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(link.url)
+                                .font(.body)
+                                .lineLimit(1)
+
+                            Text("UID: \(link.uid)")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+
+                            Text(formatDate(link.createdAt))
+                                .font(.caption2)
+                                .foregroundColor(.gray)
+                        }
+
+                        Spacer()
+
+                        // ⭐ Nút PIN
+                        Button {
+                            eventManager.togglePin(link)
+                        } label: {
+                            Image(systemName: link.isPinned ? "pin.fill" : "pin")
+                                .foregroundColor(link.isPinned ? .orange : .gray)
+                        }
+                        .buttonStyle(.borderless)
                     }
-                    .padding(.vertical, 6)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        onSelect(link.url) // Load ngay
+                    }
+                    .onLongPressGesture {
+                        UIPasteboard.general.string = link.url
+                        showCopied = true
+                    }
+                }
+                .onDelete { indexSet in
+                    eventManager.sharedLinks.remove(atOffsets: indexSet)
                 }
             }
             .navigationTitle("Lịch sử đã xem")
+            .alert("Đã copy link!", isPresented: $showCopied) {
+                Button("OK", role: .cancel) {}
+            }
         }
     }
 
-    private func format(_ d: Date) -> String {
+    private func formatDate(_ d: Date) -> String {
         let f = DateFormatter()
-        f.dateFormat = "dd/MM/yyyy HH:mm"
+        f.locale = Locale(identifier: "vi_VN")
+        f.dateStyle = .medium
+        f.timeStyle = .short
         return f.string(from: d)
     }
 }
+
 
 // MARK: - Preview
 struct AppointmentProSheet_Previews: PreviewProvider {

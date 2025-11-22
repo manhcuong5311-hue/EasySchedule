@@ -104,7 +104,14 @@ final class EventManager: ObservableObject {
             self.sharedLinks = decoded
         }
     }
-   private func addHistoryLink(uid: String, url: String) {
+   
+    func togglePin(_ link: SharedLink) {
+        if let idx = sharedLinks.firstIndex(where: { $0.id == link.id }) {
+            sharedLinks[idx].isPinned.toggle()
+        }
+    }
+   
+    private func addHistoryLink(uid: String, url: String) {
         // Tránh trùng
         if sharedLinks.contains(where: { $0.url == url }) { return }
 
@@ -463,6 +470,7 @@ extension EventManager {
                             self.events.append(ev)
                         }
                     }
+                    self.cleanUpPastEvents()
                 }
             }
     }
@@ -501,6 +509,7 @@ extension EventManager {
                             self.events.append(ev)
                         }
                     }
+                    self.cleanUpPastEvents()
                 }
             }
     }
@@ -1000,7 +1009,8 @@ struct CustomizableCalendarView: View {
         CalendarGridView(
         selectedDate: $selectedDate,
         eventsByDay: eventManager.groupedByDay,
-        offDays: offDays
+        offDays: offDays,
+        isOwner: true
     )
         .padding(.top, 8)
                 
@@ -1358,7 +1368,7 @@ struct CalendarGridView: View {
     private let calendar = Calendar.current
     private let columns = Array(repeating: GridItem(.flexible()), count: 7)
     let offDays: Set<Date>
-    
+    let isOwner: Bool
     // Alert trạng thái chung, riêng cho CalendarGridView
     @State private var showOffDayAlert = false
     
@@ -1441,12 +1451,21 @@ struct CalendarGridView: View {
                     .frame(maxWidth: .infinity)
                     .contentShape(Rectangle())
                     .onTapGesture {
-                        if isOffDay {
-                            showOffDayAlert = true
-                        } else {
+                        let key = calendar.startOfDay(for: date)
+
+                        if isOwner {
+                            // Chủ A → luôn được chọn ngày, dù là offDay
                             selectedDate = date
+                        } else {
+                            // Khách B → xem nhưng không thể chọn ngày nghỉ
+                            if offDays.contains(key) {
+                                showOffDayAlert = true
+                            } else {
+                                selectedDate = date
+                            }
                         }
                     }
+
                 }
 
             }
