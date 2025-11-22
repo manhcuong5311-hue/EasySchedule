@@ -285,27 +285,27 @@ struct PartnerCalendarTabView: View {
         errorMessage = nil
         fetchedEvents.removeAll()
 
-        // fetch from EventManager (one-shot)
-        eventManager.fetchBusySlots(for: uid) { slots in
+        eventManager.fetchBusySlots(for: uid) { slots, isPremiumUser in
             DispatchQueue.main.async {
                 self.isLoading = false
 
-                // filter out slots that match a local event pendingDelete
                 let filtered = slots.filter { slot in
                     !self.eventManager.events.contains(where: { local in
-                        // if local is pendingDelete and id matches slot.id -> drop slot
-                        return local.pendingDelete && local.id == slot.id
+                        local.pendingDelete && local.id == slot.id
                     })
                 }
 
                 self.fetchedEvents = filtered.sorted { $0.startTime < $1.startTime }
 
-                if filtered.isEmpty {
-                    self.errorMessage = "Không tìm thấy lịch bận cho UID này (hoặc chưa có dữ liệu)."
+                if !isPremiumUser {
+                    self.errorMessage = "⚠️ Người này chưa đăng Premium — bạn chỉ xem được lịch 7 ngày."
+                } else if filtered.isEmpty {
+                    self.errorMessage = "Không tìm thấy lịch bận cho UID này."
                 }
             }
         }
     }
+
 
     private func sectionHeader(for day: Date) -> String {
         let f = DateFormatter()

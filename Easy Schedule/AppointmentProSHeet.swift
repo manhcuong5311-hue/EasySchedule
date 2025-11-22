@@ -5,10 +5,11 @@
 // Created by ChatGPT for Sam Manh Cuong
 //
 
+
 import SwiftUI
 import FirebaseAuth
 
-// NOTE: dùng tên ProSlot để tránh trùng với TimeSlot có thể đã tồn tại trong project
+// NOTE: dùng tên ProSlot để tránh trùng với TimeSlot
 struct ProSlot: Hashable {
     let start: Date
     let end: Date
@@ -22,11 +23,13 @@ struct AppointmentProSheet: View {
 
     @State private var selectedDate: Date = Date()
     @State private var selectedSlot: ProSlot? = nil
-
     @State private var busySlots: [CalendarEvent] = []
     @State private var loading: Bool = true
     @State private var errorMessage: String? = nil
     @State private var partnerOffDays: Set<Date> = []
+    @State private var partnerIsPremium: Bool = true
+    @State private var showPremiumAlert = false
+
     @State private var customStart: Date = Date()
     @State private var customEnd: Date = Date()
     @State private var useCustomTime: Bool = false
@@ -42,11 +45,13 @@ struct AppointmentProSheet: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 12) {
+
                 // Header
                 HStack {
                     VStack(alignment: .leading) {
                         Text("Người nhận").font(.caption).foregroundColor(.secondary)
-                        Text(sharedUserId ?? "Chưa có UID").font(.subheadline).lineLimit(1)
+                        Text(sharedUserId ?? "Chưa có UID")
+                            .font(.subheadline).lineLimit(1)
                     }
                     Spacer()
                     if loading { ProgressView() }
@@ -59,8 +64,8 @@ struct AppointmentProSheet: View {
                     busySlots: busySlots,
                     offDays: partnerOffDays
                 )
-                    .frame(height: 260)
-                // ⭐ THÔNG BÁO NGÀY NGHỈ
+                .frame(height: 260)
+
                 if partnerOffDays.contains(Calendar.current.startOfDay(for: selectedDate)) {
                     Text("Chủ lịch nghỉ ngày này — không thể đặt lịch.")
                         .foregroundColor(.orange)
@@ -70,14 +75,15 @@ struct AppointmentProSheet: View {
 
                 Divider()
 
-                // Title + slots
+                // Form
                 Form {
+
                     // TIÊU ĐỀ
                     Section(header: Text("Tiêu đề")) {
                         TextField("Tiêu đề cuộc hẹn", text: $titleText)
                     }
 
-                    // ⭐ KHUNG GIỜ TÙY CHỈNH — ĐƯA LÊN TRÊN
+                    // ⭐ GIỜ TÙY CHỈNH
                     Section(header: Text("Khung giờ tuỳ chỉnh")) {
 
                         Toggle("Dùng giờ tuỳ chỉnh", isOn: $useCustomTime)
@@ -97,7 +103,6 @@ struct AppointmentProSheet: View {
                                     }
                                 }
 
-                            // Gộp ngày đã chọn vào giờ tùy chỉnh
                             let merged = ProSlot(
                                 start: combine(selectedDate, customStart),
                                 end: combine(selectedDate, customEnd)
@@ -111,24 +116,32 @@ struct AppointmentProSheet: View {
                         }
                     }
 
-                    // ⭐ KHUNG GIỜ 30 PHÚT — BÊN DƯỚI
+                    // ⭐ KHUNG GIỜ 30P
                     Section(header: Text("Khung giờ (30 phút)")) {
+
                         let slots = generateSlots(for: selectedDate)
+                        let now = Date()
+                        let maxPremiumDate = calendar.date(byAdding: .day, value: 7, to: now)!
+                        let dayBlocked = (!partnerIsPremium && selectedDate > maxPremiumDate)
 
                         ScrollView {
                             LazyVStack(spacing: 8) {
                                 ForEach(slots, id: \.self) { slot in
+
+                                    let blocked = dayBlocked
+
                                     SlotRowPro(
                                         slot: slot,
                                         isBusy: checkBusy(slot),
-                                        isSelected: selectedSlot == slot
-                                    ) {
-                                        if !useCustomTime {        // 🔥 Nếu bật custom → khóa
-                                            if !checkBusy(slot) {
+                                        isSelected: selectedSlot == slot,
+                                        action: {
+                                            if !blocked && !useCustomTime && !checkBusy(slot) {
                                                 selectedSlot = slot
                                             }
                                         }
-                                    }
+                                    )
+                                    .opacity(blocked ? 0.35 : 1.0)
+                                    .allowsHitTesting(!blocked)
                                 }
                             }
                             .padding(.vertical, 6)
@@ -147,33 +160,40 @@ struct AppointmentProSheet: View {
                     Button("Đặt") {
 
                         if useCustomTime {
-                            let custom = ProSlot(
+                            selectedSlot = ProSlot(
                                 start: combine(selectedDate, customStart),
                                 end: combine(selectedDate, customEnd)
                             )
-                            self.selectedSlot = custom
                         }
 
                         handleCreate()
                     }
                     .disabled((!useCustomTime && selectedSlot == nil) || sharedUserId == nil)
-
-                    .disabled((!useCustomTime && selectedSlot == nil) || sharedUserId == nil)
                 }
-
             }
             .onAppear { loadBusy() }
+
+            // Popup lỗi chung
             .alert(item: Binding(
                 get: { errorMessage.map { SimpleError(id: 0, message: $0) } },
                 set: { _ in errorMessage = nil }
             )) { err in
-                Alert(title: Text("Lỗi"), message: Text(err.message), dismissButton: .default(Text("Đóng")))
+                Alert(title: Text("Lỗi"),
+                      message: Text(err.message),
+                      dismissButton: .default(Text("Đóng")))
+            }
+
+            // Popup Premium
+            .alert("Thông báo", isPresented: $showPremiumAlert) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(errorMessage ?? "Người này chưa đăng Premium.")
             }
             .padding(.bottom)
         }
     }
 
-    // Load busy slots from EventManager
+    // MARK: Load dữ liệu
     private func loadBusy() {
         guard let uid = sharedUserId else {
             loading = false
@@ -181,24 +201,28 @@ struct AppointmentProSheet: View {
             errorMessage = "Không xác định UID người nhận."
             return
         }
-        // 🔥 Lưu vào lịch sử của người B
-        let fullLink = "https://easyschedule-ce98a.web.app/calendar/\(uid)"
 
+        // SAVE HISTORY
         let link = SharedLink(
             id: UUID().uuidString,
             uid: uid,
-            url: fullLink,
+            url: "https://easyschedule-ce98a.web.app/calendar/\(uid)",
             createdAt: Date()
         )
-
         eventManager.sharedLinks.append(link)
 
         loading = true
 
-        // 1️⃣ Load bận
-        eventManager.fetchBusySlots(for: uid) { slots in
+        // 1️⃣ Load busy + premium
+        eventManager.fetchBusySlots(for: uid) { slots, isPremium in
             DispatchQueue.main.async {
                 self.busySlots = slots
+                self.partnerIsPremium = isPremium
+
+                if !isPremium {
+                    self.errorMessage = "Người này chưa đăng Premium — bạn chỉ xem lịch trong 7 ngày tới."
+                    self.showPremiumAlert = true
+                }
             }
         }
 
@@ -211,8 +235,18 @@ struct AppointmentProSheet: View {
         }
     }
 
-
+    // MARK: Xử lý đặt lịch
     private func handleCreate() {
+
+        let now = Date()
+        let maxPremiumDate = calendar.date(byAdding: .day, value: 7, to: now)!
+
+        if !partnerIsPremium && selectedDate > maxPremiumDate {
+            errorMessage = "Chủ lịch chưa đăng Premium — bạn chỉ được đặt lịch trong 7 ngày tới."
+            showPremiumAlert = true
+            return
+        }
+
         guard let uid = sharedUserId else {
             errorMessage = "Không xác định UID người nhận."
             return
@@ -226,41 +260,43 @@ struct AppointmentProSheet: View {
             return
         }
 
-        eventManager.addAppointment(forSharedUser: uid, title: titleText, start: slot.start, end: slot.end) { success, msg in
+        eventManager.addAppointment(
+            forSharedUser: uid,
+            title: titleText,
+            start: slot.start,
+            end: slot.end
+        ) { success, msg in
             DispatchQueue.main.async {
-                if success {
-                    isPresented = false
-                } else {
-                    errorMessage = msg ?? "Tạo lịch thất bại."
-                }
+                if success { isPresented = false }
+                else { errorMessage = msg ?? "Tạo lịch thất bại." }
             }
         }
     }
+
+    // MARK: Helper
+
     private func combine(_ date: Date, _ time: Date) -> Date {
         let cal = Calendar.current
         let d = cal.dateComponents([.year, .month, .day], from: date)
         let t = cal.dateComponents([.hour, .minute], from: time)
-
         return cal.date(from: DateComponents(
-            year: d.year,
-            month: d.month,
-            day: d.day,
-            hour: t.hour,
-            minute: t.minute
+            year: d.year, month: d.month, day: d.day,
+            hour: t.hour, minute: t.minute
         ))!
     }
 
     private func checkBusy(_ slot: ProSlot) -> Bool {
         let day = Calendar.current.startOfDay(for: slot.start)
-        if partnerOffDays.contains(day) { return true }   // 🔥 Block cả ngày
-        return busySlots.contains { $0.startTime < slot.end && $0.endTime > slot.start }
+        if partnerOffDays.contains(day) { return true }
+        return busySlots.contains {
+            $0.startTime < slot.end && $0.endTime > slot.start
+        }
     }
-
 
     private func generateSlots(for date: Date) -> [ProSlot] {
         var arr: [ProSlot] = []
         guard let startOfDay = calendar.date(bySettingHour: 6, minute: 0, second: 0, of: date) else { return [] }
-        for i in 0..<32 { // 6:00 -> 22:00 (30-min slots)
+        for i in 0..<32 {
             let s = startOfDay.addingTimeInterval(Double(i) * 1800)
             let e = s.addingTimeInterval(1800)
             arr.append(ProSlot(start: s, end: e))
@@ -273,6 +309,7 @@ struct AppointmentProSheet: View {
         let message: String
     }
 }
+
 
 // MARK: - Mini calendar (unchanged logic)
 struct CalendarMiniView: View {
