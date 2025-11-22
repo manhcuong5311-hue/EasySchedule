@@ -217,34 +217,35 @@ extension EventManager {
                   startTime: Date,
                   endTime: Date,
                   colorHex: String = "#007AFF") -> Bool {
-        // 👉 PREMIUM CHECK
+
         let isPremiumUser = UserDefaults.standard.bool(forKey: "isPremiumUser")
         let now = Date()
         let calendar = Calendar.current
 
+        // PREMIUM CHECK
         if !isPremiumUser {
 
-            // ❌ 1. Không được tạo lịch sau 3 ngày
+            // ❌ Kiểm tra 7 ngày
             if let maxDate = calendar.date(byAdding: .day, value: 7, to: now),
                date > maxDate {
-                print("🚫 Premium: vượt giới hạn 7 ngày")
+                print("🚫 Premium limit: too far date")
                 return false
             }
 
-            // ❌ 2. Không quá 4 lịch trong cùng 1 ngày
-            let sameDayEvents = events.filter {
-                calendar.isDate($0.date, inSameDayAs: date)
-            }
-            if sameDayEvents.count >= 4 {
-                print("🚫 Premium: quá 4 lịch/ngày")
+            // ❌ Giới hạn 4 lịch/ngày
+            let sameDay = events.filter { calendar.isDate($0.date, inSameDayAs: date) }
+            if sameDay.count >= 4 {
+                print("🚫 Premium limit: max 4 events/day")
                 return false
             }
         }
 
+        // ---- PASS PREMIUM => tạo event ----
+
         let newEvent = CalendarEvent(
             id: UUID().uuidString,
             title: title,
-            owner: self.currentUserId ?? "",   // 👈 Sửa chỗ này
+            owner: owner,
             date: date,
             startTime: startTime,
             endTime: endTime,
@@ -252,22 +253,22 @@ extension EventManager {
             pendingDelete: false
         )
 
-
+        // GHI LOCAL SAU KHI PASS CHECK
         DispatchQueue.main.async {
             self.events.append(newEvent)
         }
-        let uid = self.currentUserId ?? ""
 
+        // GHI FIREBASE
+        let uid = self.currentUserId ?? ""
         let data: [String: Any] = [
             "title": newEvent.title,
-            "owner": uid,           // chủ
-            "sharedUser": uid,      // chủ = sharedUser khi tự tạo
+            "owner": uid,
+            "sharedUser": uid,
             "date": Timestamp(date: newEvent.date),
             "startTime": Timestamp(date: newEvent.startTime),
             "endTime": Timestamp(date: newEvent.endTime),
             "colorHex": newEvent.colorHex
         ]
-
 
         var ref: DocumentReference?
         ref = db.collection("events").addDocument(data: data) { err in
@@ -280,7 +281,6 @@ extension EventManager {
                 DispatchQueue.main.async {
                     if let i = self.events.firstIndex(where: { $0.id == newEvent.id }) {
                         self.events[i].id = docId
-                        self.saveEvents()
                     }
                 }
             }
@@ -288,6 +288,7 @@ extension EventManager {
 
         return true
     }
+
 
     func updateEvent(_ event: CalendarEvent,
                      newTitle: String,
@@ -343,38 +344,37 @@ extension EventManager {
         syncBusySlotsToFirebase()
     }
     // MARK: - Fetch busy slots (one-shot)
-    func fetchBusySlots(for userId: String, completion: @escaping ([CalendarEvent]) -> Void) {
-        db.collection("publicCalendar")
-            .document(userId)
-            .getDocument { snapshot, error in
-                guard let data = snapshot?.data(), error == nil else {
-                    completion([])
-                    return
-                }
-
-                let rawSlots = data["busySlots"] as? [[String: Any]] ?? []
-
-                let slots = rawSlots.compactMap { dict -> CalendarEvent? in
-                    guard let start = dict["start"] as? TimeInterval,
-                          let end = dict["end"] as? TimeInterval else { return nil }
-
-                    let id = dict["id"] as? String ?? "\(start)-\(end)-busy-\(userId)"
-                    let title = dict["title"] as? String ?? "Bận"
-                    let owner = dict["owner"] as? String ?? userId
-
-                    return CalendarEvent(
-                        id: id,
-                        title: title,
-                        owner: owner,
-                        date: Date(timeIntervalSince1970: start),
-                        startTime: Date(timeIntervalSince1970: start),
-                        endTime: Date(timeIntervalSince1970: end)
-                    )
-                }
-
-                completion(slots)
+    func fetchBusySlots(for userId: String,
+                        completion: @escaping ([CalendarEvent], Bool) -> Void) {
+        db.collection("publicCalendar").document(userId).getDocument { snap, error in
+            guard let data = snap?.data() else {
+                completion([], false)
+                return
             }
+
+            // lấy busySlots
+            let raw = data["busySlots"] as? [[String: Any]] ?? []
+            let slots = raw.compactMap { dict -> CalendarEvent? in
+                guard let start = dict["start"] as? TimeInterval,
+                      let end   = dict["end"]   as? TimeInterval else { return nil }
+                return CalendarEvent(
+                    id: dict["id"] as? String ?? UUID().uuidString,
+                    title: dict["title"] as? String ?? "Bận",
+                    owner: dict["owner"] as? String ?? "",
+                    date: Date(timeIntervalSince1970: start),
+                    startTime: Date(timeIntervalSince1970: start),
+                    endTime: Date(timeIntervalSince1970: end)
+                )
+            }
+
+            // lấy trạng thái premium (firebase field)
+            let isPremiumUser = data["isPremiumUser"] as? Bool ?? false
+
+            completion(slots, isPremiumUser)
+        }
     }
+
+
 
     // MARK: - Remove busy slot
     private func removeBusySlotFromPublicCalendar(event: CalendarEvent) {
@@ -403,7 +403,7 @@ extension EventManager {
         self.isAdding = true
         
         // 1️⃣ Kiểm tra trùng giờ
-        fetchBusySlots(for: sharedUserId) { busySlots in
+        fetchBusySlots(for: sharedUserId) { busySlots, isPremiumUser in
             let overlap = busySlots.contains { $0.startTime < end && $0.endTime > start }
             if overlap {
                 DispatchQueue.main.async { self.isAdding = false }
@@ -545,16 +545,21 @@ extension EventManager {
             [
                 "id": e.id,
                 "title": e.title,
-                "owner": self.currentUserId ?? ""
-,
+                "owner": self.currentUserId ?? "",
                 "start": e.startTime.timeIntervalSince1970,
                 "end": e.endTime.timeIntervalSince1970
             ]
         }
 
+        let isPremium = UserDefaults.standard.bool(forKey: "isPremiumUser")
+
         db.collection("publicCalendar").document(uid)
-            .setData(["busySlots": slots], merge: true)
+            .setData([
+                "busySlots": slots,
+                "isPremium": isPremium       // ⭐ QUAN TRỌNG: thêm dòng này
+            ], merge: true)
     }
+
     // MARK: Sync offDays
     func syncOffDaysToFirebase(offDays: Set<Date>) {
         guard let uid = currentUserId else { return }
@@ -801,26 +806,28 @@ struct EventListView: View {
                                                 Circle()
                                                     .fill(Color(hex: event.colorHex.isEmpty ? "#FF0000" : event.colorHex))
                                                     .frame(width: 12, height: 12)
+
                                                 VStack(alignment: .leading, spacing: 4) {
-                                                    HStack {
-                                                        Text(event.title)
-                                                            .font(.headline)
-                                                        Spacer()
-                                                        Button {
-                                                            showDeleteConfirmation(for: event)
-                                                        } label: {
-                                                            Image(systemName: "trash")
-                                                                .foregroundColor(.red)
-                                                                .padding(8)
-                                                        }
-                                                        .buttonStyle(.plain)
-                                                    }
-                                                    
+                                                    Text(event.title)
+                                                        .font(.headline)
+
                                                     Text("\(timeFormatter.string(from: event.startTime)) - \(timeFormatter.string(from: event.endTime))")
                                                         .font(.caption)
                                                         .foregroundColor(.secondary)
                                                 }
-                                            }                                            .padding(.vertical, 4)
+
+                                                Spacer()
+                                            }
+                                            .padding(.vertical, 4)
+                                            .contentShape(Rectangle())
+                                            .swipeActions {
+                                                Button(role: .destructive) {
+                                                    showDeleteConfirmation(for: event)
+                                                } label: {
+                                                    Label("Xoá", systemImage: "trash")
+                                                }
+                                            }
+                                     .padding(.vertical, 4)
                                         }
                                         .onDelete(perform: deleteUpcomingEvent)
                                     }
@@ -839,7 +846,6 @@ struct EventListView: View {
         showDeleteAlert = true
     }
     
-    // MARK: - Lịch đã qua (gộp theo ngày + tìm kiếm)
     // MARK: - Lịch đã qua (gộp theo tháng + tuần + tìm kiếm)
     private var pastEventsGroupedView: some View {
         // Lọc theo từ khóa tìm kiếm (title hoặc owner)
@@ -1358,12 +1364,12 @@ struct AddEventView: View {
                         }
 
                         // 5️⃣ Đảm bảo start < end
-                        var s = combine(date: date, time: startTime)
+                        let s = combine(date: date, time: startTime)
                         var e = combine(date: date, time: endTime)
                         if e <= s { e = s.addingTimeInterval(1800) } // auto +30p
 
                         // 6️⃣ Tạo event
-                        _ = eventManager.addEvent(
+                        let success = eventManager.addEvent(
                             title: title,
                             owner: owner.isEmpty ? "Bạn" : owner,
                             date: date,
@@ -1372,7 +1378,14 @@ struct AddEventView: View {
                             colorHex: selectedColor.toHex() ?? "#007AFF"
                         )
 
+                        if !success {
+                            alertMessage = "Bạn chưa nâng cấp Premium: chỉ tạo tối đa 4 lịch/ngày và không quá 7 ngày tiếp theo."
+                            showAlert = true
+                            return            // ❗ Quan trọng: KHÔNG ĐÓNG VIEW
+                        }
+
                         dismiss()
+
                     }
 
                 }
