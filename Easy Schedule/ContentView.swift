@@ -217,6 +217,29 @@ extension EventManager {
                   startTime: Date,
                   endTime: Date,
                   colorHex: String = "#007AFF") -> Bool {
+        // 👉 PREMIUM CHECK
+        let isPremiumUser = UserDefaults.standard.bool(forKey: "isPremiumUser")
+        let now = Date()
+        let calendar = Calendar.current
+
+        if !isPremiumUser {
+
+            // ❌ 1. Không được tạo lịch sau 3 ngày
+            if let maxDate = calendar.date(byAdding: .day, value: 7, to: now),
+               date > maxDate {
+                print("🚫 Premium: vượt giới hạn 7 ngày")
+                return false
+            }
+
+            // ❌ 2. Không quá 4 lịch trong cùng 1 ngày
+            let sameDayEvents = events.filter {
+                calendar.isDate($0.date, inSameDayAs: date)
+            }
+            if sameDayEvents.count >= 4 {
+                print("🚫 Premium: quá 4 lịch/ngày")
+                return false
+            }
+        }
 
         let newEvent = CalendarEvent(
             id: UUID().uuidString,
@@ -1187,10 +1210,6 @@ struct CustomizableCalendarView: View {
         offDays.contains(calendar.startOfDay(for: date))
     }
     
-    // MARK: - Share link tạm
-    private func generateShareLink() {
-        shareLink = URL(string: "https://example.com/share-calendar")
-    }
     
     // MARK: - Format giờ
     private func formattedTime(_ date: Date) -> String {
@@ -1234,7 +1253,10 @@ struct AddEventView: View {
     // ✅ THÊM MỚI — biến trạng thái popup
     @State private var showOffDayAlert = false
     @State private var offDayMessage = ""
-    
+    @AppStorage("isPremiumUser") private var isPremiumUser: Bool = false
+    @State private var alertMessage: String = ""
+    @State private var showAlert: Bool = false
+
     
     var body: some View {
         NavigationStack {
@@ -1246,10 +1268,11 @@ struct AddEventView: View {
                 Section(header: Text("Ngày & giờ")) {
                     DatePicker("Ngày", selection: $date, displayedComponents: .date)
                     NavigationLink {
-                        TimeSlotPickerGridView(selectedDate: selectedDate) { slot in
+                        TimeSlotPickerGridView(selectedDate: date) { slot in
                             selectedSlot = slot
-                            startTime = slot.startTime   // ✅ cập nhật DatePicker
-                            endTime = slot.endTime
+                            // quan trọng: gộp ngày đã chọn (date) với thời gian từ slot
+                            startTime = combine(date: date, time: slot.startTime)
+                            endTime   = combine(date: date, time: slot.endTime)
                         }
                     } label: {
                         HStack {
@@ -1280,6 +1303,7 @@ struct AddEventView: View {
             .onAppear {
                 if let d = prefillDate {
                     date = d
+                    selectedDate = d                  // <- QUAN TRỌNG: đồng bộ
                     // set startTime/endTime to that day same hour as current
                     let comps = Calendar.current.dateComponents([.year, .month, .day], from: d)
                     if let dayStart = Calendar.current.date(from: comps) {
@@ -1289,48 +1313,86 @@ struct AddEventView: View {
                     }
                 }
             }
+
             .navigationTitle("Thêm lịch")
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Lưu") {
-                        // ✅ THÊM MỚI: kiểm tra ngày nghỉ trước khi lưu
+
                         let calendar = Calendar.current
+                        let now = Date()
+
+                        // 1️⃣ Kiểm tra ngày nghỉ
                         if offDays.contains(where: { calendar.isDate($0, inSameDayAs: date) }) {
-                            offDayMessage = " \(formattedDate(date)) là ngày nghỉ, bạn không thể đặt lịch vào ngày này."
+                            offDayMessage = "Ngày \(formattedDate(date)) là ngày nghỉ, bạn không thể đặt lịch vào ngày này."
                             showOffDayAlert = true
                             return
                         }
-                        
-                        // Basic validation
-                        guard !title.trimmingCharacters(in: .whitespaces).isEmpty else { return }
-                        // ensure start <= end (if not, swap)
+
+                        // 2️⃣ PREMIUM CHECK — GIỚI HẠN NGÀY
+                        if !isPremiumUser {
+                            if let maxDate = calendar.date(byAdding: .day, value: 7, to: now),
+                               date > maxDate {
+
+                                alertMessage = "❗Bạn chỉ được tạo lịch trong vòng 7 ngày tới.Nâng cấp Premium để mở khoá không giới hạn."
+                                showAlert = true
+                                return
+                            }
+
+                            // 3️⃣ PREMIUM CHECK — GIỚI HẠN SỐ LỊCH / NGÀY
+                            let sameDayEvents = eventManager.events.filter {
+                                calendar.isDate($0.date, inSameDayAs: date)
+                            }
+                            if sameDayEvents.count >= 4 {
+                                alertMessage = "🚫 Bạn chỉ được tạo tối đa 4 lịch / ngày.Nâng cấp Premium để tạo không giới hạn."
+                                showAlert = true
+                                return
+                            }
+                        }
+
+                        // 4️⃣ Validate form
+                        guard !title.trimmingCharacters(in: .whitespaces).isEmpty else {
+                            alertMessage = "Tên sự kiện không được để trống."
+                            showAlert = true
+                            return
+                        }
+
+                        // 5️⃣ Đảm bảo start < end
                         var s = combine(date: date, time: startTime)
                         var e = combine(date: date, time: endTime)
-                        if e < s { swap(&s, &e) }
-                        
-                        let safeOwner = owner.isEmpty ? "Bạn" : owner
-                        
+                        if e <= s { e = s.addingTimeInterval(1800) } // auto +30p
+
+                        // 6️⃣ Tạo event
                         _ = eventManager.addEvent(
                             title: title,
-                            owner: safeOwner,
+                            owner: owner.isEmpty ? "Bạn" : owner,
                             date: date,
                             startTime: s,
                             endTime: e,
-                            colorHex: selectedColor.toHex() ?? "#FFFFFF" // ví dụ giá trị mặc định
+                            colorHex: selectedColor.toHex() ?? "#007AFF"
                         )
+
                         dismiss()
                     }
+
                 }
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Huỷ") { dismiss() }
                 }
             }
             // ✅ THÊM MỚI — popup cảnh báo
+            // OFFDAY popup
             .alert("Không thể đặt lịch", isPresented: $showOffDayAlert) {
                 Button("Đóng", role: .cancel) { }
             } message: {
                 Text(offDayMessage)
             }
+
+            // PREMIUM popup
+            .alert(alertMessage, isPresented: $showAlert) {
+                Button("OK", role: .cancel) {}
+            }
+
         }
     }
     
@@ -1720,9 +1782,9 @@ struct AddOrEditEventView: View {
 
         // Kiểm tra giới hạn Premium
         if !isPremiumUser {
-            if let maxDate = calendar.date(byAdding: .day, value: 3, to: now),
+            if let maxDate = calendar.date(byAdding: .day, value: 7, to: now),
                newEvent.date > maxDate {
-                activeAlert = AlertMessage(title: "Vượt giới hạn ngày", message: "Chỉ được thêm lịch trong 3 ngày tới.")
+                activeAlert = AlertMessage(title: "Vượt giới hạn ngày", message: "Chỉ được thêm lịch trong 7 ngày tới.")
                 return
             }
 
