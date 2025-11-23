@@ -35,6 +35,8 @@ struct AppointmentProSheet: View {
     @State private var useCustomTime: Bool = false
 
     @State private var titleText: String = "Cuộc hẹn"
+   
+    @EnvironmentObject var session: SessionStore
 
     private var calendar: Calendar {
         var c = Calendar.current
@@ -252,7 +254,7 @@ struct AppointmentProSheet: View {
         let maxPremiumDate = calendar.date(byAdding: .day, value: 7, to: now)!
 
         if !partnerIsPremium && selectedDate > maxPremiumDate {
-            errorMessage = "Chủ lịch chưa đăng Premium — bạn chỉ được đặt lịch trong 7 ngày tới."
+           
             showPremiumAlert = true
             return
         }

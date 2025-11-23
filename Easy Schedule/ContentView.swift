@@ -28,6 +28,7 @@ struct CalendarEvent: Identifiable, Hashable, Codable {
 
 final class EventManager: ObservableObject {
     static let shared = EventManager()
+    @EnvironmentObject var session: SessionStore
 
     // ⭐ PREMIUM FLAG
     private var isPremiumUser: Bool {
@@ -209,12 +210,29 @@ extension EventManager {
 
     @discardableResult
     func addEvent(title: String,
-                  owner: String,
+                  ownerName: String,
                   date: Date,
                   startTime: Date,
                   endTime: Date,
                   colorHex: String = "#007AFF") -> Bool {
+    
+        // ❗ CHỐNG TRÙNG GIỜ (tuỳ theo toggle)
+        if !allowDuplicateEvents {
+            let overlap = events.contains { ev in
+                Calendar.current.isDate(ev.date, inSameDayAs: date) &&
+                ev.startTime < endTime &&
+                startTime < ev.endTime
+            }
 
+            if overlap {
+
+                    self.alertMessage = "Khung giờ này đã có lịch rồi!"
+                    self.showAlert = true
+               
+                return false
+            }
+        }
+        
         let isPremium = PremiumManager.shared.isPremiumUser
 
         // FREE USER LIMITS
@@ -235,18 +253,23 @@ extension EventManager {
                 return false
             }
         }
+       
+        // ❗ CHỐNG TRÙNG GIỜ (tuỳ theo toggle)
+     
+
 
         // PASSES → TẠO LỊCH
         let newEvent = CalendarEvent(
             id: UUID().uuidString,
             title: title,
-            owner: owner,
+            owner: ownerName,        // ⭐ Tự động gán tên user
             date: date,
             startTime: startTime,
             endTime: endTime,
             colorHex: colorHex,
             pendingDelete: false
         )
+
 
         // Local
         DispatchQueue.main.async {
@@ -255,10 +278,10 @@ extension EventManager {
         }
 
         // Remote
-        let uid = currentUserId ?? ""
+        _ = currentUserId ?? ""
         let data: [String: Any] = [
             "title": newEvent.title,
-            "owner": owner,
+            "owner": ownerName,
             "sharedUser": currentUserId ?? "",
             "date": Timestamp(date: newEvent.date),
             "startTime": Timestamp(date: newEvent.startTime),
@@ -857,13 +880,20 @@ struct EventListView: View {
                                                     Text(event.title)
                                                         .font(.headline)
 
+                                                    // ⭐ Hiển thị tên người tạo
+                                                    Text(event.owner)
+                                                        .font(.subheadline)
+                                                        .foregroundColor(.secondary)
+
                                                     Text("\(timeFormatter.string(from: event.startTime)) - \(timeFormatter.string(from: event.endTime))")
                                                         .font(.caption)
                                                         .foregroundColor(.secondary)
                                                 }
 
+
                                                 Spacer()
                                             }
+
                                             .padding(.vertical, 4)
                                             .contentShape(Rectangle())
                                             .swipeActions {
@@ -969,7 +999,10 @@ struct EventListView: View {
                     ForEach(eventsForDate) { event in
                         VStack(alignment: .leading, spacing: 4) {
                             Text(event.title).font(.headline)
-                           
+                            Text(event.owner)
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+
                             Text("\(formattedTime(event.startTime)) - \(formattedTime(event.endTime))")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
@@ -1064,6 +1097,7 @@ struct CustomizableCalendarView: View {
         let dates = timestamps.map { Date(timeIntervalSince1970: $0) }
         self.offDays = Set(dates)
     }
+
    
     private var calendar: Calendar {
         var cal = Calendar.current
@@ -1308,6 +1342,7 @@ struct AddEventView: View {
     @AppStorage("isPremiumUser") private var isPremiumUser: Bool = false
     @State private var alertMessage: String = ""
     @State private var showAlert: Bool = false
+    @EnvironmentObject var session: SessionStore
 
     
     var body: some View {
@@ -1417,16 +1452,17 @@ struct AddEventView: View {
                         // 6️⃣ Tạo event
                         let success = eventManager.addEvent(
                             title: title,
-                            owner: owner.isEmpty ? "Bạn" : owner,
+                            ownerName: session.currentUserName,
                             date: date,
                             startTime: s,
                             endTime: e,
                             colorHex: selectedColor.toHex() ?? "#007AFF"
                         )
 
+
+
                         if !success {
-                            alertMessage = "Bạn chưa nâng cấp Premium: chỉ tạo tối đa 4 lịch/ngày và không quá 7 ngày tiếp theo."
-                            showAlert = true
+                           
                             return            // ❗ Quan trọng: KHÔNG ĐÓNG VIEW
                         }
 
@@ -1450,6 +1486,11 @@ struct AddEventView: View {
             // PREMIUM popup
             .alert(alertMessage, isPresented: $showAlert) {
                 Button("OK", role: .cancel) {}
+            }
+            .alert(isPresented: $eventManager.showAlert) {
+                Alert(title: Text("Không thể tạo lịch"),
+                      message: Text(eventManager.alertMessage),
+                      dismissButton: .default(Text("OK")))
             }
 
         }

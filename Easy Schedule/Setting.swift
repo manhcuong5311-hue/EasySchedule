@@ -18,7 +18,8 @@ final class NotificationManager: ObservableObject {
     static let shared = NotificationManager()
     @Published var notificationsEnabled = false
     @Published var leadTime: Int = 15 // phút trước khi nhắc
-    @AppStorage("pushNotificationsEnabled") private var pushNotificationsEnabled = true
+    @AppStorage("firebasePushEnabled") private var firebasePushEnabled = true
+
     
     
     
@@ -68,7 +69,8 @@ struct SettingsView: View {
     @EnvironmentObject var session: SessionStore
     @EnvironmentObject var languageManager: LanguageManager
     @EnvironmentObject var premiumManager: PremiumManager   // ⭐ QUAN TRỌNG
-    
+    @AppStorage("firebasePushEnabled") private var firebasePushEnabled = true
+
 
     // MARK: - Constants
     let leadTimeOptions = [5, 10, 15, 30, 60]
@@ -79,8 +81,8 @@ struct SettingsView: View {
             Form {
 
                 // MARK: - Notifications
-                Section("Thông báo") {
-                    Toggle("Thông báo khi có lịch", isOn: $pushNotificationsEnabled)
+        Section("Thông báo") {
+            Toggle("Nhận thông báo khi sắp đến lịch", isOn: $pushNotificationsEnabled)
                         .onChange(of: pushNotificationsEnabled) { oldValue, newValue in
                             if newValue {
                                 Messaging.messaging().subscribe(toTopic: "admin") { error in
@@ -106,7 +108,29 @@ struct SettingsView: View {
                             Text("\(value) phút trước").tag(value)
                         }
                     }
-                    .disabled(!notificationsEnabled)
+                    .disabled(!pushNotificationsEnabled)
+                   
+            Toggle("Nhận thông báo lịch mới", isOn: $firebasePushEnabled)
+                    .onChange(of: firebasePushEnabled) { oldValue, newValue in
+                            if newValue {
+                                Messaging.messaging().subscribe(toTopic: "schedules") { error in
+                                    if let error = error {
+                                        print("❌ Subscribe topic schedules lỗi: \(error.localizedDescription)")
+                                    } else {
+                                        print("📢 Đã bật thông báo khi có lịch mới")
+                                    }
+                                }
+                            } else {
+                                Messaging.messaging().unsubscribe(fromTopic: "schedules") { error in
+                                    if let error = error {
+                                        print("❌ Unsubscribe topic schedules lỗi: \(error.localizedDescription)")
+                                    } else {
+                                        print("🔕 Đã tắt thông báo lịch mới")
+                                    }
+                                }
+                            }
+                        }
+
                 }
 
                 // MARK: - Giao diện
