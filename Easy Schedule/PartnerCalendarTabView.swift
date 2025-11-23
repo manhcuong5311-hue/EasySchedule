@@ -390,7 +390,7 @@ struct PartnerCalendarTabView_Previews: PreviewProvider {
     static var previews: some View {
         NavigationStack {
             PartnerCalendarTabView()
-                .environmentObject(EventManager())
+                .environmentObject(EventManager.shared)
         }
     }
 }

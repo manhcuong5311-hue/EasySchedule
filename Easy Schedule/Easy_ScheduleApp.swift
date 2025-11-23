@@ -11,6 +11,8 @@ struct Easy_scheduleApp: App {
     @State private var showLaunch = true
     @State private var showOnboarding: Bool = !UserDefaults.standard.bool(forKey: "hasSeenOnboarding")
     @StateObject var premiumManager = PremiumManager.shared
+    @StateObject private var eventManager = EventManager.shared
+
     var body: some Scene {
         WindowGroup {
             if showLaunch {
@@ -19,7 +21,9 @@ struct Easy_scheduleApp: App {
                                            appTheme == "light" ? .light :
                                            appTheme == "dark" ? .dark : nil
                                        )
-                    .environmentObject(languageManager)                // ✅ SỬA 2
+                    .environmentObject(languageManager)
+                    .environmentObject(eventManager)
+// ✅ SỬA 2
                     .onAppear {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                             withAnimation { showLaunch = false }
@@ -31,7 +35,9 @@ struct Easy_scheduleApp: App {
                                            appTheme == "light" ? .light :
                                            appTheme == "dark" ? .dark : nil
                                        )
-                    .environmentObject(languageManager)                // ✅ SỬA 2
+                    .environmentObject(languageManager)
+                    .environmentObject(eventManager)
+// ✅ SỬA 2
             } else {
                 RootView()
                     .preferredColorScheme(
@@ -41,6 +47,7 @@ struct Easy_scheduleApp: App {
                     .environmentObject(session)
                     .environmentObject(languageManager) // ✅ SỬA 2
                     .environmentObject(premiumManager)
+                    .environmentObject(eventManager)
                     .onAppear {
                         session.listen()
                     }
@@ -56,14 +63,19 @@ struct Easy_scheduleApp: App {
 struct RootView: View {
     @EnvironmentObject var session: SessionStore
     @EnvironmentObject var premiumManager: PremiumManager
+    @EnvironmentObject var eventManager: EventManager
 
     var body: some View {
         if session.currentUser == nil {
             LoginView()
+                .environmentObject(eventManager)
+
         } else {
             ContentView()
                 .environmentObject(session)
                 .environmentObject(premiumManager)
+                .environmentObject(eventManager)
+
         }
     }
 }

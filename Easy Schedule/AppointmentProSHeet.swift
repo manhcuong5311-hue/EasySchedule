@@ -502,7 +502,8 @@ struct AppointmentProSheet_Previews: PreviewProvider {
     static var previews: some View {
         NavigationStack {
             AppointmentProSheet(isPresented: .constant(true), sharedUserId: "demoUID")
-                .environmentObject(EventManager())
+                .environmentObject(EventManager.shared
+)
         }
     }
 }

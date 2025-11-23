@@ -27,6 +27,7 @@ struct CalendarEvent: Identifiable, Hashable, Codable {
 
 
 final class EventManager: ObservableObject {
+    static let shared = EventManager()
 
     // ⭐ PREMIUM FLAG
     private var isPremiumUser: Bool {
@@ -37,7 +38,7 @@ final class EventManager: ObservableObject {
         get { UserDefaults.standard.bool(forKey: "allowDuplicateEvents") }
         set { UserDefaults.standard.set(newValue, forKey: "allowDuplicateEvents") }
     }
-
+    private var isProcessing = false
     @State private var shareLink: String?
     @State private var showShareSheet = false
     @Published var isAdding = false
@@ -49,7 +50,7 @@ final class EventManager: ObservableObject {
 
     @Published var events: [CalendarEvent] = [] {
         didSet {
-            saveEvents()
+            
             updateGroupedEvents()
         }
     }
@@ -60,22 +61,20 @@ final class EventManager: ObservableObject {
     private let db = Firestore.firestore()
 
     // MARK: - INIT
-    init() {
+    private init() {
         loadEvents()
         loadSharedLinks()
+        cleanUpPastEvents()
         updateGroupedEvents()
 
         retryPendingDeletes()
         syncBusySlotsToFirebase()
 
-        if let uid = currentUserId {
-            listenToAppointments(forSharedUser: uid)
-            listenToBusySlots(sharedUserId: uid)
-        }
     }
 
     // MARK: - LOCAL SAVE
     private func saveEvents() {
+        if isProcessing { return }   // ⭐ NGĂN GHI ĐÈ SAI
         if let data = try? JSONEncoder().encode(events) {
             UserDefaults.standard.set(data, forKey: "upcomingEvents")
         }
@@ -155,6 +154,8 @@ final class EventManager: ObservableObject {
 
     // MARK: - PAST EVENTS CLEAN
     func cleanUpPastEvents() {
+        isProcessing = true    // ⭐ lock
+
         let now = Date()
         var upcoming: [CalendarEvent] = []
         var expired: [CalendarEvent] = []
@@ -167,9 +168,11 @@ final class EventManager: ObservableObject {
         self.events = upcoming
         self.pastEvents.append(contentsOf: expired)
 
+        isProcessing = false   // ⭐ unlock
         saveEvents()
         updateGroupedEvents()
     }
+
 
     // MARK: - OFF DAYS
     func fetchOffDays(for userId: String, completion: @escaping (Set<Date>) -> Void) {
@@ -248,6 +251,7 @@ extension EventManager {
         // Local
         DispatchQueue.main.async {
             self.events.append(newEvent)
+            self.saveEvents()
         }
 
         // Remote
@@ -522,7 +526,7 @@ extension EventManager {
                             self.events.append(ev)
                         }
                     }
-                    self.cleanUpPastEvents()
+                   
                 }
             }
     }
@@ -561,7 +565,7 @@ extension EventManager {
                             self.events.append(ev)
                         }
                     }
-                    self.cleanUpPastEvents()
+                   
                 }
             }
     }
@@ -620,45 +624,56 @@ extension Array {
 
 // MARK: - ContentView
 struct ContentView: View {
-    @StateObject private var eventManager = EventManager()
-    @StateObject private var languageManager = LanguageManager.shared // ✅ thêm dòng này
+    
+    @EnvironmentObject var eventManager: EventManager
+
+    @StateObject private var languageManager = LanguageManager.shared
+    
     @State private var showPastEvents = false
     @AppStorage("isPremiumUser") private var isPremiumUser: Bool = false
+    
     var body: some View {
+        
         TabView {
+            
             NavigationStack {
                 EventListView(showPastEvents: $showPastEvents)
             }
             .tabItem {
-                Label(NSLocalizedString(" Danh sách sự kiện", comment: ""), systemImage: "list.bullet.rectangle")
+                Label("Danh sách sự kiện", systemImage: "list.bullet.rectangle")
             }
             
             NavigationStack {
                 CustomizableCalendarView()
             }
             .tabItem {
-                Label(NSLocalizedString("Lịch của tôi ", comment: ""), systemImage: "calendar")
+                Label("Lịch của tôi", systemImage: "calendar")
             }
+            
             NavigationStack {
-                          PartnerCalendarTabView()
-                      }
-                      .tabItem {
-                          Label("Đối tác", systemImage: "person.2.fill")
-                      }
+                PartnerCalendarTabView()
+            }
+            .tabItem {
+                Label("Đối tác", systemImage: "person.2.fill")
+            }
+            
             NavigationStack {
                 SettingsView()
             }
             .tabItem {
-                Label(NSLocalizedString("Cài đặt", comment: ""), systemImage: "gearshape")
+                Label("Cài đặt", systemImage: "gearshape")
             }
         }
-        .environmentObject(eventManager)
-        .environmentObject(languageManager) // ✅ thêm dòng này
+        .environmentObject(languageManager)
         .onAppear {
             NotificationManager.shared.requestPermission()
+
+            // ⭐⭐ THÊM DÒNG NÀY ⭐⭐
+            eventManager.cleanUpPastEvents()
         }
     }
 }
+
 
 private func rememberGroupedByMonth(events: [CalendarEvent]) -> [Date: [CalendarEvent]] {
     Dictionary(grouping: events) { event in
@@ -721,8 +736,10 @@ struct EventListView: View {
         }
         .navigationTitle(showPastEvents ? "Lịch đã qua" : "Lịch hiện tại")
         .onAppear {
-            
+            eventManager.cleanUpPastEvents()
+                 // ⭐ thêm dòng này
         }
+
         // Sheet mở danh sách sự kiện trong ngày
         // Thay đoạn này:
         
@@ -1468,7 +1485,8 @@ struct AddEventView: View {
 struct CalendarGridView: View {
     @Binding var selectedDate: Date?
     let eventsByDay: [Date: [CalendarEvent]]
-    
+    @EnvironmentObject var eventManager: EventManager
+
     private let calendar = Calendar.current
     private let columns = Array(repeating: GridItem(.flexible()), count: 7)
     let offDays: Set<Date>
@@ -1664,7 +1682,8 @@ struct AddOrEditEventView: View {
     @State private var showAlert = false
     @State private var showLimitAlert = false
     @AppStorage("isPremiumUser") private var isPremiumUser: Bool = false
-    
+    @EnvironmentObject var eventManager: EventManager
+
     private func showAlertLimit(title: String, message: String) {
         alertMessage = message
         showLimitAlert = true
