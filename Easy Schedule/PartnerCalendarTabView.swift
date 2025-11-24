@@ -10,6 +10,7 @@ import FirebaseAuth
 
 struct PartnerCalendarTabView: View {
     @EnvironmentObject var eventManager: EventManager
+    @State private var showMyCreatedEvents = false
 
     // Link input
     @State private var linkText: String = ""
@@ -41,9 +42,9 @@ struct PartnerCalendarTabView: View {
             VStack(spacing: 12) {
                 inputArea
                 Divider()
+                
                 // MARK: - Lịch sử đã xem
                 Button {
-                    // hiện sheet lịch sử
                     showHistorySheet = true
                 } label: {
                     HStack {
@@ -59,12 +60,33 @@ struct PartnerCalendarTabView: View {
                 .padding(.horizontal)
                 .sheet(isPresented: $showHistorySheet) {
                     HistoryLinksView { link in
-                        // Khi ấn vào lịch sử, set text + load
                         self.linkText = link
                         self.parseAndLoad()
                         self.showHistorySheet = false
                     }
                     .environmentObject(eventManager)
+                }
+
+                //
+                // ⭐⭐ NÚT MỚI – LỊCH TÔI TẠO CHO NGƯỜI KHÁC
+                //
+                Button {
+                    showMyCreatedEvents = true
+                } label: {
+                    HStack {
+                        Image(systemName: "person.crop.circle.badge.plus")
+                        Text("Lịch tôi tạo cho người khác")
+                            .bold()
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(10)
+                    .background(Color.green.opacity(0.15))
+                    .cornerRadius(10)
+                }
+                .padding(.horizontal)
+                .sheet(isPresented: $showMyCreatedEvents) {
+                    MyCreatedEventsView()
+                        .environmentObject(eventManager)
                 }
 
 

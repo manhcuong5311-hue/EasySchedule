@@ -276,7 +276,8 @@ struct AppointmentProSheet: View {
             forSharedUser: uid,
             title: titleText,
             start: slot.start,
-            end: slot.end
+            end: slot.end,
+            createdBy: Auth.auth().currentUser?.uid ?? ""
         ) { success, msg in
             DispatchQueue.main.async {
                 if success { isPresented = false }
@@ -507,5 +508,104 @@ struct AppointmentProSheet_Previews: PreviewProvider {
                 .environmentObject(EventManager.shared
 )
         }
+    }
+}
+
+
+import SwiftUI
+import FirebaseFirestore
+import FirebaseAuth
+
+struct MyCreatedEventsView: View {
+    @EnvironmentObject var eventManager: EventManager
+    @State private var events: [CalendarEvent] = []
+    @State private var loading = true
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if loading {
+                    ProgressView("Đang tải...")
+                } else if events.isEmpty {
+                    Text("Bạn chưa tạo lịch nào cho người khác.")
+                        .foregroundColor(.secondary)
+                        .padding()
+                } else {
+                    List(events) { ev in
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(ev.title)
+                                .font(.headline)
+
+                            Text(timeString(ev))
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+
+                            Text("Chủ lịch: \(ev.owner)")
+                                .font(.caption)
+                                .foregroundColor(.orange)
+                        }
+                        .padding(.vertical, 4)
+                    }
+                }
+            }
+            .navigationTitle("Lịch tôi tạo")
+            .onAppear { loadEvents() }
+        }
+    }
+
+    private func loadEvents() {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+
+        Firestore.firestore()
+            .collectionGroup("appointments")
+            .whereField("createdBy", isEqualTo: uid)        // 👈 QUAN TRỌNG NHẤT
+            .order(by: "start", descending: false)
+            .getDocuments { snap, err in
+                loading = false
+                guard let docs = snap?.documents else { return }
+                self.events = docs.compactMap { CalendarEvent.from($0) }
+            }
+    }
+
+    private func timeString(_ ev: CalendarEvent) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm dd/MM/yyyy"
+        return "\(f.string(from: ev.startTime)) → \(f.string(from: ev.endTime))"
+    }
+}
+
+import FirebaseFirestore
+
+extension CalendarEvent {
+    static func from(_ doc: DocumentSnapshot) -> CalendarEvent? {
+        let data = doc.data() ?? [:]
+
+        // Lấy "start" và "end"
+        let startTimestamp = data["start"] as? TimeInterval
+        let endTimestamp = data["end"] as? TimeInterval
+
+        // Nếu bạn lưu Timestamp Firestore thay vì Double thì dùng:
+        // let startTimestamp = (data["start"] as? Timestamp)?.dateValue()
+
+        guard
+            let title = data["title"] as? String,
+            let owner = data["owner"] as? String,
+            let start = startTimestamp,
+            let end = endTimestamp
+        else { return nil }
+
+        let startDate = Date(timeIntervalSince1970: start)
+        let endDate = Date(timeIntervalSince1970: end)
+
+        return CalendarEvent(
+            id: doc.documentID,
+            title: title,
+            owner: owner,
+            date: Calendar.current.startOfDay(for: startDate),
+            startTime: startDate,
+            endTime: endDate,
+            colorHex: data["colorHex"] as? String ?? "#007AFF",
+            pendingDelete: false
+        )
     }
 }

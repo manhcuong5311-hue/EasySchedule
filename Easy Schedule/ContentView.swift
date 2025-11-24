@@ -440,6 +440,7 @@ extension EventManager {
                         title: String,
                         start: Date,
                         end: Date,
+                        createdBy: String,
                         completion: @escaping (Bool, String?) -> Void) {
         
         self.isAdding = true
@@ -497,6 +498,7 @@ extension EventManager {
                     "title": title,
                     "owner": sharedUserId,            // A
                     "sharedUser": uid,                // B
+                    "createdBy": createdBy, 
                     "date": Timestamp(date: start),
                     "startTime": Timestamp(date: start),
                     "endTime": Timestamp(date: end),

@@ -492,6 +492,38 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     // MARK: - MessagingDelegate
     func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
         print("✅ FCM token: \(fcmToken ?? "")")
+        guard let token = fcmToken else { return }
+
+        // 🔥 Gửi token lên server (Cloud Functions)
+        sendTokenToServer(token)
+    }
+
+    // Hàm gửi token lên Firebase Cloud Functions
+    private func sendTokenToServer(_ token: String) {
+        guard let uid = Auth.auth().currentUser?.uid else {
+            print("⚠️ Chưa đăng nhập -> Không gửi fcmToken")
+            return
+        }
+
+        let url = URL(string: "https://us-central1-easyschedule-ce98a.cloudfunctions.net/updateFcmToken")!
+
+        let body: [String: Any] = [
+            "uid": uid,
+            "token": token
+        ]
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        URLSession.shared.dataTask(with: request) { data, _, error in
+            if let error = error {
+                print("❌ Gửi token lỗi:", error.localizedDescription)
+            } else {
+                print("📨 Đã gửi fcmToken lên server")
+            }
+        }.resume()
     }
 
     // MARK: - Remote Notification
