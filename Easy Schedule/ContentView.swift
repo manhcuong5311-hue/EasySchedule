@@ -67,9 +67,12 @@ final class EventManager: ObservableObject {
         loadSharedLinks()
         cleanUpPastEvents()
         updateGroupedEvents()
-
         retryPendingDeletes()
         syncBusySlotsToFirebase()
+        if let uid = currentUserId {
+            listenToAppointments(forSharedUser: uid)
+        }
+
 
     }
 

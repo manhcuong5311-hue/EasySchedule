@@ -20,6 +20,7 @@ struct AppointmentProSheet: View {
 
     @Binding var isPresented: Bool
     let sharedUserId: String?
+    @State private var showSuccessAlert = false
 
     @State private var selectedDate: Date = Date()
     @State private var selectedSlot: ProSlot? = nil
@@ -179,7 +180,7 @@ struct AppointmentProSheet: View {
             }
             .onAppear { loadBusy() }
 
-            // Popup lỗi chung
+            // Popup lỗi chung — ƯU TIÊN CAO NHẤT
             .alert(item: Binding(
                 get: { errorMessage.map { SimpleError(id: 0, message: $0) } },
                 set: { _ in errorMessage = nil }
@@ -189,11 +190,20 @@ struct AppointmentProSheet: View {
                       dismissButton: .default(Text("Đóng")))
             }
 
-            // Popup Premium
+            // Popup thành công
+            .alert("Thành công", isPresented: $showSuccessAlert) {
+                Button("OK") {
+                    isPresented = false
+                }
+            } message: {
+                Text("Bạn đã đặt lịch thành công cho người dùng này.")
+            }
+
+            // Popup Premium — KHÔNG dùng lại errorMessage nữa
             .alert("Thông báo", isPresented: $showPremiumAlert) {
                 Button("OK", role: .cancel) {}
             } message: {
-                Text(errorMessage ?? "Người này chưa đăng Premium.")
+                Text("Người này chưa đăng Premium.")
             }
             .padding(.bottom)
         }
@@ -280,7 +290,7 @@ struct AppointmentProSheet: View {
             createdBy: Auth.auth().currentUser?.uid ?? ""
         ) { success, msg in
             DispatchQueue.main.async {
-                if success { isPresented = false }
+                if success { showSuccessAlert = true }
                 else { errorMessage = msg ?? "Tạo lịch thất bại." }
             }
         }
@@ -554,18 +564,37 @@ struct MyCreatedEventsView: View {
     }
 
     private func loadEvents() {
-        guard let uid = Auth.auth().currentUser?.uid else { return }
+        guard let uid = Auth.auth().currentUser?.uid else {
+            loading = false
+            return
+        }
 
-        Firestore.firestore()
-            .collectionGroup("appointments")
+    Firestore.firestore()
+            .collection("appointments")
             .whereField("createdBy", isEqualTo: uid)        // 👈 QUAN TRỌNG NHẤT
             .order(by: "start", descending: false)
             .getDocuments { snap, err in
-                loading = false
-                guard let docs = snap?.documents else { return }
-                self.events = docs.compactMap { CalendarEvent.from($0) }
+                DispatchQueue.main.async {
+                    self.loading = false
+
+                    if let err = err {
+                        // Hiện thông báo hoặc log cho dev
+                        print("Error loading created events: \(err.localizedDescription)")
+                        // Bạn có thể show errorMessage ở UI nếu muốn:
+                        // self.errorMessage = "Lỗi tải lịch: \(err.localizedDescription)"
+                        return
+                    }
+
+                    guard let docs = snap?.documents else {
+                        print("No documents returned, snapshot is nil")
+                        return
+                    }
+
+                    self.events = docs.compactMap { CalendarEvent.from($0) }
+                }
             }
     }
+
 
     private func timeString(_ ev: CalendarEvent) -> String {
         let f = DateFormatter()
@@ -574,36 +603,57 @@ struct MyCreatedEventsView: View {
     }
 }
 
+
+
+
+import FirebaseFirestore
+
 import FirebaseFirestore
 
 extension CalendarEvent {
     static func from(_ doc: DocumentSnapshot) -> CalendarEvent? {
         let data = doc.data() ?? [:]
 
-        // Lấy "start" và "end"
-        let startTimestamp = data["start"] as? TimeInterval
-        let endTimestamp = data["end"] as? TimeInterval
+        // Try both Firestore Timestamp and numeric (seconds) fallback
+        var startDate: Date?
+        var endDate: Date?
 
-        // Nếu bạn lưu Timestamp Firestore thay vì Double thì dùng:
-        // let startTimestamp = (data["start"] as? Timestamp)?.dateValue()
+        if let ts = data["start"] as? Timestamp {
+            startDate = ts.dateValue()
+        } else if let d = data["start"] as? Double {
+            startDate = Date(timeIntervalSince1970: d)
+        } else if let i = data["start"] as? Int {
+            startDate = Date(timeIntervalSince1970: TimeInterval(i))
+        }
+
+        if let ts = data["end"] as? Timestamp {
+            endDate = ts.dateValue()
+        } else if let d = data["end"] as? Double {
+            endDate = Date(timeIntervalSince1970: d)
+        } else if let i = data["end"] as? Int {
+            endDate = Date(timeIntervalSince1970: TimeInterval(i))
+        }
 
         guard
             let title = data["title"] as? String,
             let owner = data["owner"] as? String,
-            let start = startTimestamp,
-            let end = endTimestamp
-        else { return nil }
-
-        let startDate = Date(timeIntervalSince1970: start)
-        let endDate = Date(timeIntervalSince1970: end)
+            let s = startDate,
+            let e = endDate
+        else {
+            // Có thể log để debug tại dev build
+            #if DEBUG
+            print("CalendarEvent.from: missing fields for doc \(doc.documentID) -> data: \(data)")
+            #endif
+            return nil
+        }
 
         return CalendarEvent(
             id: doc.documentID,
             title: title,
             owner: owner,
-            date: Calendar.current.startOfDay(for: startDate),
-            startTime: startDate,
-            endTime: endDate,
+            date: Calendar.current.startOfDay(for: s),
+            startTime: s,
+            endTime: e,
             colorHex: data["colorHex"] as? String ?? "#007AFF",
             pendingDelete: false
         )
