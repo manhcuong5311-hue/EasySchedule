@@ -127,10 +127,6 @@ struct AppointmentProSheet: View {
                         let maxPremiumDate = calendar.date(byAdding: .day, value: 7, to: now)!
                         let dayBlocked = (!partnerIsPremium && selectedDate > maxPremiumDate)
 
-                        Toggle("Dùng giờ tuỳ chỉnh", isOn: $useCustomTime)
-                            .disabled(dayBlocked)
-                            .opacity(dayBlocked ? 0.35 : 1)
-
                         ScrollView {
                             LazyVStack(spacing: 8) {
                                 ForEach(slots, id: \.self) { slot in
@@ -319,14 +315,25 @@ struct AppointmentProSheet: View {
 
     private func generateSlots(for date: Date) -> [ProSlot] {
         var arr: [ProSlot] = []
-        guard let startOfDay = calendar.date(bySettingHour: 6, minute: 0, second: 0, of: date) else { return [] }
-        for i in 0..<32 {
+        
+        // Bắt đầu từ 00:00 của ngày
+        guard let startOfDay = calendar.date(
+            bySettingHour: 0,
+            minute: 0,
+            second: 0,
+            of: date
+        ) else { return [] }
+        
+        // 48 slot (mỗi slot 30 phút → 24h)
+        for i in 0..<48 {
             let s = startOfDay.addingTimeInterval(Double(i) * 1800)
             let e = s.addingTimeInterval(1800)
             arr.append(ProSlot(start: s, end: e))
         }
+        
         return arr
     }
+
 
     struct SimpleError: Identifiable {
         let id: Int

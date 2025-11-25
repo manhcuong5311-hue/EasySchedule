@@ -879,9 +879,9 @@ struct EventListView: View {
         return f.string(from: date).capitalized
     }
     
-    // MARK: - Lịch hiện tại
+    
     // MARK: - Lịch hiện tại (gộp theo Tháng → Tuần → Ngày)
-    // MARK: - Lịch hiện tại (TỐI ƯU HIỆU NĂNG)
+   
     private var upcomingEventsList: some View {
         // ✅ 1. Tạo formatter dùng chung (không tạo mới mỗi lần)
         let monthFormatter: DateFormatter = {
@@ -1217,11 +1217,11 @@ struct CustomizableCalendarView: View {
     @State private var eventToDelete: CalendarEvent? = nil
     @State private var showShareSheet = false
     @State private var shareLink: URL? = nil
-    
-    // ✅ thêm biến quản lý ngày nghỉ
+
     @State private var offDays: Set<Date> = [] {
         didSet { saveOffDaysToLocal() }
     }
+
     private func saveOffDaysToLocal() {
         let timestamps = offDays.map { $0.timeIntervalSince1970 }
         UserDefaults.standard.set(timestamps, forKey: "offDays")
@@ -1233,163 +1233,170 @@ struct CustomizableCalendarView: View {
         self.offDays = Set(dates)
     }
 
-   
     private var calendar: Calendar {
         var cal = Calendar.current
-        cal.firstWeekday = 2 // 2 = Monday bắt đầu tuần
+        cal.firstWeekday = 2
         return cal
     }
-    
+
     private func showDeleteConfirmation(for event: CalendarEvent) {
         eventToDelete = event
         showDeleteAlert = true
     }
-    
+
     var body: some View {
         NavigationStack {
-            VStack(spacing: 12) {
-                
-                // MARK: - Calendar grid
-        CalendarGridView(
-        selectedDate: $selectedDate,
-        eventsByDay: eventManager.groupedByDay,
-        offDays: offDays,
-        isOwner: true
-    )
-        .padding(.top, 8)
-                
-        // MARK: - Toggle cho phép trùng lịch
-    Toggle("Cho phép trùng lịch", isOn: Binding(
-        get: { eventManager.allowDuplicateEvents },
-        set: { eventManager.allowDuplicateEvents = $0 }
-    ))
-        .padding(.horizontal)
-        .padding(.bottom, 4)
-                
-        Divider()
-                
-                // MARK: - Nút chia sẻ
-                Button {
-                    eventManager.syncBusySlotsToFirebase() // cập nhật Firebase trước khi share
-                    
-                    // Lấy UID hiện tại từ Firebase Auth
-                    if let uid = Auth.auth().currentUser?.uid {
-                        // Tạo URL chia sẻ
-                        if let url = URL(string: "https://easyschedule-ce98a.web.app/calendar/\(uid)") {
+            ScrollView {
+                VStack(spacing: 12) {
+
+                    // MARK: - Calendar grid
+                    CalendarGridView(
+                        selectedDate: $selectedDate,
+                        eventsByDay: eventManager.groupedByDay,
+                        offDays: offDays,
+                        isOwner: true
+                    )
+                    .padding(.top, 8)
+                    .frame(maxWidth: .infinity)
+                    .simultaneousGesture(TapGesture()) // ⭐ FIX TAP BỊ CHẶN
+
+                    // MARK: - Toggle trùng lịch
+                    Toggle("Cho phép trùng lịch", isOn: Binding(
+                        get: { eventManager.allowDuplicateEvents },
+                        set: { eventManager.allowDuplicateEvents = $0 }
+                    ))
+                    .padding(.horizontal)
+                    .padding(.bottom, 4)
+
+                    Divider()
+
+                    // MARK: - Chia sẻ lịch
+                    Button {
+                        eventManager.syncBusySlotsToFirebase()
+
+                        if let uid = Auth.auth().currentUser?.uid,
+                           let url = URL(string: "https://easyschedule-ce98a.web.app/calendar/\(uid)") {
                             shareLink = url
                             showShareSheet = true
-                            
-                        } else {
-                            print("❌ Tạo URL thất bại")
+                        }
+                    } label: {
+                        HStack {
+                            Image(systemName: "square.and.arrow.up")
+                            Text("Chia sẻ lịch").bold()
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.blue.opacity(0.2))
+                        .cornerRadius(10)
+                    }
+                    .padding(.horizontal)
+                    .sheet(isPresented: $showShareSheet) {
+                        if let link = shareLink {
+                            ActivityView(activityItems: [link])
+                        }
+                    }
+
+                    // MARK: - Ngày được chọn
+                    if let date = selectedDate {
+                        VStack(spacing: 10) {
+
+                            // Button ngày nghỉ
+                            Button {
+                                toggleOffDay(for: date)
+                                eventManager.syncOffDaysToFirebase(offDays: offDays)
+                            } label: {
+                                HStack {
+                                    Image(systemName: isOffDay(date) ? "xmark.circle" : "bed.double.fill")
+                                    Text(isOffDay(date) ? "Mở lại ngày này" : "Đặt ngày nghỉ").bold()
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(isOffDay(date) ? Color.green.opacity(0.2) : Color.gray.opacity(0.2))
+                                .cornerRadius(10)
+                            }
+                            .padding(.horizontal)
+
+                            if isOffDay(date) {
+                                Text("Ngày này đang được đặt là *ngày nghỉ*.")
+                                    .foregroundColor(.red)
+                                    .font(.subheadline)
+
+                            } else if eventManager.events(for: date).isEmpty {
+                                Text("Không có sự kiện nào trong ngày này.")
+                                    .foregroundColor(.secondary)
+                                    .padding(.vertical, 12)
+
+                            } else {
+                                // ⭐ Thay List bằng VStack để không lỗi ScrollView
+                                VStack(spacing: 10) {
+                                    ForEach(eventManager.events(for: date).sorted { $0.startTime < $1.startTime }) { event in
+
+                                        HStack(alignment: .top, spacing: 8) {
+
+                                            // màu
+                                            Circle()
+                                                .fill(Color(hex: event.colorHex.isEmpty ? "#FF0000" : event.colorHex))
+                                                .frame(width: 12, height: 12)
+
+                                            VStack(alignment: .leading, spacing: 4) {
+
+                                                // ⭐ 1. Tiêu đề
+                                                Text(event.title)
+                                                    .font(.headline)
+
+                                                // ⭐ 2. origin label (y như Tab1)
+                                                Text(originLabel(for: event))
+                                                    .font(.caption)
+                                                    .foregroundColor(.blue)
+
+                                                // ⭐ 3. Người tạo
+                                                Text(event.owner)
+                                                    .font(.subheadline)
+                                                    .foregroundColor(.secondary)
+
+                                                // ⭐ 4. Time
+                                                Text("\(formattedTime(event.startTime)) - \(formattedTime(event.endTime))")
+                                                    .font(.caption)
+                                                    .foregroundColor(.secondary)
+                                            }
+
+                                            Spacer()
+
+                                            // ⭐ Nút xoá giống list upcoming
+                                            Button {
+                                                showDeleteConfirmation(for: event)
+                                            } label: {
+                                                Image(systemName: "trash")
+                                                    .foregroundColor(.red)
+                                                    .padding(8)
+                                            }
+                                            .buttonStyle(.plain)
+                                        }
+
+                                        .padding(.vertical, 4)
+                                        .padding(.horizontal, 8)
+                                        .background(Color(.secondarySystemGroupedBackground))
+                                        .cornerRadius(10)
+                                    }
+                                }
+
+                            }
                         }
                     } else {
-                        print("❌ Chưa đăng nhập, không thể tạo link")
+                        Text("Chọn một ngày để xem sự kiện.")
+                            .foregroundColor(.secondary)
+                            .padding(.vertical, 12)
                     }
-                } label: {
-                    HStack {
-                        Image(systemName: "square.and.arrow.up")
-                        Text("Chia sẻ lịch").bold()
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color.blue.opacity(0.2))
-                    .cornerRadius(10)
+
+                    Spacer(minLength: 40)
                 }
-                .padding(.horizontal)
-                .sheet(isPresented: $showShareSheet) {
-                    if let link = shareLink {
-                        ActivityView(activityItems: [link])
-                    }
-                }
-
-
-
-
-        // MARK: - Ngày được chọn
-        if let date = selectedDate {
-            VStack(spacing: 10) {
-                        // ✅ Nút đặt / huỷ ngày nghỉ
-                Button {
-                    toggleOffDay(for: date)
-                    eventManager.syncOffDaysToFirebase(offDays: offDays)
-                } label: {
-
-            HStack {
-                Image(systemName: isOffDay(date) ? "xmark.circle" :"bed.double.fill")
-                Text(isOffDay(date) ? "Mở lại ngày này" : "Đặt ngày nghỉ")
-                    .bold()
-    }
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(isOffDay(date) ? Color.green.opacity(0.2) : Color.gray.opacity(0.2))
-                    .cornerRadius(10)
-    }
-                .padding(.horizontal)
-                        
-                if isOffDay(date) {
-                Text("Ngày này đang được đặt là *ngày nghỉ*.")
-                    .foregroundColor(.red)
-                    .font(.subheadline)
-                    } else if eventManager.events(for: date).isEmpty {
-                        Text("Không có sự kiện nào trong ngày này.")
-                        .foregroundColor(.secondary)
-                        .padding(.vertical, 12)
-                        } else {
-                List {
-                    ForEach(eventManager.events(for: date)) { event in
-                    HStack(alignment: .top, spacing: 8) {
-                        // Circle màu sự kiện
-                        Circle()
-                            .fill(Color(hex: event.colorHex.isEmpty ? "#FF0000" : event.colorHex))
-                                .frame(width: 12, height: 12)
-                                        
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack {
-                                Text(event.title)
-                                .font(.headline)
-                        Spacer()
-                    Button {
-                            showDeleteConfirmation(for: event)
-                        } label: {
-                            Image(systemName: "trash")
-                                .foregroundColor(.red)
-                                .padding(8)
-      }                                .buttonStyle(.plain)
-    }
-
-                Text("\(formattedTime(event.startTime)) - \(formattedTime(event.endTime))")
-                        .font(.caption)
-                       .foregroundColor(.secondary)
-    }
-}
-                        .padding(.vertical, 4)
-}
-                        .onDelete { indexSet in
-                    for index in indexSet {
-                 let event = eventManager.events(for: date)[index]
-                                        eventManager.deleteEvent(event)
-        }
-    }
-}
-                .listStyle(.inset)
-                .frame(maxHeight: 300)
-        }
-    }
-        } else {
-            Text("Chọn một ngày để xem sự kiện.")
-                .foregroundColor(.secondary)
-                .padding(.vertical, 12)
-            }
             }
             .navigationTitle("Lịch của tôi")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        showAddSheet = true
-                    } label: {
+                    Button { showAddSheet = true } label: {
                         Image(systemName: "plus")
                     }
-                    .accessibilityLabel("Thêm lịch")
                 }
             }
             .sheet(isPresented: $showAddSheet) {
@@ -1409,15 +1416,11 @@ struct CustomizableCalendarView: View {
             } message: {
                 Text("Bạn có chắc muốn xoá sự kiện “\(eventToDelete?.title ?? "")”?")
             }
-            .padding(.horizontal)
-            .onAppear {
-                loadOffDaysFromLocal()
-            }
-
+            .onAppear { loadOffDaysFromLocal() }
         }
     }
-    
-    // MARK: - Toggle ngày nghỉ
+
+    // MARK: - SUPPORT
     private func toggleOffDay(for date: Date) {
         let key = calendar.startOfDay(for: date)
         if offDays.contains(key) {
@@ -1426,13 +1429,11 @@ struct CustomizableCalendarView: View {
             offDays.insert(key)
         }
     }
-    
+
     private func isOffDay(_ date: Date) -> Bool {
         offDays.contains(calendar.startOfDay(for: date))
     }
-    
-    
-    // MARK: - Format giờ
+
     private func formattedTime(_ date: Date) -> String {
         let f = DateFormatter()
         f.locale = Locale(identifier: "vi_VN")
@@ -1464,13 +1465,10 @@ struct AddEventView: View {
     let offDays: Set<Date>        // ✅ THÊM MỚI — danh sách ngày nghỉ truyền từ ngoài vào
     @State private var selectedDate: Date = Date()
     @State private var selectedSlot: TimeSlot?
-    
     @State private var title: String = ""
-    @State private var owner: String = ""
     @State private var date: Date = Date()
     @State private var startTime: Date = Date()
     @State private var endTime: Date = Date().addingTimeInterval(1800) // default +1h
-    
     // ✅ THÊM MỚI — biến trạng thái popup
     @State private var showOffDayAlert = false
     @State private var offDayMessage = ""
@@ -1478,49 +1476,89 @@ struct AddEventView: View {
     @State private var alertMessage: String = ""
     @State private var showAlert: Bool = false
     @EnvironmentObject var session: SessionStore
-
+    @State private var dragStartHour: Int? = nil
+    @State private var dragCurrentHour: Int? = nil
+    @State private var showBusyInfo = false
+    @State private var busyInfoEvent: CalendarEvent? = nil
     
     var body: some View {
         NavigationStack {
             Form {
                 Section(header: Text("Thông tin")) {
                     TextField("Tiêu đề", text: $title)
-                    TextField("Người tạo", text: $owner)
                 }
                 Section(header: Text("Ngày & giờ")) {
                     DatePicker("Ngày", selection: $date, displayedComponents: .date)
-                    NavigationLink {
-                        TimeSlotPickerGridView(selectedDate: date) { slot in
-                            selectedSlot = slot
-                            // quan trọng: gộp ngày đã chọn (date) với thời gian từ slot
-                            startTime = combine(date: date, time: slot.startTime)
-                            endTime   = combine(date: date, time: slot.endTime)
+                    Section("Chọn giờ") {
+
+                        let hours = Array(0..<24)
+                        let eventsToday = eventManager.events(for: date)
+
+                        // Kiểm tra ngày nghỉ
+                        let isOffDay = offDays.contains {
+                            Calendar.current.isDate($0, inSameDayAs: date)
                         }
-                    } label: {
-                        HStack {
-                            Image(systemName: "clock.fill")
-                                .foregroundColor(.blue)
-                            VStack(alignment: .leading) {
-                                Text("Chọn khung giờ")
-                                    .font(.headline)
-                                if let slot = selectedSlot {
-                                    Text("\(slot.startTime.formatted(date: .omitted, time: .shortened)) - \(slot.endTime.formatted(date: .omitted, time: .shortened))")
-                                        .font(.subheadline)
-                                        .foregroundColor(.secondary)
-                                } else {
-                                    Text("Chưa chọn")
-                                        .font(.subheadline)
-                                        .foregroundColor(.gray)
+
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 10) {
+
+                            ForEach(hours, id: \.self) { hour in
+
+                                let slotStart = Calendar.current.date(bySettingHour: hour, minute: 0, second: 0, of: date)!
+                                let slotEnd   = slotStart.addingTimeInterval(3600)
+
+                                // Check giờ bận
+                                let busyEvent = eventsToday.first {
+                                    $0.startTime < slotEnd && $0.endTime > slotStart
                                 }
+                                let isBusy = (busyEvent != nil) || isOffDay
+
+                                // Check giờ được chọn
+                                let selectedHour = Calendar.current.component(.hour, from: startTime)
+                                let isSelected = (hour == selectedHour) && !isBusy
+
+                                // Màu nền
+                                let bgColor: Color = {
+                                    if isBusy { return .red.opacity(0.75) }
+                                    if isSelected { return .blue.opacity(0.7) }
+                                    return .gray.opacity(0.15)
+                                }()
+
+                                Text(String(format: "%02d:00", hour))
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 10)
+                                    .background(bgColor)
+                                    .foregroundColor(isBusy ? .white : .primary)
+                                    .cornerRadius(8)
+                                    .contentShape(Rectangle())
+
+                                    // TAP để chọn giờ
+                                    .onTapGesture {
+                                        if !isBusy {
+                                            startTime = slotStart
+                                            endTime = slotStart.addingTimeInterval(1800) // mặc định 30p
+                                        }
+                                    }
+
+                                    // LONG PRESS để xem giờ bận
+                                    .onLongPressGesture(minimumDuration: 0.4) {
+                                        if let ev = busyEvent {
+                                            busyInfoEvent = ev
+                                            showBusyInfo = true
+                                        }
+                                    }
                             }
                         }
+                        .padding(.vertical, 6)
                     }
+
                     DatePicker("Bắt đầu", selection: $startTime, displayedComponents: .hourAndMinute)
                     DatePicker("Kết thúc", selection: $endTime, displayedComponents: .hourAndMinute)
                 }
                 Section(header: Text("Màu sự kiện")) {
                     ColorPicker("Chọn màu", selection: $selectedColor, supportsOpacity: false)
                 }
+               
+
             }
             .onAppear {
                 if let d = prefillDate {
@@ -1645,7 +1683,14 @@ struct AddEventView: View {
         comps.second = tComp.second ?? 0
         return cal.date(from: comps) ?? date
     }
-    
+  
+    private func formatTime(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "vi_VN")
+        f.timeStyle = .short
+        return f.string(from: date)
+    }
+
     // ✅ THÊM MỚI — định dạng ngày hiển thị trong popup
     private func formattedDate(_ date: Date) -> String {
         let f = DateFormatter()
@@ -1737,13 +1782,23 @@ struct CalendarGridView: View {
                             )
                             .foregroundColor(isSelected ? .white : .primary)
 
-                        Circle()
-                            .frame(width: 6, height: 6)
-                            .foregroundColor(
-                                (eventsByDay[calendar.startOfDay(for: date)]?.isEmpty == false)
-                                ? Color(hex: eventsByDay[calendar.startOfDay(for: date)]!.first!.colorHex)
-                                : .clear
-                            )
+                        let key = calendar.startOfDay(for: date)
+                        let events = eventsByDay[key] ?? []
+
+                        VStack(spacing: 2) {
+                            // Dot màu theo sự kiện đầu tiên
+                            Circle()
+                                .frame(width: 6, height: 6)
+                                .foregroundColor(events.isEmpty ? .clear : Color(hex: events.first!.colorHex))
+
+                            // Số lượng sự kiện
+                            if events.count > 1 {
+                                Text("\(events.count)")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+
 
                     }
                     .frame(maxWidth: .infinity)
@@ -1751,17 +1806,12 @@ struct CalendarGridView: View {
                     .onTapGesture {
                         let key = calendar.startOfDay(for: date)
 
-                        if isOwner {
-                            // Chủ A → luôn được chọn ngày, dù là offDay
-                            selectedDate = date
+                        if !isOwner, offDays.contains(key) {
+                            showOffDayAlert = true
                         } else {
-                            // Khách B → xem nhưng không thể chọn ngày nghỉ
-                            if offDays.contains(key) {
-                                showOffDayAlert = true
-                            } else {
-                                selectedDate = date
-                            }
+                            selectedDate = date
                         }
+
                     }
 
                 }
@@ -1846,222 +1896,3 @@ struct DayEventsSheetView: View {
     }
 }
 
-import FirebaseStorage
-import Firebase
-struct AddOrEditEventView: View {
-    enum Mode {
-        case add
-        case edit(CalendarEvent)
-    }
-    
-    @State private var alertMessage = ""
-    @State private var showAlert = false
-    @State private var showLimitAlert = false
-    @AppStorage("isPremiumUser") private var isPremiumUser: Bool = false
-    @EnvironmentObject var eventManager: EventManager
-
-    private func showAlertLimit(title: String, message: String) {
-        alertMessage = message
-        showLimitAlert = true
-    }
-    private func saveEventToFirestore(_ event: CalendarEvent) {
-        let db = Firestore.firestore()
-
-        let data: [String: Any] = [
-            "title": event.title,
-            "owner": event.owner,
-            "date": Timestamp(date: event.date),
-            "startTime": Timestamp(date: event.startTime),
-            "endTime": Timestamp(date: event.endTime)
-        ]
-        
-        db.collection("events").addDocument(data: data) { error in
-            if let error = error {
-                print("❌ Firestore add error:", error.localizedDescription)
-            } else {
-                print("✅ Firestore add success")
-            }
-        }
-    }
-
-    
-    @Environment(\.dismiss) private var dismiss
-    let mode: Mode
-    var selectedDate: Date
-    var allowOverlap: Bool
-    @Binding var existingEvents: [CalendarEvent]
-    
-    @State private var title = ""
-    @State private var owner = ""
-    @State private var date = Date()
-    @State private var startTime = Date()
-    @State private var endTime = Date().addingTimeInterval(3600)
-    struct AlertMessage: Identifiable {
-        let id = UUID()
-        let title: String
-        let message: String
-    }
-
-    @State private var activeAlert: AlertMessage? = nil
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section("Thông tin sự kiện") {
-                    TextField("Tên sự kiện", text: $title)
-                    TextField("Người tạo / tham gia", text: $owner)
-                    DatePicker("Ngày", selection: $date, displayedComponents: .date)
-                    DatePicker("Giờ bắt đầu", selection: $startTime, displayedComponents: .hourAndMinute)
-                    DatePicker("Giờ kết thúc", selection: $endTime, displayedComponents: .hourAndMinute)
-                }
-                
-                if case .edit(let event) = mode {
-                    Section {
-                        Button(role: .destructive) {
-                            deleteEvent(event)
-                        } label: {
-                            Label("Xoá lịch này", systemImage: "trash")
-                        }
-                    }
-                }
-            }
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Huỷ") { dismiss() }
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Lưu") { handleSave() }
-                }
-            }
-            // ✅ Alert chung cho mọi lỗi
-            .alert(alertMessage, isPresented: $showAlert) {
-                Button("OK", role: .cancel) {}
-            }
-            // ✅ Alert giới hạn premium
-            .alert(alertMessage, isPresented: $showLimitAlert) {
-                Button("OK", role: .cancel) {}
-            }
-            .onAppear {
-                // Khởi tạo form
-                date = selectedDate
-                if case .edit(let event) = mode {
-                    title = event.title
-                    owner = event.owner
-                    date = event.date
-                    startTime = event.startTime
-                    endTime = event.endTime
-                } else {
-                    let now = Date()
-                    if Calendar.current.isDate(selectedDate, inSameDayAs: now) {
-                        startTime = now
-                    } else {
-                        var comps = Calendar.current.dateComponents([.year, .month, .day], from: selectedDate)
-                        comps.hour = 9
-                        comps.minute = 0
-                        startTime = Calendar.current.date(from: comps) ?? now
-                    }
-                    endTime = Calendar.current.date(byAdding: .hour, value: 1, to: startTime) ?? startTime.addingTimeInterval(3600)
-                }
-            }
-            .alert(item: $activeAlert) { alert in
-                Alert(title: Text(alert.title),
-                      message: Text(alert.message),
-                      dismissButton: .default(Text("OK")))
-            }
-
-        }
-    }
-    
-    // Merge date + time
-    private func combine(date day: Date, time: Date) -> Date {
-        let cal = Calendar.current
-        let d = cal.dateComponents([.year, .month, .day], from: day)
-        let t = cal.dateComponents([.hour, .minute, .second], from: time)
-        var comps = DateComponents()
-        comps.year = d.year; comps.month = d.month; comps.day = d.day
-        comps.hour = t.hour ?? 0; comps.minute = t.minute ?? 0; comps.second = t.second ?? 0
-        return cal.date(from: comps) ?? day
-    }
-    
-    private func handleSave() {
-        let startDT = combine(date: date, time: startTime)
-        let endDT = combine(date: date, time: endTime)
-        let now = Date()
-        
-       
-
-      
-        // 2️⃣ Tạo sự kiện mới
-        let newEvent = CalendarEvent(
-            title: title,
-            owner: owner,
-            date: Calendar.current.startOfDay(for: date),
-            startTime: startDT,
-            endTime: endDT
-        )
-        
-        let calendar = Calendar.current
-        
-        // 3️⃣ Kiểm tra giới hạn user chưa premium
-        // Kiểm tra trùng slot
-        if !allowOverlap {
-            let overlap = existingEvents.contains { ev in
-                calendar.isDate(ev.date, inSameDayAs: newEvent.date) &&
-                ((startDT >= ev.startTime && startDT < ev.endTime) ||
-                 (endDT > ev.startTime && endDT <= ev.endTime) ||
-                 (startDT <= ev.startTime && endDT >= ev.endTime))
-            }
-            if overlap {
-                activeAlert = AlertMessage(title: "Trùng lịch", message: "Khung giờ này đã có lịch khác.")
-                return
-            }
-        }
-
-        // Kiểm tra giới hạn Premium
-        if !isPremiumUser {
-            if let maxDate = calendar.date(byAdding: .day, value: 7, to: now),
-               newEvent.date > maxDate {
-                activeAlert = AlertMessage(title: "Vượt giới hạn ngày", message: "Chỉ được thêm lịch trong 7 ngày tới.")
-                return
-            }
-
-            let sameDayEvents = existingEvents.filter {
-                calendar.isDate($0.date, inSameDayAs: newEvent.date)
-            }
-            if sameDayEvents.count >= 4 {
-                activeAlert = AlertMessage(title: "Vượt giới hạn", message: "Chỉ được thêm tối đa 4 lịch/ngày.")
-                return
-            }
-        }
-
-        
-        // 5️⃣ Lưu sự kiện
-        switch mode {
-        case .add:
-            saveEventToFirestore(newEvent)
-            existingEvents.append(newEvent)
-
-        case .edit(let old):
-            if let idx = existingEvents.firstIndex(where: { $0.id == old.id }) {
-                existingEvents[idx] = newEvent
-            }
-        }
-        
-        // 6️⃣ Gửi thông báo nếu bật
-        if NotificationManager.shared.notificationsEnabled {
-            NotificationManager.shared.scheduleNotification(
-                title: "📅 \(title)",
-                message: "Sắp đến giờ cho lịch: \(title) của \(owner)",
-                date: startDT
-            )
-        }
-        
-        DispatchQueue.main.async { dismiss() }
-    }
-    
-    private func deleteEvent(_ event: CalendarEvent) {
-        existingEvents.removeAll { $0.id == event.id }
-        DispatchQueue.main.async { dismiss() }
-    }
-    
-}
