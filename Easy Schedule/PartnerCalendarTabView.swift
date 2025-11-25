@@ -11,7 +11,7 @@ import FirebaseAuth
 struct PartnerCalendarTabView: View {
     @EnvironmentObject var eventManager: EventManager
     @State private var showMyCreatedEvents = false
-
+    @EnvironmentObject var session: SessionStore
     // Link input
     @State private var linkText: String = ""
     @State private var parsedUID: String? = nil
@@ -112,6 +112,7 @@ struct PartnerCalendarTabView: View {
                     sharedUserId: selectedSharedUserId
                 )
                 .environmentObject(eventManager)
+                .environmentObject(session)
             }
             .alert(isPresented: $showAlert) {
                 Alert(title: Text("Thông báo"), message: Text(alertMessage), dismissButton: .default(Text("Đóng")))

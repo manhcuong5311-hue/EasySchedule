@@ -522,91 +522,307 @@ struct AppointmentProSheet_Previews: PreviewProvider {
 }
 
 
+//
+// MyCreatedEventsView.swift
+// Easy Schedule
+//
+// Version 2.0 — giống hệt EventListView, có Upcoming + Past
+//
+
 import SwiftUI
-import FirebaseFirestore
 import FirebaseAuth
+import FirebaseFirestore
 
 struct MyCreatedEventsView: View {
+
     @EnvironmentObject var eventManager: EventManager
-    @State private var events: [CalendarEvent] = []
+
+    @State private var createdUpcoming: [CalendarEvent] = []
+    @State private var createdPast: [CalendarEvent] = []
+
     @State private var loading = true
+    @State private var showPast = false
+    @State private var selectedDate: Date? = nil
+    @State private var searchText: String = ""
 
     var body: some View {
         NavigationStack {
-            Group {
+            VStack {
+
+                Picker("", selection: $showPast) {
+                    Text("Sắp tới").tag(false)
+                    Text("Đã qua").tag(true)
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal)
+
+                if showPast {
+                    searchBar
+                }
+
                 if loading {
                     ProgressView("Đang tải...")
-                } else if events.isEmpty {
-                    Text("Bạn chưa tạo lịch nào cho người khác.")
-                        .foregroundColor(.secondary)
                         .padding()
                 } else {
-                    List(events) { ev in
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text(ev.title)
-                                .font(.headline)
-
-                            Text(timeString(ev))
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-
-                            Text("Chủ lịch: \(ev.owner)")
-                                .font(.caption)
-                                .foregroundColor(.orange)
-                        }
-                        .padding(.vertical, 4)
-                    }
+                    if showPast { pastList }
+                    else { upcomingList }
                 }
             }
             .navigationTitle("Lịch tôi tạo")
             .onAppear { loadEvents() }
+            .sheet(isPresented: Binding(
+                get: { selectedDate != nil },
+                set: { if !$0 { selectedDate = nil } }
+            )) {
+                if let date = selectedDate {
+                    CreatedEventsByDateView(date: date, events: createdPast)
+                }
+            }
         }
     }
 
-    private func loadEvents() {
-        guard let uid = Auth.auth().currentUser?.uid else {
-            loading = false
-            return
+    // MARK: Search bar
+    private var searchBar: some View {
+        HStack {
+            Image(systemName: "magnifyingglass")
+            TextField("Tìm theo tiêu đề / chủ lịch...", text: $searchText)
+        }
+        .padding(10)
+        .background(Color(.systemGray6))
+        .cornerRadius(10)
+        .padding(.horizontal)
+    }
+
+    // MARK: Upcoming list
+    private var upcomingList: some View {
+        let grouped = groupedByMonth(events: createdUpcoming)
+        let sortedMonths = grouped.keys.sorted()
+
+        return List {
+            if createdUpcoming.isEmpty {
+                Text("Không có lịch sắp tới.")
+                    .foregroundColor(.secondary)
+            } else {
+                ForEach(sortedMonths, id: \.self) { monthDate in
+                    let monthEvents = grouped[monthDate] ?? []
+                    Section(header: headerMonth(monthDate, count: monthEvents.count)) {
+
+                        let weeks = groupedByWeek(events: monthEvents)
+                        let sortedWeeks = weeks.keys.sorted()
+
+                        ForEach(sortedWeeks, id: \.self) { week in
+                            let weekEvents = weeks[week] ?? []
+
+                            Section(header: Text("Tuần \(week)").foregroundColor(.secondary)) {
+
+                                let days = groupedByDay(events: weekEvents)
+                                let sortedDays = days.keys.sorted()
+
+                                ForEach(sortedDays, id: \.self) { day in
+                                    Section(header: Text(formatDate(day)).fontWeight(.bold)) {
+
+                                        ForEach(days[day]!.sorted { $0.startTime < $1.startTime }) { ev in
+                                            createdEventRow(ev)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .listStyle(.insetGrouped)
+    }
+
+    // MARK: Past list
+    private var pastList: some View {
+        let filtered = createdPast.filter { ev in
+            searchText.isEmpty ||
+            ev.title.localizedCaseInsensitiveContains(searchText) ||
+            ev.owner.localizedCaseInsensitiveContains(searchText)
         }
 
-    Firestore.firestore()
+        let grouped = groupedByMonth(events: filtered)
+        let sortedMonths = grouped.keys.sorted(by: >)
+
+        return List {
+            if filtered.isEmpty {
+                Text(searchText.isEmpty ? "Không có lịch đã qua." : "Không tìm thấy kết quả.")
+                    .foregroundColor(.secondary)
+            } else {
+                ForEach(sortedMonths, id: \.self) { monthDate in
+                    let monthEvents = grouped[monthDate] ?? []
+
+                    Section(header: headerMonth(monthDate, count: monthEvents.count)) {
+
+                        let weeks = groupedByWeek(events: monthEvents)
+                        let sortedWeeks = weeks.keys.sorted()
+
+                        ForEach(sortedWeeks, id: \.self) { week in
+                            let weekEvents = weeks[week] ?? []
+
+                            Button {
+                                selectedDate = weekEvents.first?.date
+                            } label: {
+                                HStack {
+                                    Text("Tuần \(week)")
+                                    Spacer()
+                                    Text("\(weekEvents.count) lịch")
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .listStyle(.insetGrouped)
+    }
+
+    // MARK: Row
+    private func createdEventRow(_ ev: CalendarEvent) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(ev.title).font(.headline)
+
+            HStack {
+                Image(systemName: "person.fill")
+                Text("Chủ lịch: \(ev.owner)")
+            }
+            .font(.caption)
+            .foregroundColor(.secondary)
+
+            Text("\(formatTime(ev.startTime)) → \(formatTime(ev.endTime))")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+        .padding(.vertical, 4)
+    }
+
+    // MARK: Load data
+    private func loadEvents() {
+        guard let uid = Auth.auth().currentUser?.uid else {
+            loading = false; return
+        }
+
+        Firestore.firestore()
             .collection("appointments")
-            .whereField("createdBy", isEqualTo: uid)        // 👈 QUAN TRỌNG NHẤT
-            .order(by: "start", descending: false)
+            .whereField("createdBy", isEqualTo: uid)
+            .order(by: "start")
             .getDocuments { snap, err in
                 DispatchQueue.main.async {
                     self.loading = false
 
-                    if let err = err {
-                        // Hiện thông báo hoặc log cho dev
-                        print("Error loading created events: \(err.localizedDescription)")
-                        // Bạn có thể show errorMessage ở UI nếu muốn:
-                        // self.errorMessage = "Lỗi tải lịch: \(err.localizedDescription)"
-                        return
-                    }
+                    guard let docs = snap?.documents else { return }
 
-                    guard let docs = snap?.documents else {
-                        print("No documents returned, snapshot is nil")
-                        return
-                    }
+                    let all = docs.compactMap { CalendarEvent.from($0) }
 
-                    self.events = docs.compactMap { CalendarEvent.from($0) }
+                    let now = Date()
+
+                    self.createdUpcoming = all.filter { $0.endTime >= now }
+                    self.createdPast = all.filter { $0.endTime < now }
                 }
             }
     }
 
+    // MARK: Group helpers
+    private func groupedByMonth(events: [CalendarEvent]) -> [Date: [CalendarEvent]] {
+        Dictionary(grouping: events) {
+            Calendar.current.date(from:
+                Calendar.current.dateComponents([.year, .month], from: $0.date)
+            )!
+        }
+    }
 
-    private func timeString(_ ev: CalendarEvent) -> String {
+    private func groupedByWeek(events: [CalendarEvent]) -> [Int: [CalendarEvent]] {
+        Dictionary(grouping: events) {
+            Calendar.current.component(.weekOfMonth, from: $0.date)
+        }
+    }
+
+    private func groupedByDay(events: [CalendarEvent]) -> [Date: [CalendarEvent]] {
+        Dictionary(grouping: events) {
+            Calendar.current.startOfDay(for: $0.date)
+        }
+    }
+
+    // MARK: Date formatting helpers
+    private func headerMonth(_ date: Date, count: Int) -> some View {
+        HStack {
+            Text(formatMonth(date)).font(.headline)
+            Spacer()
+            Text("\(count) lịch").foregroundColor(.secondary)
+        }
+    }
+
+    private func formatMonth(_ d: Date) -> String {
         let f = DateFormatter()
-        f.dateFormat = "HH:mm dd/MM/yyyy"
-        return "\(f.string(from: ev.startTime)) → \(f.string(from: ev.endTime))"
+        f.locale = Locale(identifier: "vi_VN")
+        f.dateFormat = "MMMM yyyy"
+        return f.string(from: d).capitalized
+    }
+
+    private func formatDate(_ d: Date) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "vi_VN")
+        f.dateStyle = .medium
+        return f.string(from: d)
+    }
+
+    private func formatTime(_ d: Date) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "vi_VN")
+        f.timeStyle = .short
+        return f.string(from: d)
     }
 }
 
 
+// MARK: - DAY DETAILS VIEW
+struct CreatedEventsByDateView: View {
+    let date: Date
+    let events: [CalendarEvent]
 
+    @Environment(\.dismiss) private var dismiss
 
-import FirebaseFirestore
+    private var eventsForDay: [CalendarEvent] {
+        events.filter { Calendar.current.isDate($0.date, inSameDayAs: date) }
+            .sorted { $0.startTime < $1.startTime }
+    }
+
+    var body: some View {
+        NavigationStack {
+            List(eventsForDay) { ev in
+                VStack(alignment: .leading) {
+                    Text(ev.title).font(.headline)
+                    Text("Chủ lịch: \(ev.owner)").font(.caption).foregroundColor(.secondary)
+                    Text("\(formatTime(ev.startTime)) – \(formatTime(ev.endTime))")
+                        .font(.caption)
+                }
+            }
+            .navigationTitle(formatDate(date))
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Đóng") { dismiss() }
+                }
+            }
+        }
+    }
+
+    private func formatDate(_ d: Date) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "vi_VN")
+        f.dateFormat = "'Ngày' d 'tháng' M, yyyy"
+        return f.string(from: d)
+    }
+
+    private func formatTime(_ d: Date) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "vi_VN")
+        f.timeStyle = .short
+        return f.string(from: d)
+    }
+}
 
 import FirebaseFirestore
 
@@ -646,6 +862,18 @@ extension CalendarEvent {
             #endif
             return nil
         }
+        let createdBy = data["createdBy"] as? String ?? ""
+        let current = Auth.auth().currentUser?.uid ?? ""
+
+        var origin: EventOrigin = .myEvent
+
+        if owner == current && createdBy == current {
+            origin = .myEvent                        // A ⇒ A
+        } else if owner == current && createdBy != current {
+            origin = .createdForMe                   // B ⇒ A
+        } else if owner != current && createdBy == current {
+            origin = .iCreatedForOther              // A ⇒ B
+        }
 
         return CalendarEvent(
             id: doc.documentID,
@@ -655,7 +883,9 @@ extension CalendarEvent {
             startTime: s,
             endTime: e,
             colorHex: data["colorHex"] as? String ?? "#007AFF",
-            pendingDelete: false
+            pendingDelete: false,
+            origin: origin     // ⭐ THÊM DÒNG NÀY
         )
+
     }
 }

@@ -13,6 +13,12 @@ import FirebaseAuth
 import FirebaseFirestore
 
 // MARK: - Mô hình dữ liệu
+enum EventOrigin: String, Codable {
+    case myEvent
+    case createdForMe
+    case iCreatedForOther
+}
+
 struct CalendarEvent: Identifiable, Hashable, Codable {
     var id: String = UUID().uuidString
     var title: String
@@ -20,10 +26,13 @@ struct CalendarEvent: Identifiable, Hashable, Codable {
     var date: Date
     var startTime: Date
     var endTime: Date
-    var colorHex: String = "#007AFF" // Mặc định màu xanh dương (giống accentColor)
+    var colorHex: String = "#007AFF"
     var pendingDelete: Bool = false
 
+    // ⭐ THÊM DÒNG NÀY
+    var origin: EventOrigin = .myEvent
 }
+
 
 
 final class EventManager: ObservableObject {
@@ -67,12 +76,12 @@ final class EventManager: ObservableObject {
         loadSharedLinks()
         cleanUpPastEvents()
         updateGroupedEvents()
+        listenToEvents()
         retryPendingDeletes()
         syncBusySlotsToFirebase()
         if let uid = currentUserId {
-            listenToAppointments(forSharedUser: uid)
+            listenToMyCreatedAppointments(createdBy: uid)
         }
-
 
     }
 
@@ -402,6 +411,7 @@ extension EventManager {
                         guard let start = dict["start"] as? TimeInterval,
                               let end = dict["end"] as? TimeInterval else { return nil }
 
+                        
                         return CalendarEvent(
                             id: dict["id"] as? String ?? UUID().uuidString,
                             title: dict["title"] as? String ?? "Bận",
@@ -519,6 +529,71 @@ extension EventManager {
                 }
             }
         }
+    }
+
+    func listenToEvents() {
+        guard let uid = currentUserId else { return }
+
+        db.collection("events")
+            .whereField("owner", isEqualTo: uid)
+            .addSnapshotListener { snap, err in
+                guard let docs = snap?.documents else { return }
+
+                let cloudEvents = docs.compactMap { CalendarEvent.from($0) }
+
+                DispatchQueue.main.async {
+
+                    // 1️⃣ Bỏ qua event đã pendingDelete
+                    let filtered = cloudEvents.filter { cloudEv in
+                        !self.events.contains(where: { $0.pendingDelete && $0.id == cloudEv.id })
+                    }
+
+                    // 2️⃣ Tạo bản copy local
+                    var merged = self.events
+
+                    for ev in filtered {
+                        if let idx = merged.firstIndex(where: { $0.id == ev.id }) {
+                            // 3️⃣ Update event đã tồn tại
+                            merged[idx] = ev
+                        } else {
+                            // 4️⃣ Thêm mới nếu chưa có
+                            merged.append(ev)
+                        }
+                    }
+
+                    // 5️⃣ Cập nhật lại danh sách
+                    self.events = merged
+                    self.saveEvents()
+                    self.updateGroupedEvents()
+                }
+            }
+    }
+
+    func listenToMyCreatedAppointments(createdBy uid: String) {
+        db.collection("appointments")
+            .whereField("createdBy", isEqualTo: uid)
+            .addSnapshotListener { snap, err in
+                guard let docs = snap?.documents else { return }
+
+                let incoming = docs.compactMap { CalendarEvent.from($0) }
+
+                DispatchQueue.main.async {
+                    for ev in incoming {
+                        // Không override local pending delete
+                        if let exist = self.events.first(where: { $0.id == ev.id }),
+                           exist.pendingDelete { continue }
+
+                        if let idx = self.events.firstIndex(where: { $0.id == ev.id }) {
+                            self.events[idx] = ev
+                        } else {
+                            self.events.append(ev)
+                        }
+                    }
+
+                    self.saveEvents()
+                    self.updateGroupedEvents()
+                }
+            }
     }
 
     // MARK: - Listeners (prevent revival)
@@ -726,7 +801,7 @@ private func rememberGroupedByDay(events: [CalendarEvent]) -> [Date: [CalendarEv
 struct EventListView: View {
     @EnvironmentObject var eventManager: EventManager
     @Binding var showPastEvents: Bool
-    
+    @State private var selectedWeek: (year: Int, week: Int)? = nil
     @State private var selectedDate: Date? = nil  // dùng để mở chi tiết ngày
     @State private var searchText: String = ""    // dùng để tìm kiếm
     @State private var showDeleteAlert = false
@@ -773,16 +848,16 @@ struct EventListView: View {
         
         
         // ➜ Bằng đoạn này:
-        .sheet(isPresented: Binding<Bool>(
-            
-            get: { selectedDate != nil },
-            set: { if !$0 { selectedDate = nil } }
+        .sheet(isPresented: Binding(
+            get: { selectedWeek != nil },
+            set: { if !$0 { selectedWeek = nil } }
         )) {
-            if let date = selectedDate {
-                PastEventsByDateView(date: date)
+            if let week = selectedWeek {
+                PastEventsByWeekView(week: week)
                     .environmentObject(eventManager)
             }
         }
+
         .alert("Xoá sự kiện này?", isPresented: $showDeleteAlert) {
             Button("Xoá", role: .destructive) {
                 if let event = eventToDelete {
@@ -880,12 +955,15 @@ struct EventListView: View {
                                                 Circle()
                                                     .fill(Color(hex: event.colorHex.isEmpty ? "#FF0000" : event.colorHex))
                                                     .frame(width: 12, height: 12)
-
                                                 VStack(alignment: .leading, spacing: 4) {
                                                     Text(event.title)
                                                         .font(.headline)
 
-                                                    // ⭐ Hiển thị tên người tạo
+                                                    // ⭐ Label phân loại lịch theo origin
+                                                    Text(originLabel(for: event))
+                                                        .font(.caption)
+                                                        .foregroundColor(.blue)
+
                                                     Text(event.owner)
                                                         .font(.subheadline)
                                                         .foregroundColor(.secondary)
@@ -894,8 +972,6 @@ struct EventListView: View {
                                                         .font(.caption)
                                                         .foregroundColor(.secondary)
                                                 }
-
-
                                                 Spacer()
                                             }
 
@@ -974,7 +1050,9 @@ struct EventListView: View {
                             
                             Button {
                                 // Gộp tuần này để mở danh sách chi tiết
-                                selectedDate = weekEvents.first?.date
+                                let comps = Calendar.current.dateComponents([.yearForWeekOfYear, .weekOfYear], from: weekEvents.first!.date)
+                                selectedWeek = (comps.yearForWeekOfYear!, comps.weekOfYear!)
+
                             } label: {
                                 HStack {
                                     Text("Tuần \(week)")
@@ -1074,6 +1152,58 @@ struct EventListView: View {
         f.locale = Locale(identifier: "vi_VN")
         f.timeStyle = .short
         return f.string(from: date)
+    }
+}
+private func originLabel(for event: CalendarEvent) -> String {
+    switch event.origin {
+    case .myEvent:
+        return "📘 Lịch của tôi"
+    case .createdForMe:
+        return "🟢 Người khác tạo cho tôi"
+    case .iCreatedForOther:
+        return "🟠 Tôi tạo cho người khác"
+    }
+}
+
+struct PastEventsByWeekView: View {
+    @EnvironmentObject var eventManager: EventManager
+    let week: (year: Int, week: Int)
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List {
+                ForEach(eventsThisWeek) { event in
+                    VStack(alignment: .leading) {
+                        Text(event.title).font(.headline)
+                        Text(formatted(event.startTime))
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+            .navigationTitle("Tuần \(week.week) - \(week.year)")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Đóng") { dismiss() }
+                }
+            }
+        }
+    }
+
+    private var eventsThisWeek: [CalendarEvent] {
+        eventManager.pastEvents.filter {
+            Calendar.current.component(.weekOfYear, from: $0.date) == week.week &&
+            Calendar.current.component(.yearForWeekOfYear, from: $0.date) == week.year
+        }
+        .sorted(by: { $0.startTime < $1.startTime })
+    }
+
+    private func formatted(_ d: Date) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "vi_VN")
+        f.dateFormat = "HH:mm dd/MM/yyyy"
+        return f.string(from: d)
     }
 }
 
