@@ -18,18 +18,26 @@ enum EventOrigin: String, Codable {
     case createdForMe
     case iCreatedForOther
 }
-
 struct CalendarEvent: Identifiable, Hashable, Codable {
+    
+    // MARK: - Core fields
     var id: String = UUID().uuidString
     var title: String
-    var owner: String
     var date: Date
     var startTime: Date
     var endTime: Date
+
+    // MARK: - Ownership fields
+    var owner: String          // Chủ lịch (A)
+    var sharedUser: String     // Người được tạo lịch cho (B)
+    var createdBy: String      // Người tạo thực sự (A hoặc B)
+
+    // MARK: - Participants
+    var participants: [String] = []
+
+    // MARK: - UI fields
     var colorHex: String = "#007AFF"
     var pendingDelete: Bool = false
-
-    // ⭐ THÊM DÒNG NÀY
     var origin: EventOrigin = .myEvent
 }
 
@@ -38,6 +46,11 @@ struct CalendarEvent: Identifiable, Hashable, Codable {
 final class EventManager: ObservableObject {
     static let shared = EventManager()
     @EnvironmentObject var session: SessionStore
+    // Firestore listeners
+    private var eventsListener: ListenerRegistration?
+    private var appointmentsListener: ListenerRegistration?
+    private var createdAppointmentsListener: ListenerRegistration?
+    private var busySlotsListener: ListenerRegistration?
 
     // ⭐ PREMIUM FLAG
     private var isPremiumUser: Bool {
@@ -67,6 +80,7 @@ final class EventManager: ObservableObject {
 
     @Published var pastEvents: [CalendarEvent] = []
     @Published var groupedByDay: [Date: [CalendarEvent]] = [:]
+    @Published var userNameCache: [String: String] = [:]
 
     private let db = Firestore.firestore()
 
@@ -79,10 +93,6 @@ final class EventManager: ObservableObject {
         listenToEvents()
         retryPendingDeletes()
         syncBusySlotsToFirebase()
-        if let uid = currentUserId {
-            listenToMyCreatedAppointments(createdBy: uid)
-        }
-
     }
 
     // MARK: - LOCAL SAVE
@@ -126,7 +136,63 @@ final class EventManager: ObservableObject {
             sharedLinks[idx].isPinned.toggle()
         }
     }
+    func reset() {
+        // Huỷ realtime listeners nếu có
+        eventsListener?.remove()
+        eventsListener = nil
 
+        appointmentsListener?.remove()
+        appointmentsListener = nil
+
+        createdAppointmentsListener?.remove()
+        createdAppointmentsListener = nil
+
+        busySlotsListener?.remove()
+        busySlotsListener = nil
+
+        // Dọn dữ liệu local
+        DispatchQueue.main.async {
+            self.events.removeAll()
+            self.pastEvents.removeAll()
+            self.groupedByDay.removeAll()
+            self.sharedLinks.removeAll()
+            self.saveEvents()
+            self.saveSharedLinks()
+        }
+
+        print("🧹 EventManager RESET hoàn tất.")
+    }
+
+    func reloadForCurrentUser() {
+        clearLocalEvents()
+
+        guard let uid = currentUserId else { return }
+
+        print("🔄 Reloading events for user:", uid)
+
+        listenToEvents()
+      
+        listenToBusySlots(sharedUserId: uid)
+        
+
+        cleanUpPastEvents()
+    }
+    func name(for uid: String, completion: @escaping (String) -> Void) {
+        if let cached = userNameCache[uid] {
+            completion(cached)
+            return
+        }
+
+        Firestore.firestore().collection("users")
+            .document(uid)
+            .getDocument { snap, _ in
+                let name = snap?.data()?["name"] as? String ?? uid
+                self.userNameCache[uid] = name
+                completion(name)
+            }
+    }
+
+    
     private func addHistoryLink(uid: String, url: String) {
         if sharedLinks.contains(where: { $0.url == url }) { return }
 
@@ -274,13 +340,20 @@ extension EventManager {
         let newEvent = CalendarEvent(
             id: UUID().uuidString,
             title: title,
-            owner: ownerName,        // ⭐ Tự động gán tên user
             date: date,
             startTime: startTime,
             endTime: endTime,
+            owner: ownerName,                     // A
+            sharedUser: EventManager.shared.currentUserId ?? ownerName,
+            createdBy: EventManager.shared.currentUserId ?? ownerName,
+            participants: Array(Set([
+                EventManager.shared.currentUserId ?? ownerName
+            ])),
             colorHex: colorHex,
-            pendingDelete: false
+            pendingDelete: false,
+            origin: .myEvent
         )
+
 
 
         // Local
@@ -402,23 +475,29 @@ extension EventManager {
                         return
                     }
 
-                    // ưu tiên publicCalendar nếu có
                     let premiumFlag = data["isPremium"] as? Bool ?? isPremium
-
                     let rawSlots = data["busySlots"] as? [[String: Any]] ?? []
 
                     let slots = rawSlots.compactMap { dict -> CalendarEvent? in
                         guard let start = dict["start"] as? TimeInterval,
-                              let end = dict["end"] as? TimeInterval else { return nil }
+                              let end   = dict["end"]   as? TimeInterval else { return nil }
 
-                        
+                        let s = Date(timeIntervalSince1970: start)
+                        let e = Date(timeIntervalSince1970: end)
+
                         return CalendarEvent(
                             id: dict["id"] as? String ?? UUID().uuidString,
                             title: dict["title"] as? String ?? "Bận",
-                            owner: userId,
-                            date: Date(timeIntervalSince1970: start),
-                            startTime: Date(timeIntervalSince1970: start),
-                            endTime: Date(timeIntervalSince1970: end)
+                            date: Calendar.current.startOfDay(for: s),
+                            startTime: s,
+                            endTime: e,
+                            owner: userId,       // chủ lịch
+                            sharedUser: userId,  // busy slot = chỉ của chính chủ
+                            createdBy: userId,
+                            participants: [userId],
+                            colorHex: "#FF0000", // màu bận
+                            pendingDelete: false,
+                            origin: .myEvent
                         )
                     }
 
@@ -467,12 +546,12 @@ extension EventManager {
                 return
             }
 
-            // ⭐ PREMIUM CHECK – đúng chân lý
+            // ⭐ PREMIUM CHECK
             if !ownerIsPremium {
                 let now = Date()
                 if let maxDate = Calendar.current.date(byAdding: .day, value: 7, to: now),
                    start > maxDate {
-
+                    
                     DispatchQueue.main.async { self.isAdding = false }
                     completion(false,
                                "Chủ lịch chưa Premium — bạn chỉ được đặt lịch trong 7 ngày tới.")
@@ -480,52 +559,34 @@ extension EventManager {
                 }
             }
 
-
             // 2️⃣ Kiểm tra đăng nhập
             guard let uid = Auth.auth().currentUser?.uid else {
                 DispatchQueue.main.async { self.isAdding = false }
                 completion(false, "Bạn cần đăng nhập.")
                 return
             }
-            
-            // 3️⃣ Dữ liệu appointment
-            let appointmentData: [String: Any] = [
-                "owner": sharedUserId,     // CHỦ lịch A
-                "sharedUser": uid,         // KHÁCH B
+
+            // 3️⃣ CHỈ GHI VÀO EVENTS — chuẩn nhất
+            let eventData: [String: Any] = [
                 "title": title,
-                "start": start.timeIntervalSince1970,
-                "end": end.timeIntervalSince1970
+                "owner": sharedUserId,      // A
+                "sharedUser": uid,          // B
+                "createdBy": createdBy,     // B
+                "participants": Array(Set([sharedUserId, uid])),   // <<< QUAN TRỌNG NHẤT
+                "date": Timestamp(date: start),
+                "startTime": Timestamp(date: start),
+                "endTime": Timestamp(date: end),
+                "colorHex": "#007AFF"
             ]
+
             
-            // 4️⃣ Ghi vào APPOINTMENTS
-            self.db.collection("appointments").addDocument(data: appointmentData) { error in
-                
-                if let error = error {
-                    DispatchQueue.main.async { self.isAdding = false }
-                    completion(false, "Lỗi tạo lịch: \(error.localizedDescription)")
-                    return
-                }
-                
-                // 5️⃣ Ghi vào EVENTS để chủ lịch A có thể XOÁ
-                let eventData: [String: Any] = [
-                    "title": title,
-                    "owner": sharedUserId,            // A
-                    "sharedUser": uid,                // B
-                    "createdBy": createdBy, 
-                    "date": Timestamp(date: start),
-                    "startTime": Timestamp(date: start),
-                    "endTime": Timestamp(date: end),
-                    "colorHex": "#007AFF"
-                ]
-                
-                self.db.collection("events").addDocument(data: eventData) { err in
-                    DispatchQueue.main.async { self.isAdding = false }
-                    
-                    if let err = err {
-                        completion(false, "Tạo event thất bại: \(err.localizedDescription)")
-                    } else {
-                        completion(true, nil)
-                    }
+            self.db.collection("events").addDocument(data: eventData) { err in
+                DispatchQueue.main.async { self.isAdding = false }
+
+                if let err = err {
+                    completion(false, "Tạo event thất bại: \(err.localizedDescription)")
+                } else {
+                    completion(true, nil)
                 }
             }
         }
@@ -534,108 +595,82 @@ extension EventManager {
     func listenToEvents() {
         guard let uid = currentUserId else { return }
 
-        db.collection("events")
-            .whereField("owner", isEqualTo: uid)
-            .addSnapshotListener { snap, err in
-                guard let docs = snap?.documents else { return }
+        eventsListener?.remove()
 
-                let cloudEvents = docs.compactMap { CalendarEvent.from($0) }
-
-                DispatchQueue.main.async {
-
-                    // 1️⃣ Bỏ qua event đã pendingDelete
-                    let filtered = cloudEvents.filter { cloudEv in
-                        !self.events.contains(where: { $0.pendingDelete && $0.id == cloudEv.id })
-                    }
-
-                    // 2️⃣ Tạo bản copy local
-                    var merged = self.events
-
-                    for ev in filtered {
-                        if let idx = merged.firstIndex(where: { $0.id == ev.id }) {
-                            // 3️⃣ Update event đã tồn tại
-                            merged[idx] = ev
-                        } else {
-                            // 4️⃣ Thêm mới nếu chưa có
-                            merged.append(ev)
-                        }
-                    }
-
-                    // 5️⃣ Cập nhật lại danh sách
-                    self.events = merged
-                    self.saveEvents()
-                    self.updateGroupedEvents()
-                }
-            }
-    }
-
-    func listenToMyCreatedAppointments(createdBy uid: String) {
-        db.collection("appointments")
-            .whereField("createdBy", isEqualTo: uid)
+        eventsListener = db.collection("events")
+            .whereField("participants", arrayContains: uid)
             .addSnapshotListener { snap, err in
                 guard let docs = snap?.documents else { return }
 
                 let incoming = docs.compactMap { CalendarEvent.from($0) }
 
                 DispatchQueue.main.async {
-                    for ev in incoming {
-                        // Không override local pending delete
-                        if let exist = self.events.first(where: { $0.id == ev.id }),
-                           exist.pendingDelete { continue }
-
-                        if let idx = self.events.firstIndex(where: { $0.id == ev.id }) {
-                            self.events[idx] = ev
-                        } else {
-                            self.events.append(ev)
-                        }
-                    }
-
-                    self.saveEvents()
-                    self.updateGroupedEvents()
+                    self.merge(incoming)
                 }
             }
     }
+
+
+    // Thêm vào EventManager (bên trong class)
+    func clearLocalEvents() {
+        // 1️⃣ Hủy Firestore listeners
+        eventsListener?.remove()
+        appointmentsListener?.remove()
+        createdAppointmentsListener?.remove()
+        busySlotsListener?.remove()
+
+        eventsListener = nil
+        appointmentsListener = nil
+        createdAppointmentsListener = nil
+        busySlotsListener = nil
+
+        // 2️⃣ Xóa dữ liệu local
+        self.events = []
+        self.pastEvents = []
+        self.groupedByDay = [:]
+        self.sharedLinks = []
+
+        UserDefaults.standard.removeObject(forKey: "upcomingEvents")
+        UserDefaults.standard.removeObject(forKey: "pastEvents")
+        UserDefaults.standard.removeObject(forKey: "shared_links")
+
+        print("🧹 Đã clear cache + remove mọi Firebase listeners")
+    }
+    /// Gom event mới vào danh sách local, tránh trùng ID và tránh revive pendingDelete
+    func merge(_ incoming: [CalendarEvent]) {
+        var updated = self.events
+
+        for ev in incoming {
+
+            // ❌ Nếu event này đang pendingDelete → không revive
+            if let exist = updated.first(where: { $0.id == ev.id }),
+               exist.pendingDelete {
+                continue
+            }
+
+            if let idx = updated.firstIndex(where: { $0.id == ev.id }) {
+                // ✔ Update event đã tồn tại
+                updated[idx] = ev
+            } else {
+                // ✔ Thêm event mới
+                updated.append(ev)
+            }
+        }
+
+        // ✔ Lưu và regroup
+        self.events = updated
+        self.saveEvents()
+        self.updateGroupedEvents()
+    }
+
+
 
     // MARK: - Listeners (prevent revival)
-    func listenToAppointments(forSharedUser sharedUserId: String) {
-        db.collection("appointments")
-            .whereField("sharedUser", isEqualTo: sharedUserId)
-            .addSnapshotListener { snap, err in
-                guard let docs = snap?.documents else { return }
-
-                let arrivals = docs.compactMap { doc -> CalendarEvent? in
-                    let data = doc.data()
-                    guard let start = data["start"] as? TimeInterval,
-                          let end = data["end"] as? TimeInterval else { return nil }
-                    return CalendarEvent(
-                        id: doc.documentID,
-                        title: data["title"] as? String ?? "Lịch web",
-                        owner: data["owner"] as? String ?? "khách",
-                        date: Date(timeIntervalSince1970: start),
-                        startTime: Date(timeIntervalSince1970: start),
-                        endTime: Date(timeIntervalSince1970: end)
-                    )
-                }
-
-                DispatchQueue.main.async {
-                    for ev in arrivals {
-                        if let exist = self.events.first(where: { $0.id == ev.id }),
-                           exist.pendingDelete {
-                            continue
-                        }
-                        if let idx = self.events.firstIndex(where: { $0.id == ev.id }) {
-                            self.events[idx] = ev
-                        } else {
-                            self.events.append(ev)
-                        }
-                    }
-                   
-                }
-            }
-    }
+  
 
     func listenToBusySlots(sharedUserId: String) {
-        db.collection("publicCalendar").document(sharedUserId)
+        busySlotsListener = db.collection("publicCalendar")
+            .document(sharedUserId)
             .addSnapshotListener { snap, err in
                 guard let data = snap?.data() else { return }
 
@@ -643,23 +678,31 @@ extension EventManager {
 
                 let slots = raw.compactMap { dict -> CalendarEvent? in
                     guard let start = dict["start"] as? TimeInterval,
-                          let end = dict["end"] as? TimeInterval else { return nil }
-                    let id = dict["id"] as? String ?? "\(start)-\(end)-local"
-                    let owner = dict["owner"] as? String ?? sharedUserId
+                          let end   = dict["end"]   as? TimeInterval else { return nil }
+
+                    let s = Date(timeIntervalSince1970: start)
+                    let e = Date(timeIntervalSince1970: end)
+                    let id = dict["id"] as? String ?? "\(start)-\(end)-busy"
+
                     return CalendarEvent(
                         id: id,
                         title: dict["title"] as? String ?? "Bận",
-                        owner: owner,
-                        date: Date(timeIntervalSince1970: start),
-                        startTime: Date(timeIntervalSince1970: start),
-                        endTime: Date(timeIntervalSince1970: end)
+                        date: Calendar.current.startOfDay(for: s),
+                        startTime: s,
+                        endTime: e,
+                        owner: sharedUserId,
+                        sharedUser: sharedUserId,
+                        createdBy: sharedUserId,
+                        participants: [sharedUserId],
+                        colorHex: "#FF0000",
+                        pendingDelete: false,
+                        origin: .myEvent
                     )
                 }
 
                 DispatchQueue.main.async {
                     for ev in slots {
-                        if let exist = self.events.first(where: { $0.id == ev.id }),
-                           exist.pendingDelete {
+                        if self.events.first(where: { $0.id == ev.id && $0.pendingDelete }) != nil {
                             continue
                         }
                         if let idx = self.events.firstIndex(where: { $0.id == ev.id }) {
@@ -668,10 +711,10 @@ extension EventManager {
                             self.events.append(ev)
                         }
                     }
-                   
                 }
             }
     }
+
 
     // MARK: Sync busySlots
     func syncBusySlotsToFirebase() {
@@ -964,9 +1007,11 @@ struct EventListView: View {
                                                         .font(.caption)
                                                         .foregroundColor(.blue)
 
-                                                    Text(event.owner)
+                                                    // 🔵 Hiển thị tên người dùng thay cho UID
+                                                    UserNameView(uid: event.createdBy)
                                                         .font(.subheadline)
                                                         .foregroundColor(.secondary)
+
 
                                                     Text("\(timeFormatter.string(from: event.startTime)) - \(timeFormatter.string(from: event.endTime))")
                                                         .font(.caption)
@@ -1082,9 +1127,12 @@ struct EventListView: View {
                     ForEach(eventsForDate) { event in
                         VStack(alignment: .leading, spacing: 4) {
                             Text(event.title).font(.headline)
-                            Text(event.owner)
+                            // 🔵 Hiển thị tên người dùng thay cho UID
+                            UserNameView(uid: event.createdBy)
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
+
+
 
                             Text("\(formattedTime(event.startTime)) - \(formattedTime(event.endTime))")
                                 .font(.caption)
@@ -1123,17 +1171,37 @@ struct EventListView: View {
     }
     // MARK: - Hàng hiển thị sự kiện
     private func eventRow(_ event: CalendarEvent) -> some View {
-        VStack(alignment: .leading) {
-            Text(event.title).font(.headline)
-            Text("\(event.owner) • \(formattedDate(event.date))")
-                .font(.subheadline)
+        VStack(alignment: .leading, spacing: 4) {
+
+            // ⭐ Tiêu đề
+            Text(event.title)
+                .font(.headline)
+
+            // ⭐ Hàng thông tin người tạo + ngày
+            HStack(spacing: 4) {
+
+                UserNameView(uid: event.createdBy)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+
+
+                Text("•")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+
+                Text(formattedDate(event.date))
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+
+            // ⭐ Thời gian
             Text("\(formattedTime(event.startTime)) - \(formattedTime(event.endTime))")
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
         .padding(.vertical, 4)
     }
-    
+
     // MARK: - Xoá sự kiện hiện tại
     private func deleteUpcomingEvent(at offsets: IndexSet) {
         eventManager.events.remove(atOffsets: offsets)
@@ -1162,6 +1230,20 @@ private func originLabel(for event: CalendarEvent) -> String {
         return "🟢 Người khác tạo cho tôi"
     case .iCreatedForOther:
         return "🟠 Tôi tạo cho người khác"
+    }
+}
+struct UserNameView: View {
+    @EnvironmentObject var eventManager: EventManager
+    let uid: String
+    @State private var name: String = ""
+    
+    var body: some View {
+        Text(name.isEmpty ? uid : name)  // fallback nếu chưa load
+            .onAppear {
+                eventManager.name(for: uid) { fetched in
+                    self.name = fetched
+                }
+            }
     }
 }
 
@@ -1350,9 +1432,11 @@ struct CustomizableCalendarView: View {
                                                     .foregroundColor(.blue)
 
                                                 // ⭐ 3. Người tạo
-                                                Text(event.owner)
+                                                // 🔵 Hiển thị tên người dùng thay cho UID
+                                                UserNameView(uid: event.createdBy)
                                                     .font(.subheadline)
                                                     .foregroundColor(.secondary)
+
 
                                                 // ⭐ 4. Time
                                                 Text("\(formattedTime(event.startTime)) - \(formattedTime(event.endTime))")

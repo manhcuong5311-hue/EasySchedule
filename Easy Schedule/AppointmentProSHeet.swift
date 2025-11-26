@@ -831,68 +831,95 @@ struct CreatedEventsByDateView: View {
     }
 }
 
-import FirebaseFirestore
+
 
 extension CalendarEvent {
     static func from(_ doc: DocumentSnapshot) -> CalendarEvent? {
         let data = doc.data() ?? [:]
 
-        // Try both Firestore Timestamp and numeric (seconds) fallback
-        var startDate: Date?
-        var endDate: Date?
-
-        if let ts = data["start"] as? Timestamp {
-            startDate = ts.dateValue()
-        } else if let d = data["start"] as? Double {
-            startDate = Date(timeIntervalSince1970: d)
-        } else if let i = data["start"] as? Int {
-            startDate = Date(timeIntervalSince1970: TimeInterval(i))
+        // helper parse date from various typed fields
+        func parseDate(_ value: Any?) -> Date? {
+            if let ts = value as? Timestamp { return ts.dateValue() }
+            if let d = value as? Double { return Date(timeIntervalSince1970: d) }
+            if let i = value as? Int { return Date(timeIntervalSince1970: TimeInterval(i)) }
+            return nil
         }
 
-        if let ts = data["end"] as? Timestamp {
-            endDate = ts.dateValue()
-        } else if let d = data["end"] as? Double {
-            endDate = Date(timeIntervalSince1970: d)
-        } else if let i = data["end"] as? Int {
-            endDate = Date(timeIntervalSince1970: TimeInterval(i))
-        }
-
-        guard
-            let title = data["title"] as? String,
-            let owner = data["owner"] as? String,
-            let s = startDate,
-            let e = endDate
-        else {
-            // Có thể log để debug tại dev build
+        // Prefer possible timestamp fields names: "startTime"/"endTime" or "start"/"end"
+        let start = parseDate(data["startTime"] ?? data["start"])
+        let end   = parseDate(data["endTime"] ?? data["end"])
+        guard let s = start, let e = end else {
             #if DEBUG
-            print("CalendarEvent.from: missing fields for doc \(doc.documentID) -> data: \(data)")
+            print("CalendarEvent.from: missing start/end for doc \(doc.documentID) -> \(data)")
             #endif
             return nil
         }
-        let createdBy = data["createdBy"] as? String ?? ""
+
+        guard let title = data["title"] as? String else {
+            #if DEBUG
+            print("CalendarEvent.from: missing title for doc \(doc.documentID) -> \(data)")
+            #endif
+            return nil
+        }
+
+        // owner is required
+        guard let owner = data["owner"] as? String else {
+            #if DEBUG
+            print("CalendarEvent.from: missing owner for doc \(doc.documentID) -> \(data)")
+            #endif
+            return nil
+        }
+
+        let sharedUser = data["sharedUser"] as? String ?? ""
+        let createdBy  = data["createdBy"] as? String  ?? ""
+        let colorHex   = data["colorHex"] as? String  ?? "#007AFF"
+
+        // participants may be saved as [String] or maybe missing
+        var participants: [String] = []
+        if let arr = data["participants"] as? [String] {
+            participants = arr
+        } else if let arrAny = data["participants"] as? [Any] {
+            participants = arrAny.compactMap { $0 as? String }
+        }
+
+        // Determine origin relative to current user
         let current = Auth.auth().currentUser?.uid ?? ""
-
         var origin: EventOrigin = .myEvent
-
-        if owner == current && createdBy == current {
-            origin = .myEvent                        // A ⇒ A
-        } else if owner == current && createdBy != current {
-            origin = .createdForMe                   // B ⇒ A
-        } else if owner != current && createdBy == current {
-            origin = .iCreatedForOther              // A ⇒ B
+        if owner == current && sharedUser == current {
+            origin = .myEvent
+        } else if sharedUser == current && owner != current {
+            origin = .createdForMe
+        } else if owner == current && sharedUser != current {
+            origin = .iCreatedForOther
+        } else {
+            // Other-case: neither owner nor sharedUser equals current (e.g. reading other's calendar)
+            origin = .myEvent
         }
 
         return CalendarEvent(
             id: doc.documentID,
             title: title,
-            owner: owner,
             date: Calendar.current.startOfDay(for: s),
             startTime: s,
             endTime: e,
-            colorHex: data["colorHex"] as? String ?? "#007AFF",
+            owner: owner,
+            sharedUser: sharedUser,
+            createdBy: createdBy,
+            participants: participants,
+            colorHex: colorHex,
             pendingDelete: false,
-            origin: origin     // ⭐ THÊM DÒNG NÀY
+            origin: origin
         )
+    }
 
+
+
+
+    private static func parseDate(_ value: Any?) -> Date? {
+        if let ts = value as? Timestamp { return ts.dateValue() }
+        if let d = value as? Double { return Date(timeIntervalSince1970: d) }
+        if let i = value as? Int { return Date(timeIntervalSince1970: TimeInterval(i)) }
+        return nil
     }
 }
+

@@ -39,60 +39,70 @@ struct PartnerCalendarTabView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 12) {
-                inputArea
-                Divider()
-                
-                // MARK: - Lịch sử đã xem
-                Button {
-                    showHistorySheet = true
-                } label: {
-                    HStack {
-                        Image(systemName: "clock.arrow.circlepath")
-                        Text("Lịch sử đã xem")
-                            .bold()
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(10)
-                    .background(Color.blue.opacity(0.15))
-                    .cornerRadius(10)
-                }
-                .padding(.horizontal)
-                .sheet(isPresented: $showHistorySheet) {
-                    HistoryLinksView { link in
-                        self.linkText = link
-                        self.parseAndLoad()
-                        self.showHistorySheet = false
-                    }
-                    .environmentObject(eventManager)
-                }
+            ScrollView {        // ⭐ Thêm ScrollView để UI luôn nằm trên cùng
+                VStack(spacing: 16) {
 
-                //
-                // ⭐⭐ NÚT MỚI – LỊCH TÔI TẠO CHO NGƯỜI KHÁC
-                //
-                Button {
-                    showMyCreatedEvents = true
-                } label: {
-                    HStack {
-                        Image(systemName: "person.crop.circle.badge.plus")
-                        Text("Lịch tôi tạo cho người khác")
-                            .bold()
+                    // INPUT LINK + LOAD
+                    inputArea
+
+                    Divider()
+                        .padding(.horizontal)
+
+                    // LỊCH SỬ ĐÃ XEM
+                    Button {
+                        showHistorySheet = true
+                    } label: {
+                        HStack {
+                            Image(systemName: "clock.arrow.circlepath")
+                            Text("Lịch sử đã xem").bold()
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(12)
+                        .background(Color.blue.opacity(0.15))
+                        .cornerRadius(12)
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding(10)
-                    .background(Color.green.opacity(0.15))
-                    .cornerRadius(10)
-                }
-                .padding(.horizontal)
-                .sheet(isPresented: $showMyCreatedEvents) {
-                    MyCreatedEventsView()
+                    .padding(.horizontal)
+                    .sheet(isPresented: $showHistorySheet) {
+                        HistoryLinksView { link in
+                            self.linkText = link
+                            self.parseAndLoad()
+                            self.showHistorySheet = false
+                        }
                         .environmentObject(eventManager)
+                    }
+
+                    // LỊCH TÔI TẠO CHO NGƯỜI KHÁC
+                    Button {
+                        showMyCreatedEvents = true
+                    } label: {
+                        HStack {
+                            Image(systemName: "person.crop.circle.badge.plus")
+                            Text("Lịch tôi tạo cho người khác").bold()
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(12)
+                        .background(Color.green.opacity(0.15))
+                        .cornerRadius(12)
+                    }
+                    .padding(.horizontal)
+                    .sheet(isPresented: $showMyCreatedEvents) {
+                        MyCreatedEventsView()
+                            .environmentObject(eventManager)
+                    }
+
+                    // UID info
+                    uidInfoArea
+                        .padding(.horizontal)
+
+                    // Error
+                    errorArea
+                        .padding(.horizontal)
+
+                    // Nếu bạn muốn ẩn danh sách lịch thì xoá contentArea,
+                    // còn muốn giữ thì để lại:
+                    contentArea
                 }
-
-
-                uidInfoArea
-                errorArea
-                contentArea
+                .padding(.top, 12)
             }
             .navigationTitle("Lịch đối tác")
             .toolbar {
@@ -104,9 +114,7 @@ struct PartnerCalendarTabView: View {
                     }
                 }
             }
-            .padding(.bottom, 8)
             .sheet(isPresented: $showAddAppointmentSheet) {
-                // AppointmentProSheet expected to accept sharedUserId param
                 AppointmentProSheet(
                     isPresented: $showAddAppointmentSheet,
                     sharedUserId: selectedSharedUserId
@@ -115,10 +123,15 @@ struct PartnerCalendarTabView: View {
                 .environmentObject(session)
             }
             .alert(isPresented: $showAlert) {
-                Alert(title: Text("Thông báo"), message: Text(alertMessage), dismissButton: .default(Text("Đóng")))
+                Alert(
+                    title: Text("Thông báo"),
+                    message: Text(alertMessage),
+                    dismissButton: .default(Text("Đóng"))
+                )
             }
         }
     }
+
 
     // MARK: - Subviews
 
@@ -197,25 +210,12 @@ struct PartnerCalendarTabView: View {
                     .foregroundColor(.secondary)
                 Spacer()
             } else {
-                scheduleListView
+                EmptyView()
             }
         }
     }
 
-    private var scheduleListView: some View {
-        List {
-            let days = groupedByDay.keys.sorted(by: >)
-            ForEach(days, id: \.self) { day in
-                Section(header: Text(sectionHeader(for: day))) {
-                    let events = (groupedByDay[day] ?? []).sorted { $0.startTime < $1.startTime }
-                    ForEach(events) { ev in
-                        eventRow(ev)
-                    }
-                }
-            }
-        }
-        .listStyle(.insetGrouped)
-    }
+   
 
     private func eventRow(_ ev: CalendarEvent) -> some View {
         HStack {
@@ -321,7 +321,7 @@ struct PartnerCalendarTabView: View {
                 self.fetchedEvents = filtered.sorted { $0.startTime < $1.startTime }
 
                 if !isPremiumUser {
-                    self.errorMessage = "⚠️ Người này chưa đăng Premium — bạn chỉ xem được lịch 7 ngày."
+                    self.errorMessage = "Chỉ có thể đặt lịch 7 ngày tới đối với người này."
                 } else if filtered.isEmpty {
                     self.errorMessage = "Không tìm thấy lịch bận cho UID này."
                 }

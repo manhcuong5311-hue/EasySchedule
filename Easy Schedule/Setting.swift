@@ -145,6 +145,19 @@ struct SettingsView: View {
                 // MARK: - Tài khoản & Premium
                 Section("Tài khoản & Premium") {
 
+                    // ⭐ Username chỉnh sửa tại Setting
+                    HStack {
+                        Text("Tên hiển thị")
+                        Spacer()
+                        Text(session.currentUserName.isEmpty ? "Chưa đặt" : session.currentUserName)
+                            .foregroundColor(.secondary)
+                    }
+
+                    NavigationLink("Đổi tên hiển thị") {
+                        UpdateUserNameView()
+                            .environmentObject(session)
+                    }
+
                     Button {
                         showUpgradeSheet = true
                     } label: {
@@ -160,6 +173,7 @@ struct SettingsView: View {
                         SecuritySettingsView()
                     }
                 }
+
 
                 // MARK: - Ngôn ngữ
                 Section("Ngôn ngữ") {
@@ -621,3 +635,8 @@ final class PremiumManager: ObservableObject {
         }
     }
 }
+
+
+
+
+
