@@ -464,16 +464,18 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         // 1️⃣ Khởi tạo Firebase
         FirebaseApp.configure()
 
-        // 2️⃣ Firestore Settings (offline persistence)
+        // 2️⃣ Firestore Settings (offline persistence) → PHẢI ĐẶT TRƯỚC preloadUsers()
         let db = Firestore.firestore()
         let settings = FirestoreSettings()
 
-        // Sử dụng PersistentCacheSettings
-        let persistentCache = PersistentCacheSettings()  // mặc định size ~100MB theo tài liệu :contentReference[oaicite:3]{index=3}
+        let persistentCache = PersistentCacheSettings()
         settings.cacheSettings = persistentCache
-
         db.settings = settings
-        // 3️⃣ Notification
+
+        // 3️⃣ Sau khi settings xong → giờ mới được preloadUsers()
+        EventManager.shared.preloadUsers()
+
+        // 4️⃣ Notification
         UNUserNotificationCenter.current().delegate = self
         Messaging.messaging().delegate = self
 
@@ -489,6 +491,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
 
         return true
     }
+
 
     // MARK: - UNUserNotificationCenterDelegate
     func userNotificationCenter(_ center: UNUserNotificationCenter,

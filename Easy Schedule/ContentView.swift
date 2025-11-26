@@ -51,7 +51,7 @@ final class EventManager: ObservableObject {
     private var appointmentsListener: ListenerRegistration?
     private var createdAppointmentsListener: ListenerRegistration?
     private var busySlotsListener: ListenerRegistration?
-
+    @Published var userNames: [String: String] = [:]
     // ⭐ PREMIUM FLAG
     private var isPremiumUser: Bool {
         PremiumManager.shared.isPremiumUser
@@ -178,18 +178,35 @@ final class EventManager: ObservableObject {
         cleanUpPastEvents()
     }
     func name(for uid: String, completion: @escaping (String) -> Void) {
-        if let cached = userNameCache[uid] {
-            completion(cached)
-            return
-        }
 
-        Firestore.firestore().collection("users")
-            .document(uid)
-            .getDocument { snap, _ in
-                let name = snap?.data()?["name"] as? String ?? uid
-                self.userNameCache[uid] = name
-                completion(name)
+          // 1. Nếu đã có trong cache → trả ngay
+          if let cached = userNames[uid] {
+              completion(cached)
+              return
+          }
+
+          // 2. Nếu chưa có → load Firestore
+          Firestore.firestore()
+              .collection("users")
+              .document(uid)
+              .getDocument { snap, err in
+                  let name = snap?.data()?["name"] as? String ?? uid
+                  DispatchQueue.main.async {
+                      self.userNames[uid] = name // lưu cache
+                      completion(name)
+                  }
+              }
+      }
+    func preloadUsers() {
+        Firestore.firestore().collection("users").getDocuments { snap, _ in
+            snap?.documents.forEach { doc in
+                let uid = doc.documentID
+                let name = doc["name"] as? String ?? uid
+                DispatchQueue.main.async {
+                    self.userNames[uid] = name
+                }
             }
+        }
     }
 
     
@@ -849,7 +866,6 @@ struct EventListView: View {
     @State private var searchText: String = ""    // dùng để tìm kiếm
     @State private var showDeleteAlert = false
     @State private var eventToDelete: CalendarEvent? = nil
-    
     var body: some View {
         VStack {
             // Nút chuyển giữa 2 chế độ
@@ -1008,9 +1024,21 @@ struct EventListView: View {
                                                         .foregroundColor(.blue)
 
                                                     // 🔵 Hiển thị tên người dùng thay cho UID
-                                                    UserNameView(uid: event.createdBy)
+                                                    if event.origin == .iCreatedForOther {
+                                                        HStack(spacing: 4) {
+                                                            UserNameView(uid: event.createdBy)   // A
+                                                            Text("→")
+                                                            UserNameView(uid: event.owner)       // B  <<<< CHỈNH ĐÚNG CHỖ NÀY
+                                                        }
                                                         .font(.subheadline)
                                                         .foregroundColor(.secondary)
+                                                    } else {
+                                                        UserNameView(uid: event.createdBy)
+                                                            .font(.subheadline)
+                                                            .foregroundColor(.secondary)
+                                                    }
+
+
 
 
                                                     Text("\(timeFormatter.string(from: event.startTime)) - \(timeFormatter.string(from: event.endTime))")
@@ -1128,9 +1156,20 @@ struct EventListView: View {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(event.title).font(.headline)
                             // 🔵 Hiển thị tên người dùng thay cho UID
-                            UserNameView(uid: event.createdBy)
+                            if event.origin == .iCreatedForOther {
+                                HStack(spacing: 4) {
+                                    UserNameView(uid: event.createdBy)   // A
+                                    Text("→")
+                                    UserNameView(uid: event.owner)       // B  <<<< CHỈNH ĐÚNG CHỖ NÀY
+                                }
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
+                            } else {
+                                UserNameView(uid: event.createdBy)
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                            }
+
 
 
 
@@ -1180,9 +1219,21 @@ struct EventListView: View {
             // ⭐ Hàng thông tin người tạo + ngày
             HStack(spacing: 4) {
 
-                UserNameView(uid: event.createdBy)
+                if event.origin == .iCreatedForOther {
+                    HStack(spacing: 4) {
+                        UserNameView(uid: event.createdBy)   // A
+                        Text("→")
+                        UserNameView(uid: event.owner)       // B  <<<< CHỈNH ĐÚNG CHỖ NÀY
+                    }
                     .font(.subheadline)
                     .foregroundColor(.secondary)
+                } else {
+                    UserNameView(uid: event.createdBy)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+
+
 
 
                 Text("•")
@@ -1225,11 +1276,11 @@ struct EventListView: View {
 private func originLabel(for event: CalendarEvent) -> String {
     switch event.origin {
     case .myEvent:
-        return "📘 Lịch của tôi"
+        return " Lịch của tôi"
     case .createdForMe:
-        return "🟢 Người khác tạo cho tôi"
+        return " Tạo bởi đối tác"
     case .iCreatedForOther:
-        return "🟠 Tôi tạo cho người khác"
+        return " Tôi tạo cho đối tác"
     }
 }
 struct UserNameView: View {
@@ -1238,7 +1289,7 @@ struct UserNameView: View {
     @State private var name: String = ""
     
     var body: some View {
-        Text(name.isEmpty ? uid : name)  // fallback nếu chưa load
+        Text(name.isEmpty ? uid : name)
             .onAppear {
                 eventManager.name(for: uid) { fetched in
                     self.name = fetched
@@ -1246,6 +1297,7 @@ struct UserNameView: View {
             }
     }
 }
+
 
 struct PastEventsByWeekView: View {
     @EnvironmentObject var eventManager: EventManager
@@ -1433,9 +1485,20 @@ struct CustomizableCalendarView: View {
 
                                                 // ⭐ 3. Người tạo
                                                 // 🔵 Hiển thị tên người dùng thay cho UID
-                                                UserNameView(uid: event.createdBy)
+                                                if event.origin == .iCreatedForOther {
+                                                    HStack(spacing: 4) {
+                                                        UserNameView(uid: event.createdBy)   // A
+                                                        Text("→")
+                                                        UserNameView(uid: event.owner)       // B  <<<< CHỈNH ĐÚNG CHỖ NÀY
+                                                    }
                                                     .font(.subheadline)
                                                     .foregroundColor(.secondary)
+                                                } else {
+                                                    UserNameView(uid: event.createdBy)
+                                                        .font(.subheadline)
+                                                        .foregroundColor(.secondary)
+                                                }
+
 
 
                                                 // ⭐ 4. Time

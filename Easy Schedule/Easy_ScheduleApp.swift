@@ -14,7 +14,10 @@ struct Easy_scheduleApp: App {
     @StateObject private var eventManager = EventManager.shared
 
     var body: some Scene {
+        
         WindowGroup {
+            
+            
             if showLaunch {
                 LaunchView()
                     .preferredColorScheme(

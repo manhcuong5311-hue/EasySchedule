@@ -884,16 +884,17 @@ extension CalendarEvent {
 
         // Determine origin relative to current user
         let current = Auth.auth().currentUser?.uid ?? ""
-        var origin: EventOrigin = .myEvent
-        if owner == current && sharedUser == current {
-            origin = .myEvent
-        } else if sharedUser == current && owner != current {
-            origin = .createdForMe
-        } else if owner == current && sharedUser != current {
-            origin = .iCreatedForOther
+        var origin: EventOrigin
+
+        let isMyCalendar = (owner == current)
+        let isCreatedByMe = (createdBy == current)
+
+        if isMyCalendar {
+            // Event nằm trên lịch của tôi
+            origin = isCreatedByMe ? .myEvent : .createdForMe
         } else {
-            // Other-case: neither owner nor sharedUser equals current (e.g. reading other's calendar)
-            origin = .myEvent
+            // Event nằm trên lịch đối tác -> chỉ có 1 trường hợp: tôi tạo cho đối tác
+            origin = isCreatedByMe ? .iCreatedForOther : .createdForMe
         }
 
         return CalendarEvent(
@@ -910,6 +911,7 @@ extension CalendarEvent {
             pendingDelete: false,
             origin: origin
         )
+       
     }
 
 
