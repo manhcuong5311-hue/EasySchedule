@@ -175,6 +175,11 @@ struct AppointmentProSheet: View {
                 }
             }
             .onAppear { loadBusy() }
+            .onChange(of: sharedUserId) { _, newValue in
+                if newValue != nil {
+                    loadBusy()
+                }
+            }
 
             // Popup lỗi chung — ƯU TIÊN CAO NHẤT
             .alert(item: Binding(
@@ -212,7 +217,14 @@ struct AppointmentProSheet: View {
                 selectedSlot = nil
             }
         }
+        .onChange(of: selectedDate) { oldValue, newValue in
+            let limitDate = calendar.date(byAdding: .day, value: 7, to: Date())!
+            let dayBlocked = (!partnerIsPremium && newValue > limitDate)
 
+            if dayBlocked {
+                selectedSlot = nil
+            }
+        }
 
     }
 
@@ -225,7 +237,7 @@ struct AppointmentProSheet: View {
             return
         }
 
-        // SAVE HISTORY
+        // Lưu lịch sử xem UID
         let link = SharedLink(
             id: UUID().uuidString,
             uid: uid,
@@ -236,22 +248,28 @@ struct AppointmentProSheet: View {
 
         loading = true
 
-        // 1️⃣ Load busy + premium
-        eventManager.fetchBusySlots(for: uid) { slots, isPremium in
+        // 1️⃣ Load busy slots + premium
+        eventManager.fetchBusySlots(for: uid, forceRefresh: true) { slots, premium in
             DispatchQueue.main.async {
-                self.busySlots = slots
-                self.partnerIsPremium = isPremium
+                print("🔥 UI nhận busySlots:", slots.count)
+
+                self.busySlots = slots           // DÙNG CHO UI
+                self.partnerIsPremium = premium
+
+                // ⭐ LƯU LOCAL CACHE TRONG EVENTMANAGER — KHÔNG sync vào events
+                self.eventManager.partnerBusySlots[uid] = slots
             }
         }
 
         // 2️⃣ Load ngày nghỉ
-        eventManager.fetchOffDays(for: uid) { offDays in
+        eventManager.fetchOffDays(for: uid, forceRefresh: true) { offDays in
             DispatchQueue.main.async {
                 self.partnerOffDays = offDays
                 self.loading = false
             }
         }
     }
+
 
     // MARK: Xử lý đặt lịch
     private func handleCreate() {
@@ -708,29 +726,34 @@ struct MyCreatedEventsView: View {
 
     // MARK: Load data
     private func loadEvents() {
-        guard let uid = Auth.auth().currentUser?.uid else {
-            loading = false; return
+        loading = true
+        let now = Date()
+
+        // Lấy toàn bộ events trong máy
+        let allEvents = eventManager.events
+        let pastEvents = eventManager.pastEvents
+
+        // Chỉ lấy lịch tôi tạo cho đối tác
+        let createdForOtherUpcoming = allEvents.filter {
+            $0.origin == .iCreatedForOther && $0.endTime >= now
         }
 
-        Firestore.firestore()
-            .collection("appointments")
-            .whereField("createdBy", isEqualTo: uid)
-            .order(by: "start")
-            .getDocuments { snap, err in
-                DispatchQueue.main.async {
-                    self.loading = false
+        let createdForOtherPast = pastEvents.filter {
+            $0.origin == .iCreatedForOther && $0.endTime < now
+        }
 
-                    guard let docs = snap?.documents else { return }
+        self.createdUpcoming = createdForOtherUpcoming
+        self.createdPast = createdForOtherPast
 
-                    let all = docs.compactMap { CalendarEvent.from($0) }
-
-                    let now = Date()
-
-                    self.createdUpcoming = all.filter { $0.endTime >= now }
-                    self.createdPast = all.filter { $0.endTime < now }
-                }
-            }
+        loading = false
     }
+    private func formattedFullDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "vi_VN")
+        formatter.dateFormat = "EEEE, 'ngày' d 'tháng' M"
+        return formatter.string(from: date).capitalized
+    }
+
 
     // MARK: Group helpers
     private func groupedByMonth(events: [CalendarEvent]) -> [Date: [CalendarEvent]] {
@@ -772,9 +795,10 @@ struct MyCreatedEventsView: View {
     private func formatDate(_ d: Date) -> String {
         let f = DateFormatter()
         f.locale = Locale(identifier: "vi_VN")
-        f.dateStyle = .medium
-        return f.string(from: d)
+        f.dateFormat = "EEEE, 'ngày' d"    // Ví dụ: “Thứ Tư, ngày 3”
+        return f.string(from: d).capitalized
     }
+
 
     private func formatTime(_ d: Date) -> String {
         let f = DateFormatter()

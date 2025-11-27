@@ -16,7 +16,7 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "707"
             endingLineNumber = "707"
-            landmarkName = "listenToBusySlots(sharedUserId:)"
+            landmarkName = "addAppointment(forSharedUser:title:start:end:createdBy:completion:)"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>

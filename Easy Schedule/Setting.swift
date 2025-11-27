@@ -473,7 +473,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         db.settings = settings
 
         // 3️⃣ Sau khi settings xong → giờ mới được preloadUsers()
-        EventManager.shared.preloadUsers()
+        EventManager.shared.preloadUsersIfNeeded()
 
         // 4️⃣ Notification
         UNUserNotificationCenter.current().delegate = self
