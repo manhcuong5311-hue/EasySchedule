@@ -14,8 +14,8 @@
             filePath = "Easy Schedule/ContentView.swift"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "609"
-            endingLineNumber = "609"
+            startingLineNumber = "707"
+            endingLineNumber = "707"
             landmarkName = "addAppointment(forSharedUser:title:start:end:createdBy:completion:)"
             landmarkType = "7">
          </BreakpointContent>

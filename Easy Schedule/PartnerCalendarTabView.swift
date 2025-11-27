@@ -307,8 +307,7 @@ struct PartnerCalendarTabView: View {
         isLoading = true
         errorMessage = nil
         fetchedEvents.removeAll()
-
-        eventManager.fetchBusySlots(for: uid) { slots, isPremiumUser in
+        eventManager.fetchBusySlots(for: uid, forceRefresh: true) { slots, isPremiumUser in
             DispatchQueue.main.async {
                 self.isLoading = false
 
@@ -319,6 +318,8 @@ struct PartnerCalendarTabView: View {
                 }
 
                 self.fetchedEvents = filtered.sorted { $0.startTime < $1.startTime }
+                eventManager.partnerBusySlots[uid] = filtered
+               
 
                 if !isPremiumUser {
                     self.errorMessage = "Chỉ có thể đặt lịch 7 ngày tới đối với người này."

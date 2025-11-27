@@ -17,6 +17,7 @@ enum EventOrigin: String, Codable {
     case myEvent
     case createdForMe
     case iCreatedForOther
+    case busySlot
 }
 struct CalendarEvent: Identifiable, Hashable, Codable {
     
@@ -47,11 +48,33 @@ final class EventManager: ObservableObject {
     static let shared = EventManager()
     @EnvironmentObject var session: SessionStore
     // Firestore listeners
+    @Published var busySlotCache: [String: [CalendarEvent]] = [:]
+    @Published var busySlotPremiumCache: [String: Bool] = [:]
+    // Cache busy slots của đối tác
+    private var partnerBusySlotCache: [String: [CalendarEvent]] = [:]
+    @Published var offDayCache: [String: Set<Date>] = [:]
+
+    // Cache premium flag của đối tác
+    private var partnerPremiumCache: [String: Bool] = [:]
+    // Cache busy slots theo UID đối tác
+    @Published var partnerBusySlots: [String: [CalendarEvent]] = [:]
+
     private var eventsListener: ListenerRegistration?
     private var appointmentsListener: ListenerRegistration?
     private var createdAppointmentsListener: ListenerRegistration?
     private var busySlotsListener: ListenerRegistration?
-    @Published var userNames: [String: String] = [:]
+    // --- Persisted user name cache key
+    private let kUserNamesKey = "es_userNames_cache_v1"
+
+    // persisted + in-memory cache
+    @Published var userNames: [String: String] = [:] {
+        didSet {
+            if let data = try? JSONEncoder().encode(userNames) {
+                UserDefaults.standard.set(data, forKey: kUserNamesKey)
+            }
+        }
+    }
+
     // ⭐ PREMIUM FLAG
     private var isPremiumUser: Bool {
         PremiumManager.shared.isPremiumUser
@@ -88,6 +111,7 @@ final class EventManager: ObservableObject {
     private init() {
         loadEvents()
         loadSharedLinks()
+        loadPersistedUserNames()
         cleanUpPastEvents()
         updateGroupedEvents()
         listenToEvents()
@@ -165,46 +189,55 @@ final class EventManager: ObservableObject {
 
     func reloadForCurrentUser() {
         clearLocalEvents()
-
         guard let uid = currentUserId else { return }
-
         print("🔄 Reloading events for user:", uid)
-
         listenToEvents()
-      
         listenToBusySlots(sharedUserId: uid)
-        
-
         cleanUpPastEvents()
     }
+    
+    
     func name(for uid: String, completion: @escaping (String) -> Void) {
-
-          // 1. Nếu đã có trong cache → trả ngay
-          if let cached = userNames[uid] {
-              completion(cached)
-              return
-          }
-
-          // 2. Nếu chưa có → load Firestore
-          Firestore.firestore()
-              .collection("users")
-              .document(uid)
-              .getDocument { snap, err in
-                  let name = snap?.data()?["name"] as? String ?? uid
-                  DispatchQueue.main.async {
-                      self.userNames[uid] = name // lưu cache
-                      completion(name)
-                  }
-              }
-      }
-    func preloadUsers() {
-        Firestore.firestore().collection("users").getDocuments { snap, _ in
-            snap?.documents.forEach { doc in
-                let uid = doc.documentID
-                let name = doc["name"] as? String ?? uid
+        if let cached = userNames[uid] {
+            completion(cached)
+            return
+        }
+        Firestore.firestore()
+            .collection("users")
+            .document(uid)
+            .getDocument { snap, err in
+                let name = snap?.data()?["name"] as? String ?? uid
                 DispatchQueue.main.async {
                     self.userNames[uid] = name
+                    completion(name)
                 }
+            }
+     }
+
+    func preloadUsersIfNeeded() {
+        // Nếu cache đã có dữ liệu → KHÔNG gọi Firestore
+        if !userNames.isEmpty { return }
+
+        Firestore.firestore().collection("users").getDocuments { snap, _ in
+            guard let docs = snap?.documents else { return }
+
+            var temp: [String: String] = [:]
+
+            for doc in docs {
+                temp[doc.documentID] = doc["name"] as? String ?? doc.documentID
+            }
+
+            DispatchQueue.main.async {
+                self.userNames = temp
+            }
+        }
+    }
+
+    private func loadPersistedUserNames() {
+        guard let data = UserDefaults.standard.data(forKey: kUserNamesKey) else { return }
+        if let decoded = try? JSONDecoder().decode([String: String].self, from: data) {
+            DispatchQueue.main.async {
+                self.userNames = decoded
             }
         }
     }
@@ -269,20 +302,39 @@ final class EventManager: ObservableObject {
         updateGroupedEvents()
     }
 
+  
+
 
     // MARK: - OFF DAYS
-    func fetchOffDays(for userId: String, completion: @escaping (Set<Date>) -> Void) {
+    func fetchOffDays(for userId: String,
+                      forceRefresh: Bool = false,
+                      completion: @escaping (Set<Date>) -> Void) {
+
+        // 1️⃣ Nếu có cache và không ép refresh → trả về ngay
+        if !forceRefresh, let cached = offDayCache[userId] {
+            completion(cached)
+            return
+        }
+
+        // 2️⃣ Gọi Firestore nếu chưa có cache hoặc forceRefresh = true
         db.collection("publicCalendar")
             .document(userId)
             .getDocument { snap, error in
+
                 guard let data = snap?.data() else {
                     completion([])
                     return
                 }
 
                 let timestamps = data["offDays"] as? [Double] ?? []
-                let dates = timestamps.map { Date(timeIntervalSince1970: $0) }
-                completion(Set(dates))
+                let dates = Set(timestamps.map { Date(timeIntervalSince1970: $0) })
+
+                // 3️⃣ Lưu cache để lần sau không gọi Firestore nữa
+                DispatchQueue.main.async {
+                    self.offDayCache[userId] = dates
+                }
+
+                completion(dates)
             }
     }
 
@@ -460,9 +512,17 @@ extension EventManager {
         // 4️⃣ Remove busySlot remote
         removeBusySlotFromPublicCalendar(event: event)
 
-        // 5️⃣ Sync busySlots mới
+        // 5️⃣ Clear local busySlots cache for the affected owner (so next fetch reads fresh)
+        //    - owner is the publicCalendar document id we use as cache key
+        DispatchQueue.main.async {
+            self.busySlotCache.removeValue(forKey: event.owner)
+            self.busySlotPremiumCache.removeValue(forKey: event.owner)
+        }
+
+        // 6️⃣ Sync busySlots mới (debounced if you've added debounce)
         syncBusySlotsToFirebase()
     }
+
     
     func fetchPremiumStatus(for userId: String, completion: @escaping (Bool) -> Void) {
         db.collection("premiumStatus")
@@ -480,11 +540,21 @@ extension EventManager {
     
     // MARK: - Fetch busy slots (one-shot)
     func fetchBusySlots(for userId: String,
+                        forceRefresh: Bool = false,
                         completion: @escaping ([CalendarEvent], Bool) -> Void) {
 
-        fetchPremiumStatus(for: userId) { isPremium in
+        // 1️⃣ Nếu không force và đã có cache → trả về ngay
+        if !forceRefresh,
+           let cachedSlots = partnerBusySlotCache[userId],
+           let cachedPremium = partnerPremiumCache[userId] {
+            completion(cachedSlots, cachedPremium)
+            return
+        }
 
-            self.db.collection("publicCalendar").document(userId)
+        // 2️⃣ Nếu chưa có cache → gọi Firestore
+        fetchPremiumStatus(for: userId) { isPremium in
+            self.db.collection("publicCalendar")
+                .document(userId)
                 .getDocument { snapshot, error in
 
                     guard let data = snapshot?.data(), error == nil else {
@@ -508,20 +578,33 @@ extension EventManager {
                             date: Calendar.current.startOfDay(for: s),
                             startTime: s,
                             endTime: e,
-                            owner: userId,       // chủ lịch
-                            sharedUser: userId,  // busy slot = chỉ của chính chủ
+                            owner: userId,
+                            sharedUser: userId,
                             createdBy: userId,
                             participants: [userId],
-                            colorHex: "#FF0000", // màu bận
+                            colorHex: "#FF0000",
                             pendingDelete: false,
-                            origin: .myEvent
+                            origin: .busySlot
+
                         )
                     }
+
+                    // 3️⃣ LƯU CACHE
+                    DispatchQueue.main.async {
+                        self.partnerBusySlotCache[userId] = slots
+                        self.partnerPremiumCache[userId] = premiumFlag
+
+                        // ⭐ quan trọng: cache cho UI và applyBusySlots
+                        self.partnerBusySlots[userId] = slots
+                    }
+
+
 
                     completion(slots, premiumFlag)
                 }
         }
     }
+
 
 
 
@@ -603,29 +686,93 @@ extension EventManager {
                 if let err = err {
                     completion(false, "Tạo event thất bại: \(err.localizedDescription)")
                 } else {
+
+                    // ⭐ UPDATE busy slot của A
+                    self.syncBusySlotsOfUser(sharedUserId)
+
+                    // ⭐ Xoá cache để UI load lại đúng
+                    self.partnerBusySlotCache.removeValue(forKey: sharedUserId)
+                    self.partnerPremiumCache.removeValue(forKey: sharedUserId)
+
                     completion(true, nil)
+
+                    DispatchQueue.main.async {
+                        self.alertMessage = "Đã đặt lịch thành công!"
+                        self.showAlert = true
+                    }
                 }
             }
+
+
+        }
+      
+    }
+    func updatePublicCalendarBusySlot(for userId: String, start: Date, end: Date) {
+        let doc = db.collection("publicCalendar").document(userId)
+
+        doc.getDocument { snap, err in
+            var existing = snap?.data()?["busySlots"] as? [[String: Any]] ?? []
+
+            let newSlot: [String: Any] = [
+                "id": UUID().uuidString,
+                "title": "Bận",
+                "start": start.timeIntervalSince1970,
+                "end": end.timeIntervalSince1970
+            ]
+
+            existing.append(newSlot)
+
+            doc.setData(["busySlots": existing], merge: true)
         }
     }
+
 
     func listenToEvents() {
         guard let uid = currentUserId else { return }
 
-        eventsListener?.remove()
+        eventsListener?.remove()   // hủy listener cũ nếu có
 
         eventsListener = db.collection("events")
             .whereField("participants", arrayContains: uid)
-            .addSnapshotListener { snap, err in
-                guard let docs = snap?.documents else { return }
-
-                let incoming = docs.compactMap { CalendarEvent.from($0) }
+            .addSnapshotListener { snapshot, error in
+                guard let snapshot = snapshot else { return }
 
                 DispatchQueue.main.async {
-                    self.merge(incoming)
+
+                    for change in snapshot.documentChanges {
+
+                        let doc = change.document
+                        guard let ev = CalendarEvent.from(doc) else { continue }
+
+                        switch change.type {
+
+                        case .added:
+                            // Không revive pendingDelete
+                            if self.events.contains(where: { $0.id == ev.id && $0.pendingDelete }) {
+                                continue
+                            }
+                            if !self.events.contains(where: { $0.id == ev.id }) {
+                                self.events.append(ev)
+                            }
+
+                        case .modified:
+                            if let idx = self.events.firstIndex(where: { $0.id == ev.id }) {
+                                // Không revive pendingDelete
+                                if self.events[idx].pendingDelete { continue }
+                                self.events[idx] = ev
+                            }
+
+                        case .removed:
+                            self.events.removeAll { $0.id == ev.id }
+                        }
+                    }
+
+                    self.saveEvents()
+                    self.updateGroupedEvents()
                 }
             }
     }
+
 
 
     // Thêm vào EventManager (bên trong class)
@@ -713,7 +860,8 @@ extension EventManager {
                         participants: [sharedUserId],
                         colorHex: "#FF0000",
                         pendingDelete: false,
-                        origin: .myEvent
+                        origin: .busySlot
+
                     )
                 }
 
@@ -732,12 +880,43 @@ extension EventManager {
             }
     }
 
+    func syncBusySlotsOfUser(_ userId: String) {
+
+        db.collection("events")
+            .whereField("owner", isEqualTo: userId)
+            .getDocuments { snap, err in
+                if let err = err {
+                    print("❌ syncBusySlotsOfUser error: \(err)")
+                    return
+                }
+
+                let events = snap?.documents.compactMap { CalendarEvent.from($0) } ?? []
+
+                let busySlotsData = events.map { ev in
+                    return [
+                        "id": ev.id,
+                        "title": ev.title,
+                        "start": ev.startTime.timeIntervalSince1970,
+                        "end": ev.endTime.timeIntervalSince1970,
+                        "owner": ev.owner
+                    ]
+                }
+
+                self.db.collection("publicCalendar")
+                    .document(userId)
+                    .setData([
+                        "busySlots": busySlotsData
+                    ], merge: true)
+            }
+    }
 
     // MARK: Sync busySlots
     func syncBusySlotsToFirebase() {
         guard let uid = currentUserId else { return }
 
-        let slots = events.filter { !$0.pendingDelete }.map { e in
+        // Chỉ sync event mà owner == currentUserId
+        let slots = events.filter { !$0.pendingDelete && $0.owner == uid }.map { e in
+
             [
                 "id": e.id,
                 "title": e.title,
@@ -950,7 +1129,7 @@ struct EventListView: View {
             return f
         }()
         
-        let dateFormatter: DateFormatter = {
+        let _: DateFormatter = {
             let f = DateFormatter()
             f.locale = Locale(identifier: "vi_VN")
             f.dateStyle = .medium
@@ -1005,7 +1184,7 @@ struct EventListView: View {
                                 ForEach(sortedDays, id: \.self) { day in
                                     let dayEvents = groupedByDay[day] ?? []
                                     Section(header:
-                                                Text(dateFormatter.string(from: day))
+                                                Text(formattedDayHeader(day))
                                         .fontWeight(.bold)
                                             
                                     ) {
@@ -1071,6 +1250,13 @@ struct EventListView: View {
         .listStyle(.insetGrouped)
         
     }
+    private func formattedDayHeader(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "vi_VN")
+        formatter.dateFormat = "EEEE, 'ngày' d"   // Ví dụ: "Thứ Ba, ngày 27"
+        return formatter.string(from: date).capitalized
+    }
+
     private func showDeleteConfirmation(for event: CalendarEvent) {
         eventToDelete = event
         showDeleteAlert = true
@@ -1128,7 +1314,11 @@ struct EventListView: View {
 
                             } label: {
                                 HStack {
-                                    Text("Tuần \(week)")
+                                    let sampleDate = weekEvents.first!.date
+                                    let month = Calendar.current.component(.month, from: sampleDate)
+
+                                    Text("Tuần \(week) tháng \(month)")
+
                                         .font(.body)
                                     Spacer()
                                     Text("\(weekEvents.count) lịch")
@@ -1154,25 +1344,29 @@ struct EventListView: View {
                 List {
                     ForEach(eventsForDate) { event in
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(event.title).font(.headline)
-                            // 🔵 Hiển thị tên người dùng thay cho UID
+                            
+                            // ⭐ Tiêu đề sự kiện
+                            Text(event.title)
+                                .font(.headline)
+                            
+                            // ⭐ THÊM NameUser đầy đủ (A → B hoặc chỉ A)
                             if event.origin == .iCreatedForOther {
+                                // A tạo cho B
                                 HStack(spacing: 4) {
                                     UserNameView(uid: event.createdBy)   // A
                                     Text("→")
-                                    UserNameView(uid: event.owner)       // B  <<<< CHỈNH ĐÚNG CHỖ NÀY
+                                    UserNameView(uid: event.owner)       // B
                                 }
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
                             } else {
+                                // Tự tạo hoặc người khác tạo cho tôi
                                 UserNameView(uid: event.createdBy)
                                     .font(.subheadline)
                                     .foregroundColor(.secondary)
                             }
 
-
-
-
+                            // ⭐ Thời gian
                             Text("\(formattedTime(event.startTime)) - \(formattedTime(event.endTime))")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
@@ -1189,18 +1383,22 @@ struct EventListView: View {
             }
         }
         
+        // MARK: - Lọc event theo ngày
         private var eventsForDate: [CalendarEvent] {
-            eventManager.pastEvents.filter { Calendar.current.isDate($0.date, inSameDayAs: date) }
+            eventManager.pastEvents
+                .filter { Calendar.current.isDate($0.date, inSameDayAs: date) }
                 .sorted { $0.startTime < $1.startTime }
         }
         
+        // MARK: - Format ngày
         private func formattedDate(_ date: Date) -> String {
             let formatter = DateFormatter()
             formatter.locale = Locale(identifier: "vi_VN")
-            formatter.dateFormat = "'Ngày' d, 'tháng' M, yyyy"
+            formatter.dateFormat = "'Ngày' d 'tháng' M, yyyy"
             return formatter.string(from: date)
         }
         
+        // MARK: - Format giờ
         private func formattedTime(_ date: Date) -> String {
             let f = DateFormatter()
             f.locale = Locale(identifier: "vi_VN")
@@ -1208,6 +1406,7 @@ struct EventListView: View {
             return f.string(from: date)
         }
     }
+
     // MARK: - Hàng hiển thị sự kiện
     private func eventRow(_ event: CalendarEvent) -> some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -1281,8 +1480,11 @@ private func originLabel(for event: CalendarEvent) -> String {
         return " Tạo bởi đối tác"
     case .iCreatedForOther:
         return " Tôi tạo cho đối tác"
+    case .busySlot:
+        return " Lịch bận"
     }
 }
+
 struct UserNameView: View {
     @EnvironmentObject var eventManager: EventManager
     let uid: String
@@ -1308,16 +1510,38 @@ struct PastEventsByWeekView: View {
         NavigationStack {
             List {
                 ForEach(eventsThisWeek) { event in
-                    VStack(alignment: .leading) {
-                        Text(event.title).font(.headline)
+                    VStack(alignment: .leading, spacing: 4) {
+
+                        // ⭐ Tiêu đề sự kiện
+                        Text(event.title)
+                            .font(.headline)
+
+                        // ⭐ Hiển thị tên người dùng giống ngoài EventListView
+                        if event.origin == .iCreatedForOther {
+                            HStack(spacing: 4) {
+                                UserNameView(uid: event.createdBy)   // A
+                                Text("→")
+                                UserNameView(uid: event.owner)       // B
+                            }
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+
+                        } else {
+                            UserNameView(uid: event.createdBy)
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+
+                        // ⭐ Thời gian
                         Text(formatted(event.startTime))
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
+                    .padding(.vertical, 4)
                 }
             }
-            .navigationTitle("Tuần \(week.week) - \(week.year)")
-            .toolbar {
+            .navigationTitle(weekOfMonthTitle)
+             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Đóng") { dismiss() }
                 }
@@ -1325,6 +1549,7 @@ struct PastEventsByWeekView: View {
         }
     }
 
+    // MARK: - Lọc events trong tuần này
     private var eventsThisWeek: [CalendarEvent] {
         eventManager.pastEvents.filter {
             Calendar.current.component(.weekOfYear, from: $0.date) == week.week &&
@@ -1333,12 +1558,23 @@ struct PastEventsByWeekView: View {
         .sorted(by: { $0.startTime < $1.startTime })
     }
 
+    // MARK: - Format time
     private func formatted(_ d: Date) -> String {
         let f = DateFormatter()
         f.locale = Locale(identifier: "vi_VN")
         f.dateFormat = "HH:mm dd/MM/yyyy"
         return f.string(from: d)
     }
+    private var weekOfMonthTitle: String {
+        guard let sample = eventsThisWeek.first else { return "" }
+        let calendar = Calendar.current
+
+        let weekOfMonth = calendar.component(.weekOfMonth, from: sample.date)
+        let month = calendar.component(.month, from: sample.date)
+
+        return "Tuần \(weekOfMonth) tháng \(month)"
+    }
+
 }
 
 
@@ -2013,12 +2249,34 @@ struct DayEventsSheetView: View {
         NavigationStack {
             List(eventManager.events(for: date)) { event in
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(event.title).font(.headline)
+                    
+                    // ⭐ Tiêu đề sự kiện
+                    Text(event.title)
+                        .font(.headline)
+                    
+                    // ⭐ Thêm hiển thị tên người tạo / người được tạo
+                    if event.origin == .iCreatedForOther {
+                        // A tạo cho B
+                        HStack(spacing: 4) {
+                            UserNameView(uid: event.createdBy)   // A
+                            Text("→")
+                            UserNameView(uid: event.owner)       // B
+                        }
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        
+                    } else {
+                        // Tự tạo hoặc người khác tạo cho tôi
+                        UserNameView(uid: event.createdBy)
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    // ⭐ Thời gian sự kiện
                     Text("\(formattedTime(event.startTime)) - \(formattedTime(event.endTime))")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
-
                 .padding(.vertical, 4)
             }
             .navigationTitle("Ngày \(formattedDate(date))")
@@ -2029,6 +2287,7 @@ struct DayEventsSheetView: View {
             }
         }
     }
+    
     func formattedTime(_ date: Date) -> String {
         let f = DateFormatter()
         f.dateFormat = "HH:mm"
