@@ -6,11 +6,13 @@
 //
 import Foundation
 
-struct SharedLink: Identifiable, Codable, Hashable {
-    var id: String = UUID().uuidString
-    let uid: String               // UID đối tác / người nhận
-    let url: String               // Link chia sẻ
-    let createdAt: Date           // Ngày tạo link
+struct SharedLink: Identifiable, Codable {
+    var id: String
+    var uid: String
+    var url: String          // 👉 chuyển sang var để update được
+    var createdAt: Date      // 👉 chuyển sang var để update được
     var isPinned: Bool = false
+    var displayName: String? = nil   // Nếu bạn có thêm trường tên
 }
+
 

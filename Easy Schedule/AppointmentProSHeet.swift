@@ -20,6 +20,8 @@ struct AppointmentProSheet: View {
 
     @Binding var isPresented: Bool
     let sharedUserId: String?
+    let sharedUserName: String?
+
     @State private var showSuccessAlert = false
 
     @State private var selectedDate: Date = Date()
@@ -53,7 +55,7 @@ struct AppointmentProSheet: View {
                 HStack {
                     VStack(alignment: .leading) {
                         Text("Người nhận").font(.caption).foregroundColor(.secondary)
-                        Text(sharedUserId ?? "Chưa có UID")
+                        Text(sharedUserName ?? sharedUserId ?? "Không tên")
                             .font(.subheadline).lineLimit(1)
                     }
                     Spacer()
@@ -237,14 +239,29 @@ struct AppointmentProSheet: View {
             return
         }
 
-        // Lưu lịch sử xem UID
-        let link = SharedLink(
-            id: UUID().uuidString,
-            uid: uid,
-            url: "https://easyschedule-ce98a.web.app/calendar/\(uid)",
-            createdAt: Date()
-        )
-        eventManager.sharedLinks.append(link)
+        // ⭐ Lưu lịch sử xem UID — 1 người chỉ 1 lần
+        let urlString = "https://easyschedule-ce98a.web.app/calendar/\(uid)"
+        let name = sharedUserName ?? eventManager.userNames[uid] ?? "Không tên"
+
+        // Nếu đã tồn tại → update
+        if let index = eventManager.sharedLinks.firstIndex(where: { $0.uid == uid }) {
+            eventManager.sharedLinks[index].url = urlString
+            eventManager.sharedLinks[index].displayName = name
+            eventManager.sharedLinks[index].createdAt = Date()
+        } else {
+            // Nếu chưa có → thêm mới
+            let link = SharedLink(
+                id: UUID().uuidString,
+                uid: uid,
+                url: urlString,
+                createdAt: Date(),
+                isPinned: false,
+                displayName: name
+            )
+            eventManager.sharedLinks.append(link)
+        }
+
+
 
         loading = true
 
@@ -487,9 +504,12 @@ struct HistoryView: View {
                 ForEach(sortedLinks) { link in
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
+                            Text(link.displayName ?? "Không tên")
+                                .font(.headline)
+
                             Text(link.url)
-                                .font(.body)
-                                .lineLimit(1)
+                                .font(.subheadline)
+
 
                             Text("UID: \(link.uid)")
                                 .font(.caption)
@@ -545,12 +565,16 @@ struct HistoryView: View {
 struct AppointmentProSheet_Previews: PreviewProvider {
     static var previews: some View {
         NavigationStack {
-            AppointmentProSheet(isPresented: .constant(true), sharedUserId: "demoUID")
-                .environmentObject(EventManager.shared
-)
+            AppointmentProSheet(
+                isPresented: .constant(true),
+                sharedUserId: "demoUID",
+                sharedUserName: "Demo User"
+            )
+            .environmentObject(EventManager.shared)
         }
     }
 }
+
 
 
 //
