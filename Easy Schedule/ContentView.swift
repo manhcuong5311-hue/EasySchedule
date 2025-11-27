@@ -96,7 +96,7 @@ final class EventManager: ObservableObject {
 
     @Published var events: [CalendarEvent] = [] {
         didSet {
-            
+           
             updateGroupedEvents()
         }
     }
@@ -110,9 +110,9 @@ final class EventManager: ObservableObject {
     // MARK: - INIT
     private init() {
         loadEvents()
+        cleanUpPastEvents()
         loadSharedLinks()
         loadPersistedUserNames()
-        cleanUpPastEvents()
         updateGroupedEvents()
         listenToEvents()
         retryPendingDeletes()
@@ -281,25 +281,24 @@ final class EventManager: ObservableObject {
         }
     }
 
-    // MARK: - PAST EVENTS CLEAN
     func cleanUpPastEvents() {
-        isProcessing = true    // ⭐ lock
-
         let now = Date()
-        var upcoming: [CalendarEvent] = []
-        var expired: [CalendarEvent] = []
 
-        for e in events {
-            if e.endTime < now { expired.append(e) }
-            else { upcoming.append(e) }
+        // Tách event hết hạn (chỉ trên local)
+        let expired = events.filter { $0.endTime < now }
+        let upcoming = events.filter { $0.endTime >= now }
+
+        // Gán ngược
+        if !expired.isEmpty {
+            // Add vào pastEvents local
+            self.pastEvents.append(contentsOf: expired)
         }
 
+        // Giữ upcoming
         self.events = upcoming
-        self.pastEvents.append(contentsOf: expired)
 
-        isProcessing = false   // ⭐ unlock
+        // Lưu local
         saveEvents()
-        updateGroupedEvents()
     }
 
   
@@ -730,7 +729,7 @@ extension EventManager {
     func listenToEvents() {
         guard let uid = currentUserId else { return }
 
-        eventsListener?.remove()   // hủy listener cũ nếu có
+        eventsListener?.remove()
 
         eventsListener = db.collection("events")
             .whereField("participants", arrayContains: uid)
@@ -739,39 +738,38 @@ extension EventManager {
 
                 DispatchQueue.main.async {
 
-                    for change in snapshot.documentChanges {
+                    // 1) Parse events từ Firestore
+                    let incoming = snapshot.documents.compactMap { CalendarEvent.from($0) }
 
-                        let doc = change.document
-                        guard let ev = CalendarEvent.from(doc) else { continue }
+                    let now = Date()
 
-                        switch change.type {
+                    // 2) Tách upcoming từ Firestore
+                    let firestoreUpcoming = incoming
+                        .filter { $0.endTime >= now }
+                        .sorted { $0.startTime < $1.startTime }
 
-                        case .added:
-                            // Không revive pendingDelete
-                            if self.events.contains(where: { $0.id == ev.id && $0.pendingDelete }) {
-                                continue
-                            }
-                            if !self.events.contains(where: { $0.id == ev.id }) {
-                                self.events.append(ev)
-                            }
-
-                        case .modified:
-                            if let idx = self.events.firstIndex(where: { $0.id == ev.id }) {
-                                // Không revive pendingDelete
-                                if self.events[idx].pendingDelete { continue }
-                                self.events[idx] = ev
-                            }
-
-                        case .removed:
-                            self.events.removeAll { $0.id == ev.id }
-                        }
+                    // 3) Giữ pastEvents LOCAL — không đụng
+                    // 4) KẾT HỢP upcoming:
+                    // 👉 upcoming = (localUpcoming không nằm trong Firestore) + firestoreUpcoming
+                    let localUpcoming = self.events.filter { localEv in
+                        // giữ những event local mà Firestore không trả về
+                        !firestoreUpcoming.contains(where: { $0.id == localEv.id })
                     }
 
+                    // Ghép lại: local còn sót + data firebase mới
+                    self.events = (localUpcoming + firestoreUpcoming)
+                        .sorted { $0.startTime < $1.startTime }
+
+                    // 5) Lưu local
                     self.saveEvents()
+
+                    // 6) Update UI
                     self.updateGroupedEvents()
                 }
             }
     }
+
+
 
 
 
