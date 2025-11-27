@@ -388,6 +388,8 @@ struct CalendarMiniView: View {
 
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 7), spacing: 8) {
                 ForEach(days, id: \.self) { day in
+
+                    let isToday = Calendar.current.isDateInToday(day)
                     let isSelected = Calendar.current.isDate(selectedDate, inSameDayAs: day)
                     let isBusy = busySlots.contains(where: { Calendar.current.isDate($0.date, inSameDayAs: day) })
                     let isOffDay = offDays.contains(Calendar.current.startOfDay(for: day))
@@ -397,18 +399,22 @@ struct CalendarMiniView: View {
                             .frame(width: 34, height: 34)
                             .background(
                                 Circle().fill(
-                                    isSelected ? Color.accentColor :
+                                    isToday ? Color.blue.opacity(0.35) :    // 🔵 TODAY highlight
+                                    (isSelected ? Color.accentColor :
                                     (isOffDay ? Color.orange.opacity(0.4) :
-                                    (isBusy ? Color.red.opacity(0.25) : Color.clear))
+                                    (isBusy ? Color.red.opacity(0.25) : Color.clear)))
                                 )
                             )
-
-                            .foregroundColor(isSelected ? .white : .primary)
+                            .foregroundColor(
+                                isToday ? Color.blue :                     // chữ Today
+                                (isSelected ? .white : .primary)
+                            )
                     }
                     .contentShape(Rectangle())
                     .onTapGesture { selectedDate = day }
                 }
             }
+
             .padding(.horizontal)
         }
     }
