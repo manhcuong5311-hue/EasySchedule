@@ -63,11 +63,13 @@ struct PartnerCalendarTabView: View {
                     }
                     .padding(.horizontal)
                     .sheet(isPresented: $showHistorySheet) {
-                        HistoryLinksView { link in
-                            self.linkText = link
+                        HistoryLinksView { uid in
+                            self.linkText = uid
+                            self.parsedUID = uid
                             self.parseAndLoad()
                             self.showHistorySheet = false
                         }
+
                         .environmentObject(eventManager)
                     }
 
@@ -117,7 +119,9 @@ struct PartnerCalendarTabView: View {
             .sheet(isPresented: $showAddAppointmentSheet) {
                 AppointmentProSheet(
                     isPresented: $showAddAppointmentSheet,
-                    sharedUserId: selectedSharedUserId
+                    sharedUserId: selectedSharedUserId,
+                    sharedUserName: eventManager.userNames[selectedSharedUserId ?? ""]
+
                 )
                 .environmentObject(eventManager)
                 .environmentObject(session)
@@ -359,9 +363,8 @@ struct HistoryLinksView: View {
                 ForEach(eventManager.sharedLinks.sorted(by: { $0.createdAt > $1.createdAt })) { link in
 
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(link.url)
-                            .font(.body)
-                            .lineLimit(1)
+                        Text(link.displayName ?? "Không tên")
+                            .font(.headline)
 
                         Text("UID: \(link.uid)")
                             .font(.caption)
@@ -370,12 +373,13 @@ struct HistoryLinksView: View {
                         Text(formatDate(link.createdAt))
                             .font(.caption2)
                             .foregroundColor(.gray)
+
                     }
                     .contentShape(Rectangle())
                     .onTapGesture {
-                        // Ấn vào → load ngay
-                        onSelect(link.url)
+                        onSelect(link.uid)
                     }
+
                     .onLongPressGesture {
                         // Nhấn giữ → copy
                         UIPasteboard.general.string = link.url
