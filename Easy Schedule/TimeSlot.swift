@@ -87,9 +87,9 @@ struct TimeSlotPickerGridView: View {
             }
             .padding()
         }
-        .navigationTitle("Chọn khung giờ")
+        .navigationTitle(String(localized: "choose_time_slot"))
         .toolbar {
-            Button("Xong") {
+            Button(String(localized: "done")) {
                 if let slot = selectedSlot {
                     onSelect(slot)
                 }

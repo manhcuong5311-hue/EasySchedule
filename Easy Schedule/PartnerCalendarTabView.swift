@@ -54,7 +54,7 @@ struct PartnerCalendarTabView: View {
                     } label: {
                         HStack {
                             Image(systemName: "clock.arrow.circlepath")
-                            Text("Lịch sử đã xem").bold()
+                            Text(String(localized: "viewed_history")).bold()
                         }
                         .frame(maxWidth: .infinity)
                         .padding(12)
@@ -79,7 +79,7 @@ struct PartnerCalendarTabView: View {
                     } label: {
                         HStack {
                             Image(systemName: "person.crop.circle.badge.plus")
-                            Text("Lịch tôi tạo cho người khác").bold()
+                            Text(String(localized: "created_for_others")).bold()
                         }
                         .frame(maxWidth: .infinity)
                         .padding(12)
@@ -106,7 +106,7 @@ struct PartnerCalendarTabView: View {
                 }
                 .padding(.top, 12)
             }
-            .navigationTitle("Lịch đối tác")
+            .navigationTitle(String(localized: "partner_calendar"))
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
@@ -128,7 +128,7 @@ struct PartnerCalendarTabView: View {
             }
             .alert(isPresented: $showAlert) {
                 Alert(
-                    title: Text("Thông báo"),
+                    title: Text(String(localized: "notification")),
                     message: Text(alertMessage),
                     dismissButton: .default(Text("Đóng"))
                 )
@@ -143,7 +143,7 @@ struct PartnerCalendarTabView: View {
         VStack(spacing: 8) {
             HStack {
                 Image(systemName: "link")
-                TextField("Dán link chia sẻ hoặc UID", text: $linkText)
+                TextField(String(localized: "paste_link_or_uid"), text: $linkText)
                     .textFieldStyle(.roundedBorder)
                     .autocapitalization(.none)
                     .disableAutocorrection(true)
@@ -153,7 +153,7 @@ struct PartnerCalendarTabView: View {
                 Button(action: { parseAndLoad() }) {
                     HStack {
                         if isLoading { ProgressView().scaleEffect(0.7) }
-                        Text("Load lịch")
+                        Text(String(localized: "load_calendar"))
                     }
                     .frame(maxWidth: .infinity)
                     .padding(10)
@@ -182,7 +182,11 @@ struct PartnerCalendarTabView: View {
                     Text("UID:").bold()
                     Text(uid).lineLimit(1)
                     Spacer()
-                    Text(Auth.auth().currentUser == nil ? "Chưa đăng nhập" : "Đã đăng nhập")
+                    Text(
+                        Auth.auth().currentUser == nil
+                        ? String(localized: "not_logged_in")
+                        : String(localized: "logged_in")
+                    )
                         .font(.caption)
                         .foregroundColor(Auth.auth().currentUser == nil ? .red : .green)
                 }
@@ -206,11 +210,15 @@ struct PartnerCalendarTabView: View {
         Group {
             if isLoading {
                 Spacer()
-                ProgressView("Đang tải lịch...")
+                ProgressView(String(localized: "loading_calendar"))
                 Spacer()
             } else if fetchedEvents.isEmpty {
                 Spacer()
-                Text(parsedUID == nil ? "Chưa có UID. Dán link rồi bấm Load." : "Không có lịch bận.")
+                Text(
+                    parsedUID == nil
+                    ? String(localized: "no_uid_yet")
+                    : String(localized: "no_busy_events")
+                )
                     .foregroundColor(.secondary)
                 Spacer()
             } else {
@@ -232,7 +240,8 @@ struct PartnerCalendarTabView: View {
                 Text("\(formattedTime(ev.startTime)) — \(formattedTime(ev.endTime))")
                     .font(.caption)
                     .foregroundColor(.secondary)
-                Text("Chủ: \(ev.owner)")
+                let ownerPrefix = String(localized: "owner_prefix")
+                Text("\(ownerPrefix) \(ev.owner)")
                     .font(.caption2)
                     .foregroundColor(.secondary)
             }
@@ -241,7 +250,7 @@ struct PartnerCalendarTabView: View {
 
             Button {
                 if Auth.auth().currentUser == nil {
-                    alertMessage = "Bạn cần đăng nhập để đặt lịch."
+                    alertMessage = String(localized: "login_required")
                     showAlert = true
                 } else {
                     // ensure uid is set before opening sheet
@@ -250,12 +259,12 @@ struct PartnerCalendarTabView: View {
                         // open pro sheet (your AppointmentProSheet should read sharedUserId)
                         showAddAppointmentSheet = true
                     } else {
-                        alertMessage = "Bạn cần load UID trước."
+                        alertMessage = String(localized: "uid_required")
                         showAlert = true
                     }
                 }
             } label: {
-                Text("Đặt")
+                Text(String(localized: "book"))
             }
             .buttonStyle(.bordered)
         }
@@ -266,12 +275,12 @@ struct PartnerCalendarTabView: View {
 
     private func addAppointmentPressed() {
         guard let uid = parsedUID else {
-            alertMessage = "Bạn cần nhập link hoặc UID trước."
+            alertMessage = String(localized: "uid_required")
             showAlert = true
             return
         }
         guard Auth.auth().currentUser != nil else {
-            alertMessage = "Bạn cần đăng nhập để đặt lịch."
+            alertMessage = String(localized: "login_required")
             showAlert = true
             return
         }
@@ -287,7 +296,7 @@ struct PartnerCalendarTabView: View {
 
         let input = linkText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !input.isEmpty else {
-            errorMessage = "Vui lòng dán link hoặc UID."
+            errorMessage = String(localized: "paste_link_or_uid_first")
             return
         }
 
@@ -300,7 +309,7 @@ struct PartnerCalendarTabView: View {
         }
 
         guard let uid = parsedUID else {
-            errorMessage = "Không lấy được UID từ link."
+            errorMessage = String(localized: "cannot_extract_uid")
             return
         }
 
@@ -326,9 +335,9 @@ struct PartnerCalendarTabView: View {
                
 
                 if !isPremiumUser {
-                    self.errorMessage = "Chỉ có thể đặt lịch 7 ngày tới đối với người này."
+                    self.errorMessage = String(localized: "seven_day_limit")
                 } else if filtered.isEmpty {
-                    self.errorMessage = "Không tìm thấy lịch bận cho UID này."
+                    self.errorMessage = String(localized: "no_busy_events_for_uid")
                 }
             }
         }
@@ -336,18 +345,14 @@ struct PartnerCalendarTabView: View {
 
 
     private func sectionHeader(for day: Date) -> String {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "vi_VN")
-        f.dateStyle = .full
-        return f.string(from: day)
+        day.formatted(.dateTime.weekday(.wide).day().month(.wide).year())
     }
 
-    private func formattedTime(_ date: Date) -> String {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "vi_VN")
-        f.timeStyle = .short
-        return f.string(from: date)
+
+    func formattedTime(_ date: Date) -> String {
+        date.formatted(date: .omitted, time: .shortened)
     }
+
 }
 
 struct HistoryLinksView: View {
@@ -363,7 +368,7 @@ struct HistoryLinksView: View {
                 ForEach(eventManager.sharedLinks.sorted(by: { $0.createdAt > $1.createdAt })) { link in
 
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(link.displayName ?? "Không tên")
+                        Text(link.displayName ?? String(localized: "no_name"))
                             .font(.headline)
 
                         Text("UID: \(link.uid)")
@@ -387,29 +392,17 @@ struct HistoryLinksView: View {
                     }
                 }
             }
-            .navigationTitle("Lịch sử đã xem")
-            .alert("Đã copy link!", isPresented: $showCopied) {
+            .navigationTitle(String(localized: "viewed_history"))
+            .alert( String(localized: "link_copied"), isPresented: $showCopied) {
                 Button("OK", role: .cancel) {}
             }
         }
     }
-    private func formatDate(_ d: Date) -> String {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "vi_VN")
-        f.dateStyle = .medium
-        f.timeStyle = .short
-        return f.string(from: d)
+    private func formatDate(_ date: Date) -> String {
+        date.formatted(.dateTime.weekday(.wide).day().month(.wide))
     }
+
 }
-
-
-    private func formatDate(_ d: Date) -> String {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "vi_VN")
-        f.dateStyle = .medium
-        f.timeStyle = .short
-        return f.string(from: d)
-    }
 
 
 

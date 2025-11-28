@@ -37,7 +37,8 @@ struct AppointmentProSheet: View {
     @State private var customEnd: Date = Date()
     @State private var useCustomTime: Bool = false
 
-    @State private var titleText: String = "Cuộc hẹn"
+    @State private var titleText: String = String(localized: "default_event_title")
+
    
     @EnvironmentObject var session: SessionStore
 
@@ -54,8 +55,8 @@ struct AppointmentProSheet: View {
                 // Header
                 HStack {
                     VStack(alignment: .leading) {
-                        Text("Người nhận").font(.caption).foregroundColor(.secondary)
-                        Text(sharedUserName ?? sharedUserId ?? "Không tên")
+                        Text(String(localized: "recipient")).font(.caption).foregroundColor(.secondary)
+                        Text(sharedUserName ?? sharedUserId ?? String(localized: "no_name"))
                             .font(.subheadline).lineLimit(1)
                     }
                     Spacer()
@@ -72,7 +73,7 @@ struct AppointmentProSheet: View {
                 .frame(height: 260)
 
                 if partnerOffDays.contains(Calendar.current.startOfDay(for: selectedDate)) {
-                    Text("Chủ lịch nghỉ ngày này — không thể đặt lịch.")
+                    Text(String(localized: "owner_day_off"))
                         .foregroundColor(.orange)
                         .font(.subheadline)
                         .padding(.top, 4)
@@ -84,20 +85,19 @@ struct AppointmentProSheet: View {
                 Form {
 
                     // TIÊU ĐỀ
-                    Section(header: Text("Tiêu đề")) {
-                        TextField("Tiêu đề cuộc hẹn", text: $titleText)
+                    Section(header: Text(String(localized: "title_section"))) {
+                        TextField(String(localized: "event_title_placeholder"), text: $titleText)
                     }
 
                     // ⭐ GIỜ TÙY CHỈNH
-                    Section(header: Text("Khung giờ tuỳ chỉnh")) {
-
-                        Toggle("Dùng giờ tuỳ chỉnh", isOn: $useCustomTime)
+                    Section(header: Text(String(localized: "custom_time_section"))) {
+                        Toggle(String(localized: "use_custom_time"), isOn: $useCustomTime)
 
                         if useCustomTime {
 
-                            DatePicker("Bắt đầu", selection: $customStart, displayedComponents: .hourAndMinute)
+                            DatePicker(String(localized: "start_time"), selection: $customStart, displayedComponents: .hourAndMinute)
 
-                            DatePicker("Kết thúc", selection: $customEnd, displayedComponents: .hourAndMinute)
+                            DatePicker(String(localized: "end_time"), selection: $customEnd, displayedComponents: .hourAndMinute)
                                 .onChange(of: customEnd) {
                                     if customEnd <= customStart {
                                         customEnd = Calendar.current.date(
@@ -114,7 +114,7 @@ struct AppointmentProSheet: View {
                             )
 
                             if checkBusy(merged) {
-                                Text("Khung giờ này đã bận hoặc rơi vào ngày nghỉ.")
+                                Text(String(localized: "time_unavailable"))
                                     .foregroundColor(.red)
                                     .font(.caption)
                             }
@@ -122,8 +122,7 @@ struct AppointmentProSheet: View {
                     }
 
                     // ⭐ KHUNG GIỜ 30P
-                    Section(header: Text("Khung giờ (30 phút)")) {
-
+                    Section(header: Text(String(localized: "time_slots_30min"))) {
                         let slots = generateSlots(for: selectedDate)
                         let now = Date()
                         let maxPremiumDate = calendar.date(byAdding: .day, value: 7, to: now)!
@@ -156,13 +155,13 @@ struct AppointmentProSheet: View {
                 }
 
             }
-            .navigationTitle("Tạo cuộc hẹn")
+            .navigationTitle(String(localized: "create_appointment"))
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Huỷ") { isPresented = false }
+                    Button(String(localized:"cancel")) { isPresented = false }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Đặt") {
+                    Button(String(localized: "book")) {
 
                         if useCustomTime {
                             selectedSlot = ProSlot(
@@ -188,25 +187,25 @@ struct AppointmentProSheet: View {
                 get: { errorMessage.map { SimpleError(id: 0, message: $0) } },
                 set: { _ in errorMessage = nil }
             )) { err in
-                Alert(title: Text("Lỗi"),
+                Alert(title:  Text(String(localized: "error_title")),
                       message: Text(err.message),
-                      dismissButton: .default(Text("Đóng")))
+                      dismissButton: .default(Text(String(localized: "close"))))
             }
 
             // Popup thành công
-            .alert("Thành công", isPresented: $showSuccessAlert) {
+            .alert( String(localized: "success"), isPresented: $showSuccessAlert) {
                 Button("OK") {
                     isPresented = false
                 }
             } message: {
-                Text("Bạn đã đặt lịch thành công cho người dùng này.")
+                Text(String(localized: "booking_success_for_user"))
             }
 
             // Popup Premium — KHÔNG dùng lại errorMessage nữa
-            .alert("Thông báo", isPresented: $showPremiumAlert) {
+            .alert(String(localized: "notification"), isPresented: $showPremiumAlert) {
                 Button("OK", role: .cancel) {}
             } message: {
-                Text("Người này chưa đăng Premium.")
+                Text(String(localized: "user_not_premium"))
             }
             .padding(.bottom)
         }
@@ -235,13 +234,13 @@ struct AppointmentProSheet: View {
         guard let uid = sharedUserId else {
             loading = false
             busySlots = []
-            errorMessage = "Không xác định UID người nhận."
+            errorMessage = String(localized: "unknown_uid")
             return
         }
 
         // ⭐ Lưu lịch sử xem UID — 1 người chỉ 1 lần
         let urlString = "https://easyschedule-ce98a.web.app/calendar/\(uid)"
-        let name = sharedUserName ?? eventManager.userNames[uid] ?? "Không tên"
+        let name = sharedUserName ?? eventManager.userNames[uid] ??  String(localized: "no_name")
 
         // Nếu đã tồn tại → update
         if let index = eventManager.sharedLinks.firstIndex(where: { $0.uid == uid }) {
@@ -301,15 +300,15 @@ struct AppointmentProSheet: View {
         }
 
         guard let uid = sharedUserId else {
-            errorMessage = "Không xác định UID người nhận."
+            errorMessage = String(localized: "unknown_uid")
             return
         }
         guard let slot = selectedSlot else {
-            errorMessage = "Chưa chọn khung giờ."
+            errorMessage = String(localized: "no_time_slot_selected")
             return
         }
         guard Auth.auth().currentUser != nil else {
-            errorMessage = "Bạn cần đăng nhập để đặt lịch."
+            errorMessage = String(localized: "login_required")
             return
         }
 
@@ -322,7 +321,7 @@ struct AppointmentProSheet: View {
         ) { success, msg in
             DispatchQueue.main.async {
                 if success { showSuccessAlert = true }
-                else { errorMessage = msg ?? "Tạo lịch thất bại." }
+                else { errorMessage = msg ?? String(localized: "create_event_failed") }
             }
         }
         
@@ -437,11 +436,9 @@ struct CalendarMiniView: View {
     }
 
     private func formattedMonth(_ date: Date) -> String {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "vi_VN")
-        f.dateFormat = "LLLL yyyy"
-        return f.string(from: date).capitalized
+        date.formatted(.dateTime.month(.wide).year())
     }
+
 
     private func changeMonth(by v: Int) {
         if let n = calendar.date(byAdding: .month, value: v, to: month) { month = n }
@@ -504,7 +501,7 @@ struct HistoryView: View {
                 ForEach(sortedLinks) { link in
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(link.displayName ?? "Không tên")
+                            Text(link.displayName ?? String(localized: "no_name"))
                                 .font(.headline)
 
                             Text(link.url)
@@ -544,20 +541,17 @@ struct HistoryView: View {
                     eventManager.sharedLinks.remove(atOffsets: indexSet)
                 }
             }
-            .navigationTitle("Lịch sử đã xem")
-            .alert("Đã copy link!", isPresented: $showCopied) {
+            .navigationTitle(String(localized: "viewed_history"))
+            .alert(String(localized: "link_copied"), isPresented: $showCopied) {
                 Button("OK", role: .cancel) {}
             }
         }
     }
 
-    private func formatDate(_ d: Date) -> String {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "vi_VN")
-        f.dateStyle = .medium
-        f.timeStyle = .short
-        return f.string(from: d)
+    private func formatDate(_ date: Date) -> String {
+        date.formatted(.dateTime.weekday(.wide).day().month(.wide))
     }
+
 }
 
 
@@ -605,8 +599,8 @@ struct MyCreatedEventsView: View {
             VStack {
 
                 Picker("", selection: $showPast) {
-                    Text("Sắp tới").tag(false)
-                    Text("Đã qua").tag(true)
+                    Text(String(localized: "upcoming")).tag(false)
+                    Text(String(localized: "past")).tag(true)
                 }
                 .pickerStyle(.segmented)
                 .padding(.horizontal)
@@ -616,14 +610,14 @@ struct MyCreatedEventsView: View {
                 }
 
                 if loading {
-                    ProgressView("Đang tải...")
+                    ProgressView(String(localized: "loading"))
                         .padding()
                 } else {
                     if showPast { pastList }
                     else { upcomingList }
                 }
             }
-            .navigationTitle("Lịch tôi tạo")
+            .navigationTitle(String(localized: "my_created_events"))
             .onAppear { loadEvents() }
             .sheet(isPresented: Binding(
                 get: { selectedDate != nil },
@@ -640,7 +634,7 @@ struct MyCreatedEventsView: View {
     private var searchBar: some View {
         HStack {
             Image(systemName: "magnifyingglass")
-            TextField("Tìm theo tiêu đề / chủ lịch...", text: $searchText)
+            TextField(String(localized: "search_placeholder"), text: $searchText)
         }
         .padding(10)
         .background(Color(.systemGray6))
@@ -655,7 +649,7 @@ struct MyCreatedEventsView: View {
 
         return List {
             if createdUpcoming.isEmpty {
-                Text("Không có lịch sắp tới.")
+                Text(String(localized: "no_upcoming_events"))
                     .foregroundColor(.secondary)
             } else {
                 ForEach(sortedMonths, id: \.self) { monthDate in
@@ -668,7 +662,12 @@ struct MyCreatedEventsView: View {
                         ForEach(sortedWeeks, id: \.self) { week in
                             let weekEvents = weeks[week] ?? []
 
-                            Section(header: Text("Tuần \(week)").foregroundColor(.secondary)) {
+                            let weekPrefix = String(localized: "week_prefix")
+
+                            Section(header:
+                                Text("\(weekPrefix) \(week)")
+                            )
+ {
 
                                 let days = groupedByDay(events: weekEvents)
                                 let sortedDays = days.keys.sorted()
@@ -703,7 +702,11 @@ struct MyCreatedEventsView: View {
 
         return List {
             if filtered.isEmpty {
-                Text(searchText.isEmpty ? "Không có lịch đã qua." : "Không tìm thấy kết quả.")
+                Text(
+                    searchText.isEmpty
+                    ? String(localized: "no_past_events")
+                    : String(localized: "no_results")
+                )
                     .foregroundColor(.secondary)
             } else {
                 ForEach(sortedMonths, id: \.self) { monthDate in
@@ -721,9 +724,11 @@ struct MyCreatedEventsView: View {
                                 selectedDate = weekEvents.first?.date
                             } label: {
                                 HStack {
-                                    Text("Tuần \(week)")
+                                    let weekPrefix = String(localized: "week_prefix")
+                                    Text("\(weekPrefix) \(week)")
                                     Spacer()
-                                    Text("\(weekEvents.count) lịch")
+                                    let template = String(localized: "events_count")
+                                    Text(template.replacingOccurrences(of: "{count}", with: "\(weekEvents.count)"))
                                         .foregroundColor(.secondary)
                                 }
                             }
@@ -742,7 +747,8 @@ struct MyCreatedEventsView: View {
 
             HStack {
                 Image(systemName: "person.fill")
-                Text("Chủ lịch: \(ev.owner)")
+                let ownerPrefix = String(localized: "owner_prefix")
+                Text("\(ownerPrefix) \(ev.owner)")
             }
             .font(.caption)
             .foregroundColor(.secondary)
@@ -778,11 +784,9 @@ struct MyCreatedEventsView: View {
         loading = false
     }
     private func formattedFullDate(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "vi_VN")
-        formatter.dateFormat = "EEEE, 'ngày' d 'tháng' M"
-        return formatter.string(from: date).capitalized
+        date.formatted(.dateTime.weekday(.wide).day().month(.wide))
     }
+
 
 
     // MARK: Group helpers
@@ -811,31 +815,27 @@ struct MyCreatedEventsView: View {
         HStack {
             Text(formatMonth(date)).font(.headline)
             Spacer()
-            Text("\(count) lịch").foregroundColor(.secondary)
+            let template = String(localized: "events_count")
+            Text(template.replacingOccurrences(of: "{count}", with: "\(count)"))
+.foregroundColor(.secondary)
         }
     }
 
-    private func formatMonth(_ d: Date) -> String {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "vi_VN")
-        f.dateFormat = "MMMM yyyy"
-        return f.string(from: d).capitalized
-    }
-
-    private func formatDate(_ d: Date) -> String {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "vi_VN")
-        f.dateFormat = "EEEE, 'ngày' d"    // Ví dụ: “Thứ Tư, ngày 3”
-        return f.string(from: d).capitalized
+    private func formatMonth(_ date: Date) -> String {
+        date.formatted(.dateTime.month(.wide).year())
     }
 
 
-    private func formatTime(_ d: Date) -> String {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "vi_VN")
-        f.timeStyle = .short
-        return f.string(from: d)
+    private func formatDate(_ date: Date) -> String {
+        date.formatted(.dateTime.weekday(.wide).day().month(.wide))
     }
+
+
+
+    private func formatTime(_ date: Date) -> String {
+        date.formatted(date: .omitted, time: .shortened)
+    }
+
 }
 
 
@@ -870,19 +870,15 @@ struct CreatedEventsByDateView: View {
         }
     }
 
-    private func formatDate(_ d: Date) -> String {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "vi_VN")
-        f.dateFormat = "'Ngày' d 'tháng' M, yyyy"
-        return f.string(from: d)
+    private func formatDate(_ date: Date) -> String {
+        date.formatted(.dateTime.weekday(.wide).day().month(.wide))
     }
 
-    private func formatTime(_ d: Date) -> String {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "vi_VN")
-        f.timeStyle = .short
-        return f.string(from: d)
+
+    private func formatTime(_ date: Date) -> String {
+        date.formatted(date: .omitted, time: .shortened)
     }
+
 }
 
 

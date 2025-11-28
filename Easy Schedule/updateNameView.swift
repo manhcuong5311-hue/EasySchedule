@@ -15,12 +15,12 @@ struct UpdateUserNameView: View {
 
     var body: some View {
         Form {
-            Section("Nhập tên hiển thị mới") {
-                TextField("Tên hiển thị", text: $newName)
+            Section(String(localized: "enter_new_display_name")) {
+                TextField(String(localized: "display_name"), text: $newName)
                     .textInputAutocapitalization(.words)
             }
 
-            Button("Lưu") {
+            Button(String(localized: "save")) {
                 let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !trimmed.isEmpty else { return }
                 session.updateUserName(trimmed) { ok in
@@ -29,16 +29,16 @@ struct UpdateUserNameView: View {
             }
             .buttonStyle(.borderedProminent)
         }
-        .navigationTitle("Đổi tên hiển thị")
+        .navigationTitle(String(localized: "change_display_name"))
         .onAppear {
             newName = session.currentUserName
         }
-        .alert("Đã lưu", isPresented: $showSaved) {
+        .alert( String(localized: "saved"), isPresented: $showSaved) {
             Button("OK") {
                 dismiss()
             }
         } message: {
-            Text("Tên hiển thị đã được cập nhật.")
+            Text(String(localized: "display_name_updated"))
         }
     }
 }

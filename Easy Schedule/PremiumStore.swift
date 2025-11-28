@@ -179,12 +179,18 @@ actor PremiumStore {
 
         var errorDescription: String? {
             switch self {
-            case .storeUnavailable: return "Store not available on this device."
-            case .userCancelled: return "User cancelled."
-            case .pending: return "Purchase is pending."
-            case .unknown: return "Unknown purchase error."
-            case .unverifiedTransaction: return "Transaction unverified."
+            case .storeUnavailable:
+                return String(localized: "store_unavailable")
+            case .userCancelled:
+                return String(localized: "user_cancelled")
+            case .pending:
+                return String(localized: "purchase_pending")
+            case .unknown:
+                return String(localized: "purchase_unknown_error")
+            case .unverifiedTransaction:
+                return String(localized: "transaction_unverified")
             }
         }
+
     }
 }
