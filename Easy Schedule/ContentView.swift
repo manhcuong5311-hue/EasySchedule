@@ -65,6 +65,7 @@ final class EventManager: ObservableObject {
     private var busySlotsListener: ListenerRegistration?
     // --- Persisted user name cache key
     private let kUserNamesKey = "es_userNames_cache_v1"
+    private var lastEventCreateTime: Date?
 
     // persisted + in-memory cache
     @Published var userNames: [String: String] = [:] {
@@ -413,8 +414,33 @@ extension EventManager {
                   colorHex: String = "#007AFF") -> Bool {
 
         guard let uid = currentUserId else { return false }
+        let now = Date()
+
+        // Ngăn spam click liên tục (interval = 0.8 giây)
+        if let last = lastEventCreateTime,
+           now.timeIntervalSince(last) < 2 {
+            print("🚫 PREMIUM: Chống spam — nhấn quá nhanh!")
+            return false
+        }
+
+        // Cập nhật thời gian tạo gần nhất
+        lastEventCreateTime = now
 
         // ❗ CHỐNG TRÙNG GIỜ
+        // 🚫 LUÔN chặn event trùng hoàn toàn (chống spam)
+        let exactDuplicate = events.contains { ev in
+            Calendar.current.isDate(ev.date, inSameDayAs: date) &&
+            ev.startTime == startTime &&
+            ev.endTime == endTime
+        }
+
+        if exactDuplicate {
+            self.alertMessage = String(localized: "event_already_exists")
+            self.showAlert = true
+            return false
+        }
+
+        // 🚫 Chặn TRÙNG GIỜ nếu user KHÔNG cho phép
         if !allowDuplicateEvents {
             let overlap = events.contains { ev in
                 Calendar.current.isDate(ev.date, inSameDayAs: date) &&
@@ -428,6 +454,7 @@ extension EventManager {
                 return false
             }
         }
+
 
         // FREE USER LIMIT
         let isPremium = PremiumManager.shared.isPremiumUser
@@ -443,10 +470,20 @@ extension EventManager {
             let eventsSameDay = events.filter {
                 Calendar.current.isDate($0.date, inSameDayAs: date)
             }
-            if eventsSameDay.count >= 4 {
-                print("🚫 FREE USER: Quá 4 lịch/ngày")
+            if eventsSameDay.count >= 2 {
+                print("🚫 FREE USER: Quá 2 lịch/ngày")
                 return false
             }
+            if isPremium {
+                let sameDay = events.filter {
+                    Calendar.current.isDate($0.date, inSameDayAs: date)
+                }
+                if sameDay.count >= 30 {
+                    print("🚫 PREMIUM: Quá 30 lịch/ngày — chống spam!")
+                    return false
+                }
+            }
+
         }
 
         // ⭐ TẠO EVENT LOCAL (owner = UID)
@@ -2045,7 +2082,8 @@ struct AddEventView: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button(String(localized: "save")) {
-
+                        
+                       
                         let calendar = Calendar.current
                         let now = Date()
 
@@ -2057,26 +2095,7 @@ struct AddEventView: View {
                             return
                         }
 
-                        // 2️⃣ PREMIUM CHECK — GIỚI HẠN NGÀY
-                        if !isPremiumUser {
-                            if let maxDate = calendar.date(byAdding: .day, value: 7, to: now),
-                               date > maxDate {
-                                alertMessage = String(localized: "limit_7_days")
-                                showAlert = true
-                                return
-                            }
-
-                            // 3️⃣ PREMIUM CHECK — GIỚI HẠN SỐ LỊCH / NGÀY
-                            let sameDayEvents = eventManager.events.filter {
-                                calendar.isDate($0.date, inSameDayAs: date)
-                            }
-                            if sameDayEvents.count >= 2 {
-                                alertMessage = String(localized: "limit_2_events_per_day")
-                                showAlert = true
-                                return
-                            }
-                        }
-
+                     
                         // 4️⃣ Validate form
                         guard !title.trimmingCharacters(in: .whitespaces).isEmpty else {
                             alertMessage = String(localized: "empty_title")
@@ -2088,6 +2107,72 @@ struct AddEventView: View {
                         let s = combine(date: date, time: startTime)
                         var e = combine(date: date, time: endTime)
                         if e <= s { e = s.addingTimeInterval(1800) } // auto +30p
+                        // ----------------------
+                        // 🎯 PREMIUM / FREE LIMIT
+                        // ----------------------
+                
+                        let now2 = now
+
+                        if !isPremiumUser {
+                            // ❗ FREE — không quá 7 ngày
+                            if let maxDate = calendar.date(byAdding: .day, value: 7, to: now2),
+                               date > maxDate {
+                                alertMessage = String(localized: "limit_7_days")
+                                showAlert = true
+                                return
+                            }
+
+                            // ❗ FREE — không quá 2 event / ngày
+                            let sameDayFree = eventManager.events.filter {
+                                calendar.isDate($0.date, inSameDayAs: date)
+                            }
+                            if sameDayFree.count >= 2 {
+                                alertMessage = String(localized: "limit_2_events_per_day")
+                                showAlert = true
+                                return
+                            }
+
+                        } else {
+                            // ⭐ PREMIUM — GIỚI HẠN CHỐNG SPAM: 30 EVENT / NGÀY
+                            let sameDayPremium = eventManager.events.filter {
+                                calendar.isDate($0.date, inSameDayAs: date)
+                            }
+
+                            if sameDayPremium.count >= 30 {
+                                alertMessage = String(localized: "premium_limit_30_per_day")
+                                showAlert = true
+                                return
+                            }
+                        }
+
+                        
+                        
+                        // 🚫 1) LUÔN CHẶN EVENT TRÙNG HOÀN TOÀN
+                        let exactDup = eventManager.events.contains { ev in
+                            Calendar.current.isDate(ev.date, inSameDayAs: date) &&
+                            ev.startTime == s &&
+                            ev.endTime == e
+                        }
+
+                        if exactDup {
+                            alertMessage = String(localized: "event_already_exists")
+                            showAlert = true
+                            return
+                        }
+                        // 🚫 2) CHẶN TRÙNG GIỜ (Nếu user TẮT conflict)
+                        if !eventManager.allowDuplicateEvents {
+                            let overlap = eventManager.events.contains { ev in
+                                Calendar.current.isDate(ev.date, inSameDayAs: date) &&
+                                ev.startTime < e &&
+                                s < ev.endTime
+                            }
+                            
+                            if overlap {
+                                alertMessage = String(localized: "time_slot_taken!")
+                                showAlert = true
+                                return
+                            }
+                        }
 
                         // 6️⃣ Tạo event
                         let success = eventManager.addEvent(

@@ -1055,6 +1055,23 @@
         }
       }
     },
+    "event_already_exists" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Event already exists"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đã trùng lịch"
+          }
+        }
+      }
+    },
     "event_color_section" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2342,6 +2359,9 @@
           }
         }
       }
+    },
+    "premium_limit_30_per_day" : {
+
     },
     "privacy_nav_title" : {
       "extractionState" : "manual",
