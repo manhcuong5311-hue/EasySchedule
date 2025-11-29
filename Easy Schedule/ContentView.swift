@@ -110,6 +110,7 @@ final class EventManager: ObservableObject {
     // MARK: - INIT
     private init() {
         loadEvents()
+        loadPastEvents()
         cleanUpPastEvents()
         loadSharedLinks()
         loadPersistedUserNames()
@@ -142,7 +143,7 @@ final class EventManager: ObservableObject {
         updateGroupedEvents()
     }
 
-    private func saveSharedLinks() {
+    func saveSharedLinks() {
         if let data = try? JSONEncoder().encode(sharedLinks) {
             UserDefaults.standard.set(data, forKey: "shared_links")
         }
@@ -299,6 +300,17 @@ final class EventManager: ObservableObject {
 
         // Lưu local
         saveEvents()
+    }
+    func savePastEvents() {
+        if let encoded = try? JSONEncoder().encode(pastEvents) {
+            UserDefaults.standard.set(encoded, forKey: "pastEvents")
+        }
+    }
+    func loadPastEvents() {
+        if let data = UserDefaults.standard.data(forKey: "pastEvents"),
+           let decoded = try? JSONDecoder().decode([CalendarEvent].self, from: data) {
+            self.pastEvents = decoded
+        }
     }
 
   
@@ -1411,77 +1423,7 @@ struct EventListView: View {
         }
         .listStyle(.insetGrouped)
     }
-    struct PastEventsByDateView: View {
-        @EnvironmentObject var eventManager: EventManager
-        let date: Date
-        @Environment(\.dismiss) private var dismiss
-        
-        var body: some View {
-            NavigationStack {
-                List {
-                    ForEach(eventsForDate) { event in
-                        VStack(alignment: .leading, spacing: 4) {
-                            
-                            // ⭐ Tiêu đề sự kiện
-                            Text(event.title)
-                                .font(.headline)
-                            
-                            // ⭐ THÊM NameUser đầy đủ (A → B hoặc chỉ A)
-                            if event.origin == .iCreatedForOther {
-                                // A tạo cho B
-                                HStack(spacing: 4) {
-                                    UserNameView(uid: event.createdBy)   // A
-                                    Text("→")
-                                    UserNameView(uid: event.owner)       // B
-                                }
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                            } else {
-                                // Tự tạo hoặc người khác tạo cho tôi
-                                UserNameView(uid: event.createdBy)
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
-                            }
-
-                            // ⭐ Thời gian
-                            Text("\(formattedTime(event.startTime)) - \(formattedTime(event.endTime))")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                        .padding(.vertical, 4)
-                    }
-                }
-                .navigationTitle(formattedDate(date))
-                .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button(String(localized: "close")) { dismiss() }
-
-                    }
-                }
-            }
-        }
-        
-        // MARK: - Lọc event theo ngày
-        private var eventsForDate: [CalendarEvent] {
-            eventManager.pastEvents
-                .filter { Calendar.current.isDate($0.date, inSameDayAs: date) }
-                .sorted { $0.startTime < $1.startTime }
-        }
-        
-        // MARK: - Format ngày
-        private func formattedDate(_ date: Date) -> String {
-            date.formatted(.dateTime.day().month().year())
-        }
-
-
-        
-        // MARK: - Format giờ
-        func formattedTime(_ date: Date) -> String {
-            date.formatted(date: .omitted, time: .shortened)
-        }
-
-    }
-
+   
     // MARK: - Hàng hiển thị sự kiện
     private func eventRow(_ event: CalendarEvent) -> some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -1578,6 +1520,8 @@ struct PastEventsByWeekView: View {
     let week: (year: Int, week: Int)
     @Environment(\.dismiss) private var dismiss
 
+    @State private var showConfirmClear = false   // 🔥 popup Clear All
+
     var body: some View {
         NavigationStack {
             List {
@@ -1588,16 +1532,15 @@ struct PastEventsByWeekView: View {
                         Text(event.title)
                             .font(.headline)
 
-                        // ⭐ Hiển thị tên người dùng giống ngoài EventListView
+                        // ⭐ Hiển thị tên người dùng
                         if event.origin == .iCreatedForOther {
                             HStack(spacing: 4) {
-                                UserNameView(uid: event.createdBy)   // A
+                                UserNameView(uid: event.createdBy)
                                 Text("→")
-                                UserNameView(uid: event.owner)       // B
+                                UserNameView(uid: event.owner)
                             }
                             .font(.subheadline)
                             .foregroundColor(.secondary)
-
                         } else {
                             UserNameView(uid: event.createdBy)
                                 .font(.subheadline)
@@ -1611,14 +1554,61 @@ struct PastEventsByWeekView: View {
                     }
                     .padding(.vertical, 4)
                 }
+                .onDelete(perform: deleteAt)     // 🔥 Swipe xoá từng item
             }
             .navigationTitle(weekOfMonthTitle)
-             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+            .toolbar {
+
+                // 🔥 Nút Clear All (nổi bật)
+                ToolbarItem(placement: .navigationBarLeading) {
+                    if !eventsThisWeek.isEmpty {
+                        Button(role: .destructive) {
+                            showConfirmClear = true
+                        } label: {
+                            Text(String(localized: "clear_all"))
+                        }
+                    }
+                }
+
+                // 🔥 Close
+                ToolbarItem(placement: .navigationBarTrailing) {
                     Button(String(localized: "close")) { dismiss() }
                 }
             }
+
+            // 🔥 Popup xác nhận xoá tất cả
+            .alert(
+                String(localized: "are_you_sure_you_want_to_delete_all_events_for_this_week"),
+                isPresented: $showConfirmClear
+            ) {
+                Button(String(localized: "delete_all"), role: .destructive) {
+                    clearAll()
+                }
+                Button(String(localized: "cancel"), role: .cancel) {}
+            }
         }
+    }
+
+    // MARK: - Swipe delete
+    private func deleteAt(at offsets: IndexSet) {
+        let arr = eventsThisWeek
+        for index in offsets {
+            let item = arr[index]
+
+            if let realIndex = eventManager.pastEvents.firstIndex(where: { $0.id == item.id }) {
+                eventManager.pastEvents.remove(at: realIndex)
+            }
+        }
+        eventManager.savePastEvents()
+    }
+
+    // MARK: - Clear All
+    private func clearAll() {
+        eventManager.pastEvents.removeAll {
+            Calendar.current.component(.weekOfYear, from: $0.date) == week.week &&
+            Calendar.current.component(.yearForWeekOfYear, from: $0.date) == week.year
+        }
+        eventManager.savePastEvents()
     }
 
     // MARK: - Lọc events trong tuần này
@@ -1641,20 +1631,20 @@ struct PastEventsByWeekView: View {
         )
     }
 
+    // MARK: - Title cho Navigation Bar
     private var weekOfMonthTitle: String {
         guard let sample = eventsThisWeek.first else { return "" }
 
         let calendar = Calendar.current
         let weekOfMonth = calendar.component(.weekOfMonth, from: sample.date)
 
-        let weekPrefix = String(localized: "week_prefix")   // "Tuần" / "Week"
+        let weekPrefix = String(localized: "week_prefix")
         let monthName = sample.date.formatted(.dateTime.month(.wide))
 
         return "\(weekPrefix) \(weekOfMonth) \(monthName)"
     }
-
-
 }
+
 
 
 

@@ -359,14 +359,17 @@ struct HistoryLinksView: View {
     @EnvironmentObject var eventManager: EventManager
     var onSelect: (String) -> Void
 
-
     @State private var showCopied = false
+    @State private var showConfirmClear = false   // 🔥 popup clear all
+
+    var sortedLinks: [SharedLink] {
+        eventManager.sharedLinks.sorted(by: { $0.createdAt > $1.createdAt })
+    }
 
     var body: some View {
         NavigationStack {
             List {
-                ForEach(eventManager.sharedLinks.sorted(by: { $0.createdAt > $1.createdAt })) { link in
-
+                ForEach(sortedLinks) { link in
                     VStack(alignment: .leading, spacing: 4) {
                         Text(link.displayName ?? String(localized: "no_name"))
                             .font(.headline)
@@ -378,30 +381,64 @@ struct HistoryLinksView: View {
                         Text(formatDate(link.createdAt))
                             .font(.caption2)
                             .foregroundColor(.gray)
-
                     }
                     .contentShape(Rectangle())
                     .onTapGesture {
                         onSelect(link.uid)
                     }
-
                     .onLongPressGesture {
-                        // Nhấn giữ → copy
                         UIPasteboard.general.string = link.url
                         showCopied = true
                     }
                 }
+                .onDelete(perform: deleteAt)
             }
             .navigationTitle(String(localized: "viewed_history"))
-            .alert( String(localized: "link_copied"), isPresented: $showCopied) {
+            .toolbar {
+
+                // 🔥 Nút Clear All (mở popup)
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(role: .destructive) {
+                        showConfirmClear = true
+                    } label: {
+                        Text(String(localized: "clear_all"))
+                    }
+                }
+            }
+
+            // 🔥 Popup xác nhận
+            .alert(
+                Text(String(localized: "are_you_sure_you_want_to_delete_all_history")),
+                isPresented: $showConfirmClear
+            ) {
+                Button(String(localized: "delete_all"), role: .destructive) {
+                    eventManager.sharedLinks.removeAll()
+                    eventManager.saveSharedLinks()
+                }
+
+                Button( String(localized: "cancel"), role: .cancel) {}
+            }
+
+            .alert(String(localized: "link_copied"), isPresented: $showCopied) {
                 Button("OK", role: .cancel) {}
             }
         }
     }
+
+    private func deleteAt(at offsets: IndexSet) {
+        let sorted = sortedLinks
+        for index in offsets {
+            let item = sorted[index]
+            if let originalIndex = eventManager.sharedLinks.firstIndex(where: { $0.id == item.id }) {
+                eventManager.sharedLinks.remove(at: originalIndex)
+            }
+        }
+        eventManager.saveSharedLinks()
+    }
+
     private func formatDate(_ date: Date) -> String {
         date.formatted(.dateTime.weekday(.wide).day().month(.wide))
     }
-
 }
 
 
