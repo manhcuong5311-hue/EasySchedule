@@ -20,7 +20,7 @@ struct LoginView: View {
         NavigationView {
             VStack(spacing: 20) {
                 
-                Text("Đăng nhập")
+                Text(String(localized: "login"))
                     .font(.largeTitle)
                     .bold()
                 
@@ -31,7 +31,7 @@ struct LoginView: View {
                     .background(Color.gray.opacity(0.2))
                     .cornerRadius(8)
                 
-                SecureField("Mật khẩu", text: $password)
+                SecureField(String(localized: "password"), text: $password)
                     .padding()
                     .background(Color.gray.opacity(0.2))
                     .cornerRadius(8)
@@ -44,16 +44,17 @@ struct LoginView: View {
                 }
                 
                 Button(action: { login() }) {
-                    Text("Đăng nhập")
+                    Text(String(localized: "login"))
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding()
                         .background(Color.blue)
                         .cornerRadius(8)
                 }
+
                 
                 Button(action: { signUp() }) {
-                    Text("Đăng kí")
+                    Text(String(localized: "signup"))
                         .foregroundColor(.blue)
                         .frame(maxWidth: .infinity)
                         .padding()
@@ -62,12 +63,13 @@ struct LoginView: View {
                                 .stroke(Color.blue, lineWidth: 2)
                         )
                 }
+
                 
                 // 🔹 Nút đăng nhập bằng Google
                 Button(action: { signInWithGoogle() }) {
                     HStack {
                         Image(systemName: "globe")
-                        Text("Đăng nhập bằng Google")
+                        Text(String(localized: "login_with_google"))
                             .fontWeight(.semibold)
                     }
                     .foregroundColor(.white)
@@ -139,7 +141,7 @@ struct LoginView: View {
                 let user = result?.user,
                 let idToken = user.idToken?.tokenString
             else {
-                self.errorMessage = "Đăng nhập bằng Google không thành công"
+                self.errorMessage = String(localized: "google_login_failed")
                 return
             }
             
@@ -164,10 +166,10 @@ struct LoginView: View {
 struct MainView: View {
     var body: some View {
         VStack {
-            Text("Chào mừng! Bạn đã đăng nhập.")
+            Text(String(localized: "welcome_logged_in"))
                 .font(.title)
                 .padding()
-            Button("Đăng xuất") {
+            Button(String(localized: "logout")) {
                 do {
                     try Auth.auth().signOut()
                 } catch {

@@ -10,8 +10,8 @@ struct EnhancedOnboardingView: View {
             // Slide 1: Logo app
             featureSlide(
                 imageName: "appstore",
-                title: "Sắp xếp lịch của bạn",
-                description: "Giữ cho mọi cuộc hẹn và công việc ngăn nắp.",
+                title: String(localized: "onboarding_title_1"),
+                description: String(localized: "onboarding_desc_1"),
                 gradient: LinearGradient(colors: [Color.orange, Color.red], startPoint: .topLeading, endPoint: .bottomTrailing),
                 useSystemImage: false
                 
@@ -20,8 +20,8 @@ struct EnhancedOnboardingView: View {
             // Slide 2: Calendar SF Symbol
             featureSlide(
                 imageName: "calendar",
-                title: "Không bỏ lỡ cuộc hẹn nào",
-                description: "Bạn có thể gửi đường dẫn cho khách hàng và đối tác họ có thể thêm cuộc hẹn của họ trực tiếp vào lịch của bạn",
+                title: String(localized: "onboarding_title_2"),
+                description: String(localized: "onboarding_desc_2"),
                 gradient: LinearGradient(colors: [Color.blue, Color.purple], startPoint: .topLeading, endPoint: .bottomTrailing),
                 useSystemImage: true
             )
@@ -29,8 +29,8 @@ struct EnhancedOnboardingView: View {
             // Slide 3: Bell SF Symbol + Button
             featureSlide(
                 imageName: "bell",
-                title: "Dễ dàng và thuận tiện sắp xếp.",
-                description: "Nhanh chóng sắp xếp sự kiện mới và kiểm soát lịch của bạn hiệu quả hơn, Nhận thông báo và nhắc hẹn cho sự kiện quan trọng của bạn.",
+                title: String(localized: "onboarding_title_3"),
+                description: String(localized: "onboarding_desc_3"),
                 gradient: LinearGradient(colors: [Color.green, Color.teal], startPoint: .topLeading, endPoint: .bottomTrailing),
                 useSystemImage: true,
                 showButton: true
@@ -89,7 +89,7 @@ struct EnhancedOnboardingView: View {
                         showOnboarding = false
                         UserDefaults.standard.set(true, forKey: "hasSeenOnboarding")
                     }) {
-                        Text("Bắt đầu")
+                        Text(String(localized: "get_started"))
                             .font(.headline)
                             .foregroundColor(.white)
                             .padding()

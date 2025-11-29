@@ -67,7 +67,6 @@ struct SettingsView: View {
 
     // MARK: - Environment Objects
     @EnvironmentObject var session: SessionStore
-    @EnvironmentObject var languageManager: LanguageManager
     @EnvironmentObject var premiumManager: PremiumManager   // ⭐ QUAN TRỌNG
     @AppStorage("firebasePushEnabled") private var firebasePushEnabled = true
 
@@ -81,79 +80,66 @@ struct SettingsView: View {
             Form {
 
                 // MARK: - Notifications
-        Section("Thông báo") {
-            Toggle("Nhận thông báo khi sắp đến lịch", isOn: $pushNotificationsEnabled)
-                        .onChange(of: pushNotificationsEnabled) { oldValue, newValue in
+                Section(String(localized: "notifications")) {
+
+                    Toggle(String(localized: "notify_before_event"), isOn: $pushNotificationsEnabled)
+                        .onChange(of: pushNotificationsEnabled) { _, newValue in
                             if newValue {
                                 Messaging.messaging().subscribe(toTopic: "admin") { error in
-                                    if let error = error {
-                                        print("❌ Subscribe topic lỗi: \(error.localizedDescription)")
-                                    } else {
-                                        print("✅ Đã bật thông báo khi có lịch mới")
-                                    }
+                                    print(error == nil ? "✅ Bật thông báo admin" : "❌ \(error!.localizedDescription)")
                                 }
                             } else {
                                 Messaging.messaging().unsubscribe(fromTopic: "admin") { error in
-                                    if let error = error {
-                                        print("❌ Unsubscribe topic lỗi: \(error.localizedDescription)")
-                                    } else {
-                                        print("✅ Đã tắt thông báo khi có lịch mới")
-                                    }
+                                    print(error == nil ? "🔕 Tắt thông báo admin" : "❌ \(error!.localizedDescription)")
                                 }
                             }
                         }
 
-                    Picker("Thời gian nhắc trước", selection: $leadTime) {
+                    Picker(String(localized: "remind_before"), selection: $leadTime) {
                         ForEach(leadTimeOptions, id: \.self) { value in
-                            Text("\(value) phút trước").tag(value)
+                            let template = String(localized: "minutes_before")
+                            Text(template.replacingOccurrences(of: "{value}", with: "\(value)"))
+                                .tag(value)
                         }
                     }
                     .disabled(!pushNotificationsEnabled)
-                   
-            Toggle("Nhận thông báo lịch mới", isOn: $firebasePushEnabled)
-                    .onChange(of: firebasePushEnabled) { oldValue, newValue in
+
+                    Toggle(String(localized: "notify_new_event"), isOn: $firebasePushEnabled)
+                        .onChange(of: firebasePushEnabled) { _, newValue in
                             if newValue {
                                 Messaging.messaging().subscribe(toTopic: "schedules") { error in
-                                    if let error = error {
-                                        print("❌ Subscribe topic schedules lỗi: \(error.localizedDescription)")
-                                    } else {
-                                        print("📢 Đã bật thông báo khi có lịch mới")
-                                    }
+                                    print(error == nil ? "📢 Bật thông báo schedules" : "❌ \(error!.localizedDescription)")
                                 }
                             } else {
                                 Messaging.messaging().unsubscribe(fromTopic: "schedules") { error in
-                                    if let error = error {
-                                        print("❌ Unsubscribe topic schedules lỗi: \(error.localizedDescription)")
-                                    } else {
-                                        print("🔕 Đã tắt thông báo lịch mới")
-                                    }
+                                    print(error == nil ? "🔕 Tắt thông báo schedules" : "❌ \(error!.localizedDescription)")
                                 }
                             }
                         }
-
                 }
 
-                // MARK: - Giao diện
-                Section("Giao diện") {
-                    Picker("Chế độ hiển thị", selection: $appTheme) {
-                        Text("Sáng").tag("system")
-                        Text("Tối").tag("dark")
+                // MARK: - Appearance
+                Section(String(localized: "appearance")) {
+                    Picker(String(localized: "display_mode"), selection: $appTheme) {
+                        Text(String(localized: "light")).tag("system")
+                        Text(String(localized: "dark")).tag("dark")
                     }
                     .pickerStyle(.segmented)
                 }
 
-                // MARK: - Tài khoản & Premium
-                Section("Tài khoản & Premium") {
+                // MARK: - Account & Premium
+                Section(String(localized: "account_and_premium")) {
 
-                    // ⭐ Username chỉnh sửa tại Setting
                     HStack {
-                        Text("Tên hiển thị")
+                        Text(String(localized: "display_name"))
                         Spacer()
-                        Text(session.currentUserName.isEmpty ? "Chưa đặt" : session.currentUserName)
+                        Text(session.currentUserName.isEmpty
+                             ? String(localized: "not_set")
+                             : session.currentUserName)
                             .foregroundColor(.secondary)
                     }
 
-                    NavigationLink("Đổi tên hiển thị") {
+                    NavigationLink(String(localized: "change_display_name")) {
                         UpdateUserNameView()
                             .environmentObject(session)
                     }
@@ -162,33 +148,38 @@ struct SettingsView: View {
                         showUpgradeSheet = true
                     } label: {
                         HStack {
-                            Text("Nâng cấp tài khoản")
+                            Text(String(localized: "upgrade_account"))
                             Spacer()
-                            Text(premiumManager.isPremiumUser ? "⭐ Premium" : "Miễn phí")
+                            Text(premiumManager.isPremiumUser
+                                 ? String(localized: "premium")
+                                 : String(localized: "free"))
                                 .foregroundColor(premiumManager.isPremiumUser ? .yellow : .secondary)
                         }
                     }
 
-                    NavigationLink("Quản lý bảo mật") {
+                    NavigationLink(String(localized: "security_management")) {
                         SecuritySettingsView()
                     }
                 }
 
-
-                // MARK: - Ngôn ngữ
-                Section("Ngôn ngữ") {
-                    Picker("Ngôn ngữ hiển thị", selection: $selectedLanguage) {
-                        Text("Tiếng Việt").tag("vi")
+                // MARK: - Language
+                Section(String(localized: "language")) {
+                    Button(String(localized: "change_language_in_settings")) {
+                        if let url = URL(string: UIApplication.openSettingsURLString) {
+                            UIApplication.shared.open(url)
+                        }
                     }
-                    .pickerStyle(.segmented)
                 }
 
+
                 // MARK: - Support
-                Section("Thông tin & Hỗ trợ") {
+                Section(String(localized: "info_support")) {
+
                     Button("🧾 Privacy Policy & App Info") {
                         showPrivacySheet = true
                     }
-                    Button("📞 Liên hệ hỗ trợ") {
+
+                    Button(String(localized: "contact_support")) {
                         contactSupport()
                     }
                 }
@@ -198,33 +189,42 @@ struct SettingsView: View {
                     Button(role: .destructive) {
                         showLogoutAlert = true
                     } label: {
-                        Label("Đăng xuất", systemImage: "rectangle.portrait.and.arrow.right")
+                        Label(String(localized: "logout"), systemImage: "rectangle.portrait.and.arrow.right")
                     }
                 }
             }
-            .navigationTitle("Cài đặt")
-            .alert("Xác nhận đăng xuất?", isPresented: $showLogoutAlert) {
-                Button("Huỷ", role: .cancel) {}
-                Button("Đăng xuất", role: .destructive) { performLogout() }
+
+            .navigationTitle(String(localized: "settings"))
+        
+            .alert(
+                String(localized: "logout_confirm"),
+                isPresented: $showLogoutAlert
+            ) {
+                Button(String(localized: "cancel"), role: .cancel) { }
+                Button(String(localized: "logout"), role: .destructive) {
+                    performLogout()
+                }
             } message: {
-                Text("Bạn sẽ cần đăng nhập lại để tiếp tục sử dụng.")
+                Text(String(localized: "logout_message"))
             }
+
             .sheet(isPresented: $showUpgradeSheet) {
-                PremiumUpgradeSheet()    // ⭐ màn nâng cấp premium
+                PremiumUpgradeSheet()
                     .environmentObject(premiumManager)
             }
+
             .sheet(isPresented: $showPrivacySheet) {
                 PrivacyPolicyView()
             }
         }
     }
 
+
     // MARK: - Actions
     private func contactSupport() {
         let supportEmail = "Manhcuong5311@gmail.com"
-        let subject = "Hỗ trợ Easy Schedule".addingPercentEncoding(
-            withAllowedCharacters: .urlQueryAllowed
-        ) ?? ""
+        let subjectText = String(localized: "support_email_subject")
+        let subject = subjectText.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
         if let url = URL(string: "mailto:\(supportEmail)?subject=\(subject)") {
             UIApplication.shared.open(url)
         }
@@ -249,53 +249,16 @@ struct PrivacyPolicyView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    Text("🧾 Chính sách quyền riêng tư & Thông tin ứng dụng")
+                    Text(String(localized: "privacy_title"))
                         .font(.headline)
-                    Text("""
-                    EasySchedule tôn trọng quyền riêng tư của bạn. Tất cả các sự kiện lịch được tạo trong ứng dụng được lưu trữ cục bộ trên thiết bị và không chia sẻ với bên thứ ba.
-                    Bạn có thể chọn chia sẻ sự kiện thông qua liên kết, nhưng điều này chỉ được thực hiện khi bạn chủ động.
-                    Ứng dụng không theo dõi bạn, không thu thập thông tin vị trí, danh bạ, hay dữ liệu sức khỏe.
-                    Thông tin đăng ký Premium được xử lý an toàn qua hệ thống In-App Purchase của Apple.
-                    Chúng tôi có thể thu thập dữ liệu crash hoặc sử dụng ẩn danh để cải thiện hiệu năng ứng dụng, nhưng dữ liệu này không liên kết với bạn.
-                    Nếu có câu hỏi về quyền riêng tư, vui lòng liên hệ: [email Manhcuong5311@gmail.com].
-                    
-                    
-                    Phiên bản: 1.0.0
-                    Nhà phát triển: SamCorp.Easyschedule
-                    """)
-                    .font(.body)
+                    Text(String(localized: "privacy_text"))
+                        .font(.body)
                     Link("Website 🧾 Privacy Policy & App Info", destination: URL(string: "https://manhcuong5311-hue.github.io/easyschedule-privacy/")!)
-                        
                 }
                 .padding()
             }
-            .navigationTitle("Chính sách & Thông tin")
+            .navigationTitle(String(localized: "privacy_nav_title"))
         }
-    }
-}
-
-// MARK: - Upgrade Account View
-struct UpgradeAccountView: View {
-    @Binding var currentPlan: String
-    @Environment(\.dismiss) var dismiss
-    let plans = ["Miễn phí", "1 tháng", "1 năm", "Trọn đời"]
-    
-    var body: some View {
-        List(plans, id: \.self) { plan in
-            Button {
-                currentPlan = plan
-                dismiss()
-            } label: {
-                HStack {
-                    Text(plan)
-                    Spacer()
-                    if currentPlan == plan {
-                        Image(systemName: "checkmark").foregroundColor(.blue)
-                    }
-                }
-            }
-        }
-        .navigationTitle("Nâng cấp tài khoản")
     }
 }
 
@@ -313,9 +276,9 @@ struct SecuritySettingsView: View {
     var body: some View {
         ZStack {
             Form {
-                Section("Bảo mật tài khoản") {
+                Section(String(localized: "security_account")) {
                     // Face ID / Touch ID Toggle
-                    Toggle("Xác thực Face ID / Touch ID", isOn: Binding(
+                    Toggle(String(localized: "security_biometric"), isOn: Binding(
                         get: { useBiometricAuth },
                         set: { newValue in
                             if newValue {
@@ -325,15 +288,15 @@ struct SecuritySettingsView: View {
                             }
                         }
                     ))
-                    .alert("Xác thực thất bại", isPresented: $showAuthError) {
+                    .alert(String(localized: "security_biometric_fail"), isPresented: $showAuthError) {
                         Button("OK", role: .cancel) {}
                     }
                     
                     // Auto Lock Toggle
-                    Toggle("Tự động khoá khi không hoạt động", isOn: $autoLockEnabled)
+                    Toggle(String(localized: "security_auto_lock"), isOn: $autoLockEnabled)
                 }
             }
-            .navigationTitle("Bảo mật")
+            .navigationTitle(String(localized: "security_nav"))
             .onTapGesture {
                 lockManager.userDidInteract()
             }
@@ -354,7 +317,7 @@ struct SecuritySettingsView: View {
         var error: NSError?
         
         if context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) {
-            let reason = "Xác thực để bật Face ID / Touch ID"
+            let reason = String(localized: "security_reason")
             context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: reason) { success, _ in
                 DispatchQueue.main.async {
                     if success {
@@ -409,7 +372,7 @@ class LockManager: ObservableObject {
     
     func unlock() {
         let context = LAContext()
-        let reason = "Xác thực để mở khóa"
+        let reason = String(localized: "unlock_reason")
         context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: reason) { success, _ in
             DispatchQueue.main.async {
                 if success {
@@ -430,10 +393,10 @@ struct LockScreenView: View {
             Image(systemName: "lock.fill")
                 .font(.system(size: 60))
                 .foregroundColor(.blue)
-            Text("Ứng dụng đã bị khóa")
+            Text(String(localized: "app_locked"))
                 .font(.title3)
                 .bold()
-            Button("Mở khóa bằng Face ID / Touch ID") {
+            Button(String(localized: "unlock_button")) {
                 lockManager.unlock()
             }
             .buttonStyle(.borderedProminent)

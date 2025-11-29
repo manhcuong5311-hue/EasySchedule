@@ -6,7 +6,6 @@ import UserNotifications
 struct Easy_scheduleApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
     @StateObject private var session = SessionStore()
-    @StateObject private var languageManager = LanguageManager.shared   // ✅ SỬA 1
     @AppStorage("appTheme") private var appTheme: String = "system"
     @State private var showLaunch = true
     @State private var showOnboarding: Bool = !UserDefaults.standard.bool(forKey: "hasSeenOnboarding")
@@ -24,9 +23,8 @@ struct Easy_scheduleApp: App {
                                            appTheme == "light" ? .light :
                                            appTheme == "dark" ? .dark : nil
                                        )
-                    .environmentObject(languageManager)
                     .environmentObject(eventManager)
-// ✅ SỬA 2
+
                     .onAppear {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                             withAnimation { showLaunch = false }
@@ -38,9 +36,7 @@ struct Easy_scheduleApp: App {
                                            appTheme == "light" ? .light :
                                            appTheme == "dark" ? .dark : nil
                                        )
-                    .environmentObject(languageManager)
                     .environmentObject(eventManager)
-// ✅ SỬA 2
             } else {
                 RootView()
                     .preferredColorScheme(
@@ -48,7 +44,6 @@ struct Easy_scheduleApp: App {
                                            appTheme == "dark" ? .dark : nil
                                        )
                     .environmentObject(session)
-                    .environmentObject(languageManager) // ✅ SỬA 2
                     .environmentObject(premiumManager)
                     .environmentObject(eventManager)
                     .onAppear {

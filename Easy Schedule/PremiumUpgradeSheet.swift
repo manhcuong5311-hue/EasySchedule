@@ -20,15 +20,15 @@ struct PremiumUpgradeSheet: View {
 
                     // Header
                     VStack(spacing: 6) {
-                        Text("Nâng cấp tài khoản")
+                        Text(String(localized: "upgrade_account"))
                             .font(.title.bold())
 
                         if premiumManager.isPremiumUser {
-                            Label("Bạn đang dùng bản Premium", systemImage: "star.fill")
+                            Label(String(localized: "premium_active"), systemImage: "star.fill")
                                 .foregroundColor(.yellow)
                                 .font(.headline)
                         } else {
-                            Text("Mở khoá tất cả tính năng\nDung lượng & thời gian không giới hạn")
+                            Text(String(localized: "premium_features"))
                                 .multilineTextAlignment(.center)
                                 .foregroundColor(.secondary)
                         }
@@ -38,7 +38,7 @@ struct PremiumUpgradeSheet: View {
                     // MARK: - Product List
                     Group {
                         if premiumManager.products.isEmpty {
-                            ProgressView("Đang tải gói…")
+                            ProgressView(String(localized: "loading_packages"))
                                 .padding(.vertical, 40)
                                 .task { await premiumManager.loadProducts() }
                         } else {
@@ -61,11 +61,10 @@ struct PremiumUpgradeSheet: View {
                                 let ok = await premiumManager.restore()
                                 isLoading = false
                                 if ok { dismiss() }
-                                else { purchaseError = "Không tìm thấy giao dịch cần khôi phục." }
+                                else { purchaseError = String(localized: "restore_failed") }
                             }
                         } label: {
-                            Text("Khôi phục mua hàng")
-                                .font(.body)
+                            Text(String(localized: "restore_purchases"))                                .font(.body)
                                 .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.borderedProminent)
@@ -79,13 +78,13 @@ struct PremiumUpgradeSheet: View {
 
                     Spacer().frame(height: 30)
 
-                    Button("Đóng") { dismiss() }
+                    Button(String(localized: "close")) { dismiss() }
                         .foregroundColor(.secondary)
 
                 }
                 .padding(.horizontal)
             }
-            .alert("Lỗi mua hàng", isPresented: Binding(
+            .alert( String(localized: "purchase_error"), isPresented: Binding(
                 get: { purchaseError != nil },
                 set: { _ in purchaseError = nil }
             )) {
@@ -106,7 +105,7 @@ struct PremiumUpgradeSheet: View {
                 isLoading = false
 
                 if success { dismiss() }
-                else { purchaseError = "Thanh toán thất bại. Vui lòng thử lại." }
+                else { purchaseError = String(localized: "payment_failed") }
             }
         } label: {
             HStack(spacing: 16) {

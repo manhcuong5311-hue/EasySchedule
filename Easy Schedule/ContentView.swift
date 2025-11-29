@@ -116,7 +116,7 @@ final class EventManager: ObservableObject {
         updateGroupedEvents()
         listenToEvents()
         retryPendingDeletes()
-        syncBusySlotsToFirebase()
+      
     }
 
     // MARK: - LOCAL SAVE
@@ -348,12 +348,50 @@ final class EventManager: ObservableObject {
         let d = Calendar.current.startOfDay(for: date)
         return groupedByDay[d]?.sorted { $0.startTime < $1.startTime } ?? []
     }
+    func addBusySlot(for uid: String, event: CalendarEvent) {
+        let docRef = db.collection("publicCalendar").document(uid)
+
+        docRef.getDocument { snap, err in
+            var slots = snap?.data()?["busySlots"] as? [[String: Any]] ?? []
+
+            // Remove old slot nếu trùng ID
+            slots.removeAll { ($0["id"] as? String) == event.id }
+
+            let newSlot: [String: Any] = [
+                "id": event.id,
+                "title": event.title,
+                "owner": event.owner,
+                "start": event.startTime.timeIntervalSince1970,
+                "end": event.endTime.timeIntervalSince1970
+            ]
+
+            slots.append(newSlot)
+
+            docRef.setData(["busySlots": slots], merge: true)
+        }
+    }
+
+    func syncBusySlots(for event: CalendarEvent) {
+        for uid in event.participants {
+            self.addBusySlot(for: uid, event: event)
+        }
+    }
+    func removeBusySlotForAllParticipants(event: CalendarEvent) {
+        for uid in event.participants {
+            let doc = db.collection("publicCalendar").document(uid)
+            doc.getDocument { snap, _ in
+                var slots = snap?.data()?["busySlots"] as? [[String: Any]] ?? []
+                slots.removeAll { ($0["id"] as? String) == event.id }
+                doc.setData(["busySlots": slots], merge: true)
+            }
+        }
+    }
+
 
 }
 
 // MARK: CRUD + Firestore
 extension EventManager {
-
     @discardableResult
     func addEvent(title: String,
                   ownerName: String,
@@ -361,8 +399,10 @@ extension EventManager {
                   startTime: Date,
                   endTime: Date,
                   colorHex: String = "#007AFF") -> Bool {
-    
-        // ❗ CHỐNG TRÙNG GIỜ (tuỳ theo toggle)
+
+        guard let uid = currentUserId else { return false }
+
+        // ❗ CHỐNG TRÙNG GIỜ
         if !allowDuplicateEvents {
             let overlap = events.contains { ev in
                 Calendar.current.isDate(ev.date, inSameDayAs: date) &&
@@ -371,20 +411,16 @@ extension EventManager {
             }
 
             if overlap {
-
-                    self.alertMessage = "Khung giờ này đã có lịch rồi!"
-                    self.showAlert = true
-               
+                self.alertMessage = String(localized: "time_slot_taken!")
+                self.showAlert = true
                 return false
             }
         }
-        
+
+        // FREE USER LIMIT
         let isPremium = PremiumManager.shared.isPremiumUser
 
-        // FREE USER LIMITS
         if !isPremium {
-
-            // ❌ 1) hạn 7 ngày
             let now = Date()
             if let maxDate = Calendar.current.date(byAdding: .day, value: 7, to: now),
                date > maxDate {
@@ -392,50 +428,44 @@ extension EventManager {
                 return false
             }
 
-            // ❌ 2) max 4 events / day
-            let eventsSameDay = events.filter { Calendar.current.isDate($0.date, inSameDayAs: date) }
+            let eventsSameDay = events.filter {
+                Calendar.current.isDate($0.date, inSameDayAs: date)
+            }
             if eventsSameDay.count >= 4 {
                 print("🚫 FREE USER: Quá 4 lịch/ngày")
                 return false
             }
         }
-       
-        // ❗ CHỐNG TRÙNG GIỜ (tuỳ theo toggle)
-     
 
-
-        // PASSES → TẠO LỊCH
+        // ⭐ TẠO EVENT LOCAL (owner = UID)
         let newEvent = CalendarEvent(
             id: UUID().uuidString,
             title: title,
             date: date,
             startTime: startTime,
             endTime: endTime,
-            owner: ownerName,                     // A
-            sharedUser: EventManager.shared.currentUserId ?? ownerName,
-            createdBy: EventManager.shared.currentUserId ?? ownerName,
-            participants: Array(Set([
-                EventManager.shared.currentUserId ?? ownerName
-            ])),
+            owner: uid,                    // ⭐ OWNER = UID (rất quan trọng)
+            sharedUser: uid,
+            createdBy: uid,
+            participants: [uid],           // ⭐ Người tạo event là participant đầu tiên
             colorHex: colorHex,
             pendingDelete: false,
             origin: .myEvent
         )
 
-
-
-        // Local
+        // LƯU LOCAL
         DispatchQueue.main.async {
             self.events.append(newEvent)
             self.saveEvents()
         }
 
-        // Remote
-        _ = currentUserId ?? ""
+        // ⭐ ĐẨY FIRESTORE (owner = UID)
         let data: [String: Any] = [
             "title": newEvent.title,
-            "owner": ownerName,
-            "sharedUser": currentUserId ?? "",
+            "owner": uid,
+            "sharedUser": uid,
+            "createdBy": uid,
+            "participants": [uid],
             "date": Timestamp(date: newEvent.date),
             "startTime": Timestamp(date: newEvent.startTime),
             "endTime": Timestamp(date: newEvent.endTime),
@@ -448,18 +478,25 @@ extension EventManager {
                 print("❌ Firestore add error:", err.localizedDescription)
                 return
             }
-            if let docId = ref?.documentID {
-                DispatchQueue.main.async {
-                    if let i = self.events.firstIndex(where: { $0.id == newEvent.id }) {
-                        self.events[i].id = docId
-                    }
+
+            guard let docId = ref?.documentID else { return }
+
+            DispatchQueue.main.async {
+                // cập nhật ID Firebase vào local
+                if let i = self.events.firstIndex(where: { $0.id == newEvent.id }) {
+                    self.events[i].id = docId
+
+                    // ⭐ Cập nhật busySlot cho TẤT CẢ participants
+                    let finalEvent = self.events[i]
+                    self.syncBusySlots(for: finalEvent)
+
                 }
-                self.syncBusySlotsToFirebase()
             }
         }
 
         return true
     }
+
 
     func updateEvent(_ event: CalendarEvent,
                      newTitle: String,
@@ -477,7 +514,7 @@ extension EventManager {
         events[idx].endTime = newEnd
         events[idx].colorHex = newColorHex
 
-        // Update Firestore (không đụng owner/sharedUser)
+        // ⭐ Cập nhật Firestore
         if !event.id.isEmpty {
             db.collection("events").document(event.id).updateData([
                 "title": newTitle,
@@ -485,7 +522,30 @@ extension EventManager {
                 "startTime": Timestamp(date: newStart),
                 "endTime": Timestamp(date: newEnd),
                 "colorHex": newColorHex
-            ])
+            ]) { error in
+                
+                // ⭐⭐ ĐẶT ĐOẠN UPDATE BUSYSLOT TRONG NÀY (đúng scope)
+                guard error == nil else { return }
+
+                // Tạo event mới dựa trên thông tin đã update
+                let updatedEvent = CalendarEvent(
+                    id: event.id,
+                    title: newTitle,
+                    date: newDate,
+                    startTime: newStart,
+                    endTime: newEnd,
+                    owner: event.owner,
+                    sharedUser: event.sharedUser,
+                    createdBy: event.createdBy,
+                    participants: event.participants,
+                    colorHex: newColorHex,
+                    pendingDelete: false,
+                    origin: .myEvent
+                )
+
+                // ⭐ Ghi đè busySlot của chủ event
+                self.addBusySlot(for: event.owner, event: updatedEvent)
+            }
         }
     }
 
@@ -509,7 +569,8 @@ extension EventManager {
         deleteRemoteOnly(event)
 
         // 4️⃣ Remove busySlot remote
-        removeBusySlotFromPublicCalendar(event: event)
+        removeBusySlotForAllParticipants(event: event)
+
 
         // 5️⃣ Clear local busySlots cache for the affected owner (so next fetch reads fresh)
         //    - owner is the publicCalendar document id we use as cache key
@@ -517,9 +578,7 @@ extension EventManager {
             self.busySlotCache.removeValue(forKey: event.owner)
             self.busySlotPremiumCache.removeValue(forKey: event.owner)
         }
-
-        // 6️⃣ Sync busySlots mới (debounced if you've added debounce)
-        syncBusySlotsToFirebase()
+       
     }
 
     
@@ -564,12 +623,17 @@ extension EventManager {
                     let premiumFlag = data["isPremium"] as? Bool ?? isPremium
                     let rawSlots = data["busySlots"] as? [[String: Any]] ?? []
 
+                    let now = Date()
+
                     let slots = rawSlots.compactMap { dict -> CalendarEvent? in
                         guard let start = dict["start"] as? TimeInterval,
                               let end   = dict["end"]   as? TimeInterval else { return nil }
 
                         let s = Date(timeIntervalSince1970: start)
                         let e = Date(timeIntervalSince1970: end)
+
+                        // ⭐ LỌC BUSY SLOT HẾT HẠN (chỉ thêm dòng này)
+                        if e < now { return nil }
 
                         return CalendarEvent(
                             id: dict["id"] as? String ?? UUID().uuidString,
@@ -584,7 +648,6 @@ extension EventManager {
                             colorHex: "#FF0000",
                             pendingDelete: false,
                             origin: .busySlot
-
                         )
                     }
 
@@ -592,12 +655,8 @@ extension EventManager {
                     DispatchQueue.main.async {
                         self.partnerBusySlotCache[userId] = slots
                         self.partnerPremiumCache[userId] = premiumFlag
-
-                        // ⭐ quan trọng: cache cho UI và applyBusySlots
-                        self.partnerBusySlots[userId] = slots
+                        self.partnerBusySlots[userId] = slots   // UI cache
                     }
-
-
 
                     completion(slots, premiumFlag)
                 }
@@ -608,24 +667,18 @@ extension EventManager {
 
 
 
-
     // MARK: - Remove busy slot
     private func removeBusySlotFromPublicCalendar(event: CalendarEvent) {
-        guard let uid = currentUserId else { return }
+        let uid = event.owner   // SỬA ĐÚNG
 
         let doc = db.collection("publicCalendar").document(uid)
         doc.getDocument { snap, err in
-            guard let data = snap?.data() else { return }
-
-            var slots = data["busySlots"] as? [[String: Any]] ?? []
-
-            slots.removeAll {
-                ($0["id"] as? String) == event.id
-            }
-
+            var slots = snap?.data()?["busySlots"] as? [[String: Any]] ?? []
+            slots.removeAll { ($0["id"] as? String) == event.id }
             doc.setData(["busySlots": slots], merge: true)
         }
     }
+
     // MARK: - Add Appointment (khách đặt lịch cho người share UID)
     func addAppointment(forSharedUser sharedUserId: String,
                         title: String,
@@ -633,79 +686,92 @@ extension EventManager {
                         end: Date,
                         createdBy: String,
                         completion: @escaping (Bool, String?) -> Void) {
-        
+
         self.isAdding = true
-        
-        // 1️⃣ Kiểm tra trùng giờ
+
+        // 1️⃣ Kiểm tra trùng giờ (chỉ kiểm tra của chủ lịch A)
         fetchBusySlots(for: sharedUserId) { busySlots, ownerIsPremium in
             let overlap = busySlots.contains { $0.startTime < end && $0.endTime > start }
             if overlap {
                 DispatchQueue.main.async { self.isAdding = false }
-                completion(false, "Giờ này đã bận!")
+                completion(false, String(localized: "This_time_slot_is_already_booked!"))
                 return
             }
 
-            // ⭐ PREMIUM CHECK
+            // 2️⃣ PREMIUM CHECK cho A
             if !ownerIsPremium {
                 let now = Date()
                 if let maxDate = Calendar.current.date(byAdding: .day, value: 7, to: now),
                    start > maxDate {
-                    
+
                     DispatchQueue.main.async { self.isAdding = false }
-                    completion(false,
-                               "Chủ lịch chưa Premium — bạn chỉ được đặt lịch trong 7 ngày tới.")
+                    completion(false, String(localized: "You_can_only_book_within_the_next_7days."))
                     return
                 }
             }
 
-            // 2️⃣ Kiểm tra đăng nhập
+            // 3️⃣ Kiểm tra đăng nhập (người tạo lịch là B)
             guard let uid = Auth.auth().currentUser?.uid else {
                 DispatchQueue.main.async { self.isAdding = false }
-                completion(false, "Bạn cần đăng nhập.")
+                completion(false,String(localized: "You_need_to_log_in."))
                 return
             }
 
-            // 3️⃣ CHỈ GHI VÀO EVENTS — chuẩn nhất
+            // 4️⃣ DỮ LIỆU TẠO EVENT
             let eventData: [String: Any] = [
                 "title": title,
-                "owner": sharedUserId,      // A
-                "sharedUser": uid,          // B
-                "createdBy": createdBy,     // B
-                "participants": Array(Set([sharedUserId, uid])),   // <<< QUAN TRỌNG NHẤT
+                "owner": sharedUserId,
+                "sharedUser": uid,
+                "createdBy": createdBy,
+                "participants": Array(Set([sharedUserId, uid])),  // ⭐ siêu quan trọng
                 "date": Timestamp(date: start),
                 "startTime": Timestamp(date: start),
                 "endTime": Timestamp(date: end),
                 "colorHex": "#007AFF"
             ]
 
-            
-            self.db.collection("events").addDocument(data: eventData) { err in
+            // 5️⃣ GHI EVENT VÀO FIRESTORE
+            var ref: DocumentReference?
+            ref = self.db.collection("events").addDocument(data: eventData) { err in
                 DispatchQueue.main.async { self.isAdding = false }
 
+                // ❌ Lỗi tạo event
                 if let err = err {
-                    completion(false, "Tạo event thất bại: \(err.localizedDescription)")
-                } else {
+                    completion(false, "Failed_to_create_event: \(err.localizedDescription)")
+                    return
+                }
 
-                    // ⭐ UPDATE busy slot của A
-                    self.syncBusySlotsOfUser(sharedUserId)
+                guard let docId = ref?.documentID else {
+                    completion(false, "Missing document ID")
+                    return
+                }
 
-                    // ⭐ Xoá cache để UI load lại đúng
+                // 6️⃣ Lấy lại event đầy đủ từ Firestore
+                self.db.collection("events").document(docId).getDocument { snap, err in
+                    guard let snap = snap,
+                          let newEvent = CalendarEvent.from(snap) else {
+                        completion(false, "Failed to load created event")
+                        return
+                    }
+
+                    // ⭐⭐⭐ CẬP NHẬT BUSYSLOT CHO TẤT CẢ PARTICIPANTS (A & B)
+                    self.syncBusySlots(for: newEvent)
+
+                    // Xóa cache để load lại dữ liệu
                     self.partnerBusySlotCache.removeValue(forKey: sharedUserId)
-                    self.partnerPremiumCache.removeValue(forKey: sharedUserId)
+                    self.partnerBusySlotCache.removeValue(forKey: uid)
 
                     completion(true, nil)
 
                     DispatchQueue.main.async {
-                        self.alertMessage = "Đã đặt lịch thành công!"
+                        self.alertMessage = String(localized: "Booking_created_successfully!")
                         self.showAlert = true
                     }
                 }
             }
-
-
         }
-      
     }
+
     func updatePublicCalendarBusySlot(for userId: String, start: Date, end: Date) {
         let doc = db.collection("publicCalendar").document(userId)
 
@@ -765,6 +831,7 @@ extension EventManager {
 
                     // 6) Update UI
                     self.updateGroupedEvents()
+                    self.syncBusySlotsOfUser(uid)
                 }
             }
     }
@@ -837,6 +904,7 @@ extension EventManager {
                 guard let data = snap?.data() else { return }
 
                 let raw = data["busySlots"] as? [[String: Any]] ?? []
+                let now = Date()
 
                 let slots = raw.compactMap { dict -> CalendarEvent? in
                     guard let start = dict["start"] as? TimeInterval,
@@ -844,6 +912,10 @@ extension EventManager {
 
                     let s = Date(timeIntervalSince1970: start)
                     let e = Date(timeIntervalSince1970: end)
+
+                    // ⭐ ⭐ LỌC BUSY SLOT HẾT HẠN – thêm dòng này
+                    if e < now { return nil }
+
                     let id = dict["id"] as? String ?? "\(start)-\(end)-busy"
 
                     return CalendarEvent(
@@ -859,15 +931,17 @@ extension EventManager {
                         colorHex: "#FF0000",
                         pendingDelete: false,
                         origin: .busySlot
-
                     )
                 }
 
                 DispatchQueue.main.async {
                     for ev in slots {
+
+                        // Không revive event pendingDelete
                         if self.events.first(where: { $0.id == ev.id && $0.pendingDelete }) != nil {
                             continue
                         }
+
                         if let idx = self.events.firstIndex(where: { $0.id == ev.id }) {
                             self.events[idx] = ev
                         } else {
@@ -877,6 +951,7 @@ extension EventManager {
                 }
             }
     }
+
 
     func syncBusySlotsOfUser(_ userId: String) {
 
@@ -888,8 +963,14 @@ extension EventManager {
                     return
                 }
 
-                let events = snap?.documents.compactMap { CalendarEvent.from($0) } ?? []
+                let now = Date()
 
+                // ⭐ CHỈ LẤY EVENT CÒN HIỆU LỰC
+                let events = snap?.documents
+                    .compactMap { CalendarEvent.from($0) }
+                    .filter { $0.endTime >= now } ?? []
+
+                // ⭐ CHUYỂN EVENT -> busySlots
                 let busySlotsData = events.map { ev in
                     return [
                         "id": ev.id,
@@ -900,6 +981,7 @@ extension EventManager {
                     ]
                 }
 
+                // ⭐ GHI ĐÈ BUSYSLOTS — XOÁ SLOT CŨ TỰ ĐỘNG
                 self.db.collection("publicCalendar")
                     .document(userId)
                     .setData([
@@ -908,30 +990,7 @@ extension EventManager {
             }
     }
 
-    // MARK: Sync busySlots
-    func syncBusySlotsToFirebase() {
-        guard let uid = currentUserId else { return }
 
-        // Chỉ sync event mà owner == currentUserId
-        let slots = events.filter { !$0.pendingDelete && $0.owner == uid }.map { e in
-
-            [
-                "id": e.id,
-                "title": e.title,
-                "owner": e.owner,
-                "start": e.startTime.timeIntervalSince1970,
-                "end": e.endTime.timeIntervalSince1970
-            ]
-        }
-
-        let premium = PremiumManager.shared.isPremiumUser
-
-        db.collection("publicCalendar").document(uid)
-            .setData([
-                "busySlots": slots,
-                "isPremium": premium
-            ], merge: true)
-    }
 
     // MARK: Sync offDays
     func syncOffDaysToFirebase(offDays: Set<Date>) {
@@ -966,9 +1025,6 @@ extension Array {
 struct ContentView: View {
     
     @EnvironmentObject var eventManager: EventManager
-
-    @StateObject private var languageManager = LanguageManager.shared
-    
     @State private var showPastEvents = false
     @AppStorage("isPremiumUser") private var isPremiumUser: Bool = false
     
@@ -980,31 +1036,30 @@ struct ContentView: View {
                 EventListView(showPastEvents: $showPastEvents)
             }
             .tabItem {
-                Label("Danh sách sự kiện", systemImage: "list.bullet.rectangle")
+                Label(String(localized: "event_list"), systemImage: "list.bullet.rectangle")
             }
             
             NavigationStack {
                 CustomizableCalendarView()
             }
             .tabItem {
-                Label("Lịch của tôi", systemImage: "calendar")
+                Label(String(localized: "my_calendar"), systemImage: "calendar")
             }
             
             NavigationStack {
                 PartnerCalendarTabView()
             }
             .tabItem {
-                Label("Đối tác", systemImage: "person.2.fill")
+                Label(String(localized: "partners"), systemImage: "person.2.fill")
             }
             
             NavigationStack {
                 SettingsView()
             }
             .tabItem {
-                Label("Cài đặt", systemImage: "gearshape")
+                Label(String(localized: "settings"), systemImage: "gearshape")
             }
         }
-        .environmentObject(languageManager)
         .onAppear {
             NotificationManager.shared.requestPermission()
 
@@ -1047,8 +1102,8 @@ struct EventListView: View {
         VStack {
             // Nút chuyển giữa 2 chế độ
             Picker("", selection: $showPastEvents) {
-                Text("Lịch hiện tại").tag(false)
-                Text("Lịch đã qua").tag(true)
+                Text(String(localized: "current_events")).tag(false)
+                    Text(String(localized: "past_events")).tag(true)
             }
             .pickerStyle(.segmented)
             .padding(.horizontal)
@@ -1058,7 +1113,7 @@ struct EventListView: View {
                 HStack {
                     Image(systemName: "magnifyingglass")
                         .foregroundColor(.gray)
-                    TextField("Tìm theo tên hoặc người tạo...", text: $searchText)
+                    TextField(String(localized: "search_placeholder"), text: $searchText)
                         .textFieldStyle(PlainTextFieldStyle())
                 }
                 .padding(10)
@@ -1073,7 +1128,12 @@ struct EventListView: View {
                 upcomingEventsList
             }
         }
-        .navigationTitle(showPastEvents ? "Lịch đã qua" : "Lịch hiện tại")
+        .navigationTitle(
+            showPastEvents
+            ? String(localized: "past_events")
+            : String(localized: "current_events")
+        )
+
         .onAppear {
             eventManager.cleanUpPastEvents()
                  // ⭐ thêm dòng này
@@ -1094,52 +1154,52 @@ struct EventListView: View {
             }
         }
 
-        .alert("Xoá sự kiện này?", isPresented: $showDeleteAlert) {
-            Button("Xoá", role: .destructive) {
+        .alert(String(localized: "delete_event_title"), isPresented: $showDeleteAlert) {
+            
+            // NÚT DELETE
+            Button(String(localized: "delete"), role: .destructive) {
                 if let event = eventToDelete {
                     eventManager.deleteEvent(event)
                 }
                 eventToDelete = nil
             }
-            Button("Huỷ", role: .cancel) {
+
+            // NÚT CANCEL
+            Button(String(localized: "cancel"), role: .cancel) {
                 eventToDelete = nil
             }
+
         } message: {
-            Text("Bạn có chắc muốn xoá sự kiện “\(eventToDelete?.title ?? "")”?")
+            let eventTitle = eventToDelete?.title ?? ""
+            let prefix = String(localized: "delete_event_confirm_prefix")
+
+            Text("\(prefix) “\(eventTitle)”?")
         }
     }
     private func formattedMonth(_ date: Date) -> String {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "vi_VN")
-        f.dateFormat = "MMMM yyyy" // ví dụ: "Tháng 11 2025"
-        return f.string(from: date).capitalized
+        date.formatted(.dateTime.month(.wide).year())
     }
+
     
     
     // MARK: - Lịch hiện tại (gộp theo Tháng → Tuần → Ngày)
    
     private var upcomingEventsList: some View {
         // ✅ 1. Tạo formatter dùng chung (không tạo mới mỗi lần)
-        let monthFormatter: DateFormatter = {
-            let f = DateFormatter()
-            f.locale = Locale(identifier: "vi_VN")
-            f.dateFormat = "MMMM yyyy"
-            return f
-        }()
+        func formattedMonth(_ date: Date) -> String {
+            date.formatted(.dateTime.month(.wide).year())
+        }
+
         
-        let _: DateFormatter = {
-            let f = DateFormatter()
-            f.locale = Locale(identifier: "vi_VN")
-            f.dateStyle = .medium
-            return f
-        }()
+        func formattedMediumDate(_ date: Date) -> String {
+            date.formatted(date: .numeric, time: .omitted)
+        }
+
         
-        let timeFormatter: DateFormatter = {
-            let f = DateFormatter()
-            f.locale = Locale(identifier: "vi_VN")
-            f.timeStyle = .short
-            return f
-        }()
+        func formattedTime(_ date: Date) -> String {
+            date.formatted(date: .omitted, time: .shortened)
+        }
+
         
         // ✅ 2. Tính trước dữ liệu nhóm, tránh lặp trong body
         // Thực hiện 1 lần khi body chạy (SwiftUI sẽ diff tự động)
@@ -1148,7 +1208,7 @@ struct EventListView: View {
         
         return List {
             if eventManager.events.isEmpty {
-                Text("Chưa có lịch nào sắp tới.")
+                Text(String(localized: "no_upcoming_events"))
                     .foregroundColor(.secondary)
             } else {
                 // ✅ 3. Vòng lặp hiển thị tháng
@@ -1156,10 +1216,12 @@ struct EventListView: View {
                     let monthEvents = groupedByMonth[monthDate] ?? []
                     Section(header:
                                 HStack {
-                        Text(monthFormatter.string(from: monthDate).capitalized)
+                        Text(formattedMonth(monthDate))
                             .font(.headline)
                         Spacer()
-                        Text("\(monthEvents.count) lịch")
+                        let template = String(localized: "number_of_events_month")
+                        Text(template.replacingOccurrences(of: "{count}", with: "\(monthEvents.count)"))
+
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                     }
@@ -1170,11 +1232,14 @@ struct EventListView: View {
                         
                         ForEach(sortedWeeks, id: \.self) { week in
                             let weekEvents = groupedByWeek[week] ?? []
+                            let weekPrefix = String(localized: "week_prefix")
+
                             Section(header:
-                                        Text("Tuần \(week)")
-                                .font(.subheadline.bold())
-                                .foregroundColor(.secondary)
-                            ) {
+                                Text("\(weekPrefix) \(week)")
+                                    .font(.subheadline.bold())
+                                    .foregroundColor(.secondary)
+                            )
+ {
                                 // ✅ 5. Gom theo ngày
                                 let groupedByDay = rememberGroupedByDay(events: weekEvents)
                                 let sortedDays = groupedByDay.keys.sorted()
@@ -1218,7 +1283,7 @@ struct EventListView: View {
 
 
 
-                                                    Text("\(timeFormatter.string(from: event.startTime)) - \(timeFormatter.string(from: event.endTime))")
+                                                    Text("\(formattedTime(event.startTime)) - \(formattedTime(event.endTime))")
                                                         .font(.caption)
                                                         .foregroundColor(.secondary)
                                                 }
@@ -1231,7 +1296,8 @@ struct EventListView: View {
                                                 Button(role: .destructive) {
                                                     showDeleteConfirmation(for: event)
                                                 } label: {
-                                                    Label("Xoá", systemImage: "trash")
+                                                    Label(String(localized: "delete"), systemImage: "trash")
+
                                                 }
                                             }
                                      .padding(.vertical, 4)
@@ -1249,11 +1315,9 @@ struct EventListView: View {
         
     }
     private func formattedDayHeader(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "vi_VN")
-        formatter.dateFormat = "EEEE, 'ngày' d"   // Ví dụ: "Thứ Ba, ngày 27"
-        return formatter.string(from: date).capitalized
+        date.formatted(.dateTime.weekday(.wide).day())
     }
+
 
     private func showDeleteConfirmation(for event: CalendarEvent) {
         eventToDelete = event
@@ -1279,7 +1343,12 @@ struct EventListView: View {
         
         return List {
             if filteredEvents.isEmpty {
-                Text(searchText.isEmpty ? "Chưa có lịch nào đã qua." : "Không tìm thấy kết quả phù hợp.")
+                Text(
+                    searchText.isEmpty
+                    ? String(localized: "no_past_events")
+                    : String(localized: "no_results_found")
+                )
+
                     .foregroundColor(.secondary)
             } else {
                 ForEach(sortedMonths, id: \.self) { monthDate in
@@ -1291,7 +1360,9 @@ struct EventListView: View {
                         Text(formattedMonth(monthDate))
                             .font(.headline)
                         Spacer()
-                        Text("\(monthEvents.count) lịch")
+                        let template = String(localized: "number_of_events_month")
+                        Text(template.replacingOccurrences(of: "{count}", with: "\(monthEvents.count)"))
+
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                     }
@@ -1313,16 +1384,24 @@ struct EventListView: View {
                             } label: {
                                 HStack {
                                     let sampleDate = weekEvents.first!.date
-                                    let month = Calendar.current.component(.month, from: sampleDate)
+                                    let week = Calendar.current.component(.weekOfMonth, from: sampleDate)
 
-                                    Text("Tuần \(week) tháng \(month)")
+                                    let weekPrefix = String(localized: "week_prefix")
+                                    let monthName = sampleDate.formatted(.dateTime.month(.wide))
 
+                                    Text("\(weekPrefix) \(week) \(monthName)")
                                         .font(.body)
+
                                     Spacer()
-                                    Text("\(weekEvents.count) lịch")
+
+                                    let template = String(localized: "number_of_events_week")
+                                    Text(template.replacingOccurrences(of: "{count}",
+                                                                       with: "\(weekEvents.count)"))
                                         .font(.caption)
                                         .foregroundColor(.secondary)
                                 }
+
+
                                 .padding(.vertical, 4)
                             }
                         }
@@ -1375,7 +1454,8 @@ struct EventListView: View {
                 .navigationTitle(formattedDate(date))
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
-                        Button("Đóng") { dismiss() }
+                        Button(String(localized: "close")) { dismiss() }
+
                     }
                 }
             }
@@ -1390,19 +1470,16 @@ struct EventListView: View {
         
         // MARK: - Format ngày
         private func formattedDate(_ date: Date) -> String {
-            let formatter = DateFormatter()
-            formatter.locale = Locale(identifier: "vi_VN")
-            formatter.dateFormat = "'Ngày' d 'tháng' M, yyyy"
-            return formatter.string(from: date)
+            date.formatted(.dateTime.day().month().year())
         }
+
+
         
         // MARK: - Format giờ
-        private func formattedTime(_ date: Date) -> String {
-            let f = DateFormatter()
-            f.locale = Locale(identifier: "vi_VN")
-            f.timeStyle = .short
-            return f.string(from: date)
+        func formattedTime(_ date: Date) -> String {
+            date.formatted(date: .omitted, time: .shortened)
         }
+
     }
 
     // MARK: - Hàng hiển thị sự kiện
@@ -1457,31 +1534,28 @@ struct EventListView: View {
     
     // MARK: - Helper định dạng
     private func formattedDate(_ date: Date) -> String {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "vi_VN")
-        f.dateStyle = .medium
-        return f.string(from: date)
+        date.formatted(.dateTime.day().month().year())
     }
+
     
-    private func formattedTime(_ date: Date) -> String {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "vi_VN")
-        f.timeStyle = .short
-        return f.string(from: date)
+    func formattedTime(_ date: Date) -> String {
+        date.formatted(date: .omitted, time: .shortened)
     }
+
 }
 private func originLabel(for event: CalendarEvent) -> String {
     switch event.origin {
     case .myEvent:
-        return " Lịch của tôi"
+        return String(localized: "origin_my_event")
     case .createdForMe:
-        return " Tạo bởi đối tác"
+        return String(localized: "origin_created_for_me")
     case .iCreatedForOther:
-        return " Tôi tạo cho đối tác"
+        return String(localized: "origin_i_created_for_other")
     case .busySlot:
-        return " Lịch bận"
+        return String(localized: "origin_busy")
     }
 }
+
 
 struct UserNameView: View {
     @EnvironmentObject var eventManager: EventManager
@@ -1541,7 +1615,7 @@ struct PastEventsByWeekView: View {
             .navigationTitle(weekOfMonthTitle)
              .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Đóng") { dismiss() }
+                    Button(String(localized: "close")) { dismiss() }
                 }
             }
         }
@@ -1557,21 +1631,28 @@ struct PastEventsByWeekView: View {
     }
 
     // MARK: - Format time
-    private func formatted(_ d: Date) -> String {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "vi_VN")
-        f.dateFormat = "HH:mm dd/MM/yyyy"
-        return f.string(from: d)
+    private func formatted(_ date: Date) -> String {
+        date.formatted(.dateTime
+            .hour(.twoDigits(amPM: .abbreviated))
+            .minute(.twoDigits)
+            .day()
+            .month()
+            .year()
+        )
     }
+
     private var weekOfMonthTitle: String {
         guard let sample = eventsThisWeek.first else { return "" }
+
         let calendar = Calendar.current
-
         let weekOfMonth = calendar.component(.weekOfMonth, from: sample.date)
-        let month = calendar.component(.month, from: sample.date)
 
-        return "Tuần \(weekOfMonth) tháng \(month)"
+        let weekPrefix = String(localized: "week_prefix")   // "Tuần" / "Week"
+        let monthName = sample.date.formatted(.dateTime.month(.wide))
+
+        return "\(weekPrefix) \(weekOfMonth) \(monthName)"
     }
+
 
 }
 
@@ -1629,7 +1710,7 @@ struct CustomizableCalendarView: View {
                     .simultaneousGesture(TapGesture()) // ⭐ FIX TAP BỊ CHẶN
 
                     // MARK: - Toggle trùng lịch
-                    Toggle("Cho phép trùng lịch", isOn: Binding(
+                    Toggle(String(localized: "allow_conflict"), isOn: Binding(
                         get: { eventManager.allowDuplicateEvents },
                         set: { eventManager.allowDuplicateEvents = $0 }
                     ))
@@ -1640,7 +1721,7 @@ struct CustomizableCalendarView: View {
 
                     // MARK: - Chia sẻ lịch
                     Button {
-                        eventManager.syncBusySlotsToFirebase()
+                       
 
                         if let uid = Auth.auth().currentUser?.uid,
                            let url = URL(string: "https://easyschedule-ce98a.web.app/calendar/\(uid)") {
@@ -1650,7 +1731,7 @@ struct CustomizableCalendarView: View {
                     } label: {
                         HStack {
                             Image(systemName: "square.and.arrow.up")
-                            Text("Chia sẻ lịch").bold()
+                            Text(String(localized: "share_calendar")).bold()
                         }
                         .frame(maxWidth: .infinity)
                         .padding()
@@ -1675,7 +1756,12 @@ struct CustomizableCalendarView: View {
                             } label: {
                                 HStack {
                                     Image(systemName: isOffDay(date) ? "xmark.circle" : "bed.double.fill")
-                                    Text(isOffDay(date) ? "Mở lại ngày này" : "Đặt ngày nghỉ").bold()
+                                    Text(
+                                        isOffDay(date)
+                                        ? String(localized: "reopen_day")
+                                        : String(localized: "set_day_off")
+                                    ).bold()
+
                                 }
                                 .frame(maxWidth: .infinity)
                                 .padding()
@@ -1685,12 +1771,12 @@ struct CustomizableCalendarView: View {
                             .padding(.horizontal)
 
                             if isOffDay(date) {
-                                Text("Ngày này đang được đặt là *ngày nghỉ*.")
+                                Text(String(localized: "day_off_message"))
                                     .foregroundColor(.red)
                                     .font(.subheadline)
 
                             } else if eventManager.events(for: date).isEmpty {
-                                Text("Không có sự kiện nào trong ngày này.")
+                                Text(String(localized: "no_events_today"))
                                     .foregroundColor(.secondary)
                                     .padding(.vertical, 12)
 
@@ -1764,7 +1850,7 @@ struct CustomizableCalendarView: View {
                             }
                         }
                     } else {
-                        Text("Chọn một ngày để xem sự kiện.")
+                        Text(String(localized: "select_day_to_view"))
                             .foregroundColor(.secondary)
                             .padding(.vertical, 12)
                     }
@@ -1772,7 +1858,7 @@ struct CustomizableCalendarView: View {
                     Spacer(minLength: 40)
                 }
             }
-            .navigationTitle("Lịch của tôi")
+            .navigationTitle(String(localized: "my_calendar"))
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button { showAddSheet = true } label: {
@@ -1784,8 +1870,8 @@ struct CustomizableCalendarView: View {
                 AddEventView(prefillDate: selectedDate, offDays: offDays)
                     .environmentObject(eventManager)
             }
-            .alert("Xoá sự kiện này?", isPresented: $showDeleteAlert) {
-                Button("Xoá", role: .destructive) {
+            .alert(String(localized: "delete_event_title"), isPresented: $showDeleteAlert) {
+                Button(String(localized: "cancel"), role: .destructive) {
                     if let event = eventToDelete {
                         eventManager.deleteEvent(event)
                     }
@@ -1795,7 +1881,11 @@ struct CustomizableCalendarView: View {
                     eventToDelete = nil
                 }
             } message: {
-                Text("Bạn có chắc muốn xoá sự kiện “\(eventToDelete?.title ?? "")”?")
+                let prefix = String(localized: "delete_event_prefix")
+                let title = eventToDelete?.title ?? ""
+
+                Text("\(prefix) “\(title)”?")
+
             }
             .onAppear { loadOffDaysFromLocal() }
         }
@@ -1815,12 +1905,10 @@ struct CustomizableCalendarView: View {
         offDays.contains(calendar.startOfDay(for: date))
     }
 
-    private func formattedTime(_ date: Date) -> String {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "vi_VN")
-        f.timeStyle = .short
-        return f.string(from: date)
+    func formattedTime(_ date: Date) -> String {
+        date.formatted(date: .omitted, time: .shortened)
     }
+
 }
 
 
@@ -1865,13 +1953,18 @@ struct AddEventView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section(header: Text("Thông tin")) {
-                    TextField("Tiêu đề", text: $title)
+                Section(header: Text(String(localized: "info_section"))) {
+                    TextField(String(localized: "title_placeholder"), text: $title)
                 }
-                Section(header: Text("Ngày & giờ")) {
-                    DatePicker("Ngày", selection: $date, displayedComponents: .date)
-                    Section("Chọn giờ") {
 
+                Section(header: Text(String(localized: "date_time_section"))) {
+                    DatePicker(
+                        String(localized: "date_label"),
+                        selection: $date,
+                        displayedComponents: .date
+                    )
+
+                    Section(String(localized: "select_time_section")) {
                         let hours = Array(0..<24)
                         let eventsToday = eventManager.events(for: date)
 
@@ -1879,6 +1972,7 @@ struct AddEventView: View {
                         let isOffDay = offDays.contains {
                             Calendar.current.isDate($0, inSameDayAs: date)
                         }
+
 
                         LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 10) {
 
@@ -1932,11 +2026,12 @@ struct AddEventView: View {
                         .padding(.vertical, 6)
                     }
 
-                    DatePicker("Bắt đầu", selection: $startTime, displayedComponents: .hourAndMinute)
-                    DatePicker("Kết thúc", selection: $endTime, displayedComponents: .hourAndMinute)
+                    DatePicker( String(localized: "start_label"), selection: $startTime, displayedComponents: .hourAndMinute)
+                    DatePicker( String(localized: "end_label"), selection: $endTime, displayedComponents: .hourAndMinute)
                 }
-                Section(header: Text("Màu sự kiện")) {
-                    ColorPicker("Chọn màu", selection: $selectedColor, supportsOpacity: false)
+                Section(header: Text(String(localized: "event_color_section"))) {
+ 
+                    ColorPicker(String(localized: "pick_color"), selection: $selectedColor, supportsOpacity: false)
                 }
                
 
@@ -1955,17 +2050,19 @@ struct AddEventView: View {
                 }
             }
 
-            .navigationTitle("Thêm lịch")
+            .navigationTitle(String(localized: "add_event_title"))
+
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Lưu") {
+                    Button(String(localized: "save")) {
 
                         let calendar = Calendar.current
                         let now = Date()
 
                         // 1️⃣ Kiểm tra ngày nghỉ
                         if offDays.contains(where: { calendar.isDate($0, inSameDayAs: date) }) {
-                            offDayMessage = "Ngày \(formattedDate(date)) là ngày nghỉ, bạn không thể đặt lịch vào ngày này."
+                            let prefix = String(localized: "off_day_prefix")   // "Ngày"
+                            offDayMessage = "\(prefix) \(formattedDate(date)) là ngày nghỉ, bạn không thể đặt lịch vào ngày này."
                             showOffDayAlert = true
                             return
                         }
@@ -1974,8 +2071,7 @@ struct AddEventView: View {
                         if !isPremiumUser {
                             if let maxDate = calendar.date(byAdding: .day, value: 7, to: now),
                                date > maxDate {
-
-                                alertMessage = "❗Bạn chỉ được tạo lịch trong vòng 7 ngày tới.Nâng cấp Premium để mở khoá không giới hạn."
+                                alertMessage = String(localized: "limit_7_days")
                                 showAlert = true
                                 return
                             }
@@ -1984,8 +2080,8 @@ struct AddEventView: View {
                             let sameDayEvents = eventManager.events.filter {
                                 calendar.isDate($0.date, inSameDayAs: date)
                             }
-                            if sameDayEvents.count >= 4 {
-                                alertMessage = "🚫 Bạn chỉ được tạo tối đa 4 lịch / ngày.Nâng cấp Premium để tạo không giới hạn."
+                            if sameDayEvents.count >= 2 {
+                                alertMessage = String(localized: "limit_2_events_per_day")
                                 showAlert = true
                                 return
                             }
@@ -1993,7 +2089,7 @@ struct AddEventView: View {
 
                         // 4️⃣ Validate form
                         guard !title.trimmingCharacters(in: .whitespaces).isEmpty else {
-                            alertMessage = "Tên sự kiện không được để trống."
+                            alertMessage = String(localized: "empty_title")
                             showAlert = true
                             return
                         }
@@ -2026,13 +2122,13 @@ struct AddEventView: View {
 
                 }
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Huỷ") { dismiss() }
+                    Button(String(localized: "cancel")) { dismiss() }
                 }
             }
             // ✅ THÊM MỚI — popup cảnh báo
             // OFFDAY popup
-            .alert("Không thể đặt lịch", isPresented: $showOffDayAlert) {
-                Button("Đóng", role: .cancel) { }
+            .alert(String(localized: "cannot_book"), isPresented: $showOffDayAlert) {
+                Button(String(localized: "close"), role: .cancel) { }
             } message: {
                 Text(offDayMessage)
             }
@@ -2041,12 +2137,6 @@ struct AddEventView: View {
             .alert(alertMessage, isPresented: $showAlert) {
                 Button("OK", role: .cancel) {}
             }
-            .alert(isPresented: $eventManager.showAlert) {
-                Alert(title: Text("Không thể tạo lịch"),
-                      message: Text(eventManager.alertMessage),
-                      dismissButton: .default(Text("OK")))
-            }
-
         }
     }
     
@@ -2065,20 +2155,16 @@ struct AddEventView: View {
         return cal.date(from: comps) ?? date
     }
   
-    private func formatTime(_ date: Date) -> String {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "vi_VN")
-        f.timeStyle = .short
-        return f.string(from: date)
+    func formattedTime(_ date: Date) -> String {
+        date.formatted(date: .omitted, time: .shortened)
     }
+
 
     // ✅ THÊM MỚI — định dạng ngày hiển thị trong popup
     private func formattedDate(_ date: Date) -> String {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "vi_VN")
-        f.dateStyle = .medium
-        return f.string(from: date)
+        date.formatted(.dateTime.day().month().year())
     }
+
     
 }
 
@@ -2201,10 +2287,10 @@ struct CalendarGridView: View {
             .padding(.horizontal)
         }
         // ✅ Alert riêng cho CalendarGridView (ngày nghỉ)
-        .alert("Không thể đặt lịch", isPresented: $showOffDayAlert) {
-            Button("Đóng", role: .cancel) {}
+        .alert(String(localized: "cannot_book"), isPresented: $showOffDayAlert) {
+            Button(String(localized: "close"), role: .cancel) {}
         } message: {
-            Text("Ngày này là ngày nghỉ, bạn không thể đặt lịch vào ngày này.")
+            Text(String(localized: "day_off_message_full"))
         }
     }
     
@@ -2230,11 +2316,9 @@ struct CalendarGridView: View {
     
     // MARK: - Định dạng tháng
     private func formattedMonth(_ date: Date) -> String {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "vi_VN")
-        f.dateFormat = "LLLL yyyy"
-        return f.string(from: date).capitalized
+        date.formatted(.dateTime.month(.wide).year())
     }
+
 }
 
 
@@ -2277,26 +2361,23 @@ struct DayEventsSheetView: View {
                 }
                 .padding(.vertical, 4)
             }
-            .navigationTitle("Ngày \(formattedDate(date))")
+            .navigationTitle("\(String(localized: "day_prefix")) \(formattedDate(date))")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Đóng") { dismiss() }
+                    Button(String(localized: "close")) { dismiss() }
                 }
             }
         }
     }
     
     func formattedTime(_ date: Date) -> String {
-        let f = DateFormatter()
-        f.dateFormat = "HH:mm"
-        return f.string(from: date)
+        date.formatted(date: .omitted, time: .shortened)
     }
 
+
     private func formattedDate(_ date: Date) -> String {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "vi_VN")
-        f.dateStyle = .medium
-        return f.string(from: date)
+        date.formatted(.dateTime.day().month().year())
     }
+
 }
 

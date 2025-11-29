@@ -57,7 +57,7 @@ class SessionStore: ObservableObject {
         ref.getDocument { snap, _ in
             if snap?.exists == false {
                 ref.setData([
-                    "name": user.displayName ?? "Không tên",
+                    "name": user.displayName ?? String(localized: "no_name"),
                     "email": user.email ?? "",
                     "createdAt": FieldValue.serverTimestamp()
                 ], merge: true)
