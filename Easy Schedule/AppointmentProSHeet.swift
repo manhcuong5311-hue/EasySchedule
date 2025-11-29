@@ -467,7 +467,7 @@ struct SlotRowPro: View {
             Text(timeString(slot.end)).font(.subheadline)
             Spacer()
             if isBusy {
-                Text("Bận").font(.caption).foregroundColor(.red)
+                Text(String(localized: "busy")).font(.caption).foregroundColor(.red)
             } else if isSelected {
                 Image(systemName: "checkmark.circle.fill").foregroundColor(.green)
             }
@@ -856,7 +856,10 @@ struct CreatedEventsByDateView: View {
             List(eventsForDay) { ev in
                 VStack(alignment: .leading) {
                     Text(ev.title).font(.headline)
-                    Text("Chủ lịch: \(ev.owner)").font(.caption).foregroundColor(.secondary)
+                    let template = String(localized: "event_owner")
+                    Text(template.replacingOccurrences(of: "{name}", with: ev.owner))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                     Text("\(formatTime(ev.startTime)) – \(formatTime(ev.endTime))")
                         .font(.caption)
                 }
@@ -864,7 +867,7 @@ struct CreatedEventsByDateView: View {
             .navigationTitle(formatDate(date))
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Đóng") { dismiss() }
+                    Button(String(localized: "close")) { dismiss() }
                 }
             }
         }

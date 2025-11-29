@@ -67,7 +67,6 @@ struct SettingsView: View {
 
     // MARK: - Environment Objects
     @EnvironmentObject var session: SessionStore
-    @EnvironmentObject var languageManager: LanguageManager
     @EnvironmentObject var premiumManager: PremiumManager   // ⭐ QUAN TRỌNG
     @AppStorage("firebasePushEnabled") private var firebasePushEnabled = true
 
@@ -165,11 +164,13 @@ struct SettingsView: View {
 
                 // MARK: - Language
                 Section(String(localized: "language")) {
-                    Picker(String(localized: "display_language"), selection: $selectedLanguage) {
-                        Text(String(localized: "vietnamese")).tag("vi")
-                        Text("English").tag("en")
+                    Button(String(localized: "change_language_in_settings")) {
+                        if let url = URL(string: UIApplication.openSettingsURLString) {
+                            UIApplication.shared.open(url)
+                        }
                     }
                 }
+
 
                 // MARK: - Support
                 Section(String(localized: "info_support")) {
@@ -194,7 +195,7 @@ struct SettingsView: View {
             }
 
             .navigationTitle(String(localized: "settings"))
-
+        
             .alert(
                 String(localized: "logout_confirm"),
                 isPresented: $showLogoutAlert
