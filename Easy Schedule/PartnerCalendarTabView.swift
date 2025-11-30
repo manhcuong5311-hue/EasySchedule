@@ -63,15 +63,17 @@ struct PartnerCalendarTabView: View {
                     }
                     .padding(.horizontal)
                     .sheet(isPresented: $showHistorySheet) {
-                        HistoryLinksView { uid in
-                            self.linkText = uid
-                            self.parsedUID = uid
-                            self.parseAndLoad()
-                            self.showHistorySheet = false
+                        NavigationStack {
+                            HistoryLinksView { uid in
+                                self.linkText = uid
+                                self.parsedUID = uid
+                                self.parseAndLoad()
+                                self.showHistorySheet = false
+                            }
+                            .environmentObject(eventManager)
                         }
-
-                        .environmentObject(eventManager)
                     }
+
 
                     // LỊCH TÔI TẠO CHO NGƯỜI KHÁC
                     Button {
@@ -130,7 +132,7 @@ struct PartnerCalendarTabView: View {
                 Alert(
                     title: Text(String(localized: "notification")),
                     message: Text(alertMessage),
-                    dismissButton: .default(Text("Đóng"))
+                    dismissButton: .default(Text(String(localized: "close" )))
                 )
             }
         }
@@ -360,70 +362,42 @@ struct HistoryLinksView: View {
     var onSelect: (String) -> Void
 
     @State private var showCopied = false
-    @State private var showConfirmClear = false   // 🔥 popup clear all
+    @State private var showConfirmClear = false
 
     var sortedLinks: [SharedLink] {
         eventManager.sharedLinks.sorted(by: { $0.createdAt > $1.createdAt })
     }
 
     var body: some View {
-        NavigationStack {
-            List {
-                ForEach(sortedLinks) { link in
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(link.displayName ?? String(localized: "no_name"))
-                            .font(.headline)
+        List {
+            ForEach(sortedLinks) { link in
+                VStack(alignment: .leading) {
+                    Text(link.displayName ?? "")
+                        .font(.headline)
 
-                        Text("UID: \(link.uid)")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                    Text("UID: \(link.uid)")
+                        .font(.caption)
 
-                        Text(formatDate(link.createdAt))
-                            .font(.caption2)
-                            .foregroundColor(.gray)
-                    }
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        onSelect(link.uid)
-                    }
-                    .onLongPressGesture {
-                        UIPasteboard.general.string = link.url
-                        showCopied = true
-                    }
+                    Text(formatDate(link.createdAt))
+                        .font(.caption2)
                 }
-                .onDelete(perform: deleteAt)
-            }
-            .navigationTitle(String(localized: "viewed_history"))
-            .toolbar {
-
-                // 🔥 Nút Clear All (mở popup)
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(role: .destructive) {
-                        showConfirmClear = true
-                    } label: {
-                        Text(String(localized: "clear_all"))
-                    }
+                .onTapGesture { onSelect(link.uid) }
+                .onLongPressGesture {
+                    UIPasteboard.general.string = link.url
+                    showCopied = true
                 }
             }
-
-            // 🔥 Popup xác nhận
-            .alert(
-                Text(String(localized: "are_you_sure_you_want_to_delete_all_history")),
-                isPresented: $showConfirmClear
-            ) {
-                Button(String(localized: "delete_all"), role: .destructive) {
-                    eventManager.sharedLinks.removeAll()
-                    eventManager.saveSharedLinks()
-                }
-
-                Button( String(localized: "cancel"), role: .cancel) {}
-            }
-
-            .alert(String(localized: "link_copied"), isPresented: $showCopied) {
-                Button("OK", role: .cancel) {}
-            }
+            .onDelete(perform: deleteAt)
+        }
+        .navigationTitle(String(localized: "viewed_history"))
+        .alert(String(localized:"link_copied"), isPresented: $showCopied) {
+            Button("OK") {}
         }
     }
+
+ 
+
+
 
     private func deleteAt(at offsets: IndexSet) {
         let sorted = sortedLinks
