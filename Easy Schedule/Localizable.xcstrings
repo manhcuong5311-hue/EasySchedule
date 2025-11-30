@@ -1227,6 +1227,7 @@
       }
     },
     "Huỷ" : {
+      "extractionState" : "stale",
       "localizations" : {
         "vi" : {
           "stringUnit" : {
@@ -1933,6 +1934,9 @@
           }
         }
       }
+    },
+    "Ok" : {
+
     },
     "OK" : {
       "comment" : "A button that closes the success alert when pressed.",

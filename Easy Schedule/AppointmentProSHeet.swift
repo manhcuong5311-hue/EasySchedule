@@ -295,10 +295,10 @@ struct AppointmentProSheet: View {
 
         // ⭐ CHECK FREE USER LIMIT (giống AddEventView)
         let calendar = Calendar.current
-        let eventsForDay = eventManager.events.filter {
-            calendar.isDate($0.date, inSameDayAs: selectedDate) &&
-            $0.owner == sharedUserId     // chỉ tính lịch của đối tác
+        let eventsForDay = busySlots.filter {
+            calendar.isDate($0.startTime, inSameDayAs: selectedDate)
         }
+
 
         if !partnerIsPremium {
             if eventsForDay.count >= 2 {
