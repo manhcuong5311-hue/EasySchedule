@@ -78,8 +78,9 @@ final class EventManager: ObservableObject {
 
     // ⭐ PREMIUM FLAG
     private var isPremiumUser: Bool {
-        PremiumManager.shared.isPremiumUser
+        PremiumStoreViewModel.shared.isPremium
     }
+
 
     var allowDuplicateEvents: Bool {
         get { UserDefaults.standard.bool(forKey: "allowDuplicateEvents") }
@@ -457,7 +458,8 @@ extension EventManager {
 
 
         // FREE USER LIMIT
-        let isPremium = PremiumManager.shared.isPremiumUser
+        let isPremium = PremiumStoreViewModel.shared.isPremium
+
 
         if !isPremium {
             let now = Date()
@@ -1968,7 +1970,7 @@ struct AddEventView: View {
     // ✅ THÊM MỚI — biến trạng thái popup
     @State private var showOffDayAlert = false
     @State private var offDayMessage = ""
-    @AppStorage("isPremiumUser") private var isPremiumUser: Bool = false
+    @EnvironmentObject var premium: PremiumStoreViewModel
     @State private var alertMessage: String = ""
     @State private var showAlert: Bool = false
     @EnvironmentObject var session: SessionStore
@@ -2113,7 +2115,7 @@ struct AddEventView: View {
                 
                         let now2 = now
 
-                        if !isPremiumUser {
+                        if !premium.isPremium {
                             // ❗ FREE — không quá 7 ngày
                             if let maxDate = calendar.date(byAdding: .day, value: 7, to: now2),
                                date > maxDate {

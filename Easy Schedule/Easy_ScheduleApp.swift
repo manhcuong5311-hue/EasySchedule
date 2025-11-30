@@ -9,7 +9,7 @@ struct Easy_scheduleApp: App {
     @AppStorage("appTheme") private var appTheme: String = "system"
     @State private var showLaunch = true
     @State private var showOnboarding: Bool = !UserDefaults.standard.bool(forKey: "hasSeenOnboarding")
-    @StateObject var premiumManager = PremiumManager.shared
+    @StateObject var premium = PremiumStoreViewModel.shared
     @StateObject private var eventManager = EventManager.shared
 
     var body: some Scene {
@@ -44,7 +44,8 @@ struct Easy_scheduleApp: App {
                                            appTheme == "dark" ? .dark : nil
                                        )
                     .environmentObject(session)
-                    .environmentObject(premiumManager)
+                    .environmentObject(premium)
+
                     .environmentObject(eventManager)
                     .onAppear {
                         session.listen()
@@ -60,7 +61,8 @@ struct Easy_scheduleApp: App {
 
 struct RootView: View {
     @EnvironmentObject var session: SessionStore
-    @EnvironmentObject var premiumManager: PremiumManager
+    @EnvironmentObject var premium: PremiumStoreViewModel
+
     @EnvironmentObject var eventManager: EventManager
 
     var body: some View {
@@ -71,7 +73,8 @@ struct RootView: View {
         } else {
             ContentView()
                 .environmentObject(session)
-                .environmentObject(premiumManager)
+                .environmentObject(premium)
+
                 .environmentObject(eventManager)
 
         }

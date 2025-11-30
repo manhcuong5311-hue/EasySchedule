@@ -7,7 +7,7 @@ import StoreKit
 
 struct PremiumUpgradeSheet: View {
 
-    @EnvironmentObject var premiumManager: PremiumManager
+    @EnvironmentObject var premium: PremiumStoreViewModel
     @Environment(\.dismiss) var dismiss
 
     @State private var purchaseError: String? = nil
@@ -23,7 +23,7 @@ struct PremiumUpgradeSheet: View {
                         Text(String(localized: "upgrade_account"))
                             .font(.title.bold())
 
-                        if premiumManager.isPremiumUser {
+                        if premium.isPremium {
                             Label(String(localized: "premium_active"), systemImage: "star.fill")
                                 .foregroundColor(.yellow)
                                 .font(.headline)
@@ -37,13 +37,16 @@ struct PremiumUpgradeSheet: View {
 
                     // MARK: - Product List
                     Group {
-                        if premiumManager.products.isEmpty {
+                        if premium.products.isEmpty {
                             ProgressView(String(localized: "loading_packages"))
                                 .padding(.vertical, 40)
-                                .task { await premiumManager.loadProducts() }
+                                .task {
+                                    premium.start()
+                                }
+
                         } else {
                             VStack(spacing: 14) {
-                                ForEach(premiumManager.products, id: \.id) { product in
+                                ForEach(premium.products, id: \.id) { product in
                                     premiumCard(for: product)
                                 }
                             }
@@ -58,7 +61,7 @@ struct PremiumUpgradeSheet: View {
                         Button {
                             Task {
                                 isLoading = true
-                                let ok = await premiumManager.restore()
+                                let ok = await premium.restore()
                                 isLoading = false
                                 if ok { dismiss() }
                                 else { purchaseError = String(localized: "restore_failed") }
@@ -69,11 +72,7 @@ struct PremiumUpgradeSheet: View {
                         }
                         .buttonStyle(.borderedProminent)
                         .disabled(isLoading)
-
-                        #if DEBUG
-                        Toggle("Fake Premium (Developer Mode)", isOn: $premiumManager.isFakePremium)
-                            .padding(.horizontal)
-                        #endif
+                        
                     }
 
                     Spacer().frame(height: 30)
@@ -101,7 +100,7 @@ struct PremiumUpgradeSheet: View {
         Button {
             Task {
                 isLoading = true
-                let success = await premiumManager.purchase(product)
+                let success = await premium.buy(product)
                 isLoading = false
 
                 if success { dismiss() }
