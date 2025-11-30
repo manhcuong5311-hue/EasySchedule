@@ -198,6 +198,7 @@ final class EventManager: ObservableObject {
        
         listenToBusySlots(sharedUserId: uid)
         cleanUpPastEvents()
+        
     }
     
     
@@ -316,7 +317,38 @@ final class EventManager: ObservableObject {
         }
     }
 
-  
+    func cleanUpPastEventsOnFirebase(for uid: String) {
+        let cutoff = Calendar.current.date(byAdding: .day, value: -30, to: Date())!  // giữ 30 ngày gần đây
+
+        Firestore.firestore().collection("events")
+            .whereField("owner", isEqualTo: uid)
+            .whereField("endsAt", isLessThan: cutoff)
+            .limit(to: 50) // tránh burst
+            .getDocuments { snapshot, error in
+
+                if let error = error {
+                    print("❌ cleanUpPastEventsOnFirebase error:", error.localizedDescription)
+                    return
+                }
+
+                guard let docs = snapshot?.documents, !docs.isEmpty else {
+                    print("ℹ️ No old events to delete.")
+                    return
+                }
+
+                let batch = Firestore.firestore().batch()
+
+                docs.forEach { batch.deleteDocument($0.reference) }
+
+                batch.commit { error in
+                    if let error = error {
+                        print("❌ cleanUpPastEvents batch error:", error.localizedDescription)
+                    } else {
+                        print("🧹 Firebase cleanup: deleted \(docs.count) events older than 30 days for \(uid)")
+                    }
+                }
+            }
+    }
 
 
     // MARK: - OFF DAYS
@@ -409,6 +441,23 @@ final class EventManager: ObservableObject {
         }
     }
 
+    func cleanupBusySlots(for uid: String) {
+        let today = Date().timeIntervalSince1970 * 1000
+
+        Firestore.firestore().collection("publicCalendar")
+            .document(uid)
+            .getDocument { snap, _ in
+            
+                guard var busySlots = snap?.data()?["busySlots"] as? [[String: Any]] else { return }
+
+                // Remove old slots
+                busySlots = busySlots.filter { ($0["end"] as? Double ?? 0) > today }
+
+                Firestore.firestore().collection("publicCalendar")
+                    .document(uid)
+                    .updateData(["busySlots": busySlots])
+            }
+    }
 
 
 }

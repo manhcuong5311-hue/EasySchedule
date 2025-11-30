@@ -943,6 +943,7 @@
       }
     },
     "Đóng" : {
+      "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1222,17 +1223,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Google login failed"
-          }
-        }
-      }
-    },
-    "Huỷ" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Huỷ"
           }
         }
       }
@@ -2298,7 +2288,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Chọn màu"
+            "value" : "Pick color"
           }
         },
         "vi" : {
