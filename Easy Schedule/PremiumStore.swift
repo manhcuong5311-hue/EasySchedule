@@ -1,16 +1,6 @@
-//
-//  PremiumStore.swift
-//  Easy Schedule
-//
-//  Created by Sam Manh Cuong on 22/11/25.
-//
-
-// PremiumStore.swift
-// Easy Schedule — StoreKit helper (StoreKit 2 with fallback)
 import Foundation
 import StoreKit
 
-/// Notification posted when purchase status or products list changes
 extension Notification.Name {
     static let PremiumStoreDidUpdate = Notification.Name("PremiumStore.DidUpdatePurchaseStatus")
 }
@@ -18,50 +8,55 @@ extension Notification.Name {
 actor PremiumStore {
     static let shared = PremiumStore()
 
-    /// Put your product ids here (match App Store Connect)
     private let productIdentifiers: Set<String> = [
-        "com.yourcompany.easyschedule.premium.monthly",
-        "com.yourcompany.easyschedule.premium.yearly",
-        "com.yourcompany.easyschedule.premium.lifetime"
+        "premium.1month",
+           "premium.6month",
+           "premium.1year"
     ]
 
-    // In-memory cache
-    private(set) var products: [Product] = []
-    private(set) var purchasedProductIDs: Set<String> = []
+    private var productsInternal: [Product] = []
+    private var purchasedIDsInternal: Set<String> = []
 
-    /// Fake/pseudo premium mode for local testing when App Store not available
     private let fakePremiumKey = "PremiumStore_FakePremiumEnabled"
-
     var isFakePremiumEnabled: Bool {
         get { UserDefaults.standard.bool(forKey: fakePremiumKey) }
         set { UserDefaults.standard.set(newValue, forKey: fakePremiumKey) }
     }
 
-    // MARK: - Public API
+    // ========= PUBLIC GETTERS (ViewModel gọi) =========
+    func getProducts() -> [Product] {
+        return productsInternal
+    }
 
-    /// Load products from App Store (async)
+    func getPurchasedProductIDs() -> Set<String> {
+        return purchasedIDsInternal
+    }
+
+    func refreshPurchased() async {
+        if #available(iOS 15.0, *) {
+            await updatePurchasedProducts()
+            notifyUpdate()
+        }
+    }
+
+    // ========= LOAD PRODUCTS =========
     func loadProducts() async {
         if #available(iOS 15.0, *) {
             do {
                 let fetched = try await Product.products(for: Array(productIdentifiers))
-                // sort stable
-                self.products = fetched.sorted { $0.displayName < $1.displayName }
-                // try restore/check existing transactions
+                productsInternal = fetched.sorted { $0.displayName < $1.displayName }
                 await updatePurchasedProducts()
                 notifyUpdate()
             } catch {
-                print("PremiumStore: failed to fetch products:", error.localizedDescription)
+                print("PremiumStore: failed:", error.localizedDescription)
             }
-        } else {
-            // fallback: nothing we can do — maybe prefill UI with product ids
-            print("PremiumStore: StoreKit2 not available on runtime — cannot fetch products")
         }
     }
 
-    /// Purchase a product
+    // ========= BUY =========
     func purchase(_ product: Product) async -> Result<Transaction?, Error> {
         if isFakePremiumEnabled {
-            await markProductAsPurchased(product.id)
+            await markPurchased(product.id)
             notifyUpdate()
             return .success(nil)
         }
@@ -73,70 +68,79 @@ actor PremiumStore {
                 case .success(let verification):
                     let transaction = try checkVerified(verification)
                     await transaction.finish()
-                    await markProductAsPurchased(transaction.productID)
+                    await markPurchased(transaction.productID)
                     notifyUpdate()
                     return .success(transaction)
 
                 case .userCancelled:
-                    return .failure(PremiumStoreError.userCancelled)
+                    return .failure(PremiumError.userCancelled)
 
                 case .pending:
-                    return .failure(PremiumStoreError.pending)
+                    return .failure(PremiumError.pending)
 
                 @unknown default:
-                    return .failure(PremiumStoreError.unknown)
+                    return .failure(PremiumError.unknown)
                 }
+
             } catch {
                 return .failure(error)
             }
-        } else {
-            return .failure(PremiumStoreError.storeUnavailable)
         }
+
+        return .failure(PremiumError.storeUnavailable)
     }
 
-
-    /// Restore purchases (iOS triggers existing transactions)
+    // ========= RESTORE =========
     func restorePurchases() async -> Result<Void, Error> {
         if isFakePremiumEnabled {
-            // simulate: mark all known product IDs purchased
-            for id in productIdentifiers { await markProductAsPurchased(id) }
+            for id in productIdentifiers { await markPurchased(id) }
             notifyUpdate()
             return .success(())
         }
+
         if #available(iOS 15.0, *) {
             do {
-                for await verification in Transaction.currentEntitlements {
-                    let transaction = try checkVerified(verification)
-                    await markProductAsPurchased(transaction.productID)
+                for await v in Transaction.currentEntitlements {
+                    let t = try checkVerified(v)
+                    await markPurchased(t.productID)
                 }
                 notifyUpdate()
                 return .success(())
             } catch {
                 return .failure(error)
             }
-        } else {
-            return .failure(PremiumStoreError.storeUnavailable)
+        }
+        return .failure(PremiumError.storeUnavailable)
+    }
+
+    // ========= INTERNAL ENTITLEMENT SYNC =========
+    @available(iOS 15.0, *)
+    private func updatePurchasedProducts() async {
+        purchasedIDsInternal.removeAll()
+        for await v in Transaction.currentEntitlements {
+            do {
+                let t = try checkVerified(v)
+                purchasedIDsInternal.insert(t.productID)
+            } catch {}
         }
     }
 
-    /// Check whether a product is purchased (or fake mode)
-    func isPurchased(_ productId: String) -> Bool {
-        if isFakePremiumEnabled { return true }
-        return purchasedProductIDs.contains(productId)
+    // ========= HELPERS =========
+    @available(iOS 15.0, *)
+    private func checkVerified<T>(_ result: VerificationResult<T>) throws -> T {
+        switch result {
+        case .verified(let safe): return safe
+        case .unverified: throw PremiumError.unverifiedTransaction
+        }
     }
 
-    // MARK: - Internal helpers
-
     @available(iOS 15.0, *)
-    private func updatePurchasedProducts() async {
-        purchasedProductIDs.removeAll()
-        for await verification in Transaction.currentEntitlements {
-            do {
-                let t = try checkVerified(verification)
-                purchasedProductIDs.insert(t.productID)
-            } catch {
-                // invalid transaction — ignore
-            }
+    private func markPurchased(_ id: String) async {
+        purchasedIDsInternal.insert(id)
+        var stored = UserDefaults.standard.stringArray(forKey: "PremiumStore_purchased") ?? []
+        if !stored.contains(id) {
+            stored.append(id)
+            UserDefaults.standard.set(stored, forKey: "PremiumStore_purchased")
         }
     }
 
@@ -146,51 +150,7 @@ actor PremiumStore {
         }
     }
 
-    @available(iOS 15.0, *)
-    private func checkVerified<T>(_ result: VerificationResult<T>) throws -> T {
-        switch result {
-        case .unverified:
-            throw PremiumStoreError.unverifiedTransaction
-        case .verified(let safe):
-            return safe
-        }
-    }
-
-    @available(iOS 15.0, *)
-    private func markProductAsPurchased(_ productId: String) async {
-        purchasedProductIDs.insert(productId)
-        // optionally persist minimal state for quick check (note: real truth is transactions)
-        var stored = UserDefaults.standard.stringArray(forKey: "PremiumStore_purchased") ?? []
-        if !stored.contains(productId) {
-            stored.append(productId)
-            UserDefaults.standard.set(stored, forKey: "PremiumStore_purchased")
-        }
-    }
-
-  
-
-    // MARK: - Errors
-    enum PremiumStoreError: LocalizedError {
-        case storeUnavailable
-        case userCancelled
-        case pending
-        case unknown
-        case unverifiedTransaction
-
-        var errorDescription: String? {
-            switch self {
-            case .storeUnavailable:
-                return String(localized: "store_unavailable")
-            case .userCancelled:
-                return String(localized: "user_cancelled")
-            case .pending:
-                return String(localized: "purchase_pending")
-            case .unknown:
-                return String(localized: "purchase_unknown_error")
-            case .unverifiedTransaction:
-                return String(localized: "transaction_unverified")
-            }
-        }
-
+    enum PremiumError: LocalizedError {
+        case storeUnavailable, userCancelled, pending, unknown, unverifiedTransaction
     }
 }

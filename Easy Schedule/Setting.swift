@@ -67,7 +67,7 @@ struct SettingsView: View {
 
     // MARK: - Environment Objects
     @EnvironmentObject var session: SessionStore
-    @EnvironmentObject var premiumManager: PremiumManager   // ⭐ QUAN TRỌNG
+    @EnvironmentObject var premium: PremiumStoreViewModel
     @AppStorage("firebasePushEnabled") private var firebasePushEnabled = true
 
 
@@ -150,10 +150,10 @@ struct SettingsView: View {
                         HStack {
                             Text(String(localized: "upgrade_account"))
                             Spacer()
-                            Text(premiumManager.isPremiumUser
+                            Text(premium.isPremium
                                  ? String(localized: "premium")
                                  : String(localized: "free"))
-                                .foregroundColor(premiumManager.isPremiumUser ? .yellow : .secondary)
+                                .foregroundColor(premium.isPremium ? .yellow : .secondary)
                         }
                     }
 
@@ -210,7 +210,8 @@ struct SettingsView: View {
 
             .sheet(isPresented: $showUpgradeSheet) {
                 PremiumUpgradeSheet()
-                    .environmentObject(premiumManager)
+                    .environmentObject(premium)
+
             }
 
             .sheet(isPresented: $showPrivacySheet) {
@@ -517,90 +518,6 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
 }
 
 
-
-//
-// PremiumManager.swift
-//
-
-import Foundation
-import StoreKit
-import SwiftUI
-
-@MainActor
-final class PremiumManager: ObservableObject {
-
-    static let shared = PremiumManager()
-
-    // ⭐ Premium state
-    @Published var isPremiumUser: Bool = UserDefaults.standard.bool(forKey: "isPremiumUser")
-
-    // ⭐ Fake mode (cho dev test khi chưa publish)
-    @Published var isFakePremium: Bool = false
-
-    // ⭐ StoreKit products
-    @Published var products: [Product] = []
-
-    private init() { }
-
-    // MARK: - Load products
-    func loadProducts() async {
-        do {
-            products = try await Product.products(for: [
-                "premium_month",
-                "premium_year",
-                "premium_lifetime"
-            ])
-        } catch {
-            print("❌ Load sản phẩm lỗi:", error.localizedDescription)
-        }
-    }
-
-    // MARK: - Buy
-    func purchase(_ product: Product) async -> Bool {
-        
-        // 🚀 Fake Mode
-        if isFakePremium {
-            print("⚠️ Fake Premium Enabled → auto success")
-            isPremiumUser = true
-            UserDefaults.standard.set(true, forKey: "isPremiumUser")
-            return true
-        }
-
-        // 🚀 Thật
-        do {
-            let result = try await product.purchase()
-            switch result {
-            case .success(_):
-                print("✅ Mua thành công:", product.id)
-                isPremiumUser = true
-                UserDefaults.standard.set(true, forKey: "isPremiumUser")
-                return true
-
-            default:
-                return false
-            }
-        } catch {
-            print("❌ Purchase Error:", error.localizedDescription)
-            return false
-        }
-    }
-
-    // MARK: - Restore Purchase
-    func restore() async -> Bool {
-        do {
-            let results: () = try await AppStore.sync()
-            print("🔄 Restore:", results)
-
-            // Nếu từng mua trước đây → mở lại Premium
-            isPremiumUser = true
-            UserDefaults.standard.set(true, forKey: "isPremiumUser")
-            return true
-        } catch {
-            print("❌ Restore lỗi:", error.localizedDescription)
-            return false
-        }
-    }
-}
 
 
 

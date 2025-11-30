@@ -65,6 +65,7 @@ final class EventManager: ObservableObject {
     private var busySlotsListener: ListenerRegistration?
     // --- Persisted user name cache key
     private let kUserNamesKey = "es_userNames_cache_v1"
+    private var lastEventCreateTime: Date?
 
     // persisted + in-memory cache
     @Published var userNames: [String: String] = [:] {
@@ -77,8 +78,9 @@ final class EventManager: ObservableObject {
 
     // ⭐ PREMIUM FLAG
     private var isPremiumUser: Bool {
-        PremiumManager.shared.isPremiumUser
+        PremiumStoreViewModel.shared.isPremium
     }
+
 
     var allowDuplicateEvents: Bool {
         get { UserDefaults.standard.bool(forKey: "allowDuplicateEvents") }
@@ -193,6 +195,7 @@ final class EventManager: ObservableObject {
         guard let uid = currentUserId else { return }
         print("🔄 Reloading events for user:", uid)
         listenToEvents()
+       
         listenToBusySlots(sharedUserId: uid)
         cleanUpPastEvents()
     }
@@ -348,6 +351,11 @@ final class EventManager: ObservableObject {
                 completion(dates)
             }
     }
+    func syncBusySlotsForCurrentUser(event: CalendarEvent) {
+        guard let uid = currentUserId else { return }
+        addBusySlot(for: uid, event: event)
+    }
+
 
     // MARK: - GROUPING
     func updateGroupedEvents() {
@@ -385,9 +393,11 @@ final class EventManager: ObservableObject {
 
     func syncBusySlots(for event: CalendarEvent) {
         for uid in event.participants {
-            self.addBusySlot(for: uid, event: event)
+            addBusySlot(for: uid, event: event)
         }
     }
+
+
     func removeBusySlotForAllParticipants(event: CalendarEvent) {
         for uid in event.participants {
             let doc = db.collection("publicCalendar").document(uid)
@@ -398,6 +408,7 @@ final class EventManager: ObservableObject {
             }
         }
     }
+
 
 
 }
@@ -413,8 +424,38 @@ extension EventManager {
                   colorHex: String = "#007AFF") -> Bool {
 
         guard let uid = currentUserId else { return false }
+        let now = Date()
 
-        // ❗ CHỐNG TRÙNG GIỜ
+        // ANTI-SPAM CLICKS
+        if let last = lastEventCreateTime,
+           now.timeIntervalSince(last) < 2 {
+            print("🚫 BLOCK: Too fast!")
+            return false
+        }
+        lastEventCreateTime = now
+        // KHÔNG ĐƯỢC TẠO LỊCH TRONG QUÁ KHỨ
+        if endTime < now {
+            self.alertMessage = "Không thể tạo lịch trong thời gian đã qua."
+            self.showAlert = true
+            return false
+        }
+
+
+        // CHECK DUPLICATE EXACT
+        let exactDuplicate = events.contains { ev in
+            Calendar.current.isDate(ev.date, inSameDayAs: date) &&
+            ev.startTime == startTime &&
+            ev.endTime == endTime
+        }
+
+        if exactDuplicate {
+            self.alertMessage = String(localized: "event_already_exists")
+            self.showAlert = true
+            return false
+        }
+
+
+        // CHECK OVERLAP IF NOT ALLOWED
         if !allowDuplicateEvents {
             let overlap = events.contains { ev in
                 Calendar.current.isDate(ev.date, inSameDayAs: date) &&
@@ -429,81 +470,78 @@ extension EventManager {
             }
         }
 
-        // FREE USER LIMIT
-        let isPremium = PremiumManager.shared.isPremiumUser
+
+        // PREMIUM CHECK
+        let isPremium = PremiumStoreViewModel.shared.isPremium
 
         if !isPremium {
-            let now = Date()
+            // Giới hạn 7 ngày
             if let maxDate = Calendar.current.date(byAdding: .day, value: 7, to: now),
                date > maxDate {
-                print("🚫 FREE USER: Không được tạo lịch quá 7 ngày")
+                print("🚫 FREE: Max 7 days")
                 return false
             }
 
+            // Giới hạn số lượng lịch/ngày
             let eventsSameDay = events.filter {
                 Calendar.current.isDate($0.date, inSameDayAs: date)
             }
-            if eventsSameDay.count >= 4 {
-                print("🚫 FREE USER: Quá 4 lịch/ngày")
+            if eventsSameDay.count >= 2 {
+                print("🚫 FREE: 2 events/day")
                 return false
             }
         }
 
-        // ⭐ TẠO EVENT LOCAL (owner = UID)
+        // PREMIUM MAX LIMIT
+        if isPremium {
+            let sameDay = events.filter {
+                Calendar.current.isDate($0.date, inSameDayAs: date)
+            }
+            if sameDay.count >= 30 {
+                print("🚫 PREMIUM: 30/day limit")
+                return false
+            }
+        }
+
+
+        // ⭐ CREATE EVENT OBJECT
         let newEvent = CalendarEvent(
             id: UUID().uuidString,
             title: title,
             date: date,
             startTime: startTime,
             endTime: endTime,
-            owner: uid,                    // ⭐ OWNER = UID (rất quan trọng)
+            owner: uid,
             sharedUser: uid,
             createdBy: uid,
-            participants: [uid],           // ⭐ Người tạo event là participant đầu tiên
+            participants: [uid],
             colorHex: colorHex,
             pendingDelete: false,
             origin: .myEvent
         )
 
-        // LƯU LOCAL
-        DispatchQueue.main.async {
-            self.events.append(newEvent)
-            self.saveEvents()
-        }
 
-        // ⭐ ĐẨY FIRESTORE (owner = UID)
-        let data: [String: Any] = [
-            "title": newEvent.title,
-            "owner": uid,
-            "sharedUser": uid,
-            "createdBy": uid,
-            "participants": [uid],
-            "date": Timestamp(date: newEvent.date),
-            "startTime": Timestamp(date: newEvent.startTime),
-            "endTime": Timestamp(date: newEvent.endTime),
-            "colorHex": newEvent.colorHex
-        ]
+        // ⭐ FIRESTORE SAVE — ONLY append local if success
+        let ref = db.collection("events").document(newEvent.id)
 
-        var ref: DocumentReference?
-        ref = db.collection("events").addDocument(data: data) { err in
-            if let err = err {
-                print("❌ Firestore add error:", err.localizedDescription)
-                return
-            }
+        do {
+            try ref.setData(from: newEvent) { err in
+                if let err = err {
+                    print("❌ Firestore error:", err.localizedDescription)
 
-            guard let docId = ref?.documentID else { return }
-
-            DispatchQueue.main.async {
-                // cập nhật ID Firebase vào local
-                if let i = self.events.firstIndex(where: { $0.id == newEvent.id }) {
-                    self.events[i].id = docId
-
-                    // ⭐ Cập nhật busySlot cho TẤT CẢ participants
-                    let finalEvent = self.events[i]
-                    self.syncBusySlots(for: finalEvent)
-
+                    if err.localizedDescription.contains("PERMISSION") {
+                        self.alertMessage = "Bạn không có quyền tạo lịch này."
+                    } else {
+                        self.alertMessage = "Lỗi kết nối. Vui lòng thử lại."
+                    }
+                    self.showAlert = true
+                    return
                 }
+                self.syncBusySlots(for: newEvent)
             }
+        } catch {
+            print("❌ Encode error:", error)
+            return false
         }
 
         return true
@@ -554,9 +592,8 @@ extension EventManager {
                     pendingDelete: false,
                     origin: .myEvent
                 )
-
-                // ⭐ Ghi đè busySlot của chủ event
-                self.addBusySlot(for: event.owner, event: updatedEvent)
+            // ⭐ Ghi đè busySlot của chủ event
+                self.syncBusySlots(for: updatedEvent)
             }
         }
     }
@@ -827,14 +864,11 @@ extension EventManager {
                         .sorted { $0.startTime < $1.startTime }
 
                     // 3) Giữ pastEvents LOCAL — không đụng
-                    // 4) KẾT HỢP upcoming:
-                    // 👉 upcoming = (localUpcoming không nằm trong Firestore) + firestoreUpcoming
+                    // 4) upcoming = local chưa sync + firestoreUpcoming
                     let localUpcoming = self.events.filter { localEv in
-                        // giữ những event local mà Firestore không trả về
                         !firestoreUpcoming.contains(where: { $0.id == localEv.id })
                     }
 
-                    // Ghép lại: local còn sót + data firebase mới
                     self.events = (localUpcoming + firestoreUpcoming)
                         .sorted { $0.startTime < $1.startTime }
 
@@ -843,10 +877,17 @@ extension EventManager {
 
                     // 6) Update UI
                     self.updateGroupedEvents()
-                    self.syncBusySlotsOfUser(uid)
+
+                    // ⭐⭐ 7) LẮNG NGHE BUSYSLOTS CHO TẤT CẢ PARTICIPANTS
+                    let allUsers = Set(incoming.flatMap { $0.participants })
+
+                    for uid in allUsers {
+                        self.listenToBusySlots(sharedUserId: uid)
+                    }
                 }
             }
     }
+
 
 
 
@@ -925,13 +966,10 @@ extension EventManager {
                     let s = Date(timeIntervalSince1970: start)
                     let e = Date(timeIntervalSince1970: end)
 
-                    // ⭐ ⭐ LỌC BUSY SLOT HẾT HẠN – thêm dòng này
                     if e < now { return nil }
 
-                    let id = dict["id"] as? String ?? "\(start)-\(end)-busy"
-
                     return CalendarEvent(
-                        id: id,
+                        id: dict["id"] as? String ?? "\(start)-\(end)-busy",
                         title: dict["title"] as? String ?? "Bận",
                         date: Calendar.current.startOfDay(for: s),
                         startTime: s,
@@ -946,61 +984,18 @@ extension EventManager {
                     )
                 }
 
+                // ⭐⭐ LƯU BUSYSLOTS VÀO CACHE KHÁC, KHÔNG ĐƯỢC ĐỤNG self.events
                 DispatchQueue.main.async {
-                    for ev in slots {
-
-                        // Không revive event pendingDelete
-                        if self.events.first(where: { $0.id == ev.id && $0.pendingDelete }) != nil {
-                            continue
-                        }
-
-                        if let idx = self.events.firstIndex(where: { $0.id == ev.id }) {
-                            self.events[idx] = ev
-                        } else {
-                            self.events.append(ev)
-                        }
-                    }
+                    self.partnerBusySlots[sharedUserId] = slots
                 }
             }
     }
 
 
-    func syncBusySlotsOfUser(_ userId: String) {
 
-        db.collection("events")
-            .whereField("owner", isEqualTo: userId)
-            .getDocuments { snap, err in
-                if let err = err {
-                    print("❌ syncBusySlotsOfUser error: \(err)")
-                    return
-                }
+   
 
-                let now = Date()
 
-                // ⭐ CHỈ LẤY EVENT CÒN HIỆU LỰC
-                let events = snap?.documents
-                    .compactMap { CalendarEvent.from($0) }
-                    .filter { $0.endTime >= now } ?? []
-
-                // ⭐ CHUYỂN EVENT -> busySlots
-                let busySlotsData = events.map { ev in
-                    return [
-                        "id": ev.id,
-                        "title": ev.title,
-                        "start": ev.startTime.timeIntervalSince1970,
-                        "end": ev.endTime.timeIntervalSince1970,
-                        "owner": ev.owner
-                    ]
-                }
-
-                // ⭐ GHI ĐÈ BUSYSLOTS — XOÁ SLOT CŨ TỰ ĐỘNG
-                self.db.collection("publicCalendar")
-                    .document(userId)
-                    .setData([
-                        "busySlots": busySlotsData
-                    ], merge: true)
-            }
-    }
 
 
 
@@ -1861,13 +1856,13 @@ struct CustomizableCalendarView: View {
                     .environmentObject(eventManager)
             }
             .alert(String(localized: "delete_event_title"), isPresented: $showDeleteAlert) {
-                Button(String(localized: "cancel"), role: .destructive) {
+                Button(String(localized: "Ok"), role: .destructive) {
                     if let event = eventToDelete {
                         eventManager.deleteEvent(event)
                     }
                     eventToDelete = nil
                 }
-                Button("Huỷ", role: .cancel) {
+                Button(String(localized:"cancel"), role: .cancel) {
                     eventToDelete = nil
                 }
             } message: {
@@ -1931,7 +1926,7 @@ struct AddEventView: View {
     // ✅ THÊM MỚI — biến trạng thái popup
     @State private var showOffDayAlert = false
     @State private var offDayMessage = ""
-    @AppStorage("isPremiumUser") private var isPremiumUser: Bool = false
+    @EnvironmentObject var premium: PremiumStoreViewModel
     @State private var alertMessage: String = ""
     @State private var showAlert: Bool = false
     @EnvironmentObject var session: SessionStore
@@ -2045,7 +2040,8 @@ struct AddEventView: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button(String(localized: "save")) {
-
+                        
+                       
                         let calendar = Calendar.current
                         let now = Date()
 
@@ -2057,26 +2053,7 @@ struct AddEventView: View {
                             return
                         }
 
-                        // 2️⃣ PREMIUM CHECK — GIỚI HẠN NGÀY
-                        if !isPremiumUser {
-                            if let maxDate = calendar.date(byAdding: .day, value: 7, to: now),
-                               date > maxDate {
-                                alertMessage = String(localized: "limit_7_days")
-                                showAlert = true
-                                return
-                            }
-
-                            // 3️⃣ PREMIUM CHECK — GIỚI HẠN SỐ LỊCH / NGÀY
-                            let sameDayEvents = eventManager.events.filter {
-                                calendar.isDate($0.date, inSameDayAs: date)
-                            }
-                            if sameDayEvents.count >= 2 {
-                                alertMessage = String(localized: "limit_2_events_per_day")
-                                showAlert = true
-                                return
-                            }
-                        }
-
+                     
                         // 4️⃣ Validate form
                         guard !title.trimmingCharacters(in: .whitespaces).isEmpty else {
                             alertMessage = String(localized: "empty_title")
@@ -2088,6 +2065,72 @@ struct AddEventView: View {
                         let s = combine(date: date, time: startTime)
                         var e = combine(date: date, time: endTime)
                         if e <= s { e = s.addingTimeInterval(1800) } // auto +30p
+                        // ----------------------
+                        // 🎯 PREMIUM / FREE LIMIT
+                        // ----------------------
+                
+                        let now2 = now
+
+                        if !premium.isPremium {
+                            // ❗ FREE — không quá 7 ngày
+                            if let maxDate = calendar.date(byAdding: .day, value: 7, to: now2),
+                               date > maxDate {
+                                alertMessage = String(localized: "limit_7_days")
+                                showAlert = true
+                                return
+                            }
+
+                            // ❗ FREE — không quá 2 event / ngày
+                            let sameDayFree = eventManager.events.filter {
+                                calendar.isDate($0.date, inSameDayAs: date)
+                            }
+                            if sameDayFree.count >= 2 {
+                                alertMessage = String(localized: "limit_2_events_per_day")
+                                showAlert = true
+                                return
+                            }
+
+                        } else {
+                            // ⭐ PREMIUM — GIỚI HẠN CHỐNG SPAM: 30 EVENT / NGÀY
+                            let sameDayPremium = eventManager.events.filter {
+                                calendar.isDate($0.date, inSameDayAs: date)
+                            }
+
+                            if sameDayPremium.count >= 30 {
+                                alertMessage = String(localized: "premium_limit_30_per_day")
+                                showAlert = true
+                                return
+                            }
+                        }
+
+                        
+                        
+                        // 🚫 1) LUÔN CHẶN EVENT TRÙNG HOÀN TOÀN
+                        let exactDup = eventManager.events.contains { ev in
+                            Calendar.current.isDate(ev.date, inSameDayAs: date) &&
+                            ev.startTime == s &&
+                            ev.endTime == e
+                        }
+
+                        if exactDup {
+                            alertMessage = String(localized: "event_already_exists")
+                            showAlert = true
+                            return
+                        }
+                        // 🚫 2) CHẶN TRÙNG GIỜ (Nếu user TẮT conflict)
+                        if !eventManager.allowDuplicateEvents {
+                            let overlap = eventManager.events.contains { ev in
+                                Calendar.current.isDate(ev.date, inSameDayAs: date) &&
+                                ev.startTime < e &&
+                                s < ev.endTime
+                            }
+                            
+                            if overlap {
+                                alertMessage = String(localized: "time_slot_taken!")
+                                showAlert = true
+                                return
+                            }
+                        }
 
                         // 6️⃣ Tạo event
                         let success = eventManager.addEvent(

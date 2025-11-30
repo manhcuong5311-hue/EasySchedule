@@ -293,11 +293,25 @@ struct AppointmentProSheet: View {
         let now = Date()
         let maxPremiumDate = calendar.date(byAdding: .day, value: 7, to: now)!
 
-        if !partnerIsPremium && selectedDate > maxPremiumDate {
-           
-            showPremiumAlert = true
-            return
+        // ⭐ CHECK FREE USER LIMIT (giống AddEventView)
+        let calendar = Calendar.current
+        let eventsForDay = busySlots.filter {
+            calendar.isDate($0.startTime, inSameDayAs: selectedDate)
         }
+
+
+        if !partnerIsPremium {
+            if eventsForDay.count >= 2 {
+                errorMessage = String(localized: "limit_2_events_per_day")
+                return
+            }
+        } else {
+            if eventsForDay.count >= 30 {
+                errorMessage = String(localized: "premium_limit_30_per_day")
+                return
+            }
+        }
+
 
         guard let uid = sharedUserId else {
             errorMessage = String(localized: "unknown_uid")
