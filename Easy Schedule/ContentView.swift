@@ -62,7 +62,8 @@ final class EventManager: ObservableObject {
     private var eventsListener: ListenerRegistration?
     private var appointmentsListener: ListenerRegistration?
     private var createdAppointmentsListener: ListenerRegistration?
-    private var busySlotsListener: ListenerRegistration?
+    private var busySlotListeners: [String: ListenerRegistration] = [:]
+
     // --- Persisted user name cache key
     private let kUserNamesKey = "es_userNames_cache_v1"
     private var lastEventCreateTime: Date?
@@ -164,20 +165,22 @@ final class EventManager: ObservableObject {
         }
     }
     func reset() {
-        // Huỷ realtime listeners nếu có
+        // Remove event listeners
         eventsListener?.remove()
-        eventsListener = nil
-
         appointmentsListener?.remove()
-        appointmentsListener = nil
-
         createdAppointmentsListener?.remove()
+
+        eventsListener = nil
+        appointmentsListener = nil
         createdAppointmentsListener = nil
 
-        busySlotsListener?.remove()
-        busySlotsListener = nil
+        // ⭐ Remove ALL busySlot listeners
+        for (_, listener) in busySlotListeners {
+            listener.remove()
+        }
+        busySlotListeners.removeAll()
 
-        // Dọn dữ liệu local
+        // Clear local data
         DispatchQueue.main.async {
             self.events.removeAll()
             self.pastEvents.removeAll()
@@ -187,8 +190,9 @@ final class EventManager: ObservableObject {
             self.saveSharedLinks()
         }
 
-        print("🧹 EventManager RESET hoàn tất.")
+        print("🧹 EventManager RESET hoàn tất (đã remove ALL busySlot listeners).")
     }
+
 
     func reloadForCurrentUser() {
         clearLocalEvents()
@@ -317,38 +321,7 @@ final class EventManager: ObservableObject {
         }
     }
 
-    func cleanUpPastEventsOnFirebase(for uid: String) {
-        let cutoff = Calendar.current.date(byAdding: .day, value: -30, to: Date())!  // giữ 30 ngày gần đây
-
-        Firestore.firestore().collection("events")
-            .whereField("owner", isEqualTo: uid)
-            .whereField("endsAt", isLessThan: cutoff)
-            .limit(to: 50) // tránh burst
-            .getDocuments { snapshot, error in
-
-                if let error = error {
-                    print("❌ cleanUpPastEventsOnFirebase error:", error.localizedDescription)
-                    return
-                }
-
-                guard let docs = snapshot?.documents, !docs.isEmpty else {
-                    print("ℹ️ No old events to delete.")
-                    return
-                }
-
-                let batch = Firestore.firestore().batch()
-
-                docs.forEach { batch.deleteDocument($0.reference) }
-
-                batch.commit { error in
-                    if let error = error {
-                        print("❌ cleanUpPastEvents batch error:", error.localizedDescription)
-                    } else {
-                        print("🧹 Firebase cleanup: deleted \(docs.count) events older than 30 days for \(uid)")
-                    }
-                }
-            }
-    }
+    
 
 
     // MARK: - OFF DAYS
@@ -400,6 +373,7 @@ final class EventManager: ObservableObject {
         let d = Calendar.current.startOfDay(for: date)
         return groupedByDay[d]?.sorted { $0.startTime < $1.startTime } ?? []
     }
+    
     func addBusySlot(for uid: String, event: CalendarEvent) {
         let docRef = db.collection("publicCalendar").document(uid)
 
@@ -409,12 +383,16 @@ final class EventManager: ObservableObject {
             // Remove old slot nếu trùng ID
             slots.removeAll { ($0["id"] as? String) == event.id }
 
+            let start = event.startTime.timeIntervalSince1970
+            let end = event.endTime.timeIntervalSince1970
+
+            // ⭐ timestamp ALWAYS in seconds
             let newSlot: [String: Any] = [
                 "id": event.id,
                 "title": event.title,
-                "owner": event.owner,
-                "start": event.startTime.timeIntervalSince1970,
-                "end": event.endTime.timeIntervalSince1970
+                "owner": uid,
+                "start": Double(start),
+                "end": Double(end)
             ]
 
             slots.append(newSlot)
@@ -424,10 +402,15 @@ final class EventManager: ObservableObject {
     }
 
     func syncBusySlots(for event: CalendarEvent) {
+        // thêm owner (chính mình)
+        addBusySlot(for: event.owner, event: event)
+
+        // thêm partner
         for uid in event.participants {
             addBusySlot(for: uid, event: event)
         }
     }
+
 
 
     func removeBusySlotForAllParticipants(event: CalendarEvent) {
@@ -442,22 +425,30 @@ final class EventManager: ObservableObject {
     }
 
     func cleanupBusySlots(for uid: String) {
-        let today = Date().timeIntervalSince1970 * 1000
+        let nowSec = Date().timeIntervalSince1970
 
-        Firestore.firestore().collection("publicCalendar")
-            .document(uid)
-            .getDocument { snap, _ in
-            
-                guard var busySlots = snap?.data()?["busySlots"] as? [[String: Any]] else { return }
+        let doc = Firestore.firestore().collection("publicCalendar").document(uid)
+        doc.getDocument { snap, _ in
+            guard let busySlots = snap?.data()?["busySlots"] as? [[String: Any]] else { return }
 
-                // Remove old slots
-                busySlots = busySlots.filter { ($0["end"] as? Double ?? 0) > today }
+            var cleaned: [[String: Any]] = []
 
-                Firestore.firestore().collection("publicCalendar")
-                    .document(uid)
-                    .updateData(["busySlots": busySlots])
+            for var slot in busySlots {
+                var end = slot["end"] as? Double ?? 0
+
+                // Convert mili → giây
+                if end > 10_000_000_000 { end /= 1000 }
+
+                if end > nowSec {
+                    slot["end"] = end
+                    cleaned.append(slot)
+                }
             }
+
+            doc.updateData(["busySlots": cleaned])
+        }
     }
+
 
 
 }
@@ -475,22 +466,21 @@ extension EventManager {
         guard let uid = currentUserId else { return false }
         let now = Date()
 
-        // ANTI-SPAM CLICKS
-        if let last = lastEventCreateTime,
-           now.timeIntervalSince(last) < 2 {
+        // ANTI-SPAM CLICK (2 giây trong app)
+        if let last = lastEventCreateTime, now.timeIntervalSince(last) < 2 {
             print("🚫 BLOCK: Too fast!")
             return false
         }
         lastEventCreateTime = now
+
         // KHÔNG ĐƯỢC TẠO LỊCH TRONG QUÁ KHỨ
         if endTime < now {
-            self.alertMessage = "Không thể tạo lịch trong thời gian đã qua."
+            self.alertMessage = String(localized: "cant_create_events_in_the_past.")
             self.showAlert = true
             return false
         }
 
-
-        // CHECK DUPLICATE EXACT
+        // CHECK TRÙNG LỊCH FULL
         let exactDuplicate = events.contains { ev in
             Calendar.current.isDate(ev.date, inSameDayAs: date) &&
             ev.startTime == startTime &&
@@ -503,8 +493,7 @@ extension EventManager {
             return false
         }
 
-
-        // CHECK OVERLAP IF NOT ALLOWED
+        // CHECK OVERLAP
         if !allowDuplicateEvents {
             let overlap = events.contains { ev in
                 Calendar.current.isDate(ev.date, inSameDayAs: date) &&
@@ -519,19 +508,9 @@ extension EventManager {
             }
         }
 
-
-        // PREMIUM CHECK
+        // PREMIUM LIMIT CHECK
         let isPremium = PremiumStoreViewModel.shared.isPremium
-
         if !isPremium {
-            // Giới hạn 7 ngày
-            if let maxDate = Calendar.current.date(byAdding: .day, value: 7, to: now),
-               date > maxDate {
-                print("🚫 FREE: Max 7 days")
-                return false
-            }
-
-            // Giới hạn số lượng lịch/ngày
             let eventsSameDay = events.filter {
                 Calendar.current.isDate($0.date, inSameDayAs: date)
             }
@@ -541,19 +520,17 @@ extension EventManager {
             }
         }
 
-        // PREMIUM MAX LIMIT
+        // PREMIUM MAX 30/DAY
         if isPremium {
             let sameDay = events.filter {
                 Calendar.current.isDate($0.date, inSameDayAs: date)
             }
             if sameDay.count >= 30 {
-                print("🚫 PREMIUM: 30/day limit")
                 return false
             }
         }
 
-
-        // ⭐ CREATE EVENT OBJECT
+        // TẠO OBJECT
         let newEvent = CalendarEvent(
             id: UUID().uuidString,
             title: title,
@@ -569,20 +546,13 @@ extension EventManager {
             origin: .myEvent
         )
 
-
-        // ⭐ FIRESTORE SAVE — ONLY append local if success
         let ref = db.collection("events").document(newEvent.id)
 
         do {
             try ref.setData(from: newEvent) { err in
                 if let err = err {
                     print("❌ Firestore error:", err.localizedDescription)
-
-                    if err.localizedDescription.contains("PERMISSION") {
-                        self.alertMessage = "Bạn không có quyền tạo lịch này."
-                    } else {
-                        self.alertMessage = "Lỗi kết nối. Vui lòng thử lại."
-                    }
+                    self.alertMessage = String(localized:"network_error_try_again.")
                     self.showAlert = true
                     return
                 }
@@ -595,6 +565,7 @@ extension EventManager {
 
         return true
     }
+
 
 
     func updateEvent(_ event: CalendarEvent,
@@ -941,21 +912,23 @@ extension EventManager {
 
 
 
-
-    // Thêm vào EventManager (bên trong class)
     func clearLocalEvents() {
-        // 1️⃣ Hủy Firestore listeners
+        // 1️⃣ Remove ALL event listeners
         eventsListener?.remove()
         appointmentsListener?.remove()
         createdAppointmentsListener?.remove()
-        busySlotsListener?.remove()
 
         eventsListener = nil
         appointmentsListener = nil
         createdAppointmentsListener = nil
-        busySlotsListener = nil
 
-        // 2️⃣ Xóa dữ liệu local
+        // 2️⃣ Remove ALL busySlots listeners (multi-user)
+        for (_, listener) in busySlotListeners {
+            listener.remove()
+        }
+        busySlotListeners.removeAll()
+
+        // 3️⃣ Clear local caches
         self.events = []
         self.pastEvents = []
         self.groupedByDay = [:]
@@ -965,8 +938,9 @@ extension EventManager {
         UserDefaults.standard.removeObject(forKey: "pastEvents")
         UserDefaults.standard.removeObject(forKey: "shared_links")
 
-        print("🧹 Đã clear cache + remove mọi Firebase listeners")
+        print("🧹 CLEAR: listeners + cache")
     }
+
     /// Gom event mới vào danh sách local, tránh trùng ID và tránh revive pendingDelete
     func merge(_ incoming: [CalendarEvent]) {
         var updated = self.events
@@ -998,27 +972,33 @@ extension EventManager {
 
     // MARK: - Listeners (prevent revival)
   
-
     func listenToBusySlots(sharedUserId: String) {
-        busySlotsListener = db.collection("publicCalendar")
+        // Nếu đã có listener cho user này → bỏ listener cũ
+        busySlotListeners[sharedUserId]?.remove()
+
+        let listener = db.collection("publicCalendar")
             .document(sharedUserId)
             .addSnapshotListener { snap, err in
+                
                 guard let data = snap?.data() else { return }
 
                 let raw = data["busySlots"] as? [[String: Any]] ?? []
-                let now = Date()
+                let nowSec = Date().timeIntervalSince1970
 
                 let slots = raw.compactMap { dict -> CalendarEvent? in
-                    guard let start = dict["start"] as? TimeInterval,
-                          let end   = dict["end"]   as? TimeInterval else { return nil }
+                    guard var start = dict["start"] as? Double,
+                          var end   = dict["end"]   as? Double else { return nil }
+
+                    if start > 10_000_000_000 { start /= 1000 }
+                    if end   > 10_000_000_000 { end /= 1000 }
+
+                    if end < nowSec { return nil }
 
                     let s = Date(timeIntervalSince1970: start)
                     let e = Date(timeIntervalSince1970: end)
 
-                    if e < now { return nil }
-
                     return CalendarEvent(
-                        id: dict["id"] as? String ?? "\(start)-\(end)-busy",
+                        id: dict["id"] as? String ?? UUID().uuidString,
                         title: dict["title"] as? String ?? "Bận",
                         date: Calendar.current.startOfDay(for: s),
                         startTime: s,
@@ -1033,18 +1013,13 @@ extension EventManager {
                     )
                 }
 
-                // ⭐⭐ LƯU BUSYSLOTS VÀO CACHE KHÁC, KHÔNG ĐƯỢC ĐỤNG self.events
                 DispatchQueue.main.async {
                     self.partnerBusySlots[sharedUserId] = slots
                 }
             }
+
+        busySlotListeners[sharedUserId] = listener
     }
-
-
-
-   
-
-
 
 
 

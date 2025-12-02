@@ -23,75 +23,8 @@ class SessionStore: ObservableObject {
     init() {
         listen()
     }
-    // Cleanup busySlots: only keep slots whose end > now
-    func cleanupBusySlots(for uid: String) {
-        let docRef = Firestore.firestore().collection("publicCalendar").document(uid)
-        let now = Date().timeIntervalSince1970 * 1000 // milliseconds
-
-        docRef.getDocument { snap, err in
-            if let err = err {
-                print("❌ cleanupBusySlots: getDocument error:", err.localizedDescription)
-                return
-            }
-            guard let data = snap?.data() else {
-                // no document -> nothing to clean
-                return
-            }
-
-            // busySlots could be stored as array of dicts or array of timestamps — handle common cases
-            guard let rawSlots = data["busySlots"] as? [Any], !rawSlots.isEmpty else {
-                return
-            }
-
-            // Helper to read `end` as Double (ms since epoch)
-            func endValue(from any: Any) -> Double {
-                if let d = any as? Double { return d }
-                if let i = any as? Int { return Double(i) }
-                if let i64 = any as? Int64 { return Double(i64) }
-                if let ts = any as? Timestamp { return ts.dateValue().timeIntervalSince1970 * 1000 }
-                if let dict = any as? [String: Any] {
-                    if let d = dict["end"] as? Double { return d }
-                    if let i = dict["end"] as? Int { return Double(i) }
-                    if let i64 = dict["end"] as? Int64 { return Double(i64) }
-                    if let ts = dict["end"] as? Timestamp { return ts.dateValue().timeIntervalSince1970 * 1000 }
-                }
-                return 0
-            }
-
-            // Build array of slots as originally stored (preserve structure)
-            var originalSlots = rawSlots
-            var filteredSlots: [Any] = []
-
-            for slot in rawSlots {
-                // slot might be a dict with "start"/"end", or it might be an array/number — handle dict case primarily
-                if let dict = slot as? [String: Any] {
-                    let end = endValue(from: dict)
-                    if end > now {
-                        filteredSlots.append(dict)
-                    }
-                } else if let value = slot as? Any {
-                    let end = endValue(from: value)
-                    if end > now {
-                        filteredSlots.append(value)
-                    }
-                }
-            }
-
-            // If nothing changed, avoid a write
-            if filteredSlots.count == originalSlots.count {
-                return
-            }
-
-            // Perform update (only write when there is a change)
-            docRef.updateData(["busySlots": filteredSlots]) { err in
-                if let err = err {
-                    print("❌ cleanupBusySlots: updateData error:", err.localizedDescription)
-                } else {
-                    print("✅ cleanupBusySlots: removed \(originalSlots.count - filteredSlots.count) expired slots for \(uid)")
-                }
-            }
-        }
-    }
+    
+   
     func cleanUpPastEventsOnFirebase(for uid: String) {
         let now = Date()
 
@@ -138,14 +71,9 @@ class SessionStore: ObservableObject {
                 if let cachedName = UserDefaults.standard.string(forKey: self.nameKey) {
                     self.currentUserName = cachedName
                 }
-
                 // 2️⃣ Sync 1 lần từ Firestore
                 self.fetchProfile(uid: user.uid)
-
-                // ⭐ 3️⃣ Cleanup busySlots cũ – tránh phình dữ liệu
-                self.cleanupBusySlots(for: user.uid)
                 self.cleanUpPastEventsOnFirebase(for: user.uid)
-
             } else {
                 self.currentUserName = ""
             }
