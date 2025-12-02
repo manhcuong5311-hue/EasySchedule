@@ -15,7 +15,7 @@ struct PartnerCalendarTabView: View {
     // Link input
     @State private var linkText: String = ""
     @State private var parsedUID: String? = nil
-
+    @State private var showAccessSheet = false
     // Fetching state
     @State private var isLoading: Bool = false
     @State private var errorMessage: String? = nil
@@ -93,6 +93,28 @@ struct PartnerCalendarTabView: View {
                         MyCreatedEventsView()
                             .environmentObject(eventManager)
                     }
+                    // ⭐ QUẢN LÝ QUYỀN TRUY CẬP (ALLOW / BLOCK)
+                    Button {
+                        showAccessSheet = true
+                    } label: {
+                        HStack {
+                            Image(systemName: "person.2.checkmark")
+                            Text("Manage Access").bold()
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(12)
+                        .background(Color.orange.opacity(0.15))
+                        .cornerRadius(12)
+                    }
+                    .padding(.horizontal)
+                    .sheet(isPresented: $showAccessSheet) {
+                        NavigationStack {
+                            AccessManagementView()   // Màn hình sẽ viết ngay bên dưới
+                                .environmentObject(eventManager)
+                                .environmentObject(session)
+                        }
+                    }
+
 
                     // UID info
                     uidInfoArea

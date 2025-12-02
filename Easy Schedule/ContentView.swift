@@ -448,6 +448,23 @@ final class EventManager: ObservableObject {
             doc.updateData(["busySlots": cleaned])
         }
     }
+    func createRequest(owner: String, requester: String, requesterName: String? = nil) {
+        db.collection("calendarAccess")
+            .document(owner)
+            .collection("requests")
+            .document(requester)
+            .setData([
+                "uid": requester,
+                "name": requesterName ?? "",
+                "requestedAt": FieldValue.serverTimestamp()
+            ]) { error in
+                if let error = error {
+                    print("❌ Failed to create request:", error.localizedDescription)
+                } else {
+                    print("📩 Request created for owner: \(owner)")
+                }
+            }
+    }
 
 
 
@@ -706,7 +723,7 @@ extension EventManager {
 
                         return CalendarEvent(
                             id: dict["id"] as? String ?? UUID().uuidString,
-                            title: dict["title"] as? String ?? "Bận",
+                            title: dict["title"] as? String ?? String(localized: "busy"),
                             date: Calendar.current.startOfDay(for: s),
                             startTime: s,
                             endTime: e,
@@ -749,17 +766,79 @@ extension EventManager {
     }
 
     // MARK: - Add Appointment (khách đặt lịch cho người share UID)
-    func addAppointment(forSharedUser sharedUserId: String,
-                        title: String,
-                        start: Date,
-                        end: Date,
-                        createdBy: String,
-                        completion: @escaping (Bool, String?) -> Void) {
-
+    func addAppointment(
+        forSharedUser ownerUid: String,
+        title: String,
+        start: Date,
+        end: Date,
+        createdBy: String,
+        completion: @escaping (Bool, String?) -> Void
+    ) {
         self.isAdding = true
 
-        // 1️⃣ Kiểm tra trùng giờ (chỉ kiểm tra của chủ lịch A)
-        fetchBusySlots(for: sharedUserId) { busySlots, ownerIsPremium in
+        guard let currentUid = Auth.auth().currentUser?.uid else {
+            self.isAdding = false
+            completion(false, String(localized: "You_need_to_log_in."))
+            return
+        }
+
+        // ⭐ 1) Nếu B đặt lịch cho A ➜ CHECK ALLOW trước
+        if ownerUid != currentUid {
+
+            AccessService.shared.isAllowed(ownerUid: ownerUid, otherUid: currentUid) { allowed in
+
+                if !allowed {
+                    // ❗ Chưa được phép ➜ Tạo REQUEST
+                    let requesterName = self.userNames[currentUid] ?? currentUid
+
+                    AccessService.shared.createRequest(
+                        owner: ownerUid,
+                        requester: currentUid,
+                        requesterName: requesterName
+                    )
+
+
+                    DispatchQueue.main.async {
+                        self.isAdding = false
+                        completion(false,  String(localized: "request_not_allowed_sent"))
+                    }
+                    return
+                }
+
+                // ⭐ Nếu đã allow → tiếp tục tạo event
+                self._actuallyCreateAppointmentEvent(
+                    ownerUid: ownerUid,
+                    title: title,
+                    start: start,
+                    end: end,
+                    createdBy: createdBy,
+                    completion: completion
+                )
+            }
+
+            return // ⛔ KHÔNG chạy xuống dưới nữa
+        }
+
+        // ⭐ 2) A tự đặt cho A → tạo luôn
+        self._actuallyCreateAppointmentEvent(
+            ownerUid: ownerUid,
+            title: title,
+            start: start,
+            end: end,
+            createdBy: createdBy,
+            completion: completion
+        )
+    }
+    private func _actuallyCreateAppointmentEvent(
+        ownerUid: String,
+        title: String,
+        start: Date,
+        end: Date,
+        createdBy: String,
+        completion: @escaping (Bool, String?) -> Void
+    ) {
+        // 1️⃣ Kiểm tra overlap trong lịch chủ sở hữu A
+        fetchBusySlots(for: ownerUid) { busySlots, ownerIsPremium in
             let overlap = busySlots.contains { $0.startTime < end && $0.endTime > start }
             if overlap {
                 DispatchQueue.main.async { self.isAdding = false }
@@ -767,7 +846,7 @@ extension EventManager {
                 return
             }
 
-            // 2️⃣ PREMIUM CHECK cho A
+            // 2️⃣ PREMIUM RULE
             if !ownerIsPremium {
                 let now = Date()
                 if let maxDate = Calendar.current.date(byAdding: .day, value: 7, to: now),
@@ -779,56 +858,54 @@ extension EventManager {
                 }
             }
 
-            // 3️⃣ Kiểm tra đăng nhập (người tạo lịch là B)
-            guard let uid = Auth.auth().currentUser?.uid else {
+            // 3️⃣ Tạo dữ liệu Firestore
+            guard let currentUid = Auth.auth().currentUser?.uid else {
                 DispatchQueue.main.async { self.isAdding = false }
-                completion(false,String(localized: "You_need_to_log_in."))
+                completion(false, String(localized: "You_need_to_log_in."))
                 return
             }
 
-            // 4️⃣ DỮ LIỆU TẠO EVENT
             let eventData: [String: Any] = [
                 "title": title,
-                "owner": sharedUserId,
-                "sharedUser": uid,
+                "owner": ownerUid,
+                "sharedUser": currentUid,
                 "createdBy": createdBy,
-                "participants": Array(Set([sharedUserId, uid])),  // ⭐ siêu quan trọng
+                "participants": Array(Set([ownerUid, currentUid])),
                 "date": Timestamp(date: start),
                 "startTime": Timestamp(date: start),
                 "endTime": Timestamp(date: end),
                 "colorHex": "#007AFF"
             ]
 
-            // 5️⃣ GHI EVENT VÀO FIRESTORE
+            // 4️⃣ Ghi Firestore
             var ref: DocumentReference?
             ref = self.db.collection("events").addDocument(data: eventData) { err in
                 DispatchQueue.main.async { self.isAdding = false }
 
-                // ❌ Lỗi tạo event
                 if let err = err {
                     completion(false, "Failed_to_create_event: \(err.localizedDescription)")
                     return
                 }
 
-                guard let docId = ref?.documentID else {
+                guard let id = ref?.documentID else {
                     completion(false, "Missing document ID")
                     return
                 }
 
-                // 6️⃣ Lấy lại event đầy đủ từ Firestore
-                self.db.collection("events").document(docId).getDocument { snap, err in
+                // 5️⃣ Load lại event để convert đúng dữ liệu (Timestamp → Date)
+                self.db.collection("events").document(id).getDocument { snap, err in
                     guard let snap = snap,
                           let newEvent = CalendarEvent.from(snap) else {
                         completion(false, "Failed to load created event")
                         return
                     }
 
-                    // ⭐⭐⭐ CẬP NHẬT BUSYSLOT CHO TẤT CẢ PARTICIPANTS (A & B)
+                    // ⭐ Cập nhật busySlots cho A và B
                     self.syncBusySlots(for: newEvent)
 
-                    // Xóa cache để load lại dữ liệu
-                    self.partnerBusySlotCache.removeValue(forKey: sharedUserId)
-                    self.partnerBusySlotCache.removeValue(forKey: uid)
+                    // Xoá cache A & B để load lại real-time
+                    self.partnerBusySlotCache.removeValue(forKey: ownerUid)
+                    self.partnerBusySlotCache.removeValue(forKey: currentUid)
 
                     completion(true, nil)
 
@@ -840,6 +917,7 @@ extension EventManager {
             }
         }
     }
+
 
     func updatePublicCalendarBusySlot(for userId: String, start: Date, end: Date) {
         let doc = db.collection("publicCalendar").document(userId)
