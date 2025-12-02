@@ -2,8 +2,6 @@
 //  LoginView.swift
 //  Easy Schedule
 //
-//  Created by Sam Manh Cuong on 12/11/25.
-//
 
 import SwiftUI
 import FirebaseAuth
@@ -15,36 +13,49 @@ struct LoginView: View {
     @State private var password: String = ""
     @State private var errorMessage: String?
     @State private var isLoggedIn: Bool = false
-    
+    @State private var showSignUp: Bool = false
+    @State private var emailWarning: String?
+
     var body: some View {
         NavigationView {
             VStack(spacing: 20) {
                 
-                Text(String(localized: "login"))
+                Text("Login")
                     .font(.largeTitle)
                     .bold()
                 
+                // Email
                 TextField("Email", text: $email)
                     .keyboardType(.emailAddress)
                     .autocapitalization(.none)
                     .padding()
                     .background(Color.gray.opacity(0.2))
                     .cornerRadius(8)
-                
-                SecureField(String(localized: "password"), text: $password)
+
+                // Password
+                SecureField("Password", text: $password)
                     .padding()
                     .background(Color.gray.opacity(0.2))
                     .cornerRadius(8)
-                
-                if let error = errorMessage {
-                    Text(error)
+
+                // Error messages
+                if let err = errorMessage {
+                    Text(err)
                         .foregroundColor(.red)
                         .multilineTextAlignment(.center)
-                        .padding(.horizontal)
                 }
                 
-                Button(action: { login() }) {
-                    Text(String(localized: "login"))
+                // Email verify warning (OPTION 3)
+                if let warn = emailWarning {
+                    Text(warn)
+                        .foregroundColor(.yellow)
+                        .font(.caption)
+                        .multilineTextAlignment(.center)
+                }
+                
+                // Login Button
+                Button(action: login) {
+                    Text("Login")
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding()
@@ -52,9 +63,9 @@ struct LoginView: View {
                         .cornerRadius(8)
                 }
 
-                
-                Button(action: { signUp() }) {
-                    Text(String(localized: "signup"))
+                // Sign Up Button → mở SignUpView
+                Button(action: { showSignUp = true }) {
+                    Text("Sign Up")
                         .foregroundColor(.blue)
                         .frame(maxWidth: .infinity)
                         .padding()
@@ -63,14 +74,15 @@ struct LoginView: View {
                                 .stroke(Color.blue, lineWidth: 2)
                         )
                 }
+                .sheet(isPresented: $showSignUp) {
+                    SignUpView()
+                }
 
-                
-                // 🔹 Nút đăng nhập bằng Google
-                Button(action: { signInWithGoogle() }) {
+                // Google Login
+                Button(action: signInWithGoogle) {
                     HStack {
                         Image(systemName: "globe")
-                        Text(String(localized: "login_with_google"))
-                            .fontWeight(.semibold)
+                        Text("Login with Google")
                     }
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
@@ -78,7 +90,7 @@ struct LoginView: View {
                     .background(Color.red)
                     .cornerRadius(8)
                 }
-                
+
                 Spacer()
             }
             .padding()
@@ -89,59 +101,51 @@ struct LoginView: View {
         }
     }
     
-    // MARK: - Functions
     
+    // MARK: - EMAIL LOGIN (OPTION 3 LOGIC)
     private func login() {
         errorMessage = nil
+        emailWarning = nil
+        
         Auth.auth().signIn(withEmail: email, password: password) { result, error in
+            
             if let error = error {
                 errorMessage = error.localizedDescription
-            } else {
-                print("✅ Người dùng đã đăng nhập: \(result?.user.uid ?? "")")
-                isLoggedIn = true
+                return
             }
+            
+            guard let user = result?.user else { return }
+            
+            // OPTION 3: KHÔNG CHẶN LOGIN, CHỈ CẢNH BÁO
+            if !user.isEmailVerified {
+                emailWarning = "Email của bạn chưa xác minh — một số tính năng có thể bị hạn chế."
+            }
+            
+            isLoggedIn = true
         }
     }
     
-    private func signUp() {
-        errorMessage = nil
-        Auth.auth().createUser(withEmail: email, password: password) { result, error in
-            if let error = error {
-                errorMessage = error.localizedDescription
-            } else {
-                print("✅ Đã tạo tài khoản mới: \(result?.user.uid ?? "")")
-                isLoggedIn = true
-            }
-        }
-    }
     
-    // MARK: - Google Sign-In
+    // MARK: - GOOGLE SIGN-IN
     private func signInWithGoogle() {
         guard let clientID = FirebaseApp.app()?.options.clientID else { return }
         
-        // Cấu hình Google
         let config = GIDConfiguration(clientID: clientID)
         GIDSignIn.sharedInstance.configuration = config
         
-        // Lấy rootViewController để hiển thị màn hình Google
-        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-              let rootVC = windowScene.windows.first?.rootViewController else {
-            print("❌ No root view controller")
-            return
-        }
+        guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let rootVC = scene.windows.first?.rootViewController else { return }
         
-        // Bắt đầu đăng nhập
         GIDSignIn.sharedInstance.signIn(withPresenting: rootVC) { result, error in
+            
             if let error = error {
                 self.errorMessage = error.localizedDescription
                 return
             }
             
-            guard
-                let user = result?.user,
-                let idToken = user.idToken?.tokenString
-            else {
-                self.errorMessage = String(localized: "google_login_failed")
+            guard let user = result?.user,
+                  let idToken = user.idToken?.tokenString else {
+                self.errorMessage = "Google authentication failed"
                 return
             }
             
@@ -150,38 +154,141 @@ struct LoginView: View {
                 accessToken: user.accessToken.tokenString
             )
             
-            Auth.auth().signIn(with: credential) { result, error in
+            Auth.auth().signIn(with: credential) { res, error in
                 if let error = error {
                     self.errorMessage = error.localizedDescription
-                    return
+                } else {
+                    self.isLoggedIn = true
                 }
-                print("✅ Đăng nhập bằng Google thành công: \(result?.user.email ?? "")")
-                self.isLoggedIn = true
             }
         }
     }
 }
 
-// MARK: - MainView
+
+// MARK: - MAIN VIEW
 struct MainView: View {
     var body: some View {
         VStack {
-            Text(String(localized: "welcome_logged_in"))
+            Text("Welcome!")
                 .font(.title)
                 .padding()
-            Button(String(localized: "logout")) {
-                do {
-                    try Auth.auth().signOut()
-                } catch {
-                    print("❌ Lỗi đăng xuất: \(error)")
-                }
+            
+            Button("Logout") {
+                do { try Auth.auth().signOut() }
+                catch { print("❌ Lỗi đăng xuất: \(error)") }
             }
         }
     }
 }
 
-struct LoginView_Previews: PreviewProvider {
-    static var previews: some View {
-        LoginView()
+#Preview {
+    LoginView()
+}
+
+struct SignUpView: View {
+    @Environment(\.dismiss) var dismiss
+
+    @State private var email = ""
+    @State private var password = ""
+    @State private var confirmPassword = ""
+    @State private var errorMessage: String?
+    @State private var isLoading = false
+    @State private var showSuccessMessage = false
+
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 20) {
+                
+                Text("Create Account")
+                    .font(.largeTitle)
+                    .bold()
+                
+                TextField("Email", text: $email)
+                    .keyboardType(.emailAddress)
+                    .autocapitalization(.none)
+                    .padding()
+                    .background(Color.gray.opacity(0.2))
+                    .cornerRadius(8)
+
+                SecureField("Password", text: $password)
+                    .padding()
+                    .background(Color.gray.opacity(0.2))
+                    .cornerRadius(8)
+
+                SecureField("Confirm Password", text: $confirmPassword)
+                    .padding()
+                    .background(Color.gray.opacity(0.2))
+                    .cornerRadius(8)
+                
+                if let err = errorMessage {
+                    Text(err)
+                        .foregroundColor(.red)
+                }
+                
+                if isLoading {
+                    ProgressView("Đang tạo tài khoản...")
+                }
+
+                Button(action: validateAndSignUp) {
+                    Text("Sign Up")
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.blue)
+                        .cornerRadius(8)
+                }
+
+                Spacer()
+            }
+            .padding()
+            .alert("Tạo tài khoản thành công!", isPresented: $showSuccessMessage) {
+                Button("OK") { dismiss() }
+            } message: {
+                Text("Vui lòng kiểm tra email để xác thực trước khi đăng nhập.")
+            }
+        }
+    }
+    
+    private func validateAndSignUp() {
+        errorMessage = nil
+        
+        if !email.contains("@") {
+            errorMessage = "Email không hợp lệ."
+            return
+        }
+        
+        if password.count < 6 {
+            errorMessage = "Mật khẩu phải ít nhất 6 ký tự."
+            return
+        }
+        
+        if password != confirmPassword {
+            errorMessage = "Mật khẩu xác nhận không khớp."
+            return
+        }
+        
+        createAccount()
+    }
+    
+    private func createAccount() {
+        isLoading = true
+        
+        Auth.auth().createUser(withEmail: email, password: password) { result, error in
+            isLoading = false
+            
+            if let error = error {
+                errorMessage = error.localizedDescription
+                return
+            }
+            
+            result?.user.sendEmailVerification { err in
+                if let err = err {
+                    errorMessage = err.localizedDescription
+                } else {
+                    showSuccessMessage = true
+                }
+            }
+        }
     }
 }
