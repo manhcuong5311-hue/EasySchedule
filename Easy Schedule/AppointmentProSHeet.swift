@@ -291,7 +291,7 @@ struct AppointmentProSheet: View {
     private func handleCreate() {
 
         let now = Date()
-        let maxPremiumDate = calendar.date(byAdding: .day, value: 7, to: now)!
+        _ = calendar.date(byAdding: .day, value: 7, to: now)!
 
         // ⭐ CHECK FREE USER LIMIT (giống AddEventView)
         let calendar = Calendar.current

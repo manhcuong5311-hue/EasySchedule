@@ -155,10 +155,34 @@ class AllowAccessViewModel: ObservableObject {
     @Published var requests: [AccessRequest] = []
     @Published var isLoading = false
     @Published var showName: Bool = true
+
+    // Search fields
+    @Published var requestSearch: String = ""
+    @Published var allowedSearch: String = ""
+
     private let service = AccessService.shared
+    private var cancellables = Set<AnyCancellable>()
 
     var ownerUid: String {
         Auth.auth().currentUser?.uid ?? ""
+    }
+
+    init() {
+        // Optional: debounce search updates to reduce UI churn
+        // If you don't want debounce, you can remove this block.
+        $requestSearch
+            .removeDuplicates()
+            .debounce(for: .milliseconds(150), scheduler: RunLoop.main)
+            .sink { _ in
+                // no-op: just forces UI update via published property
+            }
+            .store(in: &cancellables)
+
+        $allowedSearch
+            .removeDuplicates()
+            .debounce(for: .milliseconds(150), scheduler: RunLoop.main)
+            .sink { _ in }
+            .store(in: &cancellables)
     }
 
     func loadAll() {
@@ -166,15 +190,22 @@ class AllowAccessViewModel: ObservableObject {
 
         isLoading = true
 
+        // Fetch allowed list and sort alphabetically (by name or uid)
         service.fetchAllowedList(ownerUid: ownerUid) { allowed in
+            let sorted = allowed.sorted {
+                let a = ($0.name ?? $0.uid).localizedLowercase
+                let b = ($1.name ?? $1.uid).localizedLowercase
+                return a < b
+            }
             DispatchQueue.main.async {
-                self.allowedUsers = allowed
+                self.allowedUsers = sorted
             }
         }
 
+        // Fetch requests — KEEP Firestore ordering by requestedAt (descending)
         service.fetchRequestList(ownerUid: ownerUid) { reqs in
             DispatchQueue.main.async {
-                self.requests = reqs
+                self.requests = reqs // requests are already ordered by requestedAt desc in service
                 self.isLoading = false
             }
         }
@@ -200,14 +231,31 @@ class AllowAccessViewModel: ObservableObject {
         }
     }
 
-
     func deny(_ uid: String) {
         service.denyUser(ownerUid: ownerUid, otherUid: uid) { success in
             if success { self.loadAll() }
         }
     }
-}
 
+    // MARK: - Filtered lists (keeps original order of `requests`)
+    var filteredRequests: [AccessRequest] {
+        let query = requestSearch.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if query.isEmpty { return requests }
+        return requests.filter { req in
+            let text = (req.name.isEmpty ? req.uid : req.name).lowercased()
+            return text.contains(query)
+        }
+    }
+
+    var filteredAllowedUsers: [AllowedUser] {
+        let query = allowedSearch.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if query.isEmpty { return allowedUsers }
+        return allowedUsers.filter { u in
+            let text = (u.name ?? u.uid).lowercased()
+            return text.contains(query)
+        }
+    }
+}
 
 
 
@@ -219,21 +267,40 @@ struct AccessManagementView: View {
 
             // ⭐ REQUESTS – Ai đang xin phép
             Section(String(localized: "requests_section_title")) {
-                if vm.requests.isEmpty {
-                    Text(String(localized: "no_requests"))
+
+                // Search field for requests
+                HStack {
+                    Image(systemName: "magnifyingglass")
                         .foregroundColor(.secondary)
+                    TextField(String(localized: "search_by_name"), text: $vm.requestSearch)
+                        .textInputAutocapitalization(.never)
+                        .disableAutocorrection(true)
+                }
+                .padding(.vertical, 6)
+
+                if vm.filteredRequests.isEmpty {
+                    if vm.isLoading {
+                        ProgressView()
+                            .frame(maxWidth: .infinity, alignment: .center)
+                    } else {
+                        Text(String(localized: "no_requests"))
+                            .foregroundColor(.secondary)
+                    }
                 } else {
-                    ForEach(vm.requests) { req in
+                    ForEach(vm.filteredRequests) { req in
                         HStack {
                             VStack(alignment: .leading) {
                                 Text(req.name.isEmpty ? req.uid : req.name)
+                                    .font(.body)
                                 if let time = req.requestedAt {
-                                    Text(time.formatted())
+                                    Text(time.formatted(.dateTime.hour().minute().month().day().year()))
                                         .font(.caption)
                                         .foregroundColor(.secondary)
                                 }
                             }
+
                             Spacer()
+
                             Button(String(localized: "allow_button")) {
                                 vm.allow(req.uid)
                             }
@@ -244,9 +311,11 @@ struct AccessManagementView: View {
                             }
                             .foregroundColor(.red)
                         }
+                        .padding(.vertical, 6)
                     }
                 }
             }
+
 
             // ⭐ ALLOWED USERS
             Section {
