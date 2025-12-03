@@ -20,7 +20,7 @@ enum EventOrigin: String, Codable {
     case busySlot
 }
 struct CalendarEvent: Identifiable, Hashable, Codable {
-    
+
     // MARK: - Core fields
     var id: String = UUID().uuidString
     var title: String
@@ -35,6 +35,10 @@ struct CalendarEvent: Identifiable, Hashable, Codable {
 
     // MARK: - Participants
     var participants: [String] = []
+
+    // MARK: - Name resolution fields (⭐ NEW)
+    var participantNames: [String: String]? = nil   // <— thêm
+    var creatorName: String? = nil                 // <— thêm
 
     // MARK: - UI fields
     var colorHex: String = "#007AFF"
@@ -1198,6 +1202,22 @@ private func rememberGroupedByDay(events: [CalendarEvent]) -> [Date: [CalendarEv
     }
 }
 
+func displayName(for event: CalendarEvent, uid: String, eventManager: EventManager) -> String {
+
+    // 1️⃣ Web gửi participantNames: { uid: "Name", ... }
+    if let map = event.participantNames, let name = map[uid], !name.isEmpty {
+        return name
+    }
+
+    // 2️⃣ Web gửi creatorName — áp dụng cho createdBy
+    if uid == event.createdBy, let name = event.creatorName, !name.isEmpty {
+        return name
+    }
+
+    // 3️⃣ Fallback → dùng cache của App
+    return eventManager.userNames[uid] ?? uid
+}
+
 
 struct EventListView: View {
     @EnvironmentObject var eventManager: EventManager
@@ -1384,7 +1404,7 @@ struct EventListView: View {
                                                         .font(.subheadline)
                                                         .foregroundColor(.secondary)
                                                     } else {
-                                                        UserNameView(uid: event.createdBy)
+                                                        Text(displayName(for: event, uid: event.createdBy, eventManager: eventManager))
                                                             .font(.subheadline)
                                                             .foregroundColor(.secondary)
                                                     }
@@ -1541,9 +1561,10 @@ struct EventListView: View {
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                 } else {
-                    UserNameView(uid: event.createdBy)
+                    Text(displayName(for: event, uid: event.createdBy, eventManager: eventManager))
                         .font(.subheadline)
                         .foregroundColor(.secondary)
+
                 }
 
 
@@ -1582,6 +1603,9 @@ struct EventListView: View {
     }
 
 }
+
+
+
 private func originLabel(for event: CalendarEvent) -> String {
     switch event.origin {
     case .myEvent:
@@ -1632,14 +1656,14 @@ struct PastEventsByWeekView: View {
                         // ⭐ Hiển thị tên người dùng
                         if event.origin == .iCreatedForOther {
                             HStack(spacing: 4) {
-                                UserNameView(uid: event.createdBy)
+                                Text(displayName(for: event, uid: event.createdBy, eventManager: eventManager))
                                 Text("→")
-                                UserNameView(uid: event.owner)
+                                Text(displayName(for: event, uid: event.owner, eventManager: eventManager))
                             }
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                         } else {
-                            UserNameView(uid: event.createdBy)
+                            Text(displayName(for: event, uid: event.createdBy, eventManager: eventManager))
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
                         }
@@ -1901,7 +1925,7 @@ struct CustomizableCalendarView: View {
                                                     .font(.subheadline)
                                                     .foregroundColor(.secondary)
                                                 } else {
-                                                    UserNameView(uid: event.createdBy)
+                                                    Text(displayName(for: event, uid: event.createdBy, eventManager: eventManager))
                                                         .font(.subheadline)
                                                         .foregroundColor(.secondary)
                                                 }
@@ -2484,7 +2508,7 @@ struct DayEventsSheetView: View {
                         
                     } else {
                         // Tự tạo hoặc người khác tạo cho tôi
-                        UserNameView(uid: event.createdBy)
+                        Text(displayName(for: event, uid: event.createdBy, eventManager: eventManager))
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                     }

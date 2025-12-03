@@ -35,27 +35,31 @@ class AccessService {
     }
 
     // ⭐ ALLOW (A cho phép B)
-    func allowUser(ownerUid: String, otherUid: String, completion: @escaping (Bool) -> Void) {
+    func allowUser(ownerUid: String, otherUid: String, otherUserName: String?, completion: @escaping (Bool) -> Void) {
+
+        var data: [String: Any] = [
+            "allowed": true,
+            "allowedAt": FieldValue.serverTimestamp()
+        ]
+
+        if let name = otherUserName { data["name"] = name }
+
         db.collection("calendarAccess")
             .document(ownerUid)
             .collection("allowed")
             .document(otherUid)
-            .setData([
-                "allowed": true,
-                "allowedAt": FieldValue.serverTimestamp()
-            ]) { error in
+            .setData(data) { error in
                 if let error = error {
                     print("❌ Allow failed:", error.localizedDescription)
                     completion(false)
                 } else {
                     print("✅ ALLOW SUCCESS: \(ownerUid) allowed \(otherUid)")
                     completion(true)
-
-                    // ⭐ XOÁ REQUEST khi Allow
                     self.removeRequest(ownerUid: ownerUid, requesterUid: otherUid)
                 }
             }
     }
+
 
     // ⭐ DENY (A chặn B)
     func denyUser(ownerUid: String, otherUid: String, completion: @escaping (Bool) -> Void) {
@@ -89,15 +93,23 @@ class AccessService {
     }
 
     // ⭐ FETCH ALLOWED LIST
-    func fetchAllowedList(ownerUid: String, completion: @escaping ([String]) -> Void) {
+    func fetchAllowedList(ownerUid: String, completion: @escaping ([AllowedUser]) -> Void) {
         db.collection("calendarAccess")
             .document(ownerUid)
             .collection("allowed")
             .getDocuments { snap, _ in
-                let list = snap?.documents.map { $0.documentID } ?? []
+
+                let list = snap?.documents.map {
+                    AllowedUser(
+                        uid: $0.documentID,
+                        name: $0.data()["name"] as? String
+                    )
+                } ?? []
+
                 completion(list)
             }
     }
+
 
     // ⭐ FETCH REQUESTS (ai đang xin phép)
     func fetchRequestList(ownerUid: String, completion: @escaping ([AccessRequest]) -> Void) {
@@ -139,10 +151,10 @@ struct AccessRequest: Identifiable {
 
 
 class AllowAccessViewModel: ObservableObject {
-    @Published var allowedUsers: [String] = []
+    @Published var allowedUsers: [AllowedUser] = []
     @Published var requests: [AccessRequest] = []
     @Published var isLoading = false
-
+    @Published var showName: Bool = true
     private let service = AccessService.shared
 
     var ownerUid: String {
@@ -169,10 +181,25 @@ class AllowAccessViewModel: ObservableObject {
     }
 
     func allow(_ uid: String) {
-        service.allowUser(ownerUid: ownerUid, otherUid: uid) { success in
-            if success { self.loadAll() }
+        if let request = requests.first(where: { $0.uid == uid }) {
+            service.allowUser(
+                ownerUid: ownerUid,
+                otherUid: uid,
+                otherUserName: request.name
+            ) { success in
+                if success { self.loadAll() }
+            }
+        } else {
+            service.allowUser(
+                ownerUid: ownerUid,
+                otherUid: uid,
+                otherUserName: nil
+            ) { success in
+                if success { self.loadAll() }
+            }
         }
     }
+
 
     func deny(_ uid: String) {
         service.denyUser(ownerUid: ownerUid, otherUid: uid) { success in
@@ -180,8 +207,6 @@ class AllowAccessViewModel: ObservableObject {
         }
     }
 }
-
-
 
 
 
@@ -224,25 +249,41 @@ struct AccessManagementView: View {
             }
 
             // ⭐ ALLOWED USERS
-            Section(String(localized: "allowed_users_section_title")) {
+            Section {
+                
+                // ⭐ Toggle show UID / show Name
+                Toggle("Show names", isOn: $vm.showName)
+
                 if vm.allowedUsers.isEmpty {
                     Text(String(localized: "no_allowed_users"))
                         .foregroundColor(.secondary)
                 } else {
-                    ForEach(vm.allowedUsers, id: \.self) { uid in
+                    ForEach(vm.allowedUsers) { user in
                         HStack {
-                            Text(uid)
+                            // ⭐ Hiển thị theo toggle
+                            Text(vm.showName ? (user.name ?? user.uid) : user.uid)
+
                             Spacer()
+
                             Button(String(localized: "block")) {
-                                vm.deny(uid)
+                                vm.deny(user.uid)
                             }
                             .foregroundColor(.red)
                         }
                     }
                 }
+            } header: {
+                Text(String(localized: "allowed_users_section_title"))
             }
         }
         .navigationTitle(String(localized: "manage_access_title"))
         .onAppear { vm.loadAll() }
     }
+}
+
+
+struct AllowedUser: Identifiable {
+    var id: String { uid }
+    let uid: String
+    let name: String?
 }
