@@ -183,11 +183,9 @@ struct SettingsView: View {
                         contactSupport()
                     }
                 }
-                
                 NavigationLink("FAQ") {
                     FAQView()
                 }
-
                 // MARK: - Logout
                 Section {
                     Button(role: .destructive) {

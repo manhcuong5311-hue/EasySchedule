@@ -904,7 +904,6 @@ extension CalendarEvent {
     static func from(_ doc: DocumentSnapshot) -> CalendarEvent? {
         let data = doc.data() ?? [:]
 
-        // helper parse date from various typed fields
         func parseDate(_ value: Any?) -> Date? {
             if let ts = value as? Timestamp { return ts.dateValue() }
             if let d = value as? Double { return Date(timeIntervalSince1970: d) }
@@ -912,36 +911,18 @@ extension CalendarEvent {
             return nil
         }
 
-        // Prefer possible timestamp fields names: "startTime"/"endTime" or "start"/"end"
         let start = parseDate(data["startTime"] ?? data["start"])
         let end   = parseDate(data["endTime"] ?? data["end"])
-        guard let s = start, let e = end else {
-            #if DEBUG
-            print("CalendarEvent.from: missing start/end for doc \(doc.documentID) -> \(data)")
-            #endif
-            return nil
-        }
+        guard let s = start, let e = end else { return nil }
 
-        guard let title = data["title"] as? String else {
-            #if DEBUG
-            print("CalendarEvent.from: missing title for doc \(doc.documentID) -> \(data)")
-            #endif
-            return nil
-        }
-
-        // owner is required
-        guard let owner = data["owner"] as? String else {
-            #if DEBUG
-            print("CalendarEvent.from: missing owner for doc \(doc.documentID) -> \(data)")
-            #endif
-            return nil
-        }
+        guard let title = data["title"] as? String else { return nil }
+        guard let owner = data["owner"] as? String else { return nil }
 
         let sharedUser = data["sharedUser"] as? String ?? ""
         let createdBy  = data["createdBy"] as? String  ?? ""
         let colorHex   = data["colorHex"] as? String  ?? "#007AFF"
 
-        // participants may be saved as [String] or maybe missing
+        // participants
         var participants: [String] = []
         if let arr = data["participants"] as? [String] {
             participants = arr
@@ -949,18 +930,19 @@ extension CalendarEvent {
             participants = arrAny.compactMap { $0 as? String }
         }
 
-        // Determine origin relative to current user
+        // ⭐ NEW: Read participantNames + creatorName
+        let participantNames = data["participantNames"] as? [String: String] ?? [:]
+        let creatorName = data["creatorName"] as? String ?? ""
+
+        // Determine origin
         let current = Auth.auth().currentUser?.uid ?? ""
         var origin: EventOrigin
-
         let isMyCalendar = (owner == current)
         let isCreatedByMe = (createdBy == current)
 
         if isMyCalendar {
-            // Event nằm trên lịch của tôi
             origin = isCreatedByMe ? .myEvent : .createdForMe
         } else {
-            // Event nằm trên lịch đối tác -> chỉ có 1 trường hợp: tôi tạo cho đối tác
             origin = isCreatedByMe ? .iCreatedForOther : .createdForMe
         }
 
@@ -974,13 +956,13 @@ extension CalendarEvent {
             sharedUser: sharedUser,
             createdBy: createdBy,
             participants: participants,
+            participantNames: participantNames,  // ⭐ ADDED
+            creatorName: creatorName,            // ⭐ ADDED
             colorHex: colorHex,
             pendingDelete: false,
             origin: origin
         )
-       
     }
-
 
 
 
