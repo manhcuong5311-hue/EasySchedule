@@ -183,6 +183,10 @@ struct SettingsView: View {
                         contactSupport()
                     }
                 }
+                
+                NavigationLink("FAQ") {
+                    FAQView()
+                }
 
                 // MARK: - Logout
                 Section {
@@ -242,6 +246,116 @@ struct SettingsView: View {
     }
 }
 
+import SwiftUI
+
+struct FAQView: View {
+
+    @State private var expandedSection: String? = nil
+
+    var body: some View {
+        List {
+
+            FAQSectionView(
+                id: "sharing",
+                titleKey: "faq_section_sharing",
+                questions: [
+                    ("faq_1_q", "faq_1_a"),
+                    ("faq_2_q", "faq_2_a"),
+                    ("faq_3_q", "faq_3_a"),
+                    ("faq_8_q", "faq_8_a")
+                ],
+                expandedSection: $expandedSection
+            )
+
+            FAQSectionView(
+                id: "limits",
+                titleKey: "faq_section_limits",
+                questions: [
+                    ("faq_4_q", "faq_4_a"),
+                    ("faq_5_q", "faq_5_a"),
+                    ("faq_6_q", "faq_6_a")
+                ],
+                expandedSection: $expandedSection
+            )
+
+            FAQSectionView(
+                id: "notifications",
+                titleKey: "faq_section_notifications",
+                questions: [
+                    ("faq_7_q", "faq_7_a")
+                ],
+                expandedSection: $expandedSection
+            )
+        }
+        .navigationTitle("FAQ")
+    }
+}
+struct FAQSectionView: View {
+    let id: String
+    let titleKey: String
+    let questions: [(String, String)]
+
+    @Binding var expandedSection: String?
+
+    var body: some View {
+        Section {
+            Button {
+                withAnimation(.easeInOut) {
+                    expandedSection = expandedSection == id ? nil : id
+                }
+            } label: {
+                HStack {
+                    Text(LocalizedStringKey(titleKey))
+                        .font(.headline)
+
+                    Spacer()
+
+                    Image(systemName: expandedSection == id ? "chevron.down" : "chevron.right")
+                        .foregroundColor(.secondary)
+                }
+                .contentShape(Rectangle())
+            }
+
+            if expandedSection == id {
+                ForEach(questions, id: \.0) { q, a in
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(LocalizedStringKey(q))
+                            .font(.subheadline)
+                            .bold()
+
+                        Text(LocalizedStringKey(a))
+                            .font(.footnote)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+        }
+    }
+}
+
+struct FAQItem: View {
+    let qKey: String
+    let aKey: String
+
+    init(_ q: String, _ a: String) {
+        self.qKey = q
+        self.aKey = a
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(LocalizedStringKey(qKey))
+                .font(.headline)
+
+            Text(LocalizedStringKey(aKey))
+                .font(.body)
+                .foregroundColor(.secondary)
+        }
+    }
+}
+
+
 
 
 // MARK: - Privacy Policy View
@@ -262,6 +376,10 @@ struct PrivacyPolicyView: View {
         }
     }
 }
+
+
+
+
 
 // MARK: - Security View
 
