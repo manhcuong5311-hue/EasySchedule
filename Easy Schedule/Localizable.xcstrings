@@ -3150,6 +3150,23 @@
         }
       }
     },
+    "search_by_name" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search by name…"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Tìm kiếm tên…"
+          }
+        }
+      }
+    },
     "search_placeholder" : {
       "extractionState" : "manual",
       "localizations" : {
