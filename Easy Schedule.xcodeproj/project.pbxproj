@@ -19,9 +19,11 @@
 		0D4E99822EC79E31006F2705 /* FirebaseFunctions in Frameworks */ = {isa = PBXBuildFile; productRef = 0D4E99812EC79E31006F2705 /* FirebaseFunctions */; };
 		0D4E99842EC79E31006F2705 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = 0D4E99832EC79E31006F2705 /* FirebaseMessaging */; };
 		0D4E99862EC79E31006F2705 /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 0D4E99852EC79E31006F2705 /* FirebaseStorage */; };
+		0D6C2F722EE2CB0E00124A4F /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0D6C2F712EE2CB0E00124A4F /* StoreKit.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		0D6C2F712EE2CB0E00124A4F /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
 		0DCA51322EC38C75008324B2 /* Easy Schedule.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Easy Schedule.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -49,6 +51,7 @@
 				0D4E99752EC79DB9006F2705 /* GoogleSignInSwift in Frameworks */,
 				0D4E99782EC79E31006F2705 /* FirebaseAnalytics in Frameworks */,
 				0D4E997A2EC79E31006F2705 /* FirebaseAuth in Frameworks */,
+				0D6C2F722EE2CB0E00124A4F /* StoreKit.framework in Frameworks */,
 				0D4E99802EC79E31006F2705 /* FirebaseFirestore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -56,10 +59,19 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		0D6C2F702EE2CB0E00124A4F /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				0D6C2F712EE2CB0E00124A4F /* StoreKit.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		0DCA51292EC38C75008324B2 = {
 			isa = PBXGroup;
 			children = (
 				0DCA51342EC38C75008324B2 /* Easy Schedule */,
+				0D6C2F702EE2CB0E00124A4F /* Frameworks */,
 				0DCA51332EC38C75008324B2 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -175,6 +187,7 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
@@ -241,6 +254,7 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
@@ -301,6 +315,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
+				CODE_SIGN_ENTITLEMENTS = "Easy Schedule/Easy Schedule.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 553U32259K;
@@ -335,6 +350,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
+				CODE_SIGN_ENTITLEMENTS = "Easy Schedule/Easy Schedule.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 553U32259K;

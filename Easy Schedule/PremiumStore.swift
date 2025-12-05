@@ -9,9 +9,9 @@ actor PremiumStore {
     static let shared = PremiumStore()
 
     private let productIdentifiers: Set<String> = [
-        "premium.1month",
-           "premium.6month",
-           "premium.1year"
+        "com.SamCorp.EasySchedule.premium.monthly",
+           "com.SamCorp.EasySchedule.premium.yearly"
+           
     ]
 
     private var productsInternal: [Product] = []
