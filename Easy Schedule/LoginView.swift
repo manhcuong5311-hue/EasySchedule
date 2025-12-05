@@ -223,23 +223,23 @@ struct SignUpView: View {
 
     var body: some View {
         VStack(spacing: 20) {
-            Text("Create Account")
+            Text(String(localized: "create_account"))
                 .font(.largeTitle)
                 .bold()
 
-            TextField("Email", text: $email)
+            TextField(String(localized: "email_placeholder"), text: $email)
                 .keyboardType(.emailAddress)
                 .autocapitalization(.none)
                 .padding()
                 .background(Color(.systemGray6))
                 .cornerRadius(10)
 
-            SecureField("Password", text: $password)
+            SecureField(String(localized: "password_placeholder"), text: $password)
                 .padding()
                 .background(Color(.systemGray6))
                 .cornerRadius(10)
 
-            SecureField("Confirm Password", text: $confirmPassword)
+            SecureField(String(localized: "confirm_password_placeholder"), text: $confirmPassword)
                 .padding()
                 .background(Color(.systemGray6))
                 .cornerRadius(10)
@@ -250,11 +250,11 @@ struct SignUpView: View {
             }
 
             if isLoading {
-                ProgressView("Creating account...")
+                ProgressView(String(localized: "creating_account"))
             }
 
             Button(action: signUp) {
-                Text("Sign Up")
+                Text(String(localized: "sign_up_button"))
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding()
@@ -265,10 +265,10 @@ struct SignUpView: View {
             Spacer()
         }
         .padding()
-        .alert("Account Created!", isPresented: $success) {
+        .alert(String(localized: "account_created_title"), isPresented: $success) {
             Button("OK") { dismiss() }
         } message: {
-            Text("Please verify your email before logging in.")
+            Text(String(localized: "account_created_message"))
         }
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -277,15 +277,15 @@ struct SignUpView: View {
         errorMessage = nil
         
         if !email.contains("@") {
-            errorMessage = "Invalid email."
+            errorMessage = String(localized: "invalid_email_error")
             return
         }
         if password.count < 6 {
-            errorMessage = "Password must be at least 6 characters."
+            errorMessage = String(localized: "password_short_error")
             return
         }
         if password != confirmPassword {
-            errorMessage = "Passwords do not match."
+            errorMessage = String(localized: "password_not_match_error")
             return
         }
 
@@ -309,11 +309,11 @@ struct SignUpView: View {
 struct MainView: View {
     var body: some View {
         VStack(spacing: 20) {
-            Text("Welcome!")
+            Text(String(localized: "welcome"))
                 .font(.largeTitle)
                 .bold()
 
-            Button("Logout") {
+            Button(String(localized:"logout")) {
                 do { try Auth.auth().signOut() }
                 catch { print("Logout error:", error.localizedDescription) }
             }
