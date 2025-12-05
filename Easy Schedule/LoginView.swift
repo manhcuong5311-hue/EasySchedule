@@ -1,20 +1,16 @@
-//
-//  LoginView.swift
-//  Easy Schedule
-//
-
 import SwiftUI
 import FirebaseAuth
 import GoogleSignIn
 import FirebaseCore
+import AuthenticationServices
+import CryptoKit
 
 struct LoginView: View {
-    @State private var email: String = ""
-    @State private var password: String = ""
+    @State private var email = ""
+    @State private var password = ""
     @State private var errorMessage: String?
-    @State private var isLoggedIn: Bool = false
-    @State private var showSignUp: Bool = false
-    @State private var emailWarning: String?
+    @State private var isLoggedIn = false
+    @State private var currentNonce: String?
 
     var body: some View {
         NavigationView {
@@ -24,61 +20,50 @@ struct LoginView: View {
                     .font(.largeTitle)
                     .bold()
                 
-                // Email
+                // MARK: Email
                 TextField("Email", text: $email)
                     .keyboardType(.emailAddress)
                     .autocapitalization(.none)
                     .padding()
-                    .background(Color.gray.opacity(0.2))
-                    .cornerRadius(8)
+                    .background(Color(.systemGray6))
+                    .cornerRadius(10)
 
-                // Password
+                // MARK: Password
                 SecureField("Password", text: $password)
                     .padding()
-                    .background(Color.gray.opacity(0.2))
-                    .cornerRadius(8)
+                    .background(Color(.systemGray6))
+                    .cornerRadius(10)
 
-                // Error messages
-                if let err = errorMessage {
-                    Text(err)
+                // MARK: Error Message
+                if let error = errorMessage {
+                    Text(error)
                         .foregroundColor(.red)
                         .multilineTextAlignment(.center)
                 }
-                
-                // Email verify warning (OPTION 3)
-                if let warn = emailWarning {
-                    Text(warn)
-                        .foregroundColor(.yellow)
-                        .font(.caption)
-                        .multilineTextAlignment(.center)
-                }
-                
-                // Login Button
+
+                // MARK: Login Button
                 Button(action: login) {
                     Text("Login")
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding()
                         .background(Color.blue)
-                        .cornerRadius(8)
+                        .cornerRadius(12)
                 }
 
-                // Sign Up Button → mở SignUpView
-                Button(action: { showSignUp = true }) {
+                // MARK: Sign Up → Page Navigation
+                NavigationLink(destination: SignUpView()) {
                     Text("Sign Up")
                         .foregroundColor(.blue)
                         .frame(maxWidth: .infinity)
                         .padding()
                         .overlay(
-                            RoundedRectangle(cornerRadius: 8)
+                            RoundedRectangle(cornerRadius: 12)
                                 .stroke(Color.blue, lineWidth: 2)
                         )
                 }
-                .sheet(isPresented: $showSignUp) {
-                    SignUpView()
-                }
 
-                // Google Login
+                // MARK: Google Login
                 Button(action: signInWithGoogle) {
                     HStack {
                         Image(systemName: "globe")
@@ -88,8 +73,18 @@ struct LoginView: View {
                     .frame(maxWidth: .infinity)
                     .padding()
                     .background(Color.red)
-                    .cornerRadius(8)
+                    .cornerRadius(10)
                 }
+
+                // MARK: Apple Login
+                SignInWithAppleButton(
+                    .signIn,
+                    onRequest: configureAppleRequest,
+                    onCompletion: handleAppleCompletion
+                )
+                .frame(height: 50)
+                .cornerRadius(10)
+                .padding(.top, 5)
 
                 Spacer()
             }
@@ -100,36 +95,23 @@ struct LoginView: View {
             }
         }
     }
-    
-    
-    // MARK: - EMAIL LOGIN (OPTION 3 LOGIC)
+
+    // MARK: - EMAIL LOGIN
     private func login() {
         errorMessage = nil
-        emailWarning = nil
-        
+
         Auth.auth().signIn(withEmail: email, password: password) { result, error in
-            
             if let error = error {
                 errorMessage = error.localizedDescription
                 return
             }
-            
-            guard let user = result?.user else { return }
-            
-            // OPTION 3: KHÔNG CHẶN LOGIN, CHỈ CẢNH BÁO
-            if !user.isEmailVerified {
-                emailWarning = "Email của bạn chưa xác minh — một số tính năng có thể bị hạn chế."
-            }
-            
             isLoggedIn = true
         }
     }
-    
-    
-    // MARK: - GOOGLE SIGN-IN
+
+    // MARK: - GOOGLE LOGIN
     private func signInWithGoogle() {
         guard let clientID = FirebaseApp.app()?.options.clientID else { return }
-        
         let config = GIDConfiguration(clientID: clientID)
         GIDSignIn.sharedInstance.configuration = config
         
@@ -154,7 +136,7 @@ struct LoginView: View {
                 accessToken: user.accessToken.tokenString
             )
             
-            Auth.auth().signIn(with: credential) { res, error in
+            Auth.auth().signIn(with: credential) { _, error in
                 if let error = error {
                     self.errorMessage = error.localizedDescription
                 } else {
@@ -163,28 +145,71 @@ struct LoginView: View {
             }
         }
     }
-}
 
+    // MARK: - APPLE LOGIN
+    private func configureAppleRequest(_ request: ASAuthorizationAppleIDRequest) {
+        let nonce = randomNonceString()
+        currentNonce = nonce
+        request.requestedScopes = [.email, .fullName]
+        request.nonce = sha256(nonce)
+    }
 
-// MARK: - MAIN VIEW
-struct MainView: View {
-    var body: some View {
-        VStack {
-            Text("Welcome!")
-                .font(.title)
-                .padding()
-            
-            Button("Logout") {
-                do { try Auth.auth().signOut() }
-                catch { print("❌ Lỗi đăng xuất: \(error)") }
-            }
+    private func handleAppleCompletion(_ result: Result<ASAuthorization, Error>) {
+        switch result {
+        case .success(let auth):
+            signInWithApple(auth)
+        case .failure(let error):
+            errorMessage = error.localizedDescription
         }
+    }
+
+    private func signInWithApple(_ authResults: ASAuthorization) {
+        guard let credential = authResults.credential as? ASAuthorizationAppleIDCredential else {
+            errorMessage = "Apple login failed."
+            return
+        }
+
+        guard let nonce = currentNonce else {
+            errorMessage = "Invalid state: No nonce."
+            return
+        }
+
+        guard let tokenData = credential.identityToken,
+              let tokenString = String(data: tokenData, encoding: .utf8) else {
+            errorMessage = "Unable to fetch identity token."
+            return
+        }
+
+        let firebaseCredential = OAuthProvider.appleCredential(
+            withIDToken: tokenString,
+            rawNonce: nonce,
+            fullName: credential.fullName
+        )
+
+        Auth.auth().signIn(with: firebaseCredential) { _, error in
+            if let error = error {
+                self.errorMessage = error.localizedDescription
+                return
+            }
+            self.isLoggedIn = true
+        }
+    }
+
+    // MARK: - Nonce Utilities
+    func sha256(_ input: String) -> String {
+        let hashed = SHA256.hash(data: Data(input.utf8))
+        return hashed.map { String(format: "%02x", $0) }.joined()
+    }
+
+    func randomNonceString(length: Int = 32) -> String {
+        let charset = "0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz"
+        return String((0..<length).compactMap { _ in charset.randomElement() })
     }
 }
 
-#Preview {
-    LoginView()
-}
+
+import SwiftUI
+import FirebaseAuth
 
 struct SignUpView: View {
     @Environment(\.dismiss) var dismiss
@@ -194,101 +219,108 @@ struct SignUpView: View {
     @State private var confirmPassword = ""
     @State private var errorMessage: String?
     @State private var isLoading = false
-    @State private var showSuccessMessage = false
+    @State private var success = false
 
     var body: some View {
-        NavigationView {
-            VStack(spacing: 20) {
-                
-                Text("Create Account")
-                    .font(.largeTitle)
-                    .bold()
-                
-                TextField("Email", text: $email)
-                    .keyboardType(.emailAddress)
-                    .autocapitalization(.none)
-                    .padding()
-                    .background(Color.gray.opacity(0.2))
-                    .cornerRadius(8)
+        VStack(spacing: 20) {
+            Text("Create Account")
+                .font(.largeTitle)
+                .bold()
 
-                SecureField("Password", text: $password)
-                    .padding()
-                    .background(Color.gray.opacity(0.2))
-                    .cornerRadius(8)
+            TextField("Email", text: $email)
+                .keyboardType(.emailAddress)
+                .autocapitalization(.none)
+                .padding()
+                .background(Color(.systemGray6))
+                .cornerRadius(10)
 
-                SecureField("Confirm Password", text: $confirmPassword)
-                    .padding()
-                    .background(Color.gray.opacity(0.2))
-                    .cornerRadius(8)
-                
-                if let err = errorMessage {
-                    Text(err)
-                        .foregroundColor(.red)
-                }
-                
-                if isLoading {
-                    ProgressView("Đang tạo tài khoản...")
-                }
+            SecureField("Password", text: $password)
+                .padding()
+                .background(Color(.systemGray6))
+                .cornerRadius(10)
 
-                Button(action: validateAndSignUp) {
-                    Text("Sign Up")
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.blue)
-                        .cornerRadius(8)
-                }
+            SecureField("Confirm Password", text: $confirmPassword)
+                .padding()
+                .background(Color(.systemGray6))
+                .cornerRadius(10)
 
-                Spacer()
+            if let error = errorMessage {
+                Text(error)
+                    .foregroundColor(.red)
             }
-            .padding()
-            .alert("Tạo tài khoản thành công!", isPresented: $showSuccessMessage) {
-                Button("OK") { dismiss() }
-            } message: {
-                Text("Vui lòng kiểm tra email để xác thực trước khi đăng nhập.")
+
+            if isLoading {
+                ProgressView("Creating account...")
             }
+
+            Button(action: signUp) {
+                Text("Sign Up")
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.blue)
+                    .cornerRadius(12)
+            }
+
+            Spacer()
         }
+        .padding()
+        .alert("Account Created!", isPresented: $success) {
+            Button("OK") { dismiss() }
+        } message: {
+            Text("Please verify your email before logging in.")
+        }
+        .navigationBarTitleDisplayMode(.inline)
     }
-    
-    private func validateAndSignUp() {
+
+    private func signUp() {
         errorMessage = nil
         
         if !email.contains("@") {
-            errorMessage = "Email không hợp lệ."
+            errorMessage = "Invalid email."
             return
         }
-        
         if password.count < 6 {
-            errorMessage = "Mật khẩu phải ít nhất 6 ký tự."
+            errorMessage = "Password must be at least 6 characters."
             return
         }
-        
         if password != confirmPassword {
-            errorMessage = "Mật khẩu xác nhận không khớp."
+            errorMessage = "Passwords do not match."
             return
         }
-        
-        createAccount()
-    }
-    
-    private func createAccount() {
+
         isLoading = true
-        
+
         Auth.auth().createUser(withEmail: email, password: password) { result, error in
             isLoading = false
-            
+
             if let error = error {
                 errorMessage = error.localizedDescription
                 return
             }
-            
-            result?.user.sendEmailVerification { err in
-                if let err = err {
-                    errorMessage = err.localizedDescription
-                } else {
-                    showSuccessMessage = true
-                }
-            }
+
+            result?.user.sendEmailVerification { _ in }
+            success = true
         }
+    }
+}
+
+
+struct MainView: View {
+    var body: some View {
+        VStack(spacing: 20) {
+            Text("Welcome!")
+                .font(.largeTitle)
+                .bold()
+
+            Button("Logout") {
+                do { try Auth.auth().signOut() }
+                catch { print("Logout error:", error.localizedDescription) }
+            }
+            .foregroundColor(.red)
+
+            Spacer()
+        }
+        .padding()
     }
 }

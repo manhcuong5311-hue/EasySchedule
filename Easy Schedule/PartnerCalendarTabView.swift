@@ -99,7 +99,7 @@ struct PartnerCalendarTabView: View {
                     } label: {
                         HStack {
                             Image(systemName: "person.2.checkmark")
-                            Text("Manage Access").bold()
+                            Text(String(localized:"manage_access")).bold()
                         }
                         .frame(maxWidth: .infinity)
                         .padding(12)
