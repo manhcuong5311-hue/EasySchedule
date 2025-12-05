@@ -470,6 +470,43 @@ final class EventManager: ObservableObject {
             }
     }
 
+    /// Kiểm tra event mới có overlap với danh sách events không.
+    /// Trả về TRUE nếu bị trùng (không được tạo).
+    func isOverlapExceedingLimit(
+        newStart: Date,
+        newEnd: Date,
+        limitMinutes: Int,
+        events: [CalendarEvent]
+    ) -> Bool {
+        
+        let limit: TimeInterval = TimeInterval(limitMinutes * 60)
+
+        for ev in events {
+            let start = ev.startTime
+            let end = ev.endTime
+
+            // 1️⃣ CHO PHÉP CHẠM CẠNH
+            if newEnd == start || newStart == end {
+                continue
+            }
+
+            // 2️⃣ Nếu có overlap:
+            if newStart < end && newEnd > start {
+                
+                // Tính overlap chính xác
+                let overlapStart = max(newStart, start)
+                let overlapEnd   = min(newEnd, end)
+                let overlap = overlapEnd.timeIntervalSince(overlapStart)
+
+                // Nếu overlap vượt quá giới hạn cho phép → TRẢ VỀ TRÙNG
+                if overlap > limit {
+                    return true
+                }
+            }
+        }
+
+        return false
+    }
 
 
 }
@@ -515,19 +552,26 @@ extension EventManager {
         }
 
         // CHECK OVERLAP
+        // ⭐ CHECK OVERLAP ALLOW ≤ 5 PHÚT
         if !allowDuplicateEvents {
-            let overlap = events.contains { ev in
-                Calendar.current.isDate(ev.date, inSameDayAs: date) &&
-                ev.startTime < endTime &&
-                startTime < ev.endTime
+            let sameDayEvents = events.filter {
+                Calendar.current.isDate($0.date, inSameDayAs: date)
             }
 
-            if overlap {
+            let isConflict = isOverlapExceedingLimit(
+                newStart: startTime,
+                newEnd: endTime,
+                limitMinutes: 5,                  // ⭐ CHO PHÉP OVERLAP ≤ 5 PHÚT
+                events: sameDayEvents
+            )
+
+            if isConflict {
                 self.alertMessage = String(localized: "time_slot_taken!")
                 self.showAlert = true
                 return false
             }
         }
+
 
         // PREMIUM LIMIT CHECK
         let isPremium = PremiumStoreViewModel.shared.isPremium
@@ -1106,13 +1150,18 @@ extension EventManager {
 
 
     // MARK: Sync offDays
-    func syncOffDaysToFirebase(offDays: Set<Date>) {
-        guard let uid = currentUserId else { return }
+    func syncOffDaysToFirebase(offDays: Set<Date>, completion: (() -> Void)? = nil) {
+        guard let uid = currentUserId else {
+            completion?()
+            return
+        }
 
         let timestamps = offDays.map { $0.timeIntervalSince1970 }
 
         db.collection("publicCalendar").document(uid)
-            .setData(["offDays": timestamps], merge: true)
+            .setData(["offDays": timestamps], merge: true) { error in
+                completion?()   // 🔥 gọi callback sau khi Firebase cập nhật xong
+            }
     }
 
     // MARK: Helpers
@@ -1776,7 +1825,15 @@ struct CustomizableCalendarView: View {
     @State private var showDeleteAlert = false
     @State private var eventToDelete: CalendarEvent? = nil
     @State private var showShareSheet = false
-    @State private var shareLink: URL? = nil
+    @State private var shareItem: ShareItem?
+    @State private var isTogglingOffDay = false
+    @State private var isCooldown = false
+    @State private var lastTapTime: Date = .distantPast
+    @State private var toggleCount = 0
+    @State private var syncWorkItem: DispatchWorkItem?
+    @State private var showCooldownToast = false
+    @State private var cooldownRemaining = 0
+
 
     @State private var offDays: Set<Date> = [] {
         didSet { saveOffDaysToLocal() }
@@ -1803,172 +1860,194 @@ struct CustomizableCalendarView: View {
         eventToDelete = event
         showDeleteAlert = true
     }
-
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 12) {
+            ZStack {
 
-                    // MARK: - Calendar grid
-                    CalendarGridView(
-                        selectedDate: $selectedDate,
-                        eventsByDay: eventManager.groupedByDay,
-                        offDays: offDays,
-                        isOwner: true
-                    )
-                    .padding(.top, 8)
-                    .frame(maxWidth: .infinity)
-                    .simultaneousGesture(TapGesture()) // ⭐ FIX TAP BỊ CHẶN
+                // ======= MAIN UI =======
+                ScrollView {
+                    VStack(spacing: 12) {
 
-                    // MARK: - Toggle trùng lịch
-                    Toggle(String(localized: "allow_conflict"), isOn: Binding(
-                        get: { eventManager.allowDuplicateEvents },
-                        set: { eventManager.allowDuplicateEvents = $0 }
-                    ))
-                    .padding(.horizontal)
-                    .padding(.bottom, 4)
-
-                    Divider()
-
-                    // MARK: - Chia sẻ lịch
-                    Button {
-                       
-
-                        if let uid = Auth.auth().currentUser?.uid,
-                           let url = URL(string: "https://easyschedule-ce98a.web.app/calendar/\(uid)") {
-                            shareLink = url
-                            showShareSheet = true
-                        }
-                    } label: {
-                        HStack {
-                            Image(systemName: "square.and.arrow.up")
-                            Text(String(localized: "share_calendar")).bold()
-                        }
+                        // MARK: - Calendar grid
+                        CalendarGridView(
+                            selectedDate: $selectedDate,
+                            eventsByDay: eventManager.groupedByDay,
+                            offDays: offDays,
+                            isOwner: true
+                        )
+                        .padding(.top, 8)
                         .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.blue.opacity(0.2))
-                        .cornerRadius(10)
-                    }
-                    .padding(.horizontal)
-                    .sheet(isPresented: $showShareSheet) {
-                        if let link = shareLink {
-                            ActivityView(activityItems: [link])
-                        }
-                    }
+                        .simultaneousGesture(TapGesture())
 
-                    // MARK: - Ngày được chọn
-                    if let date = selectedDate {
-                        VStack(spacing: 10) {
+                        // MARK: - Toggle trùng lịch
+                        Toggle(String(localized: "allow_conflict"), isOn: Binding(
+                            get: { eventManager.allowDuplicateEvents },
+                            set: { eventManager.allowDuplicateEvents = $0 }
+                        ))
+                        .padding(.horizontal)
+                        .padding(.bottom, 4)
 
-                            // Button ngày nghỉ
-                            Button {
-                                toggleOffDay(for: date)
-                                eventManager.syncOffDaysToFirebase(offDays: offDays)
-                            } label: {
-                                HStack {
-                                    Image(systemName: isOffDay(date) ? "xmark.circle" : "bed.double.fill")
-                                    Text(
-                                        isOffDay(date)
-                                        ? String(localized: "reopen_day")
-                                        : String(localized: "set_day_off")
-                                    ).bold()
+                        Divider()
 
-                                }
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(isOffDay(date) ? Color.green.opacity(0.2) : Color.gray.opacity(0.2))
-                                .cornerRadius(10)
+                        // MARK: - Chia sẻ lịch
+                        Button {
+                            if let uid = Auth.auth().currentUser?.uid,
+                               let url = URL(string: "https://easyschedule-ce98a.web.app/calendar/\(uid)") {
+                                shareItem = ShareItem(url: url)
                             }
-                            .padding(.horizontal)
+                        } label: {
+                            HStack {
+                                Image(systemName: "square.and.arrow.up")
+                                Text(String(localized: "share_calendar")).bold()
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.blue.opacity(0.2))
+                            .cornerRadius(10)
+                        }
+                        .padding(.horizontal)
+                        .sheet(item: $shareItem) { item in
+                            ActivityView(activityItems: [item.url])
+                        }
 
-                            if isOffDay(date) {
-                                Text(String(localized: "day_off_message"))
-                                    .foregroundColor(.red)
-                                    .font(.subheadline)
 
-                            } else if eventManager.events(for: date).isEmpty {
-                                Text(String(localized: "no_events_today"))
-                                    .foregroundColor(.secondary)
-                                    .padding(.vertical, 12)
+                        // MARK: - Ngày được chọn
+                        if let date = selectedDate {
+                            VStack(spacing: 10) {
 
-                            } else {
-                                // ⭐ Thay List bằng VStack để không lỗi ScrollView
-                                VStack(spacing: 10) {
-                                    ForEach(eventManager.events(for: date).sorted { $0.startTime < $1.startTime }) { event in
+                                // Button ngày nghỉ
+                                Button {
+                                    guard !isCooldown else { return }
 
-                                        HStack(alignment: .top, spacing: 8) {
+                                    let now = Date()
+                                    guard now.timeIntervalSince(lastTapTime) > 0.3 else { return }
+                                    lastTapTime = now
 
-                                            // màu
-                                            Circle()
-                                                .fill(Color(hex: event.colorHex.isEmpty ? "#FF0000" : event.colorHex))
-                                                .frame(width: 12, height: 12)
+                                    toggleCount += 1
+                                    if toggleCount > 3 {
+                                        startCooldown(seconds: 30)
+                                        return
+                                    }
 
-                                            VStack(alignment: .leading, spacing: 4) {
+                                    toggleOffDay(for: date)
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                        eventManager.syncOffDaysToFirebase(offDays: offDays)
+                                    }
 
-                                                // ⭐ 1. Tiêu đề
-                                                Text(event.title)
-                                                    .font(.headline)
+                                } label: {
+                                    HStack {
+                                        Image(systemName: isOffDay(date) ? "xmark.circle" : "bed.double.fill")
+                                        Text(isOffDay(date)
+                                             ? String(localized: "reopen_day")
+                                             : String(localized: "set_day_off"))
+                                        .bold()
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding()
+                                    .background(isCooldown ? Color.gray.opacity(0.1)
+                                                           : (isOffDay(date) ? Color.green.opacity(0.2)
+                                                                             : Color.gray.opacity(0.2)))
+                                    .cornerRadius(10)
+                                }
+                                .disabled(isCooldown)
+                                .opacity(isCooldown ? 0.4 : 1)
+                                .padding(.horizontal)
 
-                                                // ⭐ 2. origin label (y như Tab1)
-                                                Text(originLabel(for: event))
-                                                    .font(.caption)
-                                                    .foregroundColor(.blue)
+                                // Text messages...
+                                if isOffDay(date) {
+                                    Text(String(localized: "day_off_message"))
+                                        .foregroundColor(.red)
+                                        .font(.subheadline)
+                                } else if eventManager.events(for: date).isEmpty {
+                                    Text(String(localized: "no_events_today"))
+                                        .foregroundColor(.secondary)
+                                        .padding(.vertical, 12)
+                                } else {
+                                    VStack(spacing: 10) {
+                                        ForEach(eventManager.events(for: date).sorted { $0.startTime < $1.startTime }) { event in
 
-                                                // ⭐ 3. Người tạo
-                                                // 🔵 Hiển thị tên người dùng thay cho UID
-                                                if event.origin == .iCreatedForOther {
-                                                    HStack(spacing: 4) {
-                                                        UserNameView(uid: event.createdBy)   // A
-                                                        Text("→")
-                                                        UserNameView(uid: event.owner)       // B  <<<< CHỈNH ĐÚNG CHỖ NÀY
-                                                    }
-                                                    .font(.subheadline)
-                                                    .foregroundColor(.secondary)
-                                                } else {
-                                                    Text(displayName(for: event, uid: event.createdBy, eventManager: eventManager))
+                                            HStack(alignment: .top, spacing: 8) {
+
+                                                // màu
+                                                Circle()
+                                                    .fill(Color(hex: event.colorHex.isEmpty ? "#FF0000" : event.colorHex))
+                                                    .frame(width: 12, height: 12)
+
+                                                VStack(alignment: .leading, spacing: 4) {
+
+                                                    Text(event.title)
+                                                        .font(.headline)
+
+                                                    Text(originLabel(for: event))
+                                                        .font(.caption)
+                                                        .foregroundColor(.blue)
+
+                                                    if event.origin == .iCreatedForOther {
+                                                        HStack(spacing: 4) {
+                                                            UserNameView(uid: event.createdBy)
+                                                            Text("→")
+                                                            UserNameView(uid: event.owner)
+                                                        }
                                                         .font(.subheadline)
+                                                        .foregroundColor(.secondary)
+                                                    } else {
+                                                        Text(displayName(for: event, uid: event.createdBy, eventManager: eventManager))
+                                                            .font(.subheadline)
+                                                            .foregroundColor(.secondary)
+                                                    }
+
+                                                    Text("\(formattedTime(event.startTime)) - \(formattedTime(event.endTime))")
+                                                        .font(.caption)
                                                         .foregroundColor(.secondary)
                                                 }
 
+                                                Spacer()
 
-
-                                                // ⭐ 4. Time
-                                                Text("\(formattedTime(event.startTime)) - \(formattedTime(event.endTime))")
-                                                    .font(.caption)
-                                                    .foregroundColor(.secondary)
+                                                Button {
+                                                    showDeleteConfirmation(for: event)
+                                                } label: {
+                                                    Image(systemName: "trash")
+                                                        .foregroundColor(.red)
+                                                        .padding(8)
+                                                }
+                                                .buttonStyle(.plain)
                                             }
-
-                                            Spacer()
-
-                                            // ⭐ Nút xoá giống list upcoming
-                                            Button {
-                                                showDeleteConfirmation(for: event)
-                                            } label: {
-                                                Image(systemName: "trash")
-                                                    .foregroundColor(.red)
-                                                    .padding(8)
-                                            }
-                                            .buttonStyle(.plain)
+                                            .padding(.vertical, 4)
+                                            .padding(.horizontal, 8)
+                                            .background(Color(.secondarySystemGroupedBackground))
+                                            .cornerRadius(10)
                                         }
-
-                                        .padding(.vertical, 4)
-                                        .padding(.horizontal, 8)
-                                        .background(Color(.secondarySystemGroupedBackground))
-                                        .cornerRadius(10)
                                     }
+
                                 }
-
                             }
+                        } else {
+                            Text(String(localized: "select_day_to_view"))
+                                .foregroundColor(.secondary)
+                                .padding(.vertical, 12)
                         }
-                    } else {
-                        Text(String(localized: "select_day_to_view"))
-                            .foregroundColor(.secondary)
-                            .padding(.vertical, 12)
-                    }
 
-                    Spacer(minLength: 40)
+                        Spacer(minLength: 40)
+                    }
+                }
+
+                // ======= TOAST (ĐÃ FIX) =======
+                if showCooldownToast {
+                    VStack {
+                        Spacer()
+                        Text("Bạn thao tác quá nhanh. Vui lòng chờ \(cooldownRemaining)s.")
+                            .padding()
+                            .background(Color.black.opacity(0.85))
+                            .foregroundColor(.white)
+                            .cornerRadius(12)
+                            .padding(.bottom, 60)
+                            .shadow(radius: 5)
+                    }
+                    .transition(.opacity)
+                    .zIndex(999)
                 }
             }
+
             .navigationTitle(String(localized: "my_calendar"))
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -1983,22 +2062,41 @@ struct CustomizableCalendarView: View {
             }
             .alert(String(localized: "delete_event_title"), isPresented: $showDeleteAlert) {
                 Button(String(localized: "Ok"), role: .destructive) {
-                    if let event = eventToDelete {
-                        eventManager.deleteEvent(event)
-                    }
+                    if let e = eventToDelete { eventManager.deleteEvent(e) }
                     eventToDelete = nil
                 }
                 Button(String(localized:"cancel"), role: .cancel) {
                     eventToDelete = nil
                 }
             } message: {
-                let prefix = String(localized: "delete_event_prefix")
-                let title = eventToDelete?.title ?? ""
-
-                Text("\(prefix) “\(title)”?")
-
+                Text("\(String(localized: "delete_event_prefix")) “\(eventToDelete?.title ?? "")”?")
             }
             .onAppear { loadOffDaysFromLocal() }
+        }
+    }
+
+    func startCooldown(seconds: Int) {
+        isCooldown = true
+        cooldownRemaining = seconds
+        showCooldownToast = true
+
+        // Timer mỗi 1 giây
+        Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { timer in
+            cooldownRemaining -= 1
+            
+            if cooldownRemaining <= 0 {
+                timer.invalidate()
+                isCooldown = false
+                showCooldownToast = false
+                toggleCount = 0
+            }
+        }
+    }
+
+    func showCooldownMessage() {
+        showCooldownToast = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            showCooldownToast = false
         }
     }
 
@@ -2020,6 +2118,10 @@ struct CustomizableCalendarView: View {
         date.formatted(date: .omitted, time: .shortened)
     }
 
+}
+struct ShareItem: Identifiable {
+    let id = UUID()
+    let url: URL
 }
 
 
