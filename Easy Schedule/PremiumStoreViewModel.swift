@@ -1,11 +1,8 @@
 //
-//  PremiumStoreViewModel.swift
-//  Easy Schedule
-//
-//  Created by Sam Manh Cuong on 30/11/25.
+// PremiumStoreViewModel.swift
 //
 
-import Foundation
+import SwiftUI
 import StoreKit
 import Combine
 
@@ -14,8 +11,8 @@ final class PremiumStoreViewModel: ObservableObject {
 
     static let shared = PremiumStoreViewModel()
 
-    @Published var isPremium: Bool = false
     @Published var products: [Product] = []
+    @Published var isPremium: Bool = false
     @Published var loading: Bool = false
 
     private init() {
@@ -23,41 +20,41 @@ final class PremiumStoreViewModel: ObservableObject {
             forName: .PremiumStoreDidUpdate,
             object: nil,
             queue: .main
-        ) { _ in
-            Task { await self.refresh() }
+        ) { [weak self] _ in
+            Task { await self?.refresh() }
         }
+
+        Task { await refresh() }
     }
 
+    // MARK: - START
     func start() {
         Task {
             loading = true
-            await PremiumStore.shared.loadProducts()
+            await PremiumStore.shared.start()
             await refresh()
             loading = false
         }
     }
 
+    // MARK: - REFRESH (lấy dữ liệu từ actor PremiumStore)
     func refresh() async {
-        // cập nhật entitlement
-        await PremiumStore.shared.refreshPurchased()
-
-        // lấy products từ actor PremiumStore
-        self.products = await PremiumStore.shared.getProducts()
-
-        // lấy purchased IDs
-        let ids = await PremiumStore.shared.getPurchasedProductIDs()
-
-        // user có premium nếu purchased IDs không rỗng
-        isPremium = !ids.isEmpty
+        products = await PremiumStore.shared.getProducts()
+        let purchased = await PremiumStore.shared.getPurchasedIDs()
+        isPremium = !purchased.isEmpty
     }
 
+    // MARK: - BUY
     func buy(_ product: Product) async -> Bool {
-        let result = await PremiumStore.shared.purchase(product)
-        return (try? result.get()) != nil
+        let success = await PremiumStore.shared.purchase(product)
+        await refresh()
+        return success
     }
 
+    // MARK: - RESTORE
     func restore() async -> Bool {
-        let result = await PremiumStore.shared.restorePurchases()
-        return (try? result.get()) != nil
+        let success = await PremiumStore.shared.restore()
+        await refresh()
+        return success
     }
 }

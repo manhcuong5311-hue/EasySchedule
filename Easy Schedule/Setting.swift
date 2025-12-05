@@ -121,11 +121,19 @@ struct SettingsView: View {
                 // MARK: - Appearance
                 Section(String(localized: "appearance")) {
                     Picker(String(localized: "display_mode"), selection: $appTheme) {
-                        Text(String(localized: "light")).tag("system")
-                        Text(String(localized: "dark")).tag("dark")
+
+                        Text(String(localized: "system"))
+                            .tag("system")
+
+                        Text(String(localized: "light"))
+                            .tag("light")
+
+                        Text(String(localized: "dark"))
+                            .tag("dark")
                     }
                     .pickerStyle(.segmented)
                 }
+
 
                 // MARK: - Account & Premium
                 Section(String(localized: "account_and_premium")) {

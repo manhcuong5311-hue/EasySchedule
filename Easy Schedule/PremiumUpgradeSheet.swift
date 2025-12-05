@@ -16,77 +16,99 @@ struct PremiumUpgradeSheet: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 24) {
+                VStack(spacing: 28) {
 
-                    // Header
-                    VStack(spacing: 6) {
-                        Text(String(localized: "upgrade_account"))
-                            .font(.title.bold())
+                    // MARK: - Header
+                    VStack(spacing: 10) {
+
+                        Text(String(localized: "upgrade_premium_title"))
+                            .font(.largeTitle.bold())
+                            .multilineTextAlignment(.center)
+
+                        Text(String(localized: "upgrade_premium_subtitle"))
+                            .font(.body)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
 
                         if premium.isPremium {
-                            Label(String(localized: "premium_active"), systemImage: "star.fill")
+                            Label(String(localized: "premium_activated"),
+                                  systemImage: "star.fill")
                                 .foregroundColor(.yellow)
                                 .font(.headline)
-                        } else {
-                            Text(String(localized: "premium_features"))
-                                .multilineTextAlignment(.center)
-                                .foregroundColor(.secondary)
+                                .padding(.top, 4)
                         }
                     }
-                    .padding(.top, 16)
+                    .padding(.top, 20)
 
-                    // MARK: - Product List
-                    Group {
-                        if premium.products.isEmpty {
-                            ProgressView(String(localized: "loading_packages"))
-                                .padding(.vertical, 40)
-                                .task {
-                                    premium.start()
-                                }
-
-                        } else {
-                            VStack(spacing: 14) {
-                                ForEach(premium.products, id: \.id) { product in
-                                    premiumCard(for: product)
-                                }
+                    // MARK: - Product Cards
+                    if premium.products.isEmpty {
+                        ProgressView(String(localized: "loading_packages"))
+                            .padding(.vertical, 40)
+                            .task { premium.start() }
+                    } else {
+                        VStack(spacing: 18) {
+                            ForEach(premium.products, id: \.id) { product in
+                                premiumCard(for: product)
                             }
                         }
+                        .padding(.horizontal)
                     }
 
-                    Divider().padding(.vertical, 12)
-
-                    // MARK: - Restore + Dev Mode
-                    VStack(spacing: 12) {
+                    // MARK: - Restore Button
+                    VStack(spacing: 8) {
 
                         Button {
                             Task {
                                 isLoading = true
                                 let ok = await premium.restore()
                                 isLoading = false
+
                                 if ok { dismiss() }
                                 else { purchaseError = String(localized: "restore_failed") }
                             }
                         } label: {
-                            Text(String(localized: "restore_purchases"))                                .font(.body)
-                                .frame(maxWidth: .infinity)
+                            Text(String(localized: "restore_purchases"))
+                                .fontWeight(.medium)
                         }
                         .buttonStyle(.borderedProminent)
+                        .tint(.blue)
                         .disabled(isLoading)
-                        
-                    }
 
-                    Spacer().frame(height: 30)
+                        // Legal text
+                        VStack(spacing: 4) {
+                            Text(String(localized: "payment_charged_info"))
+                            Text(String(localized: "subscription_auto_renews"))
+                            Text(String(localized: "manage_subscription_note"))
+                        }
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 16)
+
+                        Button(String(localized: "manage_subscription")) {
+                            if let url = URL(string: "https://apps.apple.com/account/subscriptions") {
+                                UIApplication.shared.open(url)
+                            }
+                        }
+                        .font(.caption)
+                        .padding(.top, 6)
+                    }
+                    .padding(.top, 10)
 
                     Button(String(localized: "close")) { dismiss() }
                         .foregroundColor(.secondary)
+                        .padding(.top, 14)
 
+                    Spacer().frame(height: 40)
                 }
-                .padding(.horizontal)
             }
-            .alert( String(localized: "purchase_error"), isPresented: Binding(
-                get: { purchaseError != nil },
-                set: { _ in purchaseError = nil }
-            )) {
+            .alert(
+                String(localized: "purchase_error"),
+                isPresented: Binding(
+                    get: { purchaseError != nil },
+                    set: { _ in purchaseError = nil }
+                )
+            ) {
                 Button("OK", role: .cancel) {}
             } message: {
                 Text(purchaseError ?? "")
@@ -94,7 +116,7 @@ struct PremiumUpgradeSheet: View {
         }
     }
 
-    // MARK: - Premium Card
+    // MARK: - Premium Card UI
     private func premiumCard(for product: Product) -> some View {
 
         Button {
@@ -107,32 +129,47 @@ struct PremiumUpgradeSheet: View {
                 else { purchaseError = String(localized: "payment_failed") }
             }
         } label: {
-            HStack(spacing: 16) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(product.displayName)
-                        .font(.headline)
 
-                    Text(product.description)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+            VStack(alignment: .leading, spacing: 12) {
+
+                // BEST VALUE badge for yearly
+                if product.id.contains("yearly") {
+                    Text(String(localized: "best_value_save"))
+                        .font(.caption2.bold())
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.green.opacity(0.2))
+                        .foregroundColor(.green)
+                        .cornerRadius(6)
                 }
 
-                Spacer()
+                HStack {
 
-                Text(product.displayPrice)
-                    .font(.headline)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(product.displayName)
+                            .font(.headline)
+
+                        Text(product.description)
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+
+                    Spacer()
+
+                    Text(product.displayPrice)
+                        .font(.title3.bold())
+                }
             }
             .padding()
             .frame(maxWidth: .infinity)
             .background(.ultraThinMaterial)
-            .cornerRadius(18)
             .overlay(
                 RoundedRectangle(cornerRadius: 18)
-                    .stroke(Color.gray.opacity(0.1), lineWidth: 1)
+                    .stroke(Color.gray.opacity(0.12), lineWidth: 1)
             )
+            .cornerRadius(18)
         }
         .buttonStyle(.plain)
-        .disabled(isLoading)
-        .opacity(isLoading ? 0.5 : 1)
+        .opacity(isLoading ? 0.4 : 1)
     }
 }
