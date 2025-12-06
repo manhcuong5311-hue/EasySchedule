@@ -62,23 +62,46 @@ class SessionStore: ObservableObject {
     // MARK: - Auth Listener
     func listen() {
         authStateListenerHandle = Auth.auth().addStateDidChangeListener { auth, user in
-            self.currentUser = user
 
-            if let user = user {
+            // Nếu không còn user → logout bình thường
+            guard let user = user else {
+                print("ℹ️ No Firebase user → logged out.")
+                self.currentUser = nil
+                self.currentUserName = ""
+                return
+            }
+
+            // ⭐️ KIỂM TRA TOKEN VALID KHÔNG
+            user.getIDTokenResult { result, error in
+                if let error = error {
+                    // TOKEN INVALID = USER ĐÃ BỊ XOÁ TRÊN SERVER
+                    print("❌ Invalid token → forcing logout:", error.localizedDescription)
+                    self.signOut()
+                    return
+                }
+
+                // ⭐️ TOKEN OK → USER HỢP LỆ
+                print("✅ Token valid → user:", user.uid)
+
+                self.currentUser = user
+
+                // Gọi các logic cũ (không mất gì)
                 self.saveProfileIfNeeded(user: user)
 
-                // 1️⃣ Load từ local cache trước
+                // Load cache trước
                 if let cachedName = UserDefaults.standard.string(forKey: self.nameKey) {
                     self.currentUserName = cachedName
                 }
-                // 2️⃣ Sync 1 lần từ Firestore
+
+                // Fetch từ Firestore
                 self.fetchProfile(uid: user.uid)
+
+                // Cleanup events cũ
                 self.cleanUpPastEventsOnFirebase(for: user.uid)
-            } else {
-                self.currentUserName = ""
             }
         }
     }
+
 
 
     // MARK: - Fetch Firestore 1 lần

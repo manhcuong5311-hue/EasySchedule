@@ -12,7 +12,10 @@ import FirebaseCore
 import FirebaseAuth
 import GoogleSignIn
 import LocalAuthentication
-
+import UIKit
+import FirebaseFirestore
+import UserNotifications
+import FirebaseFunctions
 
 final class NotificationManager: ObservableObject {
     static let shared = NotificationManager()
@@ -59,6 +62,8 @@ struct SettingsView: View {
     @AppStorage("selectedLanguage") private var selectedLanguage = "vi"
     @AppStorage("pushNotificationsEnabled") private var pushNotificationsEnabled = true
     @AppStorage("appTheme") private var appTheme: String = "system"
+    @State private var isDeletingAccount = false
+    @State private var isDeleting = false
 
     // MARK: - State
     @State private var showLogoutAlert = false
@@ -194,14 +199,19 @@ struct SettingsView: View {
                 NavigationLink("FAQ") {
                     FAQView()
                 }
-                // MARK: - Logout
-                Section {
-                    Button(role: .destructive) {
-                        showLogoutAlert = true
+            
+              
+                // MARK: - Account Actions
+                Section(String(localized: "account_section")) {
+                    NavigationLink {
+                        AccountSettingsView()
+                            .environmentObject(session)
                     } label: {
-                        Label(String(localized: "logout"), systemImage: "rectangle.portrait.and.arrow.right")
+                        Label(String(localized: "account_management"), systemImage: "person.crop.circle")
                     }
                 }
+
+
             }
 
             .navigationTitle(String(localized: "settings"))
@@ -252,7 +262,7 @@ struct SettingsView: View {
     }
 }
 
-import SwiftUI
+
 
 struct FAQView: View {
 
@@ -531,18 +541,8 @@ struct LockScreenView: View {
     }
 }
 
-// MARK: - Preview
-#Preview {
-    NavigationStack {
-        SecuritySettingsView()
-    }
-}
-import UIKit
-import SwiftUI
-import FirebaseCore
-import FirebaseFirestore
-import FirebaseMessaging
-import UserNotifications
+
+
 
 class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate, MessagingDelegate {
 

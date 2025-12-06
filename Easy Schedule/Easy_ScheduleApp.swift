@@ -68,9 +68,6 @@ extension Easy_scheduleApp {
                 .environmentObject(session)
                 .environmentObject(premium)
                 .environmentObject(eventManager)
-                .onAppear {
-                    session.listen()
-                }
         }
     }
 
