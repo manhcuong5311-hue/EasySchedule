@@ -2032,10 +2032,10 @@ struct CustomizableCalendarView: View {
                 }
 
                 // ======= TOAST (ĐÃ FIX) =======
-                if showCooldownToast {
+            if showCooldownToast {
                     VStack {
                         Spacer()
-                        Text("Bạn thao tác quá nhanh. Vui lòng chờ \(cooldownRemaining)s.")
+                        Text(String(localized:"cooldown_warning \(cooldownRemaining)s."))
                             .padding()
                             .background(Color.black.opacity(0.85))
                             .foregroundColor(.white)
@@ -2075,6 +2075,10 @@ struct CustomizableCalendarView: View {
         }
     }
 
+    
+   
+    
+    
     func startCooldown(seconds: Int) {
         isCooldown = true
         cooldownRemaining = seconds
