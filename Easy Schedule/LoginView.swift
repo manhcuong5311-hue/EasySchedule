@@ -16,12 +16,12 @@ struct LoginView: View {
         NavigationView {
             VStack(spacing: 20) {
                 
-                Text("Login")
+                Text(String(localized: "login_title"))
                     .font(.largeTitle)
                     .bold()
                 
                 // MARK: Email
-                TextField("Email", text: $email)
+                TextField(String(localized: "email_placeholder"), text: $email)
                     .keyboardType(.emailAddress)
                     .autocapitalization(.none)
                     .padding()
@@ -29,7 +29,7 @@ struct LoginView: View {
                     .cornerRadius(10)
 
                 // MARK: Password
-                SecureField("Password", text: $password)
+                SecureField(String(localized: "password_placeholder"), text: $password)
                     .padding()
                     .background(Color(.systemGray6))
                     .cornerRadius(10)
@@ -43,7 +43,7 @@ struct LoginView: View {
 
                 // MARK: Login Button
                 Button(action: login) {
-                    Text("Login")
+                    Text(String(localized:"login"))
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding()
@@ -53,7 +53,7 @@ struct LoginView: View {
 
                 // MARK: Sign Up → Page Navigation
                 NavigationLink(destination: SignUpView()) {
-                    Text("Sign Up")
+                    Text(String(localized: "signup_title"))
                         .foregroundColor(.blue)
                         .frame(maxWidth: .infinity)
                         .padding()
@@ -67,7 +67,7 @@ struct LoginView: View {
                 Button(action: signInWithGoogle) {
                     HStack {
                         Image(systemName: "globe")
-                        Text("Login with Google")
+                        Text(String(localized: "login_google"))
                     }
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
@@ -127,7 +127,7 @@ struct LoginView: View {
             
             guard let user = result?.user,
                   let idToken = user.idToken?.tokenString else {
-                self.errorMessage = "Google authentication failed"
+                self.errorMessage = String(localized: "error_google_failed")
                 return
             }
             
@@ -165,18 +165,18 @@ struct LoginView: View {
 
     private func signInWithApple(_ authResults: ASAuthorization) {
         guard let credential = authResults.credential as? ASAuthorizationAppleIDCredential else {
-            errorMessage = "Apple login failed."
+            errorMessage = String(localized: "error_apple_failed")
             return
         }
 
         guard let nonce = currentNonce else {
-            errorMessage = "Invalid state: No nonce."
+            errorMessage = String(localized: "error_invalid_state_no_nonce")
             return
         }
 
         guard let tokenData = credential.identityToken,
               let tokenString = String(data: tokenData, encoding: .utf8) else {
-            errorMessage = "Unable to fetch identity token."
+            errorMessage = String(localized: "error_unable_fetch_identity_token")
             return
         }
 
