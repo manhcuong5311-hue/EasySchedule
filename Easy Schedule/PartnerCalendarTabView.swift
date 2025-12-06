@@ -39,122 +39,194 @@ struct PartnerCalendarTabView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {        // ⭐ Thêm ScrollView để UI luôn nằm trên cùng
-                VStack(spacing: 16) {
 
-                    // INPUT LINK + LOAD
+            ScrollView {
+                VStack(spacing: 20) {
+
+                    // ================================
+                    // MARK: INPUT UID AREA
+                    // ================================
                     inputArea
-
-                    Divider()
                         .padding(.horizontal)
 
-                    // LỊCH SỬ ĐÃ XEM
-                    Button {
-                        showHistorySheet = true
-                    } label: {
-                        HStack {
-                            Image(systemName: "clock.arrow.circlepath")
-                            Text(String(localized: "viewed_history")).bold()
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(12)
-                        .background(Color.blue.opacity(0.15))
-                        .cornerRadius(12)
-                    }
-                    .padding(.horizontal)
-                    .sheet(isPresented: $showHistorySheet) {
-                        NavigationStack {
-                            HistoryLinksView { uid in
-                                self.linkText = uid
-                                self.parsedUID = uid
-                                self.parseAndLoad()
-                                self.showHistorySheet = false
+
+                    // ================================
+                    // MARK: ACTION BUTTONS
+                    // ================================
+                    VStack(spacing: 14) {
+
+                        // LỊCH SỬ ĐÃ XEM
+                        Button {
+                            showHistorySheet = true
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: "clock.arrow.circlepath")
+                                    .font(.system(size: 18, weight: .medium))
+                                    .foregroundColor(.blue)
+
+                                Text(String(localized: "viewed_history"))
+                                    .font(.system(size: 16, weight: .semibold))
+
+                                Spacer()
                             }
-                            .environmentObject(eventManager)
+                            .padding()
+                            .background(Color.blue.opacity(0.15))
+                            .cornerRadius(14)
                         }
-                    }
 
+                        // LỊCH TÔI TẠO CHO NGƯỜI KHÁC
+                        Button {
+                            showMyCreatedEvents = true
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: "person.crop.circle.badge.plus")
+                                    .font(.system(size: 18, weight: .medium))
+                                    .foregroundColor(.blue)
 
-                    // LỊCH TÔI TẠO CHO NGƯỜI KHÁC
-                    Button {
-                        showMyCreatedEvents = true
-                    } label: {
-                        HStack {
-                            Image(systemName: "person.crop.circle.badge.plus")
-                            Text(String(localized: "created_for_others")).bold()
+                                Text(String(localized: "created_for_others"))
+                                    .font(.system(size: 16, weight: .semibold))
+
+                                Spacer()
+                            }
+                            .padding()
+                            .background(Color.green.opacity(0.15))
+                            .cornerRadius(14)
                         }
-                        .frame(maxWidth: .infinity)
-                        .padding(12)
-                        .background(Color.green.opacity(0.15))
-                        .cornerRadius(12)
+
+                        // QUẢN LÝ QUYỀN TRUY CẬP
+                        Button {
+                            showAccessSheet = true
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: "person.2.checkmark")
+                                    .font(.system(size: 18, weight: .medium))
+                                    .foregroundColor(.blue)
+
+                                Text(String(localized: "manage_access"))
+                                    .font(.system(size: 16, weight: .semibold))
+
+                                Spacer()
+                            }
+                            .padding()
+                            .background(Color.orange.opacity(0.15))
+                            .cornerRadius(14)
+                        }
                     }
                     .padding(.horizontal)
-                    .sheet(isPresented: $showMyCreatedEvents) {
-                        MyCreatedEventsView()
-                            .environmentObject(eventManager)
-                    }
-                    // ⭐ QUẢN LÝ QUYỀN TRUY CẬP (ALLOW / BLOCK)
-                    Button {
-                        showAccessSheet = true
-                    } label: {
-                        HStack {
-                            Image(systemName: "person.2.checkmark")
-                            Text(String(localized:"manage_access")).bold()
+
+
+                    // ================================
+                    // MARK: UID INFO
+                    // ================================
+                    VStack(alignment: .leading, spacing: 6) {
+                        if let uid = parsedUID {
+                            HStack {
+                                Text("UID:")
+                                    .bold()
+
+                                Text(uid)
+                                    .foregroundColor(.secondary)
+
+                                Spacer()
+
+                                Text(String(localized: "logged_in"))
+                                    .foregroundColor(.green)
+                                    .font(.subheadline)
+                            }
                         }
-                        .frame(maxWidth: .infinity)
-                        .padding(12)
-                        .background(Color.orange.opacity(0.15))
-                        .cornerRadius(12)
                     }
                     .padding(.horizontal)
-                    .sheet(isPresented: $showAccessSheet) {
-                        NavigationStack {
-                            AccessManagementView()   // Màn hình sẽ viết ngay bên dưới
-                                .environmentObject(eventManager)
-                                .environmentObject(session)
-                        }
+
+
+                    // ================================
+                    // MARK: ERROR AREA
+                    // ================================
+                    if let error = errorMessage, !error.isEmpty {
+                        Text(error)
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundColor(.red)
+                            .padding(.horizontal)
                     }
 
 
-                    // UID info
-                    uidInfoArea
-                        .padding(.horizontal)
-
-                    // Error
-                    errorArea
-                        .padding(.horizontal)
-
-                    // Nếu bạn muốn ẩn danh sách lịch thì xoá contentArea,
-                    // còn muốn giữ thì để lại:
+                    // ================================
+                    // MARK: CONTENT AREA (DANH SÁCH LỊCH)
+                    // ================================
                     contentArea
+                        .padding(.top, 8)
+
                 }
                 .padding(.top, 12)
             }
+
+            // ================================
+            // MARK: TITLE + TOOLBAR
+            // ================================
             .navigationTitle(String(localized: "partner_calendar"))
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
                         addAppointmentPressed()
                     } label: {
-                        Image(systemName: "plus")
+                        Circle()
+                            .fill(Color.blue.opacity(0.2))
+                            .frame(width: 34, height: 34)
+                            .overlay(
+                                Image(systemName: "plus")
+                                    .foregroundColor(.blue)
+                            )
                     }
                 }
             }
+
+
+            // ================================
+            // MARK: SHEETS
+            // ================================
+            .sheet(isPresented: $showHistorySheet) {
+                NavigationStack {
+                    HistoryLinksView { uid in
+                        linkText = uid
+                        parsedUID = uid
+                        parseAndLoad()
+                        showHistorySheet = false
+                    }
+                    .environmentObject(eventManager)
+                }
+            }
+
+            .sheet(isPresented: $showMyCreatedEvents) {
+                MyCreatedEventsView()
+                    .environmentObject(eventManager)
+            }
+
+            .sheet(isPresented: $showAccessSheet) {
+                NavigationStack {
+                    AccessManagementView()
+                        .environmentObject(eventManager)
+                        .environmentObject(session)
+                }
+            }
+
             .sheet(isPresented: $showAddAppointmentSheet) {
                 AppointmentProSheet(
                     isPresented: $showAddAppointmentSheet,
                     sharedUserId: selectedSharedUserId,
                     sharedUserName: eventManager.userNames[selectedSharedUserId ?? ""]
-
                 )
                 .environmentObject(eventManager)
                 .environmentObject(session)
             }
+
+
+            // ================================
+            // MARK: ALERT
+            // ================================
             .alert(isPresented: $showAlert) {
                 Alert(
                     title: Text(String(localized: "notification")),
                     message: Text(alertMessage),
-                    dismissButton: .default(Text(String(localized: "close" )))
+                    dismissButton: .default(Text(String(localized: "close")))
                 )
             }
         }
