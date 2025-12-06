@@ -1,4 +1,3 @@
-//
 // PremiumUpgradeSheet.swift
 //
 
@@ -12,6 +11,12 @@ struct PremiumUpgradeSheet: View {
 
     @State private var purchaseError: String? = nil
     @State private var isLoading = false
+
+    // Apple standard EULA URL (default)
+    private let appleEULAURL = URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!
+
+    // Replace with your app's privacy policy URL
+    private let privacyPolicyURL = URL(string: "https://manhcuong5311-hue.github.io/easyschedule-privacy/")!
 
     var body: some View {
         NavigationStack {
@@ -75,7 +80,7 @@ struct PremiumUpgradeSheet: View {
                         .disabled(isLoading)
 
                         // Legal text
-                        VStack(spacing: 4) {
+                        VStack(spacing: 8) {
                             Text(String(localized: "payment_charged_info"))
                             Text(String(localized: "subscription_auto_renews"))
                             Text(String(localized: "manage_subscription_note"))
@@ -84,6 +89,24 @@ struct PremiumUpgradeSheet: View {
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 16)
+
+                        // MARK: - Legal Links (Privacy Policy + Terms of Use)
+                        HStack(spacing: 16) {
+                            // Privacy Policy (your app)
+                            Link(destination: privacyPolicyURL) {
+                                Text(String(localized: "privacy_policy"))
+                                    .font(.caption)
+                                    .underline()
+                            }
+                            // Terms of Use (Apple standard EULA)
+                            Link(destination: appleEULAURL) {
+                                Text(String(localized: "terms_of_use"))
+                                    .font(.caption)
+                                    .underline()
+                            }
+                        }
+                        .foregroundColor(.secondary)
+                        .padding(.top, 6)
 
                         Button(String(localized: "manage_subscription")) {
                             if let url = URL(string: "https://apps.apple.com/account/subscriptions") {
