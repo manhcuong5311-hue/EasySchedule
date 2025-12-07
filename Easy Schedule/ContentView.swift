@@ -1277,6 +1277,13 @@ struct EventListView: View {
     @State private var showDeleteAlert = false
     @State private var eventToDelete: CalendarEvent? = nil
     @State private var showHelpSheet = false
+    // MARK: — tùy chỉnh UI
+    @State private var showCustomizeSheet = false
+
+    // Lưu cấu hình hiển thị (AppStorage để giữ xuyên các lần chạy app)
+    @AppStorage("showOwnerLabel") private var showOwnerLabel: Bool = true
+    @AppStorage("timeFontSize") private var timeFontSize: Double = 13.0
+    @AppStorage("timeColorHex") private var timeColorHex: String = "#007AFF"
 
     var body: some View {
         VStack {
@@ -1323,6 +1330,13 @@ struct EventListView: View {
                         .font(.system(size: 20, weight: .semibold))
                 }
             }
+            // NÚT TÙY CHỈNH Ở BÊN PHẢI
+             ToolbarItem(placement: .navigationBarTrailing) {
+                 Button { showCustomizeSheet = true } label: {
+                     Image(systemName: "slider.horizontal.3")
+                 }
+             }
+            
         }
 
         .onAppear {
@@ -1394,7 +1408,9 @@ struct EventListView: View {
                 }
             }
         }
-
+        .sheet(isPresented: $showCustomizeSheet) {
+            CustomizeCalendarSettingsView()
+        }
         .alert(String(localized: "delete_event_title"), isPresented: $showDeleteAlert) {
             
             // NÚT DELETE
@@ -1502,31 +1518,37 @@ struct EventListView: View {
                                                         .font(.headline)
 
                                                     // ⭐ Label phân loại lịch theo origin
-                                                    Text(originLabel(for: event))
-                                                        .font(.caption)
-                                                        .foregroundColor(.blue)
+                                                    if showOwnerLabel {
+                                                        Text(originLabel(for: event))
+                                                            .font(.caption)
+                                                            .foregroundColor(.blue)
+                                                    }
 
-                                                    // 🔵 Hiển thị tên người dùng thay cho UID
-                                                    if event.origin == .iCreatedForOther {
-                                                        HStack(spacing: 4) {
-                                                            UserNameView(uid: event.createdBy)   // A
-                                                            Text("→")
-                                                            UserNameView(uid: event.owner)       // B  <<<< CHỈNH ĐÚNG CHỖ NÀY
-                                                        }
-                                                        .font(.subheadline)
-                                                        .foregroundColor(.secondary)
-                                                    } else {
-                                                        Text(displayName(for: event, uid: event.createdBy, eventManager: eventManager))
+                                                // 🔵 Hiển thị thông tin người tạo & chủ sở hữu theo cấu hình
+                                                    if showOwnerLabel {
+                                                        if event.origin == .iCreatedForOther {
+                                                            HStack(spacing: 4) {
+                                                                UserNameView(uid: event.createdBy)
+                                                                Text("→")
+                                                                UserNameView(uid: event.owner)
+                                                            }
                                                             .font(.subheadline)
                                                             .foregroundColor(.secondary)
+                                                        } else {
+                                                            Text(displayName(for: event, uid: event.createdBy, eventManager: eventManager))
+                                                                .font(.subheadline)
+                                                                .foregroundColor(.secondary)
+                                                        }
                                                     }
 
 
 
 
+
                                                     Text("\(formattedTime(event.startTime)) - \(formattedTime(event.endTime))")
-                                                        .font(.caption)
-                                                        .foregroundColor(.secondary)
+                                                        .font(.system(size: CGFloat(timeFontSize), weight: .regular))
+                                                        .foregroundColor(Color(hex: timeColorHex))
+
                                                 }
                                                 Spacer()
                                             }
@@ -1664,23 +1686,21 @@ struct EventListView: View {
             // ⭐ Hàng thông tin người tạo + ngày
             HStack(spacing: 4) {
 
-                if event.origin == .iCreatedForOther {
-                    HStack(spacing: 4) {
-                        UserNameView(uid: event.createdBy)   // A
-                        Text("→")
-                        UserNameView(uid: event.owner)       // B  <<<< CHỈNH ĐÚNG CHỖ NÀY
-                    }
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                } else {
-                    Text(displayName(for: event, uid: event.createdBy, eventManager: eventManager))
+                if showOwnerLabel {
+                    if event.origin == .iCreatedForOther {
+                        HStack(spacing: 4) {
+                            UserNameView(uid: event.createdBy)
+                            Text("→")
+                            UserNameView(uid: event.owner)
+                        }
                         .font(.subheadline)
                         .foregroundColor(.secondary)
-
+                    } else {
+                        Text(displayName(for: event, uid: event.createdBy, eventManager: eventManager))
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
                 }
-
-
-
 
                 Text("•")
                     .font(.subheadline)
@@ -1693,8 +1713,8 @@ struct EventListView: View {
 
             // ⭐ Thời gian
             Text("\(formattedTime(event.startTime)) - \(formattedTime(event.endTime))")
-                .font(.caption)
-                .foregroundColor(.secondary)
+                .font(.system(size: CGFloat(timeFontSize), weight: .regular))
+                .foregroundColor(Color(hex: timeColorHex))
         }
         .padding(.vertical, 4)
     }
