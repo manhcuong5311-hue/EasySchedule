@@ -1276,6 +1276,8 @@ struct EventListView: View {
     @State private var searchText: String = ""    // dùng để tìm kiếm
     @State private var showDeleteAlert = false
     @State private var eventToDelete: CalendarEvent? = nil
+    @State private var showHelpSheet = false
+
     var body: some View {
         VStack {
             // Nút chuyển giữa 2 chế độ
@@ -1311,6 +1313,17 @@ struct EventListView: View {
             ? String(localized: "past_events")
             : String(localized: "current_events")
         )
+        .toolbar {
+            // NÚT HELP BÊN TRÁI
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button {
+                    showHelpSheet = true
+                } label: {
+                    Image(systemName: "questionmark.circle")
+                        .font(.system(size: 20, weight: .semibold))
+                }
+            }
+        }
 
         .onAppear {
             eventManager.cleanUpPastEvents()
@@ -1329,6 +1342,56 @@ struct EventListView: View {
             if let week = selectedWeek {
                 PastEventsByWeekView(week: week)
                     .environmentObject(eventManager)
+            }
+        }
+        .sheet(isPresented: $showHelpSheet) {
+            NavigationStack {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+
+                        Text(String(localized: "events_help_title"))
+                            .font(.title2.bold())
+
+                        Group {
+                            Text(String(localized: "events_help_segment_title"))
+                                .font(.headline)
+                            Text(String(localized: "events_help_segment_desc"))
+                                .foregroundColor(.secondary)
+                        }
+
+                        Group {
+                            Text(String(localized: "events_help_search_title"))
+                                .font(.headline)
+                            Text(String(localized: "events_help_search_desc"))
+                                .foregroundColor(.secondary)
+                        }
+
+                        Group {
+                            Text(String(localized: "events_help_weekgroup_title"))
+                                .font(.headline)
+                            Text(String(localized: "events_help_weekgroup_desc"))
+                                .foregroundColor(.secondary)
+                        }
+
+                        Group {
+                            Text(String(localized: "events_help_delete_title"))
+                                .font(.headline)
+                            Text(String(localized: "events_help_delete_desc"))
+                                .foregroundColor(.secondary)
+                        }
+
+                        Spacer(minLength: 40)
+                    }
+                    .padding()
+                }
+                .navigationTitle(String(localized: "events_help_nav_title"))
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button(String(localized: "close")) {
+                            showHelpSheet = false
+                        }
+                    }
+                }
             }
         }
 
@@ -1833,7 +1896,7 @@ struct CustomizableCalendarView: View {
     @State private var syncWorkItem: DispatchWorkItem?
     @State private var showCooldownToast = false
     @State private var cooldownRemaining = 0
-
+    @State private var showHelpSheet = false
 
     @State private var offDays: Set<Date> = [] {
         didSet { saveOffDaysToLocal() }
@@ -2050,16 +2113,74 @@ struct CustomizableCalendarView: View {
 
             .navigationTitle(String(localized: "my_calendar"))
             .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                       Button { showHelpSheet = true } label: {
+                           Image(systemName: "questionmark.circle")
+                               .font(.system(size: 20, weight: .semibold))
+                       }
+                   }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button { showAddSheet = true } label: {
                         Image(systemName: "plus")
                     }
                 }
+                
             }
             .sheet(isPresented: $showAddSheet) {
                 AddEventView(prefillDate: selectedDate, offDays: offDays)
                     .environmentObject(eventManager)
             }
+            .sheet(isPresented: $showHelpSheet) {
+                NavigationStack {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 20) {
+
+                            Text(String(localized: "my_calendar_help_title"))
+                                .font(.title2.bold())
+
+                            Group {
+                                Text(String(localized: "my_calendar_help_section_calendar_title"))
+                                    .font(.headline)
+                                Text(String(localized: "my_calendar_help_section_calendar_desc"))
+                                    .foregroundColor(.secondary)
+                            }
+
+                            Group {
+                                Text(String(localized: "my_calendar_help_section_offday_title"))
+                                    .font(.headline)
+                                Text(String(localized: "my_calendar_help_section_offday_desc"))
+                                    .foregroundColor(.secondary)
+                            }
+
+                            Group {
+                                Text(String(localized: "my_calendar_help_section_share_title"))
+                                    .font(.headline)
+                                Text(String(localized: "my_calendar_help_section_share_desc"))
+                                    .foregroundColor(.secondary)
+                            }
+
+                            Group {
+                                Text(String(localized: "my_calendar_help_section_conflict_title"))
+                                    .font(.headline)
+                                Text(String(localized: "my_calendar_help_section_conflict_desc"))
+                                    .foregroundColor(.secondary)
+                            }
+
+                            Spacer(minLength: 40)
+                        }
+                        .padding()
+                    }
+                    .navigationTitle(String(localized: "my_calendar_help_nav_title"))
+                    .toolbar {
+                        ToolbarItem(placement: .navigationBarTrailing) {
+                            Button(String(localized: "close")) {
+                                showHelpSheet = false
+                            }
+                        }
+                    }
+                }
+            }
+
             .alert(String(localized: "delete_event_title"), isPresented: $showDeleteAlert) {
                 Button(String(localized: "Ok"), role: .destructive) {
                     if let e = eventToDelete { eventManager.deleteEvent(e) }
@@ -2123,6 +2244,8 @@ struct CustomizableCalendarView: View {
     }
 
 }
+
+
 struct ShareItem: Identifiable {
     let id = UUID()
     let url: URL

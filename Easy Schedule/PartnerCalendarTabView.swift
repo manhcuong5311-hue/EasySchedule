@@ -524,14 +524,27 @@ struct HistoryLinksView: View {
 
     @State private var showCopied = false
     @State private var showConfirmClear = false
+    @State private var searchText: String = ""
 
     var sortedLinks: [SharedLink] {
         eventManager.sharedLinks.sorted(by: { $0.createdAt > $1.createdAt })
     }
 
+    var filteredLinks: [SharedLink] {
+        if searchText.isEmpty {
+            return sortedLinks
+        } else {
+            return sortedLinks.filter { link in
+                (link.displayName ?? "")
+                    .lowercased()
+                    .contains(searchText.lowercased())
+            }
+        }
+    }
+
     var body: some View {
         List {
-            ForEach(sortedLinks) { link in
+            ForEach(filteredLinks) { link in
                 VStack(alignment: .leading) {
                     Text(link.displayName ?? "")
                         .font(.headline)
@@ -551,14 +564,13 @@ struct HistoryLinksView: View {
             .onDelete(perform: deleteAt)
         }
         .navigationTitle(String(localized: "viewed_history"))
+        .searchable(text: $searchText,
+                    placement: .navigationBarDrawer(displayMode: .automatic),
+                    prompt: String(localized: "search_name"))
         .alert(String(localized:"link_copied"), isPresented: $showCopied) {
             Button("OK") {}
         }
     }
-
- 
-
-
 
     private func deleteAt(at offsets: IndexSet) {
         let sorted = sortedLinks
@@ -575,7 +587,6 @@ struct HistoryLinksView: View {
         date.formatted(.dateTime.weekday(.wide).day().month(.wide))
     }
 }
-
 
 
 // MARK: - Preview
