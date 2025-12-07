@@ -29,6 +29,7 @@ struct PartnerCalendarTabView: View {
     @State private var showAlert: Bool = false
     @State private var alertMessage: String = ""
     @State private var showHistorySheet: Bool = false
+    @State private var showHelpSheet = false
 
     // Group by day for UI
     private var groupedByDay: [Date: [CalendarEvent]] {
@@ -164,6 +165,17 @@ struct PartnerCalendarTabView: View {
             // ================================
             .navigationTitle(String(localized: "partner_calendar"))
             .toolbar {
+                // NÚT HELP BÊN TRÁI
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button {
+                        showHelpSheet = true
+                    } label: {
+                        Image(systemName: "questionmark.circle")
+                            .font(.system(size: 20, weight: .semibold))
+                    }
+                }
+
+                // NÚT + BÊN PHẢI (đã có)
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
                         addAppointmentPressed()
@@ -178,7 +190,62 @@ struct PartnerCalendarTabView: View {
                     }
                 }
             }
+            .sheet(isPresented: $showHelpSheet) {
+                NavigationStack {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 20) {
 
+                            Text(String(localized: "help_title"))
+                                .font(.title2.bold())
+                                .padding(.bottom, 10)
+
+                            Group {
+                                Text(String(localized: "help_section_paste_uid_title"))
+                                    .font(.headline)
+                                Text(String(localized: "help_section_paste_uid_desc"))
+                                    .foregroundColor(.secondary)
+                            }
+
+                            Group {
+                                Text(String(localized: "help_section_history_title"))
+                                    .font(.headline)
+                                Text(String(localized: "help_section_history_desc"))
+                                    .foregroundColor(.secondary)
+                            }
+
+                            Group {
+                                Text(String(localized: "help_section_created_for_others_title"))
+                                    .font(.headline)
+                                     Text(String(localized: "help_section_created_for_others_desc"))
+                                    .foregroundColor(.secondary)
+                            }
+
+                            Group {
+                                Text(String(localized: "help_section_access_title"))
+                                    .font(.headline)
+                                Text(String(localized: "help_section_access_desc"))
+                                    .foregroundColor(.secondary)
+                            }
+
+                            Group {
+                                Text(String(localized: "help_section_add_event_title"))
+                                    .font(.headline)
+                                Text(String(localized: "help_section_add_event_desc"))
+                                    .foregroundColor(.secondary)
+                            }
+
+                            Spacer(minLength: 40)
+                        }
+                        .padding()
+                    }
+                    .navigationTitle(String(localized: "help_nav_title"))
+                    .toolbar {
+                        ToolbarItem(placement: .navigationBarTrailing) {
+                            Button(String(localized:"close")) { showHelpSheet = false }
+                        }
+                    }
+                }
+            }
 
             // ================================
             // MARK: SHEETS

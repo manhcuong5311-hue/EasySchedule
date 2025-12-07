@@ -16,6 +16,9 @@ struct AccountSettingsView: View {
     @State private var showLogoutConfirm = false
     @State private var showDeleteConfirm = false
     @State private var isDeleting = false
+    @State private var showPasswordSheet = false
+    @State private var deletePassword = ""
+    @State private var deleteError: String?
 
     var body: some View {
         Form {
@@ -33,7 +36,7 @@ struct AccountSettingsView: View {
             // MARK: - Delete Account
             Section {
                 Button(role: .destructive) {
-                    showDeleteConfirm = true
+                    showPasswordSheet = true
                 } label: {
                     if isDeleting {
                         HStack {
@@ -75,7 +78,63 @@ struct AccountSettingsView: View {
         } message: {
             Text(String(localized: "delete_account_warning"))
         }
+        .sheet(isPresented: $showPasswordSheet) {
+            NavigationView {
+                Form {
+                    SecureField(String(localized: "enter_password_to_delete"), text: $deletePassword)
+
+                    if let deleteError = deleteError {
+                        Text(deleteError)
+                            .foregroundColor(.red)
+                    }
+
+                    Button(role: .destructive) {
+                        Task { await reauthenticateAndDelete() }
+                    } label: {
+                        Text(String(localized: "confirm_delete_account"))
+                    }
+                    .disabled(deletePassword.isEmpty)
+                }
+                .navigationTitle(String(localized: "delete_confirmation_title"))
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button(String(localized:"cancel")) { showPasswordSheet = false }
+                    }
+                }
+            }
+        }
+
     }
+
+    func reauthenticateAndDelete() async {
+        guard let user = Auth.auth().currentUser,
+              let email = user.email else {
+            deleteError = String(localized: "reauth_failed")
+            return
+        }
+
+        let credential = EmailAuthProvider.credential(
+            withEmail: email,
+            password: deletePassword
+        )
+
+        do {
+            // 1. Re-authenticate
+            try await user.reauthenticate(with: credential)
+
+            // 2. Đóng sheet
+            showPasswordSheet = false
+
+            // 3. Gọi hàm xoá tài khoản
+            await performDeleteAccount()
+
+        } catch {
+            deleteError = String(localized: "incorrect_password.")
+            print("❌ Re-authenticate failed:", error.localizedDescription)
+        }
+    }
+
+
 
     // MARK: - Actions
 
