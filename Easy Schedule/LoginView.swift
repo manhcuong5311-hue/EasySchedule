@@ -90,9 +90,13 @@ struct LoginView: View {
             }
             .padding()
             .navigationBarHidden(true)
-            .fullScreenCover(isPresented: $isLoggedIn) {
+            .fullScreenCover(isPresented: Binding(
+                get: { Auth.auth().currentUser != nil },
+                set: { _ in }
+            )) {
                 MainView()
             }
+
         }
     }
 
@@ -105,7 +109,6 @@ struct LoginView: View {
                 errorMessage = error.localizedDescription
                 return
             }
-            isLoggedIn = true
         }
     }
 
