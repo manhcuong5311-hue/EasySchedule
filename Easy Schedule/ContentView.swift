@@ -2016,7 +2016,7 @@ struct CustomizableCalendarView: View {
                                     lastTapTime = now
 
                                     toggleCount += 1
-                                    if toggleCount > 3 {
+                                    if toggleCount > 5 {
                                         startCooldown(seconds: 30)
                                         return
                                     }
@@ -2055,29 +2055,36 @@ struct CustomizableCalendarView: View {
                                         .foregroundColor(.secondary)
                                         .padding(.vertical, 12)
                                 } else {
-                                    VStack(spacing: 10) {
+                                    VStack(spacing: 12) {
                                         ForEach(eventManager.events(for: date).sorted { $0.startTime < $1.startTime }) { event in
 
-                                            HStack(alignment: .top, spacing: 8) {
+                                            HStack(alignment: .top, spacing: 12) {
 
-                                                // màu
+                                                // MARK: - Màu sự kiện
                                                 Circle()
                                                     .fill(Color(hex: event.colorHex.isEmpty ? "#FF0000" : event.colorHex))
                                                     .frame(width: 12, height: 12)
+                                                    .padding(.top, 4)
 
-                                                VStack(alignment: .leading, spacing: 4) {
+                                                // MARK: - Nội dung
+                                                VStack(alignment: .leading, spacing: 6) {
 
+                                                    // Tiêu đề
                                                     Text(event.title)
                                                         .font(.headline)
+                                                        .foregroundColor(.primary)
 
+                                                    // Nguồn tạo sự kiện
                                                     Text(originLabel(for: event))
                                                         .font(.caption)
                                                         .foregroundColor(.blue)
 
+                                                    // Người liên quan
                                                     if event.origin == .iCreatedForOther {
-                                                        HStack(spacing: 4) {
+                                                        HStack(spacing: 6) {
                                                             UserNameView(uid: event.createdBy)
-                                                            Text("→")
+                                                            Image(systemName: "arrow.right")
+                                                                .font(.caption)
                                                             UserNameView(uid: event.owner)
                                                         }
                                                         .font(.subheadline)
@@ -2088,29 +2095,41 @@ struct CustomizableCalendarView: View {
                                                             .foregroundColor(.secondary)
                                                     }
 
+                                                    // Giờ
                                                     Text("\(formattedTime(event.startTime)) - \(formattedTime(event.endTime))")
                                                         .font(.caption)
-                                                        .foregroundColor(.secondary)
+                                                        .foregroundColor(.secondary.opacity(0.8))
                                                 }
 
                                                 Spacer()
 
+                                                // MARK: - Nút xoá
                                                 Button {
                                                     showDeleteConfirmation(for: event)
                                                 } label: {
-                                                    Image(systemName: "trash")
+                                                    Image(systemName: "trash.fill")
                                                         .foregroundColor(.red)
-                                                        .padding(8)
+                                                        .font(.system(size: 15, weight: .semibold))
+                                                        .padding(6)
+                                                        .background(Color.red.opacity(0.07))
+                                                        .clipShape(Circle())
                                                 }
                                                 .buttonStyle(.plain)
                                             }
-                                            .padding(.vertical, 4)
-                                            .padding(.horizontal, 8)
-                                            .background(Color(.secondarySystemGroupedBackground))
-                                            .cornerRadius(10)
+                                            .padding(.vertical, 10)
+                                            .padding(.horizontal, 12)
+                                            .background(
+                                                RoundedRectangle(cornerRadius: 14)
+                                                    .fill(Color(.systemBackground))
+                                                    .shadow(color: Color.black.opacity(0.08), radius: 4, x: 0, y: 2)
+                                                    .overlay(
+                                                        RoundedRectangle(cornerRadius: 14)
+                                                            .stroke(Color(.separator), lineWidth: 0.5)
+                                                    )
+                                            )
                                         }
                                     }
-
+                                    .padding(.horizontal, 4)
                                 }
                             }
                         } else {
