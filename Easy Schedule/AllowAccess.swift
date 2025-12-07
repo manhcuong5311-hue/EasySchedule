@@ -321,7 +321,7 @@ struct AccessManagementView: View {
             Section {
                 
                 // ⭐ Toggle show UID / show Name
-                Toggle("Show names", isOn: $vm.showName)
+                Toggle(String(localized:"show_names"), isOn: $vm.showName)
 
                 if vm.allowedUsers.isEmpty {
                     Text(String(localized: "no_allowed_users"))

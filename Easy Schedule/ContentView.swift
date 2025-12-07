@@ -621,6 +621,7 @@ extension EventManager {
                     self.showAlert = true
                     return
                 }
+                NotificationManager.shared.scheduleNotification(for: newEvent)
                 self.syncBusySlots(for: newEvent)
             }
         } catch {
@@ -696,6 +697,9 @@ extension EventManager {
         // 2️⃣ Xoá local NGAY
         let evId = event.id
         events.removeAll { $0.id == evId }
+        UNUserNotificationCenter.current()
+            .removePendingNotificationRequests(withIdentifiers: [event.id])
+
         saveEvents()
         updateGroupedEvents()
 
@@ -986,7 +990,6 @@ extension EventManager {
         }
     }
 
-
     func listenToEvents() {
         guard let uid = currentUserId else { return }
 
@@ -1001,39 +1004,45 @@ extension EventManager {
 
                     // 1) Parse events từ Firestore
                     let incoming = snapshot.documents.compactMap { CalendarEvent.from($0) }
-
                     let now = Date()
 
-                    // 2) Tách upcoming từ Firestore
+                    // 2) Lọc sự kiện chưa hết hạn
                     let firestoreUpcoming = incoming
                         .filter { $0.endTime >= now }
                         .sorted { $0.startTime < $1.startTime }
 
-                    // 3) Giữ pastEvents LOCAL — không đụng
-                    // 4) upcoming = local chưa sync + firestoreUpcoming
+                    // 3) Giữ local upcoming mà Firestore chưa sync
                     let localUpcoming = self.events.filter { localEv in
                         !firestoreUpcoming.contains(where: { $0.id == localEv.id })
                     }
 
+                    // 4) Merge vào events
                     self.events = (localUpcoming + firestoreUpcoming)
                         .sorted { $0.startTime < $1.startTime }
 
-                    // 5) Lưu local
+                    // 5) Save local + update UI
                     self.saveEvents()
-
-                    // 6) Update UI
                     self.updateGroupedEvents()
 
-                    // ⭐⭐ 7) LẮNG NGHE BUSYSLOTS CHO TẤT CẢ PARTICIPANTS
+                    // 6) Đặt LOCAL NOTIFICATION cho tất cả lịch user có tham gia
+                    for ev in self.events {
+
+                        // ⛔ Không đặt notification cho sự kiện đã qua
+                        if ev.startTime <= now { continue }
+
+                        // 🔔 Đặt thông báo local
+                        NotificationManager.shared.scheduleNotification(for: ev)
+                    }
+
+                    // 7) Lắng nghe busySlots cho tất cả participants
                     let allUsers = Set(incoming.flatMap { $0.participants })
 
-                    for uid in allUsers {
-                        self.listenToBusySlots(sharedUserId: uid)
+                    for user in allUsers {
+                        self.listenToBusySlots(sharedUserId: user)
                     }
                 }
             }
     }
-
 
 
 

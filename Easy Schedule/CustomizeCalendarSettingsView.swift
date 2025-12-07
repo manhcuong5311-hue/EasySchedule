@@ -24,20 +24,21 @@ struct CustomizeCalendarSettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section(header: Text("Hiển thị")) {
-                    Toggle("Hiện nhãn 'Lịch của tôi'", isOn: $showOwnerLabel)
+                Section(header: Text("display_section_title")) {
+                    Toggle("show_owner_label", isOn: $showOwnerLabel)
                 }
 
-                Section(header: Text("Giờ hiển thị")) {
+
+                Section(header: Text(String(localized:"time_display_section_title"))) {
                     HStack {
-                        Text("Kích thước")
+                        Text("size_label")
                         Spacer()
                         Text("\(Int(timeFontSize)) pt")
                             .foregroundColor(.secondary)
                     }
                     Slider(value: $timeFontSize, in: 10...22, step: 1)
 
-                    ColorPicker("Màu giờ", selection: $timeColor)
+                    ColorPicker(String(localized:"time_color_label"), selection: $timeColor)
                         .onChange(of: timeColor) {
                             if let hex = timeColor.toHex() {
                                 timeColorHex = hex
@@ -47,12 +48,12 @@ struct CustomizeCalendarSettingsView: View {
                 }
 
                 Section {
-                    Button("Đóng") {
+                    Button(String(localized:"close")) {
                         dismiss()
                     }
                 }
             }
-            .navigationTitle("Tùy chỉnh hiển thị")
+            .navigationTitle(String(localized:"display_customization_title"))
             .onAppear {
                 // khởi tạo ColorPicker từ hex lưu trong UserDefaults
                 timeColor = Color(hex: timeColorHex)

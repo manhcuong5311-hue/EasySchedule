@@ -37,20 +37,26 @@ final class NotificationManager: ObservableObject {
         }
     }
     
-    func scheduleNotification(title: String, message: String, date: Date) {
+    func scheduleNotification(for event: CalendarEvent, leadTime: Int = 15) {
         guard notificationsEnabled else { return }
-        
+
         let content = UNMutableNotificationContent()
-        content.title = title
-        content.body = message
+        content.title = event.title
+        content.body = String(localized: "upcoming_event_message") + event.title
         content.sound = .default
-        
-        let triggerDate = Calendar.current.date(byAdding: .minute, value: -leadTime, to: date) ?? date
-        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: max(triggerDate.timeIntervalSinceNow, 5), repeats: false)
-        
-        let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: trigger)
-        UserNotifications.UNUserNotificationCenter.current().add(request)
+
+        let triggerDate = Calendar.current.date(byAdding: .minute, value: -leadTime, to: event.startTime) ?? event.startTime
+        let interval = max(triggerDate.timeIntervalSinceNow, 5)
+
+        let request = UNNotificationRequest(
+            identifier: event.id,   // <<< DÙNG EVENT ID LÀ IDENTIFIER
+            content: content,
+            trigger: UNTimeIntervalNotificationTrigger(timeInterval: interval, repeats: false)
+        )
+
+        UNUserNotificationCenter.current().add(request)
     }
+
 }
 
 // MARK: - SettingsView
