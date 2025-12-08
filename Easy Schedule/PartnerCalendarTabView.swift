@@ -437,20 +437,40 @@ struct PartnerCalendarTabView: View {
     // MARK: - Actions & Helpers
 
     private func addAppointmentPressed() {
-        guard let uid = parsedUID else {
+        let input = linkText.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // Kiểm tra người dùng có nhập UID/link chưa
+        guard !input.isEmpty else {
             alertMessage = String(localized: "uid_required")
             showAlert = true
             return
         }
+
+        // Auto parse UID từ link hoặc text thường
+        let uid: String
+        if let url = URL(string: input),
+           let last = url.pathComponents.last,
+           !last.isEmpty {
+            uid = last
+        } else {
+            uid = input
+        }
+
+        // Lưu UID
+        parsedUID = uid
+        selectedSharedUserId = uid
+
+        // Kiểm tra đăng nhập
         guard Auth.auth().currentUser != nil else {
             alertMessage = String(localized: "login_required")
             showAlert = true
             return
         }
 
-        selectedSharedUserId = uid
+        // Mở sheet tạo lịch ✔️
         showAddAppointmentSheet = true
     }
+
 
     private func parseAndLoad() {
         errorMessage = nil
