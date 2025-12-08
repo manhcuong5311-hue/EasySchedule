@@ -1314,6 +1314,7 @@ struct EventListView: View {
     @State private var showHelpSheet = false
     // MARK: — tùy chỉnh UI
     @State private var showCustomizeSheet = false
+    @EnvironmentObject var session: SessionStore
 
     // Lưu cấu hình hiển thị (AppStorage để giữ xuyên các lần chạy app)
     @AppStorage("showOwnerLabel") private var showOwnerLabel: Bool = true
@@ -1428,6 +1429,13 @@ struct EventListView: View {
                             Text(String(localized: "events_help_delete_desc"))
                                 .foregroundColor(.secondary)
                         }
+                        Group {
+                            Text(String(localized: "events_help_chat_title"))
+                                .font(.headline)
+
+                            Text(String(localized: "events_help_chat_desc"))
+                                .foregroundColor(.secondary)
+                        }
 
                         Spacer(minLength: 40)
                     }
@@ -1475,53 +1483,47 @@ struct EventListView: View {
     
     
     // MARK: - Lịch hiện tại (gộp theo Tháng → Tuần → Ngày)
-   
     private var upcomingEventsList: some View {
-        // ✅ 1. Tạo formatter dùng chung (không tạo mới mỗi lần)
+
         func formattedMonth(_ date: Date) -> String {
             date.formatted(.dateTime.month(.wide).year())
         }
 
-        
         func formattedMediumDate(_ date: Date) -> String {
             date.formatted(date: .numeric, time: .omitted)
         }
 
-        
         func formattedTime(_ date: Date) -> String {
             date.formatted(date: .omitted, time: .shortened)
         }
 
-        
-        // ✅ 2. Tính trước dữ liệu nhóm, tránh lặp trong body
-        // Thực hiện 1 lần khi body chạy (SwiftUI sẽ diff tự động)
         let groupedByMonth = rememberGroupedByMonth(events: eventManager.events)
         let sortedMonths = groupedByMonth.keys.sorted()
-        
+
         return List {
             if eventManager.events.isEmpty {
                 Text(String(localized: "no_upcoming_events"))
                     .foregroundColor(.secondary)
             } else {
-                // ✅ 3. Vòng lặp hiển thị tháng
+
                 ForEach(sortedMonths, id: \.self) { monthDate in
                     let monthEvents = groupedByMonth[monthDate] ?? []
-                    Section(header:
-                                HStack {
-                        Text(formattedMonth(monthDate))
-                            .font(.headline)
-                        Spacer()
-                        let template = String(localized: "number_of_events_month")
-                        Text(template.replacingOccurrences(of: "{count}", with: "\(monthEvents.count)"))
 
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                    }
+                    Section(header:
+                        HStack {
+                            Text(formattedMonth(monthDate))
+                                .font(.headline)
+                            Spacer()
+                            let template = String(localized: "number_of_events_month")
+                            Text(template.replacingOccurrences(of: "{count}", with: "\(monthEvents.count)"))
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
                     ) {
-                        // ✅ 4. Gom theo tuần
+
                         let groupedByWeek = rememberGroupedByWeek(events: monthEvents)
                         let sortedWeeks = groupedByWeek.keys.sorted()
-                        
+
                         ForEach(sortedWeeks, id: \.self) { week in
                             let weekEvents = groupedByWeek[week] ?? []
                             let weekPrefix = String(localized: "week_prefix")
@@ -1530,36 +1532,39 @@ struct EventListView: View {
                                 Text("\(weekPrefix) \(week)")
                                     .font(.subheadline.bold())
                                     .foregroundColor(.secondary)
-                            )
- {
-                                // ✅ 5. Gom theo ngày
+                            ) {
+
                                 let groupedByDay = rememberGroupedByDay(events: weekEvents)
                                 let sortedDays = groupedByDay.keys.sorted()
-                                
+
                                 ForEach(sortedDays, id: \.self) { day in
                                     let dayEvents = groupedByDay[day] ?? []
+
                                     Section(header:
-                                                Text(formattedDayHeader(day))
-                                        .fontWeight(.bold)
-                                            
+                                        Text(formattedDayHeader(day))
+                                            .fontWeight(.bold)
                                     ) {
+
                                         ForEach(dayEvents.sorted { $0.startTime < $1.startTime }) { event in
+
                                             HStack(alignment: .top, spacing: 8) {
+
+                                                // Color dot
                                                 Circle()
                                                     .fill(Color(hex: event.colorHex.isEmpty ? "#FF0000" : event.colorHex))
                                                     .frame(width: 12, height: 12)
+
+                                                // Event info
                                                 VStack(alignment: .leading, spacing: 4) {
                                                     Text(event.title)
                                                         .font(.headline)
 
-                                                    // ⭐ Label phân loại lịch theo origin
                                                     if showOwnerLabel {
                                                         Text(originLabel(for: event))
                                                             .font(.caption)
                                                             .foregroundColor(.blue)
                                                     }
 
-                                                // 🔵 Hiển thị thông tin người tạo & chủ sở hữu theo cấu hình
                                                     if showOwnerLabel {
                                                         if event.origin == .iCreatedForOther {
                                                             HStack(spacing: 4) {
@@ -1576,16 +1581,21 @@ struct EventListView: View {
                                                         }
                                                     }
 
-
-
-
-
                                                     Text("\(formattedTime(event.startTime)) - \(formattedTime(event.endTime))")
                                                         .font(.system(size: CGFloat(timeFontSize), weight: .regular))
                                                         .foregroundColor(Color(hex: timeColorHex))
-
                                                 }
+
                                                 Spacer()
+                                                if event.createdBy != event.owner {
+                                                    ChatButtonWithBadge(
+                                                        event: event,
+                                                        otherUserId: event.createdBy == session.currentUserId
+                                                            ? event.owner
+                                                            : event.createdBy
+                                                    )
+                                                }
+
                                             }
 
                                             .padding(.vertical, 4)
@@ -1595,10 +1605,9 @@ struct EventListView: View {
                                                     showDeleteConfirmation(for: event)
                                                 } label: {
                                                     Label(String(localized: "delete"), systemImage: "trash")
-
                                                 }
                                             }
-                                     .padding(.vertical, 4)
+                                            .padding(.vertical, 4)
                                         }
                                         .onDelete(perform: deleteUpcomingEvent)
                                     }
@@ -1610,8 +1619,9 @@ struct EventListView: View {
             }
         }
         .listStyle(.insetGrouped)
-        
     }
+
+    
     private func formattedDayHeader(_ date: Date) -> String {
         date.formatted(.dateTime.weekday(.wide).day())
     }
