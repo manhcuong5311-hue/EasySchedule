@@ -68,7 +68,7 @@ class ChatViewModel: ObservableObject {
             .document(eventId)
             .collection("messages")
             .order(by: "timestamp")
-            .limit(toLast: 10)
+            .limit(toLast: 50)
             .addSnapshotListener { snap, err in
                 guard let docs = snap?.documents else { return }
                 self.messages = docs.compactMap { try? $0.data(as: ChatMessage.self) }
