@@ -89,57 +89,50 @@ struct SettingsView: View {
         NavigationStack {
             Form {
 
-                // MARK: - Notifications
-                Section(String(localized: "notifications")) {
+                // MARK: - 🔔 Notifications
+                Section {
+                    Toggle(isOn: $pushNotificationsEnabled) {
+                        Label(String(localized: "notify_before_event"), systemImage: "bell.fill")
+                    }
+                    .onChange(of: pushNotificationsEnabled) { _, newValue in
+                        if newValue { NotificationManager.shared.requestPermission() }
+                    }
 
-                    Toggle(String(localized: "notify_before_event"), isOn: $pushNotificationsEnabled)
-                        .onChange(of: pushNotificationsEnabled) { _, newValue in
-                            if newValue {
-                                NotificationManager.shared.requestPermission()
-                            }
-                        }
-
-
-                    Picker(String(localized: "remind_before"), selection: $leadTime) {
+                    Picker(selection: $leadTime) {
                         ForEach(leadTimeOptions, id: \.self) { value in
-                            let template = String(localized: "minutes_before")
-                            Text(template.replacingOccurrences(of: "{value}", with: "\(value)"))
+                            let t = String(localized: "minutes_before")
+                            Text(t.replacingOccurrences(of: "{value}", with: "\(value)"))
                                 .tag(value)
                         }
+                    } label: {
+                        Label(String(localized: "remind_before"), systemImage: "clock")
                     }
                     .disabled(!pushNotificationsEnabled)
 
-                    Toggle(String(localized: "notify_new_event"), isOn: $firebasePushEnabled)
-                        .onChange(of: firebasePushEnabled) { _, newValue in
-                            if newValue {
-                                NotificationManager.shared.requestPermission()
-                            }
-                        }
-
+                } header: {
+                    Text(String(localized: "notifications"))
                 }
 
-                // MARK: - Appearance
-                Section(String(localized: "appearance")) {
-                    Picker(String(localized: "display_mode"), selection: $appTheme) {
 
-                        Text(String(localized: "system"))
-                            .tag("system")
-
-                        Text(String(localized: "light"))
-                            .tag("light")
-
-                        Text(String(localized: "dark"))
-                            .tag("dark")
+                // MARK: - 🎨 Appearance
+                Section {
+                    Picker(selection: $appTheme) {
+                        Text(String(localized: "system")).tag("system")
+                        Text(String(localized: "light")).tag("light")
+                        Text(String(localized: "dark")).tag("dark")
+                    } label: {
+                        Label(String(localized: "display_mode"), systemImage: "circle.lefthalf.filled")
                     }
                     .pickerStyle(.segmented)
+                } header: {
+                    Text(String(localized: "appearance"))
                 }
 
 
-                // MARK: - Account & Premium
-                Section(String(localized: "account_and_premium")) {
-
+                // MARK: - 👤 Account & Premium
+                Section {
                     HStack {
-                        Text(String(localized: "display_name"))
+                        Label(String(localized: "display_name"), systemImage: "person.fill")
                         Spacer()
                         Text(session.currentUserName.isEmpty
                              ? String(localized: "not_set")
@@ -147,75 +140,96 @@ struct SettingsView: View {
                             .foregroundColor(.secondary)
                     }
 
-                    NavigationLink(String(localized: "change_display_name")) {
-                        UpdateUserNameView()
-                            .environmentObject(session)
+                    NavigationLink {
+                        UpdateUserNameView().environmentObject(session)
+                    } label: {
+                        Label(String(localized: "change_display_name"), systemImage: "pencil")
                     }
 
                     Button {
                         showUpgradeSheet = true
                     } label: {
                         HStack {
-                            Text(String(localized: "upgrade_account"))
+                            Label(String(localized: "upgrade_account"), systemImage: "star.fill")
                             Spacer()
                             Text(premium.isPremium
                                  ? String(localized: "premium")
                                  : String(localized: "free"))
                                 .foregroundColor(premium.isPremium ? .yellow : .secondary)
+                                .font(.subheadline)
                         }
                     }
 
-                    NavigationLink(String(localized: "security_management")) {
+                    NavigationLink {
                         SecuritySettingsView()
+                    } label: {
+                        Label(String(localized: "security_management"), systemImage: "lock.shield")
                     }
+
+                } header: {
+                    Text(String(localized: "account_and_premium"))
                 }
 
-                // MARK: - Language
-                Section(String(localized: "language")) {
-                    Button(String(localized: "change_language_in_settings")) {
+
+                // MARK: - 🌐 Language
+                Section {
+                    Button {
                         if let url = URL(string: UIApplication.openSettingsURLString) {
                             UIApplication.shared.open(url)
                         }
+                    } label: {
+                        Label(String(localized: "change_language_in_settings"), systemImage: "globe")
                     }
+                } header: {
+                    Text(String(localized: "language"))
                 }
 
 
-                // MARK: - Support
-                Section(String(localized: "info_support")) {
-
-                    Button("🧾 Privacy Policy & App Info") {
+                // MARK: - 🛟 Support
+                Section {
+                    Button {
                         showPrivacySheet = true
+                    } label: {
+                        Label("Privacy Policy & App Info", systemImage: "doc.text")
                     }
 
-                    Button(String(localized: "contact_support")) {
+                    Button {
                         contactSupport()
+                    } label: {
+                        Label(String(localized: "contact_support"), systemImage: "envelope")
                     }
-                }
-                NavigationLink("FAQ") {
-                    FAQView()
-                }
-            
-              
-                // MARK: - Account Actions
-                Section(String(localized: "account_section")) {
+
                     NavigationLink {
-                        AccountSettingsView()
-                            .environmentObject(session)
+                        FAQView()
+                    } label: {
+                        Label("FAQ", systemImage: "questionmark.circle")
+                    }
+
+                } header: {
+                    Text(String(localized: "info_support"))
+                }
+
+
+                // MARK: - ⚙️ Account Actions
+                Section {
+                    NavigationLink {
+                        AccountSettingsView().environmentObject(session)
                     } label: {
                         Label(String(localized: "account_management"), systemImage: "person.crop.circle")
                     }
+                } header: {
+                    Text(String(localized: "account_section"))
                 }
 
-
             }
-
             .navigationTitle(String(localized: "settings"))
-        
+
+            // ALERTS & SHEETS
             .alert(
                 String(localized: "logout_confirm"),
                 isPresented: $showLogoutAlert
             ) {
-                Button(String(localized: "cancel"), role: .cancel) { }
+                Button(String(localized: "cancel"), role: .cancel) {}
                 Button(String(localized: "logout"), role: .destructive) {
                     performLogout()
                 }
@@ -224,9 +238,7 @@ struct SettingsView: View {
             }
 
             .sheet(isPresented: $showUpgradeSheet) {
-                PremiumUpgradeSheet()
-                    .environmentObject(premium)
-
+                PremiumUpgradeSheet().environmentObject(premium)
             }
 
             .sheet(isPresented: $showPrivacySheet) {
@@ -234,6 +246,7 @@ struct SettingsView: View {
             }
         }
     }
+
 
 
     // MARK: - Actions
