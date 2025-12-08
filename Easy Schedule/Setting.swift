@@ -7,7 +7,6 @@
 import SwiftUI
 import UserNotifications
 import Combine
-import FirebaseMessaging
 import FirebaseCore
 import FirebaseAuth
 import GoogleSignIn
@@ -96,15 +95,10 @@ struct SettingsView: View {
                     Toggle(String(localized: "notify_before_event"), isOn: $pushNotificationsEnabled)
                         .onChange(of: pushNotificationsEnabled) { _, newValue in
                             if newValue {
-                                Messaging.messaging().subscribe(toTopic: "admin") { error in
-                                    print(error == nil ? "✅ Bật thông báo admin" : "❌ \(error!.localizedDescription)")
-                                }
-                            } else {
-                                Messaging.messaging().unsubscribe(fromTopic: "admin") { error in
-                                    print(error == nil ? "🔕 Tắt thông báo admin" : "❌ \(error!.localizedDescription)")
-                                }
+                                NotificationManager.shared.requestPermission()
                             }
                         }
+
 
                     Picker(String(localized: "remind_before"), selection: $leadTime) {
                         ForEach(leadTimeOptions, id: \.self) { value in
@@ -118,15 +112,10 @@ struct SettingsView: View {
                     Toggle(String(localized: "notify_new_event"), isOn: $firebasePushEnabled)
                         .onChange(of: firebasePushEnabled) { _, newValue in
                             if newValue {
-                                Messaging.messaging().subscribe(toTopic: "schedules") { error in
-                                    print(error == nil ? "📢 Bật thông báo schedules" : "❌ \(error!.localizedDescription)")
-                                }
-                            } else {
-                                Messaging.messaging().unsubscribe(fromTopic: "schedules") { error in
-                                    print(error == nil ? "🔕 Tắt thông báo schedules" : "❌ \(error!.localizedDescription)")
-                                }
+                                NotificationManager.shared.requestPermission()
                             }
                         }
+
                 }
 
                 // MARK: - Appearance
@@ -549,36 +538,29 @@ struct LockScreenView: View {
 
 
 
-
-class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate, MessagingDelegate {
+class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
 
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
 
-        // 1️⃣ Khởi tạo Firebase
+        // Firebase
         FirebaseApp.configure()
 
-        // 2️⃣ Firestore Settings (offline persistence) → PHẢI ĐẶT TRƯỚC preloadUsers()
+        // Firestore offline cache
         let db = Firestore.firestore()
         let settings = FirestoreSettings()
-
-        let persistentCache = PersistentCacheSettings()
-        settings.cacheSettings = persistentCache
+        settings.cacheSettings = PersistentCacheSettings()
         db.settings = settings
 
-        // 3️⃣ Sau khi settings xong → giờ mới được preloadUsers()
+        // Load users cache
         EventManager.shared.preloadUsersIfNeeded()
 
-        // 4️⃣ Notification
+        // Notifications (LOCAL ONLY)
         UNUserNotificationCenter.current().delegate = self
-        Messaging.messaging().delegate = self
 
+        // Xin quyền thông báo
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
-            if granted {
-                DispatchQueue.main.async {
-                    UIApplication.shared.registerForRemoteNotifications()
-                }
-            } else if let error = error {
+            if let error = error {
                 print("❌ Notification permission error:", error.localizedDescription)
             }
         }
@@ -586,70 +568,10 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         return true
     }
 
-
-    // MARK: - UNUserNotificationCenterDelegate
+    // Show banner in foreground
     func userNotificationCenter(_ center: UNUserNotificationCenter,
                                 willPresent notification: UNNotification,
                                 withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
-        completionHandler([.banner, .sound, .badge])
-    }
-
-    func userNotificationCenter(_ center: UNUserNotificationCenter,
-                                didReceive response: UNNotificationResponse,
-                                withCompletionHandler completionHandler: @escaping () -> Void) {
-        completionHandler()
-    }
-
-    // MARK: - MessagingDelegate
-    func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
-        print("✅ FCM token: \(fcmToken ?? "")")
-        guard let token = fcmToken else { return }
-
-        // 🔥 Gửi token lên server (Cloud Functions)
-        sendTokenToServer(token)
-    }
-
-    // Hàm gửi token lên Firebase Cloud Functions
-    private func sendTokenToServer(_ token: String) {
-        guard let uid = Auth.auth().currentUser?.uid else {
-            print("⚠️ Chưa đăng nhập -> Không gửi fcmToken")
-            return
-        }
-
-        let url = URL(string: "https://us-central1-easyschedule-ce98a.cloudfunctions.net/updateFcmToken")!
-
-        let body: [String: Any] = [
-            "uid": uid,
-            "token": token
-        ]
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
-
-        URLSession.shared.dataTask(with: request) { data, _, error in
-            if let error = error {
-                print("❌ Gửi token lỗi:", error.localizedDescription)
-            } else {
-                print("📨 Đã gửi fcmToken lên server")
-            }
-        }.resume()
-    }
-
-    // MARK: - Remote Notification
-    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
-        Messaging.messaging().apnsToken = deviceToken
-    }
-
-    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
-        print("❌ Failed to register remote notifications:", error.localizedDescription)
+        completionHandler([.banner, .sound])
     }
 }
-
-
-
-
-
-
-
