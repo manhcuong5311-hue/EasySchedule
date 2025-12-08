@@ -32,6 +32,7 @@ struct AppointmentProSheet: View {
     @State private var partnerOffDays: Set<Date> = []
     @State private var partnerIsPremium: Bool = true
     @State private var showPremiumAlert = false
+    @EnvironmentObject var network: NetworkMonitor
 
     @State private var customStart: Date = Date()
     @State private var customEnd: Date = Date()
@@ -172,7 +173,13 @@ struct AppointmentProSheet: View {
 
                         handleCreate()
                     }
-                    .disabled((!useCustomTime && selectedSlot == nil) || sharedUserId == nil)
+                    .disabled(
+                        (!useCustomTime && selectedSlot == nil) ||
+                        sharedUserId == nil ||
+                        !NetworkMonitor.shared.isOnline ||   // ⛔ OFFLINE thì khóa nút
+                        loading                              // đang load lịch thì KHÔNG cho tạo
+                    )
+
                 }
             }
             .onAppear { loadBusy() }
@@ -292,6 +299,18 @@ struct AppointmentProSheet: View {
 
         let now = Date()
         _ = calendar.date(byAdding: .day, value: 7, to: now)!
+        if useCustomTime {
+            selectedSlot = ProSlot(
+                start: combine(selectedDate, customStart),
+                end: combine(selectedDate, customEnd)
+            )
+        }
+        // ❗ CHẶN NGÀY NGHỈ — áp dụng cho cả custom và preset slots
+        let startOfSelectedDay = Calendar.current.startOfDay(for: selectedDate)
+        if partnerOffDays.contains(startOfSelectedDay) {
+            errorMessage = String(localized: "owner_day_off_no_booking")
+            return
+        }
 
         // ⭐ CHECK FREE USER LIMIT (giống AddEventView)
         let calendar = Calendar.current
@@ -312,6 +331,10 @@ struct AppointmentProSheet: View {
             }
         }
 
+        guard NetworkMonitor.shared.isOnline else {
+            errorMessage = String(localized: "no_internet_connection")
+            return
+        }
 
         guard let uid = sharedUserId else {
             errorMessage = String(localized: "unknown_uid")

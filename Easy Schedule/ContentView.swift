@@ -62,6 +62,7 @@ final class EventManager: ObservableObject {
     private var partnerPremiumCache: [String: Bool] = [:]
     // Cache busy slots theo UID đối tác
     @Published var partnerBusySlots: [String: [CalendarEvent]] = [:]
+    private var isCreatingEvent = false
 
     private var eventsListener: ListenerRegistration?
     private var appointmentsListener: ListenerRegistration?
@@ -508,6 +509,31 @@ final class EventManager: ObservableObject {
         return false
     }
 
+    func sendNewEventNotification(to uid: String, title: String, body: String) {
+        guard let url = URL(string: "https://us-central1-easyschedule-ce98a.cloudfunctions.net/sendToUser") else { return }
+
+        let payload: [String: Any] = [
+            "uid": uid,
+            "title": title,
+            "body": body
+        ]
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try? JSONSerialization.data(withJSONObject: payload)
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error {
+                print("❌ send notification error:", error.localizedDescription)
+            } else {
+                print("📨 notification sent!")
+            }
+        }.resume()
+    }
+
+    
+    
 
 }
 
@@ -522,10 +548,11 @@ extension EventManager {
                   colorHex: String = "#007AFF") -> Bool {
 
         guard let uid = currentUserId else { return false }
+       
         let now = Date()
 
         // ANTI-SPAM CLICK (2 giây trong app)
-        if let last = lastEventCreateTime, now.timeIntervalSince(last) < 2 {
+        if let last = lastEventCreateTime, now.timeIntervalSince(last) < 5 {
             print("🚫 BLOCK: Too fast!")
             return false
         }
@@ -613,14 +640,16 @@ extension EventManager {
 
         let ref = db.collection("events").document(newEvent.id)
 
-        do {
+    do {
             try ref.setData(from: newEvent) { err in
+
                 if let err = err {
                     print("❌ Firestore error:", err.localizedDescription)
                     self.alertMessage = String(localized:"network_error_try_again.")
                     self.showAlert = true
                     return
                 }
+                NotificationManager.shared.scheduleNotification(for: newEvent)
                 self.syncBusySlots(for: newEvent)
             }
         } catch {
@@ -696,6 +725,9 @@ extension EventManager {
         // 2️⃣ Xoá local NGAY
         let evId = event.id
         events.removeAll { $0.id == evId }
+        UNUserNotificationCenter.current()
+            .removePendingNotificationRequests(withIdentifiers: [event.id])
+
         saveEvents()
         updateGroupedEvents()
 
@@ -985,8 +1017,6 @@ extension EventManager {
             doc.setData(["busySlots": existing], merge: true)
         }
     }
-
-
     func listenToEvents() {
         guard let uid = currentUserId else { return }
 
@@ -999,44 +1029,49 @@ extension EventManager {
 
                 DispatchQueue.main.async {
 
-                    // 1) Parse events từ Firestore
-                    let incoming = snapshot.documents.compactMap { CalendarEvent.from($0) }
-
                     let now = Date()
 
-                    // 2) Tách upcoming từ Firestore
+                    // 1) Parse Firestore
+                    let incoming = snapshot.documents.compactMap { CalendarEvent.from($0) }
+
+                    // Giữ event chưa hết hạn
                     let firestoreUpcoming = incoming
                         .filter { $0.endTime >= now }
                         .sorted { $0.startTime < $1.startTime }
 
-                    // 3) Giữ pastEvents LOCAL — không đụng
-                    // 4) upcoming = local chưa sync + firestoreUpcoming
-                    let localUpcoming = self.events.filter { localEv in
-                        !firestoreUpcoming.contains(where: { $0.id == localEv.id })
-                    }
+                    // 2) Lưu danh sách ID cũ (để detect event mới)
+                    let oldIds = Set(self.events.map { $0.id })
 
-                    self.events = (localUpcoming + firestoreUpcoming)
-                        .sorted { $0.startTime < $1.startTime }
+                    // ❗ FIX: local = Firestore hoàn toàn
+                    self.events = firestoreUpcoming
 
-                    // 5) Lưu local
+                    // 3) Update local + UI
                     self.saveEvents()
-
-                    // 6) Update UI
                     self.updateGroupedEvents()
 
-                    // ⭐⭐ 7) LẮNG NGHE BUSYSLOTS CHO TẤT CẢ PARTICIPANTS
-                    let allUsers = Set(incoming.flatMap { $0.participants })
+                    // 4) Detect event mới
+                    let newIds = Set(firestoreUpcoming.map { $0.id })
+                    let addedIds = newIds.subtracting(oldIds)
 
-                    for uid in allUsers {
-                        self.listenToBusySlots(sharedUserId: uid)
+                    for ev in firestoreUpcoming {
+                        if addedIds.contains(ev.id),
+                           ev.createdBy != uid,
+                           ev.startTime > now,
+                           UserDefaults.standard.bool(forKey: "firebasePushEnabled")
+                        {
+                            NotificationManager.shared.scheduleNotification(for: ev)
+                            print("🔔 NEW EVENT LOCAL NOTIFICATION:", ev.title)
+                        }
+                    }
+
+                    // 5) Listen busySlots cho participants
+                    let allUsers = Set(incoming.flatMap { $0.participants })
+                    for user in allUsers {
+                        self.listenToBusySlots(sharedUserId: user)
                     }
                 }
             }
     }
-
-
-
-
 
     func clearLocalEvents() {
         // 1️⃣ Remove ALL event listeners
@@ -2007,7 +2042,7 @@ struct CustomizableCalendarView: View {
                                     lastTapTime = now
 
                                     toggleCount += 1
-                                    if toggleCount > 3 {
+                                    if toggleCount > 5 {
                                         startCooldown(seconds: 30)
                                         return
                                     }
@@ -2046,29 +2081,36 @@ struct CustomizableCalendarView: View {
                                         .foregroundColor(.secondary)
                                         .padding(.vertical, 12)
                                 } else {
-                                    VStack(spacing: 10) {
+                                    VStack(spacing: 12) {
                                         ForEach(eventManager.events(for: date).sorted { $0.startTime < $1.startTime }) { event in
 
-                                            HStack(alignment: .top, spacing: 8) {
+                                            HStack(alignment: .top, spacing: 12) {
 
-                                                // màu
+                                                // MARK: - Màu sự kiện
                                                 Circle()
                                                     .fill(Color(hex: event.colorHex.isEmpty ? "#FF0000" : event.colorHex))
                                                     .frame(width: 12, height: 12)
+                                                    .padding(.top, 4)
 
-                                                VStack(alignment: .leading, spacing: 4) {
+                                                // MARK: - Nội dung
+                                                VStack(alignment: .leading, spacing: 6) {
 
+                                                    // Tiêu đề
                                                     Text(event.title)
                                                         .font(.headline)
+                                                        .foregroundColor(.primary)
 
+                                                    // Nguồn tạo sự kiện
                                                     Text(originLabel(for: event))
                                                         .font(.caption)
                                                         .foregroundColor(.blue)
 
+                                                    // Người liên quan
                                                     if event.origin == .iCreatedForOther {
-                                                        HStack(spacing: 4) {
+                                                        HStack(spacing: 6) {
                                                             UserNameView(uid: event.createdBy)
-                                                            Text("→")
+                                                            Image(systemName: "arrow.right")
+                                                                .font(.caption)
                                                             UserNameView(uid: event.owner)
                                                         }
                                                         .font(.subheadline)
@@ -2079,29 +2121,41 @@ struct CustomizableCalendarView: View {
                                                             .foregroundColor(.secondary)
                                                     }
 
+                                                    // Giờ
                                                     Text("\(formattedTime(event.startTime)) - \(formattedTime(event.endTime))")
                                                         .font(.caption)
-                                                        .foregroundColor(.secondary)
+                                                        .foregroundColor(.secondary.opacity(0.8))
                                                 }
 
                                                 Spacer()
 
+                                                // MARK: - Nút xoá
                                                 Button {
                                                     showDeleteConfirmation(for: event)
                                                 } label: {
-                                                    Image(systemName: "trash")
+                                                    Image(systemName: "trash.fill")
                                                         .foregroundColor(.red)
-                                                        .padding(8)
+                                                        .font(.system(size: 15, weight: .semibold))
+                                                        .padding(6)
+                                                        .background(Color.red.opacity(0.07))
+                                                        .clipShape(Circle())
                                                 }
                                                 .buttonStyle(.plain)
                                             }
-                                            .padding(.vertical, 4)
-                                            .padding(.horizontal, 8)
-                                            .background(Color(.secondarySystemGroupedBackground))
-                                            .cornerRadius(10)
+                                            .padding(.vertical, 10)
+                                            .padding(.horizontal, 12)
+                                            .background(
+                                                RoundedRectangle(cornerRadius: 14)
+                                                    .fill(Color(.systemBackground))
+                                                    .shadow(color: Color.black.opacity(0.08), radius: 4, x: 0, y: 2)
+                                                    .overlay(
+                                                        RoundedRectangle(cornerRadius: 14)
+                                                            .stroke(Color(.separator), lineWidth: 0.5)
+                                                    )
+                                            )
                                         }
                                     }
-
+                                    .padding(.horizontal, 4)
                                 }
                             }
                         } else {
@@ -2415,94 +2469,84 @@ struct AddEventView: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button(String(localized: "save")) {
+
+                        // 🔒 1) Chặn spam click
+                        if eventManager.isAdding {
+                            print("⛔ Đang xử lý, không cho bấm nữa")
+                            return
+                        }
+                        eventManager.isAdding = true
                         
-                       
                         let calendar = Calendar.current
                         let now = Date()
 
                         // 1️⃣ Kiểm tra ngày nghỉ
                         if offDays.contains(where: { calendar.isDate($0, inSameDayAs: date) }) {
-                            let prefix = String(localized: "off_day_prefix")   // "Ngày"
-                            offDayMessage = "\(prefix) \(formattedDate(date)) là ngày nghỉ, bạn không thể đặt lịch vào ngày này."
+                            let prefix = String(localized: "off_day_prefix")
+                            offDayMessage = "\(prefix) \(formattedDate(date)) là ngày nghỉ, bạn không thể đặt lịch."
                             showOffDayAlert = true
+                            eventManager.isAdding = false
                             return
                         }
 
-                     
-                        // 4️⃣ Validate form
+                        // 2️⃣ Title trống
                         guard !title.trimmingCharacters(in: .whitespaces).isEmpty else {
                             alertMessage = String(localized: "empty_title")
                             showAlert = true
+                            eventManager.isAdding = false
                             return
                         }
 
-                        // 5️⃣ Đảm bảo start < end
+                        // 3️⃣ start < end
                         let s = combine(date: date, time: startTime)
                         var e = combine(date: date, time: endTime)
-                        if e <= s { e = s.addingTimeInterval(1800) } // auto +30p
-                        // ----------------------
-                        // 🎯 PREMIUM / FREE LIMIT
-                        // ----------------------
-                
-                        let now2 = now
+                        if e <= s { e = s.addingTimeInterval(1800) }
 
+                        // 4️⃣ PREMIUM / FREE LIMIT (giữ nguyên code cũ)
+                        let now2 = now
                         if !premium.isPremium {
-                            // ❗ FREE — không quá 7 ngày
                             if let maxDate = calendar.date(byAdding: .day, value: 7, to: now2),
                                date > maxDate {
                                 alertMessage = String(localized: "limit_7_days")
                                 showAlert = true
+                                eventManager.isAdding = false
                                 return
                             }
 
-                            // ❗ FREE — không quá 2 event / ngày
                             let sameDayFree = eventManager.events.filter {
                                 calendar.isDate($0.date, inSameDayAs: date)
                             }
                             if sameDayFree.count >= 2 {
                                 alertMessage = String(localized: "limit_2_events_per_day")
                                 showAlert = true
-                                return
-                            }
-
-                        } else {
-                            // ⭐ PREMIUM — GIỚI HẠN CHỐNG SPAM: 30 EVENT / NGÀY
-                            let sameDayPremium = eventManager.events.filter {
-                                calendar.isDate($0.date, inSameDayAs: date)
-                            }
-
-                            if sameDayPremium.count >= 30 {
-                                alertMessage = String(localized: "premium_limit_30_per_day")
-                                showAlert = true
+                                eventManager.isAdding = false
                                 return
                             }
                         }
 
-                        
-                        
-                        // 🚫 1) LUÔN CHẶN EVENT TRÙNG HOÀN TOÀN
+                        // 5️⃣ Trùng giờ / trùng event
                         let exactDup = eventManager.events.contains { ev in
                             Calendar.current.isDate(ev.date, inSameDayAs: date) &&
                             ev.startTime == s &&
                             ev.endTime == e
                         }
-
                         if exactDup {
                             alertMessage = String(localized: "event_already_exists")
                             showAlert = true
+                            eventManager.isAdding = false
                             return
                         }
-                        // 🚫 2) CHẶN TRÙNG GIỜ (Nếu user TẮT conflict)
+
                         if !eventManager.allowDuplicateEvents {
                             let overlap = eventManager.events.contains { ev in
                                 Calendar.current.isDate(ev.date, inSameDayAs: date) &&
                                 ev.startTime < e &&
                                 s < ev.endTime
                             }
-                            
                             if overlap {
                                 alertMessage = String(localized: "time_slot_taken!")
                                 showAlert = true
+                                eventManager.isAdding = false
                                 return
                             }
                         }
@@ -2517,17 +2561,16 @@ struct AddEventView: View {
                             colorHex: selectedColor.toHex() ?? "#007AFF"
                         )
 
-
-
                         if !success {
-                           
-                            return            // ❗ Quan trọng: KHÔNG ĐÓNG VIEW
+                            eventManager.isAdding = false
+                            return
                         }
 
+                        // 🟢 Thành công → reset trạng thái và đóng view
+                        eventManager.isAdding = false
                         dismiss()
-
                     }
-
+                  
                 }
                 ToolbarItem(placement: .cancellationAction) {
                     Button(String(localized: "cancel")) { dismiss() }
