@@ -7,11 +7,13 @@ import FirebaseFirestore
 
 struct ChatMessage: Identifiable, Codable {
     @DocumentID var id: String?
-    var text: String
+    var text: String = ""
     var senderId: String
     var senderName: String
     var timestamp: Date
     var seenBy: [String: Bool]?
+    var latitude: Double?
+    var longitude: Double?
 
     init(
         id: String? = nil,
@@ -19,7 +21,9 @@ struct ChatMessage: Identifiable, Codable {
         senderId: String,
         senderName: String,
         timestamp: Date = Date(),
-        seenBy: [String: Bool] = [:]
+        seenBy: [String: Bool] = [:],
+        latitude: Double? = nil,
+        longitude: Double? = nil
     ) {
         self.id = id
         self.text = text
@@ -27,7 +31,10 @@ struct ChatMessage: Identifiable, Codable {
         self.senderName = senderName
         self.timestamp = timestamp
         self.seenBy = seenBy
+        self.latitude = latitude
+        self.longitude = longitude
     }
+
 }
 
 import Foundation
@@ -68,11 +75,47 @@ class ChatViewModel: ObservableObject {
             .document(eventId)
             .collection("messages")
             .order(by: "timestamp")
-            .limit(toLast: 50)
             .addSnapshotListener { snap, err in
-                guard let docs = snap?.documents else { return }
-                self.messages = docs.compactMap { try? $0.data(as: ChatMessage.self) }
+                guard let snap = snap else { return }
+
+                for change in snap.documentChanges {
+                    switch change.type {
+                    case .added:
+                        if let msg = try? change.document.data(as: ChatMessage.self) {
+                            self.messages.append(msg)
+                        }
+                    default:
+                        break
+                    }
+                }
             }
+    }
+
+    func sendCurrentLocation(lat: Double, lon: Double) {
+        let message = ChatMessage(
+            text: "[location]",
+            senderId: myId,
+            senderName: myName,
+            timestamp: Date(),
+            seenBy: [myId: true],
+            latitude: lat,                 // ⭐ tọa độ truyền vào
+            longitude: lon                 // ⭐ tọa độ truyền vào
+        )
+
+        let chatRef = db.collection("chats").document(eventId)
+
+        do {
+            try chatRef.collection("messages").addDocument(from: message)
+        } catch {
+            print("❌ Failed to send location:", error)
+        }
+
+
+        chatRef.setData([
+            "lastMessage": "📍 Location",
+            "lastMessageTime": Timestamp(date: Date()),
+            "unread": [otherUserId: true]
+        ], merge: true)
     }
 
     // MARK: - Send message
@@ -110,7 +153,14 @@ class ChatViewModel: ObservableObject {
     func markSeen() {
         let chatRef = db.collection("chats").document(eventId)
 
-        chatRef.collection("messages")
+        chatRef.updateData([
+            "unread.\(myId)": false
+        ])
+
+        db.collection("chats")
+            .document(eventId)
+            .collection("messages")
+            .whereField("seenBy.\(myId)", isEqualTo: false)
             .getDocuments { snap, _ in
                 snap?.documents.forEach { doc in
                     doc.reference.updateData([
@@ -118,11 +168,8 @@ class ChatViewModel: ObservableObject {
                     ])
                 }
             }
-
-        chatRef.updateData([
-            "unread.\(myId)": false
-        ])
     }
+
 
     // MARK: - Auto delete chat when event is past
     func autoDeleteIfPast(_ eventEndTime: Date) {
@@ -150,6 +197,10 @@ struct ChatView: View {
 
     @EnvironmentObject var session: SessionStore
     @StateObject var vm: ChatViewModel
+    @State private var showMapPicker = false
+    @StateObject private var locationManager = LocationManager()
+    @State private var addressCache: [String: String] = [:]
+    @State private var sendCooldown = false
 
     init(eventId: String, otherUserId: String, otherName: String, eventEndTime: Date) {
         self.eventId = eventId
@@ -171,7 +222,7 @@ struct ChatView: View {
 
             ScrollViewReader { proxy in
                 ScrollView {
-                    VStack(spacing: 12) {
+                    LazyVStack(spacing: 12) {
                         ForEach(vm.messages) { msg in
                             bubble(msg)
                         }
@@ -188,26 +239,94 @@ struct ChatView: View {
             Divider()
 
             HStack {
+                // Nút GỬI VỊ TRÍ HIỆN TẠI
+                Button {
+                    sendMyGPS()
+                } label: {
+                    Image(systemName: "location.fill")
+                        .font(.title2)
+                }
+
+                // Nút CHỌN VỊ TRÍ TRÊN BẢN ĐỒ
+                Button {
+                    showMapPicker = true
+                } label: {
+                    Image(systemName: "map.fill")
+                        .font(.title2)
+                }
+
                 TextField(String(localized: "enter_message"), text: $vm.messageText)
                     .textFieldStyle(.roundedBorder)
 
                 Button {
+                    guard !sendCooldown else { return }
+                    sendCooldown = true
+
                     vm.sendMessage()
+
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                        sendCooldown = false
+                    }
                 } label: {
                     Image(systemName: "paperplane.fill")
                         .font(.title2)
                         .padding(.horizontal)
                 }
+
             }
             .padding()
+
+        }
+        .sheet(isPresented: $showMapPicker) {
+            MapPickerView(location: locationManager.location) { coord in
+                vm.sendCurrentLocation(lat: coord.latitude, lon: coord.longitude)
+            }
+            .interactiveDismissDisabled(false)
+
         }
         .navigationTitle(otherName)
         .onAppear {
             vm.markSeen()
             vm.autoDeleteIfPast(eventEndTime)
         }
-    }
+     
 
+        
+    }
+    func fetchAddress(lat: Double, lon: Double, id: String, completion: @escaping (String) -> Void) {
+
+        // Nếu đã có rồi → dùng cache
+        if let cached = addressCache[id] {
+            completion(cached)
+            return
+        }
+
+        let geocoder = CLGeocoder()
+        geocoder.reverseGeocodeLocation(CLLocation(latitude: lat, longitude: lon)) { places, _ in
+            if let p = places?.first {
+                let parts = [
+                    p.name,
+                    p.subLocality,
+                    p.locality,
+                    p.administrativeArea,
+                    p.country
+                ].compactMap { $0 }
+
+                let addr = parts.joined(separator: ", ")
+
+                DispatchQueue.main.async {
+                    addressCache[id] = addr
+                    completion(addr)
+                }
+            } else {
+                DispatchQueue.main.async {
+                    let fallback = String(localized: "location_sent")
+                    addressCache[id] = fallback
+                    completion(fallback)
+                }
+            }
+        }
+    }
     // MARK: - Bubble
     private func bubble(_ msg: ChatMessage) -> some View {
         let isMe = msg.senderId == session.currentUserId
@@ -222,12 +341,52 @@ struct ChatView: View {
                         .font(.caption2)
                         .foregroundColor(.secondary)
                 }
+                // ⭐ Tin nhắn định vị
+                if let lat = msg.latitude, let lon = msg.longitude {
 
-                Text(msg.text)
+                    VStack(alignment: isMe ? .trailing : .leading, spacing: 6) {
+
+                        // Hiển thị địa chỉ
+                        Text(addressCache[msg.id ?? ""] ?? String(localized: "fetching_address"))
+                            .font(.subheadline)
+                            .foregroundColor(isMe ? .white : .primary)
+                            .onAppear {
+                                if addressCache[msg.id ?? ""] == nil {
+                                    fetchAddress(lat: lat, lon: lon, id: msg.id ?? "") { _ in }
+                                }
+                            }
+
+                        // Nút mở Apple Maps
+                        Button {
+                            if let url = URL(string: "http://maps.apple.com/?ll=\(lat),\(lon)") {
+                                UIApplication.shared.open(url)
+                            }
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "map")
+                                Text(String(localized: "open_in_apple_maps"))
+                            }
+                            .font(.caption)
+                        }
+                        .padding(8)
+                        .background(isMe ? Color.white.opacity(0.25) : Color.blue.opacity(0.15))
+                        .cornerRadius(10)
+                    }
                     .padding(10)
                     .background(isMe ? Color.blue.opacity(0.9) : Color.gray.opacity(0.2))
                     .foregroundColor(isMe ? .white : .primary)
                     .cornerRadius(12)
+                }
+
+                // ⭐ Ngược lại là tin nhắn văn bản bình thường
+                else {
+                    Text(msg.text)
+                        .padding(10)
+                        .background(isMe ? Color.blue.opacity(0.9) : Color.gray.opacity(0.2))
+                        .foregroundColor(isMe ? .white : .primary)
+                        .cornerRadius(12)
+                }
+
 
                 if isMe {
                     let seen = msg.seenBy?[otherUserId] == true
@@ -241,6 +400,14 @@ struct ChatView: View {
         }
         .id(msg.id)
     }
+    func sendMyGPS() {
+        guard let loc = locationManager.location else { return }
+        vm.sendCurrentLocation(
+            lat: loc.coordinate.latitude,
+            lon: loc.coordinate.longitude
+        )
+    }
+
 }
 
 
@@ -293,6 +460,7 @@ class ChatMetaViewModel: ObservableObject {
                 self.unread = unreadDict[self.myId] ?? false
             }
     }
+    
 }
 
 import SwiftUI
@@ -387,6 +555,26 @@ struct EventRowWithChat: View {
     }
 }
 
+import CoreLocation
+
+class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
+    private let manager = CLLocationManager()
+
+    @Published var location: CLLocation?
+
+    override init() {
+        super.init()
+        manager.delegate = self
+        manager.requestWhenInUseAuthorization()
+        manager.startUpdatingLocation()
+    }
+
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locs: [CLLocation]) {
+        location = locs.first
+    }
+}
+
+
 struct ChatButtonWithBadge: View {
     let event: CalendarEvent
     let otherUserId: String
@@ -427,5 +615,93 @@ struct ChatButtonWithBadge: View {
                     .offset(x: 6, y: -4)
             }
         }
+    }
+}
+
+
+
+import SwiftUI
+import MapKit
+
+struct MapPickerView: View {
+    @Environment(\.dismiss) var dismiss
+    let location: CLLocation?
+    var onPick: (CLLocationCoordinate2D) -> Void
+
+    @State private var region: MKCoordinateRegion
+
+    init(location: CLLocation?, onPick: @escaping (CLLocationCoordinate2D) -> Void) {
+        self.location = location
+        self.onPick = onPick
+
+        let coord = location?.coordinate ??
+            CLLocationCoordinate2D(latitude: 10.7626, longitude: 106.6601)
+
+        _region = State(initialValue: MKCoordinateRegion(
+            center: coord,
+            span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
+        ))
+    }
+
+    var body: some View {
+        ZStack {
+            Map(coordinateRegion: $region, showsUserLocation: true)
+                .ignoresSafeArea()
+
+            Image(systemName: "mappin.circle.fill")
+                .font(.system(size: 42))
+                .foregroundColor(.red)
+                .offset(y: -22)
+
+            VStack {
+                // NÚT ĐÓNG
+                HStack {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 34))
+                            .foregroundColor(.white)
+                            .shadow(radius: 4)
+                    }
+                    .padding(.leading, 16)
+                    .padding(.top, 30)
+
+                    Spacer()
+                }
+
+                Spacer()
+
+                // NÚT VỀ VỊ TRÍ CỦA TÔI
+                if let loc = location {
+                    Button {
+                        withAnimation {
+                            region.center = loc.coordinate
+                        }
+                    } label: {
+                        HStack {
+                            Image(systemName: "location.fill")
+                            Text(String(localized:"go_to_my_location"))
+                        }
+                        .padding(8)
+                        .background(Color.white.opacity(0.9))
+                        .cornerRadius(12)
+                    }
+                    .padding(.bottom, 8)
+                }
+
+                // NÚT CHỌN VỊ TRÍ
+                Button(String(localized:"pick_location")) {
+                    onPick(region.center)
+                    dismiss()
+                }
+                .padding()
+                .background(Color.blue)
+                .foregroundColor(.white)
+                .cornerRadius(12)
+                .padding(.bottom, 40)
+            }
+        }
+        .interactiveDismissDisabled(false)
     }
 }

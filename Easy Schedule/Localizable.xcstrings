@@ -2297,6 +2297,17 @@
         }
       }
     },
+    "fetching_address" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đang lấy địa chỉ…"
+          }
+        }
+      }
+    },
     "free" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2327,6 +2338,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Bắt đầu"
+          }
+        }
+      }
+    },
+    "go_to_my_location" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "My location"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : " Vị trí của tôi"
           }
         }
       }
@@ -2788,6 +2816,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Đang tải gói…"
+          }
+        }
+      }
+    },
+    "location_sent" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Location sent"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đã gửi vị trí"
           }
         }
       }
@@ -3773,6 +3818,23 @@
         }
       }
     },
+    "open_in_apple_maps" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open in Apple Maps"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mở trong Apple Maps"
+          }
+        }
+      }
+    },
     "origin_busy" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4112,6 +4174,23 @@
           "stringUnit" : {
             "state" : "needs_review",
             "value" : "Chọn màu"
+          }
+        }
+      }
+    },
+    "pick_location" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pick location"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Chọn vị trí"
           }
         }
       }
