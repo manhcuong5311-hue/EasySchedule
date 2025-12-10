@@ -118,9 +118,20 @@ struct LoginView: View {
         let config = GIDConfiguration(clientID: clientID)
         GIDSignIn.sharedInstance.configuration = config
         
-        guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-              let rootVC = scene.windows.first?.rootViewController else { return }
-        
+        // FIX CHO IPAD + IOS 15+
+        guard
+            let windowScene = UIApplication.shared.connectedScenes
+                .compactMap({ $0 as? UIWindowScene })
+                .first,
+            let rootVC = windowScene
+                .windows
+                .first(where: { $0.isKeyWindow })?
+                .rootViewController
+        else {
+            self.errorMessage = "Unable to find root view controller."
+            return
+        }
+
         GIDSignIn.sharedInstance.signIn(withPresenting: rootVC) { result, error in
             
             if let error = error {
@@ -128,8 +139,10 @@ struct LoginView: View {
                 return
             }
             
-            guard let user = result?.user,
-                  let idToken = user.idToken?.tokenString else {
+            guard
+                let user = result?.user,
+                let idToken = user.idToken?.tokenString
+            else {
                 self.errorMessage = String(localized: "error_google_failed")
                 return
             }
