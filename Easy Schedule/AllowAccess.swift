@@ -258,95 +258,112 @@ class AllowAccessViewModel: ObservableObject {
 }
 
 
-
 struct AccessManagementView: View {
     @StateObject private var vm = AllowAccessViewModel()
+    @State private var selectedTab: AccessTab = .requests
 
     var body: some View {
-        List {
-
-            // ⭐ REQUESTS – Ai đang xin phép
-            Section(String(localized: "requests_section_title")) {
-
-                // Search field for requests
-                HStack {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundColor(.secondary)
-                    TextField(String(localized: "search_by_name"), text: $vm.requestSearch)
-                        .textInputAutocapitalization(.never)
-                        .disableAutocorrection(true)
-                }
-                .padding(.vertical, 6)
-
-                if vm.filteredRequests.isEmpty {
-                    if vm.isLoading {
-                        ProgressView()
-                            .frame(maxWidth: .infinity, alignment: .center)
-                    } else {
-                        Text(String(localized: "no_requests"))
-                            .foregroundColor(.secondary)
-                    }
-                } else {
-                    ForEach(vm.filteredRequests) { req in
-                        HStack {
-                            VStack(alignment: .leading) {
-                                Text(req.name.isEmpty ? req.uid : req.name)
-                                    .font(.body)
-                                if let time = req.requestedAt {
-                                    Text(time.formatted(.dateTime.hour().minute().month().day().year()))
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                }
-                            }
-
-                            Spacer()
-
-                            Button(String(localized: "allow_button")) {
-                                vm.allow(req.uid)
-                            }
-                            .buttonStyle(.borderedProminent)
-
-                            Button(String(localized: "deny_button")) {
-                                vm.deny(req.uid)
-                            }
-                            .foregroundColor(.red)
-                        }
-                        .padding(.vertical, 6)
-                    }
-                }
-            }
-
-
-            // ⭐ ALLOWED USERS
-            Section {
-                
-                // ⭐ Toggle show UID / show Name
-                Toggle(String(localized:"show_names"), isOn: $vm.showName)
-
-                if vm.allowedUsers.isEmpty {
-                    Text(String(localized: "no_allowed_users"))
-                        .foregroundColor(.secondary)
-                } else {
-                    ForEach(vm.allowedUsers) { user in
-                        HStack {
-                            // ⭐ Hiển thị theo toggle
-                            Text(vm.showName ? (user.name ?? user.uid) : user.uid)
-
-                            Spacer()
-
-                            Button(String(localized: "block")) {
-                                vm.deny(user.uid)
-                            }
-                            .foregroundColor(.red)
-                        }
-                    }
-                }
-            } header: {
+        VStack {
+            // ⭐ Segmented Picker
+            Picker("", selection: $selectedTab) {
+                Text(String(localized: "requests_section_title"))
+                    .tag(AccessTab.requests)
                 Text(String(localized: "allowed_users_section_title"))
+                    .tag(AccessTab.allowed)
+            }
+            .pickerStyle(.segmented)
+            .padding()
+
+            // ⭐ Nội dung tùy theo Tab
+            List {
+                if selectedTab == .requests {
+                    requestsSection
+                } else {
+                    allowedUsersSection
+                }
             }
         }
         .navigationTitle(String(localized: "manage_access_title"))
         .onAppear { vm.loadAll() }
+    }
+
+    // MARK: - Requests Section
+    private var requestsSection: some View {
+        Section {
+            // Search
+            HStack {
+                Image(systemName: "magnifyingglass")
+                    .foregroundColor(.secondary)
+                TextField(String(localized: "search_by_name"), text: $vm.requestSearch)
+            }
+            .padding(.vertical, 6)
+
+            if vm.filteredRequests.isEmpty {
+                Text(String(localized: "no_requests"))
+                    .foregroundColor(.secondary)
+            } else {
+                ForEach(vm.filteredRequests) { req in
+                    HStack {
+                        VStack(alignment: .leading) {
+                            Text(req.name.isEmpty ? req.uid : req.name)
+
+                            if let time = req.requestedAt {
+                                Text(time.formatted(.dateTime.hour().minute().month().day().year()))
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+
+                        Spacer()
+
+                        Button(String(localized: "allow_button")) {
+                            vm.allow(req.uid)
+                        }
+                        .buttonStyle(.borderedProminent)
+
+                        Button(String(localized: "deny_button")) {
+                            vm.deny(req.uid)
+                        }
+                        .foregroundColor(.red)
+                    }
+                    .padding(.vertical, 6)
+                }
+            }
+        }
+    }
+
+    // MARK: - Allowed Users Section
+    private var allowedUsersSection: some View {
+        Section {
+
+            // Search
+            HStack {
+                Image(systemName: "magnifyingglass")
+                    .foregroundColor(.secondary)
+                TextField(String(localized: "search_by_name"), text: $vm.allowedSearch)
+            }
+            .padding(.vertical, 6)
+
+            // Toggle
+            Toggle(String(localized:"show_names"), isOn: $vm.showName)
+
+            if vm.filteredAllowedUsers.isEmpty {
+                Text(String(localized: "no_allowed_users"))
+                    .foregroundColor(.secondary)
+            } else {
+                ForEach(vm.filteredAllowedUsers) { user in
+                    HStack {
+                        Text(vm.showName ? (user.name ?? user.uid) : user.uid)
+                        Spacer()
+
+                        Button(String(localized: "block")) {
+                            vm.deny(user.uid)
+                        }
+                        .foregroundColor(.red)
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -355,4 +372,10 @@ struct AllowedUser: Identifiable {
     var id: String { uid }
     let uid: String
     let name: String?
+}
+
+
+enum AccessTab: String, CaseIterable {
+    case requests = "Requests"
+    case allowed = "Allowed"
 }
