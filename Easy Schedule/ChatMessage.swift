@@ -71,25 +71,25 @@ class ChatViewModel: ObservableObject {
     
     // MARK: - Load realtime messages
     func startListener() {
+        listener?.remove()
+
         listener = db.collection("chats")
             .document(eventId)
             .collection("messages")
             .order(by: "timestamp")
+            .limit(toLast: 50)    // ⭐ CHỈ LOAD 50 TIN GẦN NHẤT
             .addSnapshotListener { snap, err in
                 guard let snap = snap else { return }
-                
-                for change in snap.documentChanges {
-                    switch change.type {
-                    case .added:
-                        if let msg = try? change.document.data(as: ChatMessage.self) {
-                            self.messages.append(msg)
-                        }
-                    default:
-                        break
+
+                DispatchQueue.main.async {
+                    self.messages = snap.documents.compactMap {
+                        try? $0.data(as: ChatMessage.self)
                     }
                 }
             }
     }
+
+
     
     func sendCurrentLocation(lat: Double, lon: Double) {
         let message = ChatMessage(
@@ -152,23 +152,12 @@ class ChatViewModel: ObservableObject {
     // MARK: - Mark messages seen
     func markSeen() {
         let chatRef = db.collection("chats").document(eventId)
-        
+
         chatRef.updateData([
             "unread.\(myId)": false
         ])
-        
-        db.collection("chats")
-            .document(eventId)
-            .collection("messages")
-            .whereField("seenBy.\(myId)", isEqualTo: false)
-            .getDocuments { snap, _ in
-                snap?.documents.forEach { doc in
-                    doc.reference.updateData([
-                        "seenBy.\(self.myId)": true
-                    ])
-                }
-            }
     }
+
     
     
     // MARK: - Auto delete chat when event is past
@@ -202,6 +191,10 @@ struct ChatView: View {
     @State private var addressCache: [String: String] = [:]
     @State private var sendCooldown = false
     @State private var showLocationConfirm = false
+    @State private var geocodeInProgress: Set<String> = []
+    private let geocoder = CLGeocoder()
+
+    
     init(eventId: String, otherUserId: String, otherName: String, eventEndTime: Date) {
         self.eventId = eventId
         self.otherUserId = otherUserId
@@ -239,12 +232,27 @@ struct ChatView: View {
             Divider()
             
             HStack {
-                // Nút GỬI VỊ TRÍ HIỆN TẠI
-                Button {
-                    showLocationConfirm = true
+                // NÚT "+"
+                Menu {
+                    // 1. Gửi vị trí hiện tại
+                    Button {
+                        showLocationConfirm = true
+                    } label: {
+                        Label(String(localized: "send_current_location"), systemImage: "location.fill")
+                    }
+                    
+                    // 2. Chọn vị trí trên bản đồ
+                    Button {
+                        showMapPicker = true
+                    } label: {
+                        Label(String(localized: "pick_location_on_map"), systemImage: "map.fill")
+                    }
+
                 } label: {
-                    Image(systemName: "location.fill")
-                        .font(.title2)
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 26))
+                        .foregroundColor(.blue)
+                        .padding(.trailing, 4)
                 }
                 .alert(String(localized:"you_sure_sending_your_location"), isPresented: $showLocationConfirm) {
                     Button(String(localized:"cancel"), role: .cancel) {}
@@ -252,19 +260,12 @@ struct ChatView: View {
                         sendMyGPS()
                     }
                 }
-                
-                
-                // Nút CHỌN VỊ TRÍ TRÊN BẢN ĐỒ
-                Button {
-                    showMapPicker = true
-                } label: {
-                    Image(systemName: "map.fill")
-                        .font(.title2)
-                }
-                
+
+                // Ô nhập tin nhắn
                 TextField(String(localized: "enter_message"), text: $vm.messageText)
                     .textFieldStyle(.roundedBorder)
-                
+
+                // Nút gửi
                 Button {
                     guard !sendCooldown else { return }
                     sendCooldown = true
@@ -279,10 +280,9 @@ struct ChatView: View {
                         .font(.title2)
                         .padding(.horizontal)
                 }
-                
             }
             .padding()
-            
+
         }
         .sheet(isPresented: $showMapPicker) {
             MapPickerView(location: locationManager.location) { coord in
@@ -301,39 +301,55 @@ struct ChatView: View {
         
     }
     func fetchAddress(lat: Double, lon: Double, id: String, completion: @escaping (String) -> Void) {
-        
-        // Nếu đã có rồi → dùng cache
+
+        // 1. Dùng cache
         if let cached = addressCache[id] {
             completion(cached)
             return
         }
-        
-        let geocoder = CLGeocoder()
-        geocoder.reverseGeocodeLocation(CLLocation(latitude: lat, longitude: lon)) { places, _ in
-            if let p = places?.first {
-                let parts = [
-                    p.name,
-                    p.subLocality,
-                    p.locality,
-                    p.administrativeArea,
-                    p.country
-                ].compactMap { $0 }
-                
-                let addr = parts.joined(separator: ", ")
-                
-                DispatchQueue.main.async {
-                    addressCache[id] = addr
-                    completion(addr)
-                }
-            } else {
-                DispatchQueue.main.async {
-                    let fallback = String(localized: "location_sent")
+
+        // 2. Không request lại nếu đang chạy
+        if geocodeInProgress.contains(id) {
+            return
+        }
+
+        // 3. Đánh dấu đang xử lý
+        geocodeInProgress.insert(id)
+
+        // 4. Cancel yêu cầu cũ
+        geocoder.cancelGeocode()
+
+        let location = CLLocation(latitude: lat, longitude: lon)
+
+        geocoder.reverseGeocodeLocation(location) { places, error in
+            DispatchQueue.main.async {
+                // Xóa flag đang xử lý
+                geocodeInProgress.remove(id)
+
+                let fallback = String(localized: "location_sent")
+
+                guard let place = places?.first, error == nil else {
                     addressCache[id] = fallback
                     completion(fallback)
+                    return
                 }
+
+                let parts = [
+                    place.name,
+                    place.subLocality,
+                    place.locality,
+                    place.administrativeArea,
+                    place.country
+                ].compactMap { $0 }
+
+                let result = parts.joined(separator: ", ")
+
+                addressCache[id] = result
+                completion(result)
             }
         }
     }
+
     // MARK: - Bubble
     private func bubble(_ msg: ChatMessage) -> some View {
         let isMe = msg.senderId == session.currentUserId
@@ -419,6 +435,7 @@ struct ChatView: View {
 
 
 extension EventManager {
+    
     func cleanChatIfEventIsPast(_ event: CalendarEvent) {
         if event.endTime > Date() { return }
         
@@ -471,16 +488,23 @@ class ChatMetaViewModel: ObservableObject {
 }
 
 import SwiftUI
-
 struct EventRowWithChat: View {
     let event: CalendarEvent
     let timeFontSize: Int
     let timeColorHex: String
     let showOwnerLabel: Bool
+
     @EnvironmentObject var eventManager: EventManager
     
-    @StateObject private var chatMeta: ChatMetaViewModel
-    
+    // ⭐ giữ VM optional
+    @State private var metaVM: ChatMetaViewModel? = nil
+
+    // ⭐ computed → luôn trả về instance hợp lệ
+    private var chatMeta: ChatMetaViewModel {
+        metaVM ?? eventManager.chatMeta(for: event.id)
+    }
+
+    // ❗ init KHÔNG được động chạm vào environmentObject
     init(event: CalendarEvent,
          timeFontSize: Int = 14,
          timeColorHex: String = "#333333",
@@ -490,24 +514,25 @@ struct EventRowWithChat: View {
         self.timeFontSize = timeFontSize
         self.timeColorHex = timeColorHex
         self.showOwnerLabel = showOwnerLabel
-        _chatMeta = StateObject(wrappedValue: ChatMetaViewModel(eventId: event.id))
     }
     
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
+
             Circle()
                 .fill(Color(hex: event.colorHex.isEmpty ? "#FF0000" : event.colorHex))
                 .frame(width: 12, height: 12)
             
             VStack(alignment: .leading, spacing: 4) {
+
                 Text(event.title).font(.headline)
-                
+
                 if showOwnerLabel {
                     Text(originLabel(for: event))
                         .font(.caption)
                         .foregroundColor(.blue)
                 }
-                
+
                 if showOwnerLabel {
                     if event.origin == .iCreatedForOther {
                         HStack(spacing: 4) {
@@ -518,24 +543,28 @@ struct EventRowWithChat: View {
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                     } else {
-                        Text(displayName(for: event, uid: event.createdBy, eventManager: eventManager))
+                        Text(displayName(for: event,
+                                         uid: event.createdBy,
+                                         eventManager: eventManager))
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                     }
                 }
-                
+
                 Text("\(formattedTime(event.startTime)) - \(formattedTime(event.endTime))")
                     .font(.system(size: CGFloat(timeFontSize), weight: .regular))
                     .foregroundColor(Color(hex: timeColorHex))
-                
-                // CHAT PREVIEW + BADGE
+
+                // ⭐ Chat preview
                 HStack(spacing: 6) {
+
                     if !chatMeta.lastMessage.isEmpty {
                         Text(chatMeta.lastMessage)
                             .font(.caption)
                             .foregroundColor(.gray)
                             .lineLimit(1)
                     }
+
                     if chatMeta.unread {
                         Circle()
                             .fill(Color.red)
@@ -544,18 +573,21 @@ struct EventRowWithChat: View {
                 }
                 .padding(.top, 2)
             }
-            
+
             Spacer()
         }
         .contentShape(Rectangle())
+        .onAppear {
+            if metaVM == nil {
+                metaVM = eventManager.chatMeta(for: event.id)
+            }
+        }
     }
     
-    // Helpers: reuse the same formatters as your main view (copy or call shared funcs)
     private func formattedTime(_ date: Date) -> String {
         date.formatted(date: .omitted, time: .shortened)
     }
     
-    // You need to either implement these helpers here or access global ones:
     private func originLabel(for ev: CalendarEvent) -> String {
         let ownerPrefix = String(localized: "owner_prefix")
         return "\(ownerPrefix) \(ev.owner)"
@@ -587,12 +619,13 @@ struct ChatButtonWithBadge: View {
     let otherUserId: String
     
     @EnvironmentObject var session: SessionStore
-    @StateObject private var chatMeta: ChatMetaViewModel
+    @EnvironmentObject var eventManager: EventManager
     
-    init(event: CalendarEvent, otherUserId: String) {
-        self.event = event
-        self.otherUserId = otherUserId
-        _chatMeta = StateObject(wrappedValue: ChatMetaViewModel(eventId: event.id))
+    @State private var metaVM: ChatMetaViewModel? = nil   // ⭐ optional để gán sau
+    
+    // ⭐ computed property → luôn có VM hợp lệ
+    private var chatMeta: ChatMetaViewModel {
+        metaVM ?? eventManager.chatMeta(for: event.id)
     }
     
     var body: some View {
@@ -606,15 +639,12 @@ struct ChatButtonWithBadge: View {
                     eventEndTime: event.endTime
                 )
             } label: {
-                
                 Image(systemName: "bubble.right.fill")
-                    .symbolRenderingMode(.monochrome)        // ⭐ CỰC QUAN TRỌNG
+                    .symbolRenderingMode(.monochrome)
                     .foregroundColor(chatMeta.unread ? .red : .blue)
                     .font(.system(size: 20))
-                
             }
             
-            // Badge đỏ như cũ
             if chatMeta.unread {
                 Circle()
                     .fill(Color.red)
@@ -622,8 +652,15 @@ struct ChatButtonWithBadge: View {
                     .offset(x: 6, y: -4)
             }
         }
+        .onAppear {
+            // ⭐ Gán 1 lần duy nhất, không tạo duplicate listener
+            if metaVM == nil {
+                metaVM = eventManager.chatMeta(for: event.id)
+            }
+        }
     }
 }
+
 
 
 

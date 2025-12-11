@@ -81,6 +81,7 @@ final class EventManager: ObservableObject {
             }
         }
     }
+    @Published var chatMetaCache: [String: ChatMetaViewModel] = [:]
 
     // ⭐ PREMIUM FLAG
     private var isPremiumUser: Bool {
@@ -210,7 +211,15 @@ final class EventManager: ObservableObject {
         
     }
     
-    
+    func chatMeta(for eventId: String) -> ChatMetaViewModel {
+        if let existing = chatMetaCache[eventId] {
+            return existing
+        }
+        let vm = ChatMetaViewModel(eventId: eventId)
+        chatMetaCache[eventId] = vm
+        return vm
+    }
+
     func name(for uid: String, completion: @escaping (String) -> Void) {
         if let cached = userNames[uid] {
             completion(cached)

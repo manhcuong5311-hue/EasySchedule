@@ -128,7 +128,7 @@ struct LoginView: View {
                 .first(where: { $0.isKeyWindow })?
                 .rootViewController
         else {
-            self.errorMessage = "Unable to find root view controller."
+            self.errorMessage = String(localized: "unable_to_find_root_view_controller")
             return
         }
 
