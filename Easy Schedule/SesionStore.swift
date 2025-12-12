@@ -62,42 +62,42 @@ class SessionStore: ObservableObject {
     // MARK: - Auth Listener
     func listen() {
         authStateListenerHandle = Auth.auth().addStateDidChangeListener { auth, user in
-
-            // Nếu không còn user → logout bình thường
+            
             guard let user = user else {
                 print("ℹ️ No Firebase user → logged out.")
                 self.currentUser = nil
                 self.currentUserName = ""
                 return
             }
-
-            // ⭐️ KIỂM TRA TOKEN VALID KHÔNG
+            
             user.getIDTokenResult { result, error in
                 if let error = error {
-                    // TOKEN INVALID = USER ĐÃ BỊ XOÁ TRÊN SERVER
                     print("❌ Invalid token → forcing logout:", error.localizedDescription)
                     self.signOut()
                     return
                 }
-
-                // ⭐️ TOKEN OK → USER HỢP LỆ
-                print("✅ Token valid → user:", user.uid)
-
-                self.currentUser = user
-
-                // Gọi các logic cũ (không mất gì)
-                self.saveProfileIfNeeded(user: user)
-
-                // Load cache trước
-                if let cachedName = UserDefaults.standard.string(forKey: self.nameKey) {
-                    self.currentUserName = cachedName
+                
+                // ⭐️ TOKEN OK → CHECK EMAIL VERIFICATION
+                user.reload { _ in
+                    if !user.isEmailVerified {
+                        print("⛔ Unverified email → blocking session login")
+                        self.signOut()
+                        return
+                    }
+                    
+                    print("✅ Verified email → session login allowed:", user.uid)
+                    
+                    // ⭐️ ONLY RUN THESE ONCE (bạn chạy sai 2 lần ở bản cũ)
+                    self.currentUser = user
+                    self.saveProfileIfNeeded(user: user)
+                    
+                    if let cachedName = UserDefaults.standard.string(forKey: self.nameKey) {
+                        self.currentUserName = cachedName
+                    }
+                    
+                    self.fetchProfile(uid: user.uid)
+                    self.cleanUpPastEventsOnFirebase(for: user.uid)
                 }
-
-                // Fetch từ Firestore
-                self.fetchProfile(uid: user.uid)
-
-                // Cleanup events cũ
-                self.cleanUpPastEventsOnFirebase(for: user.uid)
             }
         }
     }
