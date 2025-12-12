@@ -34,7 +34,9 @@ actor PremiumStore {
     // MARK: - Init
     init() {
         if #available(iOS 15.0, *) {
-            Task { await self.listenForTransactions() }
+            Task {
+                await updateEntitlements()
+                await self.listenForTransactions() }
         }
     }
 
@@ -183,35 +185,35 @@ actor PremiumStore {
             } catch {}
         }
     }
+    private func markPurchased(_ id: String) async {
+        purchasedProductIDs.insert(id)
+    }
+    private var isSandbox: Bool {
+        return Bundle.main.appStoreReceiptURL?.lastPathComponent == "sandboxReceipt"
+    }
 
     // MARK: - Verification fix (IMPORTANT FOR APP REVIEW)
     @available(iOS 15.0, *)
     private func checkVerified<T>(_ result: VerificationResult<T>) throws -> T {
         switch result {
-
         case .verified(let safe):
             return safe
 
         case .unverified(let unsafe, _):
-            // Accept sandbox receipts (needed for Apple Review)
-            print("⚠️ Unverified transaction — accepting fallback for review sandbox")
-            return unsafe
+            if isSandbox {
+                // Cho phép sandbox để Apple review được
+                print("⚠️ Accepting unverified transaction in SANDBOX")
+                return unsafe
+            }
+            // Production: không cho phép → đúng chuẩn bảo mật
+            throw PremiumError.unverified
         }
     }
+
+
 
 
     // MARK: - Mark purchased
-    @available(iOS 15.0, *)
-    private func markPurchased(_ id: String) async {
-        purchasedProductIDs.insert(id)
-
-        var saved = UserDefaults.standard.stringArray(forKey: "PremiumStore_purchased") ?? []
-        if !saved.contains(id) {
-            saved.append(id)
-            UserDefaults.standard.set(saved, forKey: "PremiumStore_purchased")
-        }
-    }
-
     private func notifyUpdate() {
         DispatchQueue.main.async {
             NotificationCenter.default.post(name: .PremiumStoreDidUpdate, object: nil)

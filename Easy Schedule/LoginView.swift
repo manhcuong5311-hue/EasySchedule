@@ -11,6 +11,7 @@ struct LoginView: View {
     @State private var errorMessage: String?
     @State private var isLoggedIn = false
     @State private var currentNonce: String?
+    @State private var showVerifyAlert = false
 
     var body: some View {
         NavigationView {
@@ -91,10 +92,28 @@ struct LoginView: View {
             .padding()
             .navigationBarHidden(true)
             .fullScreenCover(isPresented: Binding(
-                get: { Auth.auth().currentUser != nil },
+                get: {
+                    if let user = Auth.auth().currentUser {
+                        return user.isEmailVerified
+                    }
+                    return false
+                },
                 set: { _ in }
             )) {
                 MainView()
+            }
+            .alert(String(localized: "verify_email_title"), isPresented: $showVerifyAlert) {
+
+                Button(String(localized: "verify_email_resend")) {
+                    if let user = Auth.auth().currentUser {
+                        user.sendEmailVerification { _ in }
+                    }
+                }
+
+                Button(String(localized: "ok_button"), role: .cancel) { }
+
+            } message: {
+                Text(String(localized: "verify_email_message"))
             }
 
         }
@@ -109,8 +128,21 @@ struct LoginView: View {
                 errorMessage = error.localizedDescription
                 return
             }
+
+            guard let user = Auth.auth().currentUser else { return }
+
+            user.reload { _ in
+                if !user.isEmailVerified {
+                    showVerifyAlert = true
+                    try? Auth.auth().signOut()
+                    return
+                }
+                // Đã verify → cho vào app
+                self.isLoggedIn = true
+            }
         }
     }
+
 
     // MARK: - GOOGLE LOGIN
     private func signInWithGoogle() {
