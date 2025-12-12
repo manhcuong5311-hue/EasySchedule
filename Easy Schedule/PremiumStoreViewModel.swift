@@ -40,9 +40,11 @@ final class PremiumStoreViewModel: ObservableObject {
     // MARK: - REFRESH (lấy dữ liệu từ actor PremiumStore)
     func refresh() async {
         products = await PremiumStore.shared.getProducts()
-        let purchased = await PremiumStore.shared.getPurchasedIDs()
-        isPremium = !purchased.isEmpty
+
+        let entitlements = await PremiumStore.shared.getPurchasedIDs()
+        isPremium = !entitlements.isEmpty
     }
+
 
     // MARK: - BUY
     func buy(_ product: Product) async -> Bool {
