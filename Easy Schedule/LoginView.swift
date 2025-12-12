@@ -51,6 +51,11 @@ struct LoginView: View {
                         .background(Color.blue)
                         .cornerRadius(12)
                 }
+                Button(action: resetPassword) {
+                    Text(String(localized: "forgot_password"))
+                        .foregroundColor(.blue)
+                        .font(.footnote)
+                }
 
                 // MARK: Sign Up → Page Navigation
                 NavigationLink(destination: SignUpView()) {
@@ -91,15 +96,7 @@ struct LoginView: View {
             }
             .padding()
             .navigationBarHidden(true)
-            .fullScreenCover(isPresented: Binding(
-                get: {
-                    if let user = Auth.auth().currentUser {
-                        return user.isEmailVerified
-                    }
-                    return false
-                },
-                set: { _ in }
-            )) {
+            .fullScreenCover(isPresented: $isLoggedIn) {
                 MainView()
             }
             .alert(String(localized: "verify_email_title"), isPresented: $showVerifyAlert) {
@@ -138,8 +135,25 @@ struct LoginView: View {
                     return
                 }
                 // Đã verify → cho vào app
-                self.isLoggedIn = true
+                DispatchQueue.main.async {
+                    self.isLoggedIn = true
+                }
+
             }
+        }
+    }
+    private func resetPassword() {
+        if email.isEmpty {
+            errorMessage = String(localized: "enter_email_first")
+            return
+        }
+
+        Auth.auth().sendPasswordReset(withEmail: email) { error in
+            if let error = error {
+                errorMessage = error.localizedDescription
+                return
+            }
+            errorMessage = String(localized: "password_reset_sent")
         }
     }
 

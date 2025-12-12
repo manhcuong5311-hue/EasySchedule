@@ -36,6 +36,237 @@ struct ChatMessage: Identifiable, Codable {
     }
     
 }
+struct TodoItem: Identifiable, Codable {
+    @DocumentID var id: String?
+    var text: String
+    var doneBy: [String: Bool]
+    var createdAt: Date
+    
+    init(id: String? = nil, text: String, doneBy: [String: Bool] = [:], createdAt: Date = Date()) {
+        self.id = id
+        self.text = text
+        self.doneBy = doneBy
+        self.createdAt = createdAt
+    }
+}
+
+
+class TodoViewModel: ObservableObject {
+    @Published var todos: [TodoItem] = []
+
+    private let db = Firestore.firestore()
+    private var listener: ListenerRegistration?
+
+    let chatId: String
+    let myId: String
+
+    init(chatId: String, myId: String) {
+        self.chatId = chatId
+        self.myId = myId
+    }
+
+    deinit {
+        listener?.remove()
+    }
+
+    func listen() {
+        listener = db.collection("chats")
+            .document(chatId)
+            .collection("todos")
+            .order(by: "createdAt")
+            .addSnapshotListener { snap, err in
+                guard let snap = snap else { return }
+                self.todos = snap.documents.compactMap { try? $0.data(as: TodoItem.self) }
+            }
+    }
+
+    func toggle(_ todo: TodoItem) {
+        guard let id = todo.id else { return }
+
+        let newValue = !(todo.doneBy[myId] ?? false)
+
+        db.collection("chats")
+            .document(chatId)
+            .collection("todos")
+            .document(id)
+            .updateData([
+                "doneBy.\(myId)": newValue
+            ])
+    }
+
+    func stop() {
+        listener?.remove()
+        listener = nil
+    }
+
+    func addTodo(text: String) {
+        let data: [String: Any] = [
+            "text": text,
+            "doneBy": [:],
+            "createdAt": Timestamp(date: Date())
+        ]
+
+        db.collection("chats")
+            .document(chatId)
+            .collection("todos")
+            .addDocument(data: data) { err in
+                if let err = err {
+                    print("❌ add TODO FAILED:", err)
+                } else {
+                    print("✅ TODO CREATED SUCCESS")
+                }
+            }
+    }
+    func delete(_ todo: TodoItem) {
+        guard let id = todo.id else { return }
+
+        db.collection("chats")
+            .document(chatId)
+            .collection("todos")
+            .document(id)
+            .delete { err in
+                if let err = err {
+                    print("❌ DELETE FAILED:", err)
+                } else {
+                    print("🗑️ TODO DELETED")
+                }
+            }
+    }
+
+}
+
+struct TodoListView: View {
+    let chatId: String
+    let myId: String
+
+    @StateObject private var vm: TodoViewModel
+    @ObservedObject private var nameCache = UserNameCache.shared
+
+    @State private var newTodo = ""
+    @State private var showDeleteConfirm = false
+    @State private var todoToDelete: TodoItem? = nil
+
+    init(chatId: String, myId: String) {
+        self.chatId = chatId
+        self.myId = myId
+        _vm = StateObject(wrappedValue: TodoViewModel(chatId: chatId, myId: myId))
+    }
+
+    var body: some View {
+        NavigationView {
+            VStack {
+                List {
+                    ForEach(vm.todos) { item in
+                        todoRow(item)
+                    }
+                    .onDelete { indexSet in
+                        if let index = indexSet.first {
+                            todoToDelete = vm.todos[index]
+                            showDeleteConfirm = true
+                        }
+                    }
+                }
+
+                HStack {
+                    TextField(String(localized: "add_task_placeholder"), text: $newTodo)
+                        .textFieldStyle(.roundedBorder)
+
+                    Button(String(localized: "add_button")) {
+                        guard !newTodo.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+                        vm.addTodo(text: newTodo)
+                        newTodo = ""
+                    }
+                }
+                .padding()
+            }
+            .navigationTitle(String(localized: "todo_list_title"))
+            .navigationBarTitleDisplayMode(.inline)
+            .onAppear { vm.listen() }
+            .onDisappear { vm.stop() }
+            .alert(String(localized: "delete_confirm_title"), isPresented: $showDeleteConfirm) {
+                Button(String(localized:"cancel"), role: .cancel) {}
+
+                Button(String(localized:"delete"), role: .destructive) {
+                    if let item = todoToDelete {
+                        vm.delete(item)
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Row View
+    private func todoRow(_ item: TodoItem) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+
+            // Tick
+            Button {
+                vm.toggle(item)
+            } label: {
+                Image(systemName: (item.doneBy[myId] ?? false)
+                       ? "checkmark.circle.fill"
+                       : "circle")
+                    .font(.system(size: 22))
+                    .foregroundColor(.blue)
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(item.text)
+                    .font(.body)
+
+                if !item.doneBy.filter({ $0.value }).isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(item.doneBy.keys.sorted(), id: \.self) { uid in
+                            if item.doneBy[uid] == true {
+
+                                let name = uid == myId
+                                    ? "Bạn"
+                                    : (nameCache.names[uid] ?? uid)
+
+                                Text("✓ \(name)")
+                                    .font(.caption2)
+                                    .foregroundColor(uid == myId ? .blue : .green)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(Color.gray.opacity(0.15))
+                                    .cornerRadius(6)
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer()
+        }
+        .padding(.vertical, 6)
+    }
+}
+import FirebaseFirestore
+
+class UserNameCache: ObservableObject {
+    static let shared = UserNameCache()
+
+    @Published var names: [String: String] = [:]   // uid -> name
+    private let db = Firestore.firestore()
+
+    private init() {}
+
+    func name(for uid: String) -> String {
+        names[uid] ?? uid   // fallback = UID
+    }
+
+    func loadName(uid: String) {
+        if names[uid] != nil { return }   // Đã cache → bỏ qua
+
+        db.collection("users").document(uid).getDocument { snap, _ in
+            if let name = snap?.data()?["name"] as? String {
+                DispatchQueue.main.async {
+                    self.names[uid] = name
+                }
+            }
+        }
+    }
+}
 
 import Foundation
 import FirebaseFirestore
@@ -77,7 +308,7 @@ class ChatViewModel: ObservableObject {
             .document(eventId)
             .collection("messages")
             .order(by: "timestamp")
-            .limit(toLast: 50)    // ⭐ CHỈ LOAD 50 TIN GẦN NHẤT
+            .limit(toLast: 20)    // ⭐ CHỈ LOAD 50 TIN GẦN NHẤT
             .addSnapshotListener { snap, err in
                 guard let snap = snap else { return }
 
@@ -98,8 +329,8 @@ class ChatViewModel: ObservableObject {
             senderName: myName,
             timestamp: Date(),
             seenBy: [myId: true],
-            latitude: lat,                 // ⭐ tọa độ truyền vào
-            longitude: lon                 // ⭐ tọa độ truyền vào
+            latitude: lat,
+            longitude: lon
         )
         
         let chatRef = db.collection("chats").document(eventId)
@@ -110,14 +341,16 @@ class ChatViewModel: ObservableObject {
             print("❌ Failed to send location:", error)
         }
         
-        
         chatRef.setData([
             "lastMessage": "📍 Location",
             "lastMessageTime": Timestamp(date: Date()),
-            "unread": [otherUserId: true]
+            "unread": [
+                myId: false,          // Tôi đã đọc
+                otherUserId: true     // Người kia chưa đọc
+            ]
         ], merge: true)
     }
-    
+
     // MARK: - Send message
     func sendMessage() {
         guard !messageText.trimmingCharacters(in: .whitespaces).isEmpty else { return }
@@ -139,8 +372,12 @@ class ChatViewModel: ObservableObject {
             chatRef.setData([
                 "lastMessage": messageText,
                 "lastMessageTime": Timestamp(date: Date()),
-                "unread": [ otherUserId : true ]   // ✔ đúng
+                "unread": [
+                    myId: false,
+                    otherUserId: true
+                ]
             ], merge: true)
+
             
             messageText = ""
             
@@ -183,7 +420,8 @@ struct ChatView: View {
     let otherUserId: String
     let otherName: String
     let eventEndTime: Date
-    
+    let eventInfo: CalendarEvent
+
     @EnvironmentObject var session: SessionStore
     @StateObject var vm: ChatViewModel
     @State private var showMapPicker = false
@@ -192,15 +430,18 @@ struct ChatView: View {
     @State private var sendCooldown = false
     @State private var showLocationConfirm = false
     @State private var geocodeInProgress: Set<String> = []
+    @State private var showTodoList = false
+
     private let geocoder = CLGeocoder()
 
     
-    init(eventId: String, otherUserId: String, otherName: String, eventEndTime: Date) {
+    init(eventId: String, otherUserId: String, otherName: String, eventEndTime: Date,eventInfo: CalendarEvent ) {
         self.eventId = eventId
         self.otherUserId = otherUserId
         self.otherName = otherName
         self.eventEndTime = eventEndTime
-        
+        self.eventInfo = eventInfo     // ⭐ GÁN GIÁ TRỊ
+               
         _vm = StateObject(
             wrappedValue: ChatViewModel(
                 eventId: eventId,
@@ -212,7 +453,8 @@ struct ChatView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            
+            eventHeader
+            Divider()
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(spacing: 12) {
@@ -292,6 +534,21 @@ struct ChatView: View {
             
         }
         .navigationTitle(otherName)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button {
+                    showTodoList = true
+                } label: {
+                    Image(systemName: "checklist")
+                        .font(.system(size: 20))
+                }
+            }
+        }
+        .sheet(isPresented: $showTodoList) {
+            TodoListView(chatId: eventId, myId: session.currentUserId ?? "")
+        }
+
+
         .onAppear {
             vm.markSeen()
             vm.autoDeleteIfPast(eventEndTime)
@@ -349,6 +606,23 @@ struct ChatView: View {
             }
         }
     }
+    private var eventHeader: some View {
+        HStack {
+            Text("\(eventInfo.title) · \(timeSummary)")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .lineLimit(1)
+
+            Spacer()
+        }
+        .padding(.vertical, 6)
+        .padding(.horizontal, 12)
+        .background(Color(.systemGray6))
+        .cornerRadius(10)
+        .padding(.horizontal)
+        .padding(.top, 6)
+    }
+
 
     // MARK: - Bubble
     private func bubble(_ msg: ChatMessage) -> some View {
@@ -430,8 +704,23 @@ struct ChatView: View {
             lon: loc.coordinate.longitude
         )
     }
-    
+    private var timeSummary: String {
+        let dfDate = DateFormatter()
+        dfDate.locale = Locale(identifier: "vi_VN")
+        dfDate.dateFormat = "dd/MM/yyyy"
+
+        let dfTime = DateFormatter()
+        dfTime.locale = Locale(identifier: "vi_VN")
+        dfTime.dateFormat = "HH:mm"
+
+        let date = dfDate.string(from: eventInfo.startTime)
+        let start = dfTime.string(from: eventInfo.startTime)
+        let end = dfTime.string(from: eventInfo.endTime)
+
+        return "\(date) · \(start)–\(end)"
+    }
 }
+
 
 
 extension EventManager {
@@ -636,7 +925,8 @@ struct ChatButtonWithBadge: View {
                     eventId: event.id,
                     otherUserId: otherUserId,
                     otherName: "",
-                    eventEndTime: event.endTime
+                    eventEndTime: event.endTime,
+                    eventInfo: event
                 )
             } label: {
                 Image(systemName: "bubble.right.fill")
