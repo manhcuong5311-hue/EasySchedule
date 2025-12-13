@@ -953,6 +953,28 @@ extension EventManager {
                 completion(false, String(localized: "You_need_to_log_in."))
                 return
             }
+            // 2️⃣.5 CHECK LIMIT BY CREATOR (B)
+            let creatorUid = currentUid
+            let eventsCreatedByMeToday = self.events.filter {
+                $0.createdBy == creatorUid &&
+                Calendar.current.isDate($0.startTime, inSameDayAs: start)
+            }
+
+            let creatorIsPremium = PremiumStoreViewModel.shared.isPremium
+
+            if !creatorIsPremium {
+                if eventsCreatedByMeToday.count >= 2 {
+                    DispatchQueue.main.async { self.isAdding = false }
+                    completion(false, String(localized: "limit_2_events_per_day"))
+                    return
+                }
+            } else {
+                if eventsCreatedByMeToday.count >= 30 {
+                    DispatchQueue.main.async { self.isAdding = false }
+                    completion(false, String(localized: "premium_limit_30_per_day"))
+                    return
+                }
+            }
 
             let eventData: [String: Any] = [
                 "title": title,
@@ -1971,10 +1993,17 @@ struct CustomizableCalendarView: View {
     @State private var showCooldownToast = false
     @State private var cooldownRemaining = 0
     @State private var showHelpSheet = false
+    @State private var isLoadingOffDays = false
+    @State private var showOffDayAlert = false
+    @State private var offDayAlertMessage = ""
 
     @State private var offDays: Set<Date> = [] {
-        didSet { saveOffDaysToLocal() }
+        didSet {
+            guard !isLoadingOffDays else { return }
+            saveOffDaysToLocal()
+        }
     }
+
 
     private func saveOffDaysToLocal() {
         let timestamps = offDays.map { $0.timeIntervalSince1970 }
@@ -1982,10 +2011,36 @@ struct CustomizableCalendarView: View {
     }
 
     private func loadOffDaysFromLocal() {
-        let timestamps = UserDefaults.standard.array(forKey: "offDays") as? [Double] ?? []
+        isLoadingOffDays = true
+
+        let timestamps =
+            UserDefaults.standard.array(forKey: "offDays") as? [Double] ?? []
+
         let dates = timestamps.map { Date(timeIntervalSince1970: $0) }
-        self.offDays = Set(dates)
+        offDays = Set(dates)
+
+        isLoadingOffDays = false
     }
+
+    private func cleanPastOffDays() {
+        let today = calendar.startOfDay(for: Date())
+
+        let cleaned = offDays.filter {
+            calendar.startOfDay(for: $0) >= today
+        }
+
+        guard cleaned != offDays else { return }
+
+        isLoadingOffDays = true
+        offDays = cleaned
+        isLoadingOffDays = false
+
+        eventManager.syncOffDaysToFirebase(offDays: offDays)
+    }
+    private func isPastDay(_ date: Date) -> Bool {
+        calendar.startOfDay(for: date) < calendar.startOfDay(for: Date())
+    }
+
 
     private var calendar: Calendar {
         var cal = Calendar.current
@@ -2054,6 +2109,12 @@ struct CustomizableCalendarView: View {
 
                                 // Button ngày nghỉ
                                 Button {
+                                    guard !isPastDay(date) else {
+                                          offDayAlertMessage = String(localized: "cannot_set_offday_in_past")
+                                          showOffDayAlert = true
+                                          return
+                                      }
+                                    cleanPastOffDays()
                                     guard !isCooldown else { return }
 
                                     let now = Date()
@@ -2285,7 +2346,20 @@ struct CustomizableCalendarView: View {
             } message: {
                 Text("\(String(localized: "delete_event_prefix")) “\(eventToDelete?.title ?? "")”?")
             }
-            .onAppear { loadOffDaysFromLocal() }
+            .alert(
+                String(localized: "notification"),
+                isPresented: $showOffDayAlert
+            ) {
+                Button(String(localized: "Ok")) { }
+            } message: {
+                Text(offDayAlertMessage)
+            }
+
+            
+            .onAppear {
+                loadOffDaysFromLocal()
+                cleanPastOffDays()
+            }
         }
     }
 

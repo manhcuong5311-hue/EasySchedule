@@ -6,6 +6,8 @@ import AuthenticationServices
 import CryptoKit
 
 struct LoginView: View {
+
+    // MARK: - State
     @State private var email = ""
     @State private var password = ""
     @State private var errorMessage: String?
@@ -15,106 +17,109 @@ struct LoginView: View {
 
     var body: some View {
         NavigationView {
-            VStack(spacing: 20) {
-                
-                Text(String(localized: "login_title"))
-                    .font(.largeTitle)
-                    .bold()
-                
-                // MARK: Email
-                TextField(String(localized: "email_placeholder"), text: $email)
+            ScrollView {
+                VStack(spacing: 20) {
+
+                    Spacer(minLength: 40)
+
+                    // TITLE
+                    Text(String(localized: "login_title"))
+                        .font(.largeTitle.bold())
+                        .padding(.bottom, 20)
+
+                    // EMAIL
+                    TextField(
+                        String(localized: "email_placeholder"),
+                        text: $email
+                    )
                     .keyboardType(.emailAddress)
                     .autocapitalization(.none)
+                    .textInputAutocapitalization(.never)
                     .padding()
                     .background(Color(.systemGray6))
-                    .cornerRadius(10)
+                    .cornerRadius(14)
 
-                // MARK: Password
-                SecureField(String(localized: "password_placeholder"), text: $password)
+                    // PASSWORD
+                    SecureField(
+                        String(localized: "password_placeholder"),
+                        text: $password
+                    )
                     .padding()
                     .background(Color(.systemGray6))
-                    .cornerRadius(10)
+                    .cornerRadius(14)
 
-                // MARK: Error Message
-                if let error = errorMessage {
-                    Text(error)
-                        .foregroundColor(.red)
-                        .multilineTextAlignment(.center)
-                }
+                    // ERROR
+                    if let error = errorMessage {
+                        Text(error)
+                            .foregroundColor(.red)
+                            .multilineTextAlignment(.center)
+                    }
 
-                // MARK: Login Button
-                Button(action: login) {
-                    Text(String(localized:"login"))
+                    // LOGIN
+                    Button(action: login) {
+                        Text(String(localized: "login"))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.blue)
+                            .cornerRadius(16)
+                    }
+
+                    // FORGOT PASSWORD
+                    Button(action: resetPassword) {
+                        Text(String(localized: "forgot_password"))
+                            .foregroundColor(.blue)
+                            .font(.footnote)
+                    }
+
+                    // SIGN UP
+                    NavigationLink(destination: SignUpView()) {
+                        Text(String(localized: "signup_title"))
+                            .foregroundColor(.blue)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .stroke(Color.blue, lineWidth: 2)
+                            )
+                    }
+
+                    // GOOGLE
+                    Button(action: signInWithGoogle) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "globe")
+                            Text(String(localized: "login_google"))
+                        }
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(Color.blue)
-                        .cornerRadius(12)
-                }
-                Button(action: resetPassword) {
-                    Text(String(localized: "forgot_password"))
-                        .foregroundColor(.blue)
-                        .font(.footnote)
-                }
-
-                // MARK: Sign Up → Page Navigation
-                NavigationLink(destination: SignUpView()) {
-                    Text(String(localized: "signup_title"))
-                        .foregroundColor(.blue)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(Color.blue, lineWidth: 2)
-                        )
-                }
-
-                // MARK: Google Login
-                Button(action: signInWithGoogle) {
-                    HStack {
-                        Image(systemName: "globe")
-                        Text(String(localized: "login_google"))
+                        .background(Color.red)
+                        .cornerRadius(16)
                     }
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color.red)
-                    .cornerRadius(10)
+
+                    // APPLE
+                    SignInWithAppleButton(
+                        .signIn,
+                        onRequest: configureAppleRequest,
+                        onCompletion: handleAppleCompletion
+                    )
+                    .frame(height: 52)
+                    .cornerRadius(16)
+
+                    Spacer(minLength: 40)
                 }
-
-                // MARK: Apple Login
-                SignInWithAppleButton(
-                    .signIn,
-                    onRequest: configureAppleRequest,
-                    onCompletion: handleAppleCompletion
-                )
-                .frame(height: 50)
-                .cornerRadius(10)
-                .padding(.top, 5)
-
-                Spacer()
+                .padding(.horizontal, 20)
             }
-            .padding()
+            .background(Color(.systemGroupedBackground))
             .navigationBarHidden(true)
             .fullScreenCover(isPresented: $isLoggedIn) {
                 MainView()
             }
-            .alert(String(localized: "verify_email_title"), isPresented: $showVerifyAlert) {
-
-                Button(String(localized: "verify_email_resend")) {
-                    if let user = Auth.auth().currentUser {
-                        user.sendEmailVerification { _ in }
-                    }
-                }
-
-                Button(String(localized: "ok_button"), role: .cancel) { }
-
-            } message: {
-                Text(String(localized: "verify_email_message"))
-            }
-
         }
+        .navigationViewStyle(.stack)
     }
+
+
 
     // MARK: - EMAIL LOGIN
     private func login() {

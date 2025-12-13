@@ -261,6 +261,8 @@ class AllowAccessViewModel: ObservableObject {
 struct AccessManagementView: View {
     @StateObject private var vm = AllowAccessViewModel()
     @State private var selectedTab: AccessTab = .requests
+    @State private var showBlockConfirm = false
+    @State private var userToBlock: AllowedUser?
 
     var body: some View {
         VStack {
@@ -284,6 +286,33 @@ struct AccessManagementView: View {
             }
         }
         .navigationTitle(String(localized: "manage_access_title"))
+        .confirmationDialog(
+            String(localized: "remove_access_confirm_title"),
+            isPresented: $showBlockConfirm,
+            titleVisibility: .visible
+        ) {
+            Button(String(localized: "remove_access"), role: .destructive) {
+                if let user = userToBlock {
+                    vm.deny(user.uid)
+                    userToBlock = nil
+                }
+            }
+
+            Button(String(localized: "cancel"), role: .cancel) {
+                userToBlock = nil
+            }
+        } message: {
+            if let user = userToBlock {
+                Text(
+                    String(
+                        format: String(localized: "remove_access_confirm_message"),
+                        vm.showName ? (user.name ?? user.uid) : user.uid
+                    )
+                )
+            }
+        }
+        .onAppear { vm.loadAll() }
+
         .onAppear { vm.loadAll() }
     }
 
@@ -356,8 +385,9 @@ struct AccessManagementView: View {
                         Text(vm.showName ? (user.name ?? user.uid) : user.uid)
                         Spacer()
 
-                        Button(String(localized: "block")) {
-                            vm.deny(user.uid)
+                        Button(String(localized: "remove_access_button")) {
+                            userToBlock = user
+                            showBlockConfirm = true
                         }
                         .foregroundColor(.red)
                     }

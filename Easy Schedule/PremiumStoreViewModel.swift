@@ -5,6 +5,8 @@
 import SwiftUI
 import StoreKit
 import Combine
+import FirebaseFirestore
+import FirebaseAuth
 
 @MainActor
 final class PremiumStoreViewModel: ObservableObject {
@@ -37,7 +39,7 @@ final class PremiumStoreViewModel: ObservableObject {
         }
     }
 
-    // MARK: - REFRESH (lấy dữ liệu từ actor PremiumStore)
+    // MARK: - REFRESH (nhận entitlement từ PremiumStore)
     func refresh() async {
         products = await PremiumStore.shared.getProducts()
 
@@ -45,11 +47,33 @@ final class PremiumStoreViewModel: ObservableObject {
         isPremium = !entitlements.isEmpty
     }
 
+    // MARK: - SYNC TO FIRESTORE (A là người mua Premium)
+    func syncPremiumStatusToFirestore() {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        let db = Firestore.firestore()
+
+        // Lưu vào premiumStatus (cho logic backend, fetchPremiumStatus, etc.)
+        db.collection("premiumStatus")
+            .document(uid)
+            .setData(["isPremium": true], merge: true)
+
+        // Lưu vào publicCalendar (để B khi load lịch A biết A premium)
+        db.collection("publicCalendar")
+            .document(uid)
+            .setData(["isPremium": true], merge: true)
+
+        print("🔥 Synced premium to Firestore for uid:", uid)
+    }
 
     // MARK: - BUY
     func buy(_ product: Product) async -> Bool {
         let success = await PremiumStore.shared.purchase(product)
         await refresh()
+
+        if success {
+            syncPremiumStatusToFirestore()
+        }
+
         return success
     }
 
@@ -57,6 +81,11 @@ final class PremiumStoreViewModel: ObservableObject {
     func restore() async -> Bool {
         let success = await PremiumStore.shared.restore()
         await refresh()
+
+        if success {
+            syncPremiumStatusToFirestore()
+        }
+
         return success
     }
 }
