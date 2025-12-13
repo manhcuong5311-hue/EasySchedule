@@ -953,6 +953,28 @@ extension EventManager {
                 completion(false, String(localized: "You_need_to_log_in."))
                 return
             }
+            // 2️⃣.5 CHECK LIMIT BY CREATOR (B)
+            let creatorUid = currentUid
+            let eventsCreatedByMeToday = self.events.filter {
+                $0.createdBy == creatorUid &&
+                Calendar.current.isDate($0.startTime, inSameDayAs: start)
+            }
+
+            let creatorIsPremium = PremiumStoreViewModel.shared.isPremium
+
+            if !creatorIsPremium {
+                if eventsCreatedByMeToday.count >= 2 {
+                    DispatchQueue.main.async { self.isAdding = false }
+                    completion(false, String(localized: "limit_2_events_per_day"))
+                    return
+                }
+            } else {
+                if eventsCreatedByMeToday.count >= 30 {
+                    DispatchQueue.main.async { self.isAdding = false }
+                    completion(false, String(localized: "premium_limit_30_per_day"))
+                    return
+                }
+            }
 
             let eventData: [String: Any] = [
                 "title": title,

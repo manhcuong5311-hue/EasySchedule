@@ -76,9 +76,14 @@ class TodoViewModel: ObservableObject {
             .order(by: "createdAt")
             .addSnapshotListener { snap, err in
                 guard let snap = snap else { return }
-                self.todos = snap.documents.compactMap { try? $0.data(as: TodoItem.self) }
+                let items = snap.documents.compactMap { try? $0.data(as: TodoItem.self) }
+
+                DispatchQueue.main.async {
+                    self.todos = items
+                }
             }
     }
+
 
     func toggle(_ todo: TodoItem) {
         guard let id = todo.id else { return }
@@ -211,27 +216,28 @@ struct TodoListView: View {
             }
 
             VStack(alignment: .leading, spacing: 6) {
+
+                // ⭐⭐ HIỆN TEXT CỦA TODO (MẤT DÒNG NÀY NÊN UI TRỐNG)
                 Text(item.text)
                     .font(.body)
+                    .foregroundColor(.primary)
+                    .lineLimit(nil)
 
-                if !item.doneBy.filter({ $0.value }).isEmpty {
-                    VStack(alignment: .leading, spacing: 4) {
-                        ForEach(item.doneBy.keys.sorted(), id: \.self) { uid in
-                            if item.doneBy[uid] == true {
+                // Hiện người tick
+                ForEach(Array(item.doneBy.keys).sorted(), id: \.self) { uid in
+                    if item.doneBy[uid] == true {
 
-                                let name = uid == myId
-                                    ? "Bạn"
-                                    : (nameCache.names[uid] ?? uid)
+                        let name = uid == myId
+                            ? "Bạn"
+                            : (nameCache.names[uid] ?? uid)
 
-                                Text("✓ \(name)")
-                                    .font(.caption2)
-                                    .foregroundColor(uid == myId ? .blue : .green)
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
-                                    .background(Color.gray.opacity(0.15))
-                                    .cornerRadius(6)
-                            }
-                        }
+                        Text("✓ \(name)")
+                            .font(.caption2)
+                            .foregroundColor(uid == myId ? .blue : .green)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.gray.opacity(0.15))
+                            .cornerRadius(6)
                     }
                 }
             }
@@ -240,30 +246,34 @@ struct TodoListView: View {
         }
         .padding(.vertical, 6)
     }
+
 }
 import FirebaseFirestore
-
 class UserNameCache: ObservableObject {
     static let shared = UserNameCache()
+    @Published var names: [String: String] = [:]
 
-    @Published var names: [String: String] = [:]   // uid -> name
     private let db = Firestore.firestore()
 
-    private init() {}
+    func getName(for uid: String, completion: @escaping (String) -> Void) {
+        if let cached = names[uid] {
+            completion(cached)
+            return
+        }
 
-    func name(for uid: String) -> String {
-        names[uid] ?? uid   // fallback = UID
+        db.collection("users").document(uid).getDocument { snap, err in
+            let name = snap?.data()?["name"] as? String ?? uid
+
+            DispatchQueue.main.async {
+                self.names[uid] = name
+                completion(name)
+            }
+        }
     }
 
-    func loadName(uid: String) {
-        if names[uid] != nil { return }   // Đã cache → bỏ qua
-
-        db.collection("users").document(uid).getDocument { snap, _ in
-            if let name = snap?.data()?["name"] as? String {
-                DispatchQueue.main.async {
-                    self.names[uid] = name
-                }
-            }
+    func clearCache() {
+        DispatchQueue.main.async {
+            self.names.removeAll()
         }
     }
 }

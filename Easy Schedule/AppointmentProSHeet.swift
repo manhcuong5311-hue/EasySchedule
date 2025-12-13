@@ -314,22 +314,31 @@ struct AppointmentProSheet: View {
 
         // ⭐ CHECK FREE USER LIMIT (giống AddEventView)
         let calendar = Calendar.current
-        let eventsForDay = busySlots.filter {
+        let creatorUid = Auth.auth().currentUser?.uid ?? ""
+        let eventsCreatedByMeToday = eventManager.events.filter {
+            $0.createdBy == creatorUid &&
             calendar.isDate($0.startTime, inSameDayAs: selectedDate)
         }
 
 
-        if !partnerIsPremium {
-            if eventsForDay.count >= 2 {
+
+        // ⭐ Giới hạn theo người tạo (B)
+        let creatorIsPremium = PremiumStoreViewModel.shared.isPremium
+
+        if !creatorIsPremium {
+            // B không premium ⇒ 2 lịch/ngày
+            if eventsCreatedByMeToday.count >= 2 {
                 errorMessage = String(localized: "limit_2_events_per_day")
                 return
             }
         } else {
-            if eventsForDay.count >= 30 {
-                errorMessage = String(localized: "premium_limit_30_per_day")
-                return
-            }
+            // B premium ⇒ 30 lịch/ngày
+            if eventsCreatedByMeToday.count >= 30 {
+                 errorMessage = String(localized: "premium_limit_30_per_day")
+                 return
+             }
         }
+
 
         guard NetworkMonitor.shared.isOnline else {
             errorMessage = String(localized: "no_internet_connection")
