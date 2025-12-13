@@ -4579,6 +4579,52 @@
         }
       }
     },
+    "my_calendar_help_section_todo_desc" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Each event includes a chat where participants can add todos or notes related to that event. Todos help everyone stay aligned on what needs to be done."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "各イベントにはチャットがあり、参加者はそのイベントに関連するToDoやメモを追加できます。ToDoを使うことで、必要な作業を共有し、把握しやすくなります。"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mỗi sự kiện có một khung chat cho phép các bên tham gia thêm todo hoặc ghi chú liên quan đến sự kiện đó. Todo giúp mọi người theo dõi và thống nhất các việc cần làm."
+          }
+        }
+      }
+    },
+    "my_calendar_help_section_todo_title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "✅ Todo in Event Chat"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "✅ イベントチャットのToDo"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "✅ Danh sách nên làm trong chat sự kiện"
+          }
+        }
+      }
+    },
     "my_calendar_help_title" : {
       "localizations" : {
         "en" : {
