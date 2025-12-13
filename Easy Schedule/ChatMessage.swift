@@ -145,7 +145,8 @@ struct TodoListView: View {
     let myId: String
 
     @StateObject private var vm: TodoViewModel
-    @ObservedObject private var nameCache = UserNameCache.shared
+    @ObservedObject private var nameCache = SessionStore.UserNameCache.shared
+
 
     @State private var newTodo = ""
     @State private var showDeleteConfirm = false
@@ -172,17 +173,49 @@ struct TodoListView: View {
                     }
                 }
 
-                HStack {
-                    TextField(String(localized: "add_task_placeholder"), text: $newTodo)
-                        .textFieldStyle(.roundedBorder)
+                HStack(spacing: 8) {
 
-                    Button(String(localized: "add_button")) {
+                    // INPUT TODO
+                    TextField(
+                        String(localized: "add_task_placeholder"),
+                        text: $newTodo,
+                        axis: .vertical
+                    )
+                    .lineLimit(1...3)
+                    .font(.system(size: 16))
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 20)
+                            .fill(Color(.systemGray6))
+                    )
+
+                    // NÚT ADD
+                    Button {
                         guard !newTodo.trimmingCharacters(in: .whitespaces).isEmpty else { return }
                         vm.addTodo(text: newTodo)
                         newTodo = ""
+                    } label: {
+                        Image(systemName: "plus")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundColor(.white)
+                            .frame(width: 40, height: 40)
+                            .background(
+                                newTodo.trimmingCharacters(in: .whitespaces).isEmpty
+                                ? Color.gray.opacity(0.4)
+                                : Color.blue
+                            )
+                            .clipShape(Circle())
                     }
+                    .disabled(newTodo.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
-                .padding()
+                .padding(.horizontal)
+                .padding(.vertical, 10)
+                .background(
+                    Color(.systemBackground)
+                        .ignoresSafeArea(edges: .bottom)
+                )
+
             }
             .navigationTitle(String(localized: "todo_list_title"))
             .navigationBarTitleDisplayMode(.inline)
@@ -228,7 +261,7 @@ struct TodoListView: View {
                     if item.doneBy[uid] == true {
 
                         let name = uid == myId
-                            ? "Bạn"
+                        ? String(localized:"you")
                             : (nameCache.names[uid] ?? uid)
 
                         Text("✓ \(name)")
@@ -238,6 +271,12 @@ struct TodoListView: View {
                             .padding(.vertical, 2)
                             .background(Color.gray.opacity(0.15))
                             .cornerRadius(6)
+                            .onAppear {
+                                if nameCache.names[uid] == nil {
+                                    SessionStore.UserNameCache.shared.getName(for: uid) { _ in }
+                                }
+                            }
+
                     }
                 }
             }
@@ -249,34 +288,7 @@ struct TodoListView: View {
 
 }
 import FirebaseFirestore
-class UserNameCache: ObservableObject {
-    static let shared = UserNameCache()
-    @Published var names: [String: String] = [:]
 
-    private let db = Firestore.firestore()
-
-    func getName(for uid: String, completion: @escaping (String) -> Void) {
-        if let cached = names[uid] {
-            completion(cached)
-            return
-        }
-
-        db.collection("users").document(uid).getDocument { snap, err in
-            let name = snap?.data()?["name"] as? String ?? uid
-
-            DispatchQueue.main.async {
-                self.names[uid] = name
-                completion(name)
-            }
-        }
-    }
-
-    func clearCache() {
-        DispatchQueue.main.async {
-            self.names.removeAll()
-        }
-    }
-}
 
 import Foundation
 import FirebaseFirestore
@@ -410,16 +422,23 @@ class ChatViewModel: ObservableObject {
     // MARK: - Auto delete chat when event is past
     func autoDeleteIfPast(_ eventEndTime: Date) {
         if eventEndTime > Date() { return }
-        
+
         let chatRef = db.collection("chats").document(eventId)
-        
-        chatRef.collection("messages")
-            .getDocuments { snap, _ in
-                snap?.documents.forEach { $0.reference.delete() }
-            }
-        
+
+        // 🧹 delete messages
+        chatRef.collection("messages").getDocuments { snap, _ in
+            snap?.documents.forEach { $0.reference.delete() }
+        }
+
+        // 🧹 delete todos
+        chatRef.collection("todos").getDocuments { snap, _ in
+            snap?.documents.forEach { $0.reference.delete() }
+        }
+
+        // 🗑 delete chat doc
         chatRef.delete()
     }
+
 }
 
 
@@ -480,31 +499,30 @@ struct ChatView: View {
                     }
                 }
             }
-            
             Divider()
-            
-            HStack {
-                // NÚT "+"
+
+            HStack(spacing: 8) {
+
+                // NÚT +
                 Menu {
-                    // 1. Gửi vị trí hiện tại
                     Button {
                         showLocationConfirm = true
                     } label: {
                         Label(String(localized: "send_current_location"), systemImage: "location.fill")
                     }
-                    
-                    // 2. Chọn vị trí trên bản đồ
+
                     Button {
                         showMapPicker = true
                     } label: {
                         Label(String(localized: "pick_location_on_map"), systemImage: "map.fill")
                     }
-
                 } label: {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 26))
+                    Image(systemName: "plus")
+                        .font(.system(size: 18, weight: .semibold))
                         .foregroundColor(.blue)
-                        .padding(.trailing, 4)
+                        .frame(width: 36, height: 36)
+                        .background(Color.blue.opacity(0.12))
+                        .clipShape(Circle())
                 }
                 .alert(String(localized:"you_sure_sending_your_location"), isPresented: $showLocationConfirm) {
                     Button(String(localized:"cancel"), role: .cancel) {}
@@ -513,27 +531,57 @@ struct ChatView: View {
                     }
                 }
 
-                // Ô nhập tin nhắn
-                TextField(String(localized: "enter_message"), text: $vm.messageText)
-                    .textFieldStyle(.roundedBorder)
+                // INPUT + SEND (1 KHỐI)
+                HStack(spacing: 6) {
 
-                // Nút gửi
-                Button {
-                    guard !sendCooldown else { return }
-                    sendCooldown = true
-                    
-                    vm.sendMessage()
-                    
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-                        sendCooldown = false
+                    TextField(
+                        String(localized: "enter_message"),
+                        text: $vm.messageText,
+                        axis: .vertical
+                    )
+                    .lineLimit(1...4)
+                    .font(.system(size: 16))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+
+                    Button {
+                        guard !sendCooldown,
+                              !vm.messageText.trimmingCharacters(in: .whitespaces).isEmpty
+                        else { return }
+
+                        sendCooldown = true
+                        vm.sendMessage()
+
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                            sendCooldown = false
+                        }
+                    } label: {
+                        Image(systemName: "paperplane.fill")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(
+                                vm.messageText.isEmpty ? .gray : .white
+                            )
+                            .frame(width: 36, height: 36)
+                            .background(
+                                vm.messageText.isEmpty
+                                ? Color.gray.opacity(0.3)
+                                : Color.blue
+                            )
+                            .clipShape(Circle())
                     }
-                } label: {
-                    Image(systemName: "paperplane.fill")
-                        .font(.title2)
-                        .padding(.horizontal)
+                    .disabled(vm.messageText.isEmpty)
                 }
+                .background(
+                    RoundedRectangle(cornerRadius: 22)
+                        .fill(Color(.systemGray6))
+                )
             }
-            .padding()
+            .padding(.horizontal)
+            .padding(.vertical, 8)
+            .background(
+                Color(.systemBackground)
+                    .ignoresSafeArea(edges: .bottom)
+            )
 
         }
         .sheet(isPresented: $showMapPicker) {

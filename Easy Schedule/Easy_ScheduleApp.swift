@@ -1,29 +1,44 @@
 import SwiftUI
 import FirebaseCore
 import FirebaseMessaging
+import FirebaseAppCheck        // ⭐ THÊM
 import UserNotifications
 
 @main
 struct Easy_scheduleApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
 
+    // ⭐ APP CHECK SETUP
+    init() {
+        #if DEBUG
+        AppCheck.setAppCheckProviderFactory(
+            AppCheckDebugProviderFactory()
+        )
+        #else
+        AppCheck.setAppCheckProviderFactory(
+            DeviceCheckProviderFactory()
+        )
+        #endif
+    }
+
+
     @StateObject private var session = SessionStore()
     @AppStorage("appTheme") private var appTheme: String = "system"
 
     @State private var showLaunch = true
-    @State private var showOnboarding: Bool = !UserDefaults.standard.bool(forKey: "hasSeenOnboarding")
+    @State private var showOnboarding: Bool =
+        !UserDefaults.standard.bool(forKey: "hasSeenOnboarding")
 
     @StateObject var premium = PremiumStoreViewModel.shared
     @StateObject private var eventManager = EventManager.shared
-    
-    @StateObject private var lockManager = LockManager.shared   // ← dùng class của bạn
+    @StateObject private var lockManager = LockManager.shared
 
     var body: some Scene {
         WindowGroup {
             ZStack {
                 appMainContent
 
-                /// 🔐 Nếu bật FaceID + app đang khóa → hiện Lock Screen
+                /// 🔐 FaceID Lock
                 if lockManager.isLocked &&
                     UserDefaults.standard.bool(forKey: "useBiometricAuth") {
 
@@ -32,17 +47,20 @@ struct Easy_scheduleApp: App {
                 }
             }
             .onAppear {
-                // bắt đầu đếm thời gian không hoạt động
                 lockManager.startTimer()
             }
-            .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
-                // ứng dụng bị ẩn → khóa nếu bật FaceID
+            .onReceive(
+                NotificationCenter.default.publisher(
+                    for: UIApplication.willResignActiveNotification
+                )
+            ) { _ in
                 lockManager.lock()
             }
         }
     }
 }
 
+// MARK: - MAIN CONTENT
 extension Easy_scheduleApp {
 
     @ViewBuilder
@@ -77,7 +95,6 @@ extension Easy_scheduleApp {
     }
 }
 
-
 // MARK: - ROOT VIEW
 struct RootView: View {
     @EnvironmentObject var session: SessionStore
@@ -88,7 +105,6 @@ struct RootView: View {
         if session.currentUser == nil {
             LoginView()
                 .environmentObject(eventManager)
-
         } else {
             ContentView()
                 .environmentObject(session)

@@ -6,6 +6,8 @@ import AuthenticationServices
 import CryptoKit
 
 struct LoginView: View {
+
+    // MARK: - State
     @State private var email = ""
     @State private var password = ""
     @State private var errorMessage: String?
@@ -15,99 +17,108 @@ struct LoginView: View {
 
     var body: some View {
         NavigationView {
-            GeometryReader { geo in
-                VStack {
-                    Spacer()
+            ScrollView {
+                VStack(spacing: 20) {
 
-                    // FORM LOGIN CỦA BẠN
-                    VStack(spacing: 20) {
+                    Spacer(minLength: 40)
 
-                        Text(String(localized: "login_title"))
-                            .font(.largeTitle)
-                            .bold()
+                    // TITLE
+                    Text(String(localized: "login_title"))
+                        .font(.largeTitle.bold())
+                        .padding(.bottom, 20)
 
-                        TextField(String(localized: "email_placeholder"), text: $email)
-                            .keyboardType(.emailAddress)
-                            .autocapitalization(.none)
-                            .padding()
-                            .background(Color(.systemGray6))
-                            .cornerRadius(10)
+                    // EMAIL
+                    TextField(
+                        String(localized: "email_placeholder"),
+                        text: $email
+                    )
+                    .keyboardType(.emailAddress)
+                    .autocapitalization(.none)
+                    .textInputAutocapitalization(.never)
+                    .padding()
+                    .background(Color(.systemGray6))
+                    .cornerRadius(14)
 
-                        SecureField(String(localized: "password_placeholder"), text: $password)
-                            .padding()
-                            .background(Color(.systemGray6))
-                            .cornerRadius(10)
+                    // PASSWORD
+                    SecureField(
+                        String(localized: "password_placeholder"),
+                        text: $password
+                    )
+                    .padding()
+                    .background(Color(.systemGray6))
+                    .cornerRadius(14)
 
-                        if let error = errorMessage {
-                            Text(error)
-                                .foregroundColor(.red)
-                                .multilineTextAlignment(.center)
-                        }
+                    // ERROR
+                    if let error = errorMessage {
+                        Text(error)
+                            .foregroundColor(.red)
+                            .multilineTextAlignment(.center)
+                    }
 
-                        Button(action: login) {
-                            Text(String(localized:"login"))
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(Color.blue)
-                                .cornerRadius(12)
-                        }
-
-                        Button(action: resetPassword) {
-                            Text(String(localized: "forgot_password"))
-                                .foregroundColor(.blue)
-                                .font(.footnote)
-                        }
-
-                        NavigationLink(destination: SignUpView()) {
-                            Text(String(localized: "signup_title"))
-                                .foregroundColor(.blue)
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .stroke(Color.blue, lineWidth: 2)
-                                )
-                        }
-
-                        Button(action: signInWithGoogle) {
-                            HStack {
-                                Image(systemName: "globe")
-                                Text(String(localized: "login_google"))
-                            }
+                    // LOGIN
+                    Button(action: login) {
+                        Text(String(localized: "login"))
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background(Color.red)
-                            .cornerRadius(10)
-                        }
-
-                        SignInWithAppleButton(
-                            .signIn,
-                            onRequest: configureAppleRequest,
-                            onCompletion: handleAppleCompletion
-                        )
-                        .frame(height: 50)
-                        .cornerRadius(10)
+                            .background(Color.blue)
+                            .cornerRadius(16)
                     }
-                    .padding()
-                    .frame(maxWidth: 420)       // ⭐ Rộng tối đa 420px — chuẩn iPad/iPhone
-                    .background(Color.white)
-                    .cornerRadius(20)
-                    .shadow(radius: 5)
 
-                    Spacer()
+                    // FORGOT PASSWORD
+                    Button(action: resetPassword) {
+                        Text(String(localized: "forgot_password"))
+                            .foregroundColor(.blue)
+                            .font(.footnote)
+                    }
+
+                    // SIGN UP
+                    NavigationLink(destination: SignUpView()) {
+                        Text(String(localized: "signup_title"))
+                            .foregroundColor(.blue)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .stroke(Color.blue, lineWidth: 2)
+                            )
+                    }
+
+                    // GOOGLE
+                    Button(action: signInWithGoogle) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "globe")
+                            Text(String(localized: "login_google"))
+                        }
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.red)
+                        .cornerRadius(16)
+                    }
+
+                    // APPLE
+                    SignInWithAppleButton(
+                        .signIn,
+                        onRequest: configureAppleRequest,
+                        onCompletion: handleAppleCompletion
+                    )
+                    .frame(height: 52)
+                    .cornerRadius(16)
+
+                    Spacer(minLength: 40)
                 }
-                .frame(width: geo.size.width, height: geo.size.height)
-                .background(Color(.systemGroupedBackground))
+                .padding(.horizontal, 20)
             }
-            
+            .background(Color(.systemGroupedBackground))
+            .navigationBarHidden(true)
             .fullScreenCover(isPresented: $isLoggedIn) {
                 MainView()
             }
-            .navigationViewStyle(StackNavigationViewStyle()) 
         }
+        .navigationViewStyle(.stack)
     }
+
 
 
     // MARK: - EMAIL LOGIN
