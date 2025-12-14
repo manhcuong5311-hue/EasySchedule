@@ -572,13 +572,22 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         UNUserNotificationCenter.current().delegate = self
 
         // Xin quyền thông báo
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
-            if let error = error {
-                print("❌ Notification permission error:", error.localizedDescription)
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+            if settings.authorizationStatus == .notDetermined {
+                UNUserNotificationCenter.current()
+                    .requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
+                        if let error = error {
+                            print("❌ Notification permission error:", error.localizedDescription)
+                        }
+                    }
             }
         }
 
+
         return true
+    }
+    func applicationDidEnterBackground(_ application: UIApplication) {
+        ChatForegroundTracker.shared.activeChatEventId = nil
     }
 
     // Show banner in foreground
