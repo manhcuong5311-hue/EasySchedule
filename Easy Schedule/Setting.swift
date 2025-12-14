@@ -149,16 +149,44 @@ struct SettingsView: View {
                     Button {
                         showUpgradeSheet = true
                     } label: {
-                        HStack {
-                            Label(String(localized: "upgrade_account"), systemImage: "star.fill")
+                        HStack(spacing: 12) {
+
+                            Image(systemName: "star.fill")
+                                .foregroundColor(
+                                    premium.isPremium
+                                    ? AppColors.premiumGold
+                                    : .secondary
+                                )
+
+                            Text(
+                                premium.isPremium
+                                ? String(localized: "premium_active")
+                                : String(localized: "upgrade_account")
+                            )
+                            .fontWeight(.medium)
+
                             Spacer()
-                            Text(premium.isPremium
-                                 ? String(localized: "premium")
-                                 : String(localized: "free"))
-                                .foregroundColor(premium.isPremium ? .yellow : .secondary)
-                                .font(.subheadline)
+
+                            if premium.isPremium {
+                                Text(String(localized: "premium"))
+                                    .font(.caption)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(
+                                        AppColors.premiumGold.opacity(0.2)
+                                    )
+                                    .foregroundColor(AppColors.premiumGold)
+                                    .clipShape(Capsule())
+                            } else {
+                                Text(String(localized: "free"))
+                                    .foregroundColor(.secondary)
+                                    .font(.subheadline)
+                            }
                         }
+                        .padding(.vertical, 4)
+                        .contentShape(Rectangle())
                     }
+
 
                     NavigationLink {
                         SecuritySettingsView()
@@ -572,13 +600,22 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         UNUserNotificationCenter.current().delegate = self
 
         // Xin quyền thông báo
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
-            if let error = error {
-                print("❌ Notification permission error:", error.localizedDescription)
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+            if settings.authorizationStatus == .notDetermined {
+                UNUserNotificationCenter.current()
+                    .requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
+                        if let error = error {
+                            print("❌ Notification permission error:", error.localizedDescription)
+                        }
+                    }
             }
         }
 
+
         return true
+    }
+    func applicationDidEnterBackground(_ application: UIApplication) {
+        ChatForegroundTracker.shared.activeChatEventId = nil
     }
 
     // Show banner in foreground

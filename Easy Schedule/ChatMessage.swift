@@ -36,6 +36,16 @@ struct ChatMessage: Identifiable, Codable {
     }
     
 }
+import Foundation
+
+class ChatForegroundTracker {
+    static let shared = ChatForegroundTracker()
+    private init() {}
+
+    // eventId đang mở chat
+    var activeChatEventId: String? = nil
+}
+
 struct TodoItem: Identifiable, Codable {
     @DocumentID var id: String?
     var text: String
@@ -70,6 +80,7 @@ class TodoViewModel: ObservableObject {
     }
 
     func listen() {
+        listener?.remove()
         listener = db.collection("chats")
             .document(chatId)
             .collection("todos")
@@ -460,6 +471,7 @@ struct ChatView: View {
     @State private var showLocationConfirm = false
     @State private var geocodeInProgress: Set<String> = []
     @State private var showTodoList = false
+    @EnvironmentObject var premium: PremiumStoreViewModel
 
     private let geocoder = CLGeocoder()
 
@@ -594,24 +606,39 @@ struct ChatView: View {
         .navigationTitle(otherName)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                Button {
-                    showTodoList = true
-                } label: {
-                    Image(systemName: "checklist")
-                        .font(.system(size: 20))
+                HStack(spacing: 8) {
+                    // ⭐ Premium indicator
+                    if premium.isPremium {
+                        Image(systemName: "star.fill")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(AppColors.premiumGold)
+                            .opacity(0.8)
+                    }
+
+                    Button {
+                        showTodoList = true
+                    } label: {
+                        Image(systemName: "checklist")
+                            .font(.system(size: 20))
+                    }
                 }
             }
         }
+
         .sheet(isPresented: $showTodoList) {
             TodoListView(chatId: eventId, myId: session.currentUserId ?? "")
         }
-
-
         .onAppear {
+            ChatForegroundTracker.shared.activeChatEventId = eventId
             vm.markSeen()
             vm.autoDeleteIfPast(eventEndTime)
         }
-        
+        .onDisappear {
+            if ChatForegroundTracker.shared.activeChatEventId == eventId {
+                ChatForegroundTracker.shared.activeChatEventId = nil
+            }
+        }
+
         
         
     }
@@ -737,9 +764,21 @@ struct ChatView: View {
                 else {
                     Text(msg.text)
                         .padding(10)
-                        .background(isMe ? Color.blue.opacity(0.9) : Color.gray.opacity(0.2))
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(isMe ? Color.blue.opacity(0.9) : Color.gray.opacity(0.2))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(
+                                            (isMe && premium.isPremium)
+                                            ? AppColors.premiumAccent.opacity(0.4)
+                                            : Color.clear,
+                                            lineWidth: 0.8
+                                        )
+                                )
+
+                        )
                         .foregroundColor(isMe ? .white : .primary)
-                        .cornerRadius(12)
                 }
                 
                 
@@ -805,7 +844,7 @@ import FirebaseAuth
 class ChatMetaViewModel: ObservableObject {
     @Published var lastMessage: String = ""
     @Published var unread: Bool = false
-    
+    private var lastNotifiedMessage: String?
     private let db = Firestore.firestore()
     private let eventId: String
     private let myId: String
@@ -824,13 +863,36 @@ class ChatMetaViewModel: ObservableObject {
             .document(eventId)
             .addSnapshotListener { snap, _ in
                 guard let data = snap?.data() else { return }
-                
-                self.lastMessage = data["lastMessage"] as? String ?? ""
-                
+
+                let lastMsg = data["lastMessage"] as? String ?? ""
                 let unreadDict = data["unread"] as? [String: Bool] ?? [:]
-                self.unread = unreadDict[self.myId] ?? false
+                let isUnread = unreadDict[self.myId] ?? false
+
+                let shouldNotify =
+                    isUnread &&
+                    !lastMsg.isEmpty &&
+                    lastMsg != self.lastNotifiedMessage &&
+                    UIApplication.shared.applicationState != .active &&
+                    ChatForegroundTracker.shared.activeChatEventId != self.eventId
+
+                DispatchQueue.main.async {
+                    self.lastMessage = lastMsg
+                    self.unread = isUnread
+
+                    if shouldNotify {
+                        self.lastNotifiedMessage = lastMsg
+
+                        pushLocalChatNotification(
+                            title: "New message",
+                            body: lastMsg,
+                            identifier: "chat-\(self.eventId)"
+                        )
+                    }
+                }
             }
     }
+
+
     
 }
 
