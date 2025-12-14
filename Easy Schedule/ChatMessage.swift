@@ -471,6 +471,7 @@ struct ChatView: View {
     @State private var showLocationConfirm = false
     @State private var geocodeInProgress: Set<String> = []
     @State private var showTodoList = false
+    @EnvironmentObject var premium: PremiumStoreViewModel
 
     private let geocoder = CLGeocoder()
 
@@ -605,14 +606,25 @@ struct ChatView: View {
         .navigationTitle(otherName)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                Button {
-                    showTodoList = true
-                } label: {
-                    Image(systemName: "checklist")
-                        .font(.system(size: 20))
+                HStack(spacing: 8) {
+                    // ⭐ Premium indicator
+                    if premium.isPremium {
+                        Image(systemName: "star.fill")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(AppColors.premiumGold)
+                            .opacity(0.8)
+                    }
+
+                    Button {
+                        showTodoList = true
+                    } label: {
+                        Image(systemName: "checklist")
+                            .font(.system(size: 20))
+                    }
                 }
             }
         }
+
         .sheet(isPresented: $showTodoList) {
             TodoListView(chatId: eventId, myId: session.currentUserId ?? "")
         }
@@ -752,9 +764,21 @@ struct ChatView: View {
                 else {
                     Text(msg.text)
                         .padding(10)
-                        .background(isMe ? Color.blue.opacity(0.9) : Color.gray.opacity(0.2))
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(isMe ? Color.blue.opacity(0.9) : Color.gray.opacity(0.2))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(
+                                            (isMe && premium.isPremium)
+                                            ? AppColors.premiumAccent.opacity(0.4)
+                                            : Color.clear,
+                                            lineWidth: 0.8
+                                        )
+                                )
+
+                        )
                         .foregroundColor(isMe ? .white : .primary)
-                        .cornerRadius(12)
                 }
                 
                 

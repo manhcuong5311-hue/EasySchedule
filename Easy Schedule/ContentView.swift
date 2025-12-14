@@ -2012,6 +2012,7 @@ struct CustomizableCalendarView: View {
     @State private var isLoadingOffDays = false
     @State private var showOffDayAlert = false
     @State private var offDayAlertMessage = ""
+    @EnvironmentObject var premium: PremiumStoreViewModel
 
     @State private var offDays: Set<Date> = [] {
         didSet {
@@ -2096,7 +2097,6 @@ struct CustomizableCalendarView: View {
                         .padding(.bottom, 4)
 
                         Divider()
-
                         // MARK: - Chia sẻ lịch
                         Button {
                             if let uid = Auth.auth().currentUser?.uid,
@@ -2104,16 +2104,27 @@ struct CustomizableCalendarView: View {
                                 shareItem = ShareItem(url: url)
                             }
                         } label: {
-                            HStack {
+                            HStack(spacing: 8) {
                                 Image(systemName: "square.and.arrow.up")
-                                Text(String(localized: "share_calendar")).bold()
+                                    .font(.system(size: 16, weight: .semibold))
+
+                                Text(String(localized: "share_calendar"))
+                                    .fontWeight(.semibold)
                             }
+                            .foregroundColor(
+                                premium.isPremium ? .white : .blue
+                            )
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background(Color.blue.opacity(0.2))
-                            .cornerRadius(10)
+                            .background(
+                                premium.isPremium
+                                ? AppColors.premiumAccent
+                                : Color.blue.opacity(0.2)
+                            )
+                            .cornerRadius(12)
                         }
                         .padding(.horizontal)
+
                         .sheet(item: $shareItem) { item in
                             ActivityView(activityItems: [item.url])
                         }
@@ -2243,12 +2254,25 @@ struct CustomizableCalendarView: View {
                                             .background(
                                                 RoundedRectangle(cornerRadius: 14)
                                                     .fill(Color(.systemBackground))
-                                                    .shadow(color: Color.black.opacity(0.08), radius: 4, x: 0, y: 2)
+                                                    .shadow(
+                                                        color: premium.isPremium
+                                                            ? AppColors.premiumAccent.opacity(0.10)
+                                                            : Color.black.opacity(0.08),
+                                                        radius: premium.isPremium ? 8 : 4,
+                                                        x: 0,
+                                                        y: premium.isPremium ? 4 : 2
+                                                    )
                                                     .overlay(
                                                         RoundedRectangle(cornerRadius: 14)
-                                                            .stroke(Color(.separator), lineWidth: 0.5)
+                                                            .stroke(
+                                                                premium.isPremium
+                                                                    ? AppColors.premiumBorder
+                                                                    : Color(.separator),
+                                                                lineWidth: premium.isPremium ? 1 : 0.5
+                                                            )
                                                     )
                                             )
+
                                         }
                                     }
                                     .padding(.horizontal, 4)
@@ -2290,11 +2314,19 @@ struct CustomizableCalendarView: View {
                        }
                    }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button { showAddSheet = true } label: {
+                    Button {
+                        showAddSheet = true
+                    } label: {
                         Image(systemName: "plus")
+                            .font(.system(size: 20, weight: .semibold))
+                            .foregroundColor(
+                                premium.isPremium
+                                ? AppColors.premiumAccent
+                                : .blue
+                            )
                     }
                 }
-                
+            
             }
             .sheet(isPresented: $showAddSheet) {
                 AddEventView(prefillDate: selectedDate, offDays: offDays)
@@ -2734,7 +2766,7 @@ struct CalendarGridView: View {
     @Binding var selectedDate: Date?
     let eventsByDay: [Date: [CalendarEvent]]
     @EnvironmentObject var eventManager: EventManager
-
+    @EnvironmentObject var premium: PremiumStoreViewModel
     private let calendar = Calendar.current
     private let columns = Array(repeating: GridItem(.flexible()), count: 7)
     let offDays: Set<Date>
@@ -2800,14 +2832,35 @@ struct CalendarGridView: View {
                             .font(.body)
                             .frame(width: 36, height: 36)
                             .background(
-                                Circle().fill(
-                                    isSelected ? Color.accentColor :
-                                        (isOffDay ? Color.gray.opacity(0.4) :
-                                            (isToday ? Color.green.opacity(0.3) : Color.clear)
+                                Circle()
+                                    .fill(
+                                        isSelected
+                                        ? (premium.isPremium
+                                            ? AppColors.premiumAccent.opacity(0.18)
+                                            : Color.accentColor)
+                                        : (isOffDay
+                                            ? Color.gray.opacity(0.4)
+                                            : (isToday
+                                                ? Color.green.opacity(0.3)
+                                                : Color.clear)
                                         )
-                                )
+                                    )
+                                    .overlay(
+                                        Circle()
+                                            .stroke(
+                                                (isSelected && premium.isPremium)
+                                                ? AppColors.premiumAccent
+                                                : Color.clear,
+                                                lineWidth: 1.5
+                                            )
+                                    )
                             )
-                            .foregroundColor(isSelected ? .white : .primary)
+                            .foregroundColor(
+                                isSelected && premium.isPremium
+                                ? AppColors.premiumAccent
+                                : (isSelected ? .white : .primary)
+                            )
+
 
                         let key = calendar.startOfDay(for: date)
                         let events = eventsByDay[key] ?? []
