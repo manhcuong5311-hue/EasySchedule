@@ -934,10 +934,20 @@ extension EventManager {
                 completion(false, String(localized: "This_time_slot_is_already_booked!"))
                 return
             }
+            // 2️⃣ BOOKING RANGE RULE (FREE vs PREMIUM)
+            let now = Date()
 
-            // 2️⃣ PREMIUM RULE
-            if !ownerIsPremium {
-                let now = Date()
+            if ownerIsPremium {
+                // ⭐ PREMIUM: cho đặt tối đa 180 ngày
+                if let maxDate = Calendar.current.date(byAdding: .day, value: 180, to: now),
+                   start > maxDate {
+
+                    DispatchQueue.main.async { self.isAdding = false }
+                    completion(false, String(localized: "premium_booking_limit_180_days"))
+                    return
+                }
+            } else {
+                // ⭐ FREE: chỉ 7 ngày
                 if let maxDate = Calendar.current.date(byAdding: .day, value: 7, to: now),
                    start > maxDate {
 
@@ -946,7 +956,6 @@ extension EventManager {
                     return
                 }
             }
-
             // 3️⃣ Tạo dữ liệu Firestore
             guard let currentUid = Auth.auth().currentUser?.uid else {
                 DispatchQueue.main.async { self.isAdding = false }

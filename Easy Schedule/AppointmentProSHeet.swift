@@ -126,8 +126,13 @@ struct AppointmentProSheet: View {
                     Section(header: Text(String(localized: "time_slots_30min"))) {
                         let slots = generateSlots(for: selectedDate)
                         let now = Date()
-                        let maxPremiumDate = calendar.date(byAdding: .day, value: 7, to: now)!
-                        let dayBlocked = (!partnerIsPremium && selectedDate > maxPremiumDate)
+                        let maxDate = calendar.date(
+                            byAdding: .day,
+                            value: partnerIsPremium ? 180 : 7,
+                            to: now
+                        )!
+                        let dayBlocked = selectedDate > maxDate
+
 
                         ScrollView {
                             LazyVStack(spacing: 8) {
@@ -216,24 +221,18 @@ struct AppointmentProSheet: View {
             }
             .padding(.bottom)
         }
-       
-        .onChange(of: selectedDate) { oldValue, newValue in
-            let limitDate = calendar.date(byAdding: .day, value: 7, to: Date())!
-            let dayBlocked = (!partnerIsPremium && newValue > limitDate)
 
-            if dayBlocked {
+        .onChange(of: selectedDate) { _, newValue in
+            let maxDate = calendar.date(
+                byAdding: .day,
+                value: partnerIsPremium ? 180 : 7,
+                to: Date()
+            )!
+
+            if newValue > maxDate {
                 selectedSlot = nil
             }
         }
-        .onChange(of: selectedDate) { oldValue, newValue in
-            let limitDate = calendar.date(byAdding: .day, value: 7, to: Date())!
-            let dayBlocked = (!partnerIsPremium && newValue > limitDate)
-
-            if dayBlocked {
-                selectedSlot = nil
-            }
-        }
-
     }
 
     // MARK: Load dữ liệu
@@ -309,6 +308,19 @@ struct AppointmentProSheet: View {
         let startOfSelectedDay = Calendar.current.startOfDay(for: selectedDate)
         if partnerOffDays.contains(startOfSelectedDay) {
             errorMessage = String(localized: "owner_day_off_no_booking")
+            return
+        }
+        // ⭐ BOOKING RANGE LIMIT (UI safety check)
+        let maxDate = calendar.date(
+            byAdding: .day,
+            value: partnerIsPremium ? 180 : 7,
+            to: Date()
+        )!
+
+        if selectedDate > maxDate {
+            errorMessage = partnerIsPremium
+                ? String(localized: "premium_booking_limit_180_days")
+                : String(localized: "You_can_only_book_within_the_next_7days.")
             return
         }
 
