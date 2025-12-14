@@ -12,6 +12,12 @@
             "value" : "-"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "-"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -31,6 +37,12 @@
           }
         },
         "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ - %2$@"
+          }
+        },
+        "ko" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@ - %2$@"
@@ -60,6 +72,12 @@
             "value" : "%1$@ – %2$@"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ – %2$@"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -79,6 +97,12 @@
           }
         },
         "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ — %2$@"
+          }
+        },
+        "ko" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@ — %2$@"
@@ -108,6 +132,12 @@
             "value" : "%1$@ · %2$@"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ · %2$@"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -127,6 +157,12 @@
           }
         },
         "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ “%2$@”?"
+          }
+        },
+        "ko" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@ “%2$@”?"
@@ -156,6 +192,12 @@
             "value" : "%1$@ %2$@"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ %2$@"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -173,6 +215,12 @@
           }
         },
         "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ %2$lld"
+          }
+        },
+        "ko" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@ %2$lld"
@@ -202,6 +250,12 @@
             "value" : "%1$@ %2$lld %3$@"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ %2$lld %3$@"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -221,6 +275,12 @@
           }
         },
         "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ → %2$@"
+          }
+        },
+        "ko" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@ → %2$@"
@@ -250,6 +310,12 @@
             "value" : "%lld"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -269,6 +335,12 @@
           }
         },
         "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld pt"
+          }
+        },
+        "ko" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld pt"
@@ -298,6 +370,12 @@
             "value" : "•"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "•"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -317,6 +395,12 @@
           }
         },
         "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "→"
+          }
+        },
+        "ko" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "→"
@@ -346,33 +430,16 @@
             "value" : "✓ %@"
           }
         },
-        "vi" : {
+        "ko" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "✓ %@"
           }
-        }
-      }
-    },
-    "📅 Add Events on Partner Calendar" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "📅 Add Events on Partner Calendar"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "📅 パートナーカレンダーに予定を追加"
-          }
         },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "📅 Đặt lịch trên lịch đối tác"
+            "value" : "✓ %@"
           }
         }
       }
@@ -390,6 +457,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "アカウントとプレミアム"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "계정 및 프리미엄"
           }
         },
         "vi" : {
@@ -415,6 +488,12 @@
             "value" : "ログインする前にメールアドレスを確認してください。"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "로그인하기 전에 이메일 인증을 완료해 주세요."
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -436,6 +515,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "アカウントが作成されました！"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "계정이 생성되었습니다!"
           }
         },
         "vi" : {
@@ -461,6 +546,12 @@
             "value" : "アカウント管理"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "계정 관리"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -482,6 +573,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "アカウント"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "계정"
           }
         },
         "vi" : {
@@ -507,6 +604,12 @@
             "value" : "追加"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "추가"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -528,6 +631,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "予定を追加"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이벤트 추가"
           }
         },
         "vi" : {
@@ -553,6 +662,12 @@
             "value" : "タスクを追加..."
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "할 일 추가…"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -574,6 +689,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "許可"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "허용"
           }
         },
         "vi" : {
@@ -599,6 +720,12 @@
             "value" : "予定の重複を許可"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "일정 겹침 허용"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -620,6 +747,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "許可されたユーザー"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "허용된 사용자"
           }
         },
         "vi" : {
@@ -646,6 +779,12 @@
             "value" : "アプリがロックされています"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "앱이 잠겨 있습니다"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -667,6 +806,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "外観"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "화면 설정"
           }
         },
         "vi" : {
@@ -692,6 +837,12 @@
             "value" : "今週のすべてのイベントを削除してもよろしいですか？"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이번 주의 모든 이벤트를 삭제하시겠습니까?"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -715,6 +866,12 @@
             "value" : "すべての履歴を削除してもよろしいですか？"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "모든 기록을 삭제하시겠습니까?"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -736,7 +893,13 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "最もお得 • 47％節約"
+            "value" : "最もお得 • 47％お得\n"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "최고의 선택 • 47% 할인"
           }
         },
         "vi" : {
@@ -762,6 +925,12 @@
             "value" : "ブロック"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "차단"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -785,6 +954,12 @@
             "value" : "予約"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "예약"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -805,7 +980,13 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "予約が正常に作成されました。"
+            "value" : "予約が作成されました。\n"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "예약이 성공적으로 생성되었습니다!"
           }
         },
         "vi" : {
@@ -829,6 +1010,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "このユーザー向けのイベントを正常に作成しました。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 사용자를 위한 이벤트가 성공적으로 생성되었습니다."
           }
         },
         "vi" : {
@@ -855,6 +1042,12 @@
             "value" : "予定あり"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "사용 중"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -876,6 +1069,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "キャンセル"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "취소"
           }
         },
         "vi" : {
@@ -901,6 +1100,12 @@
             "value" : "イベントを予約できません"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이벤트를 예약할 수 없습니다\n"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -922,6 +1127,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "イベントを作成できません"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이벤트를 생성할 수 없습니다"
           }
         },
         "vi" : {
@@ -947,6 +1158,12 @@
             "value" : "リンクから UID を抽出できません。"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "링크에서 UID를 가져올 수 없습니다."
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -970,6 +1187,12 @@
             "value" : "過去の日付には休日を設定することはできません。\n"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "과거 날짜에는 휴무일을 설정할 수 없습니다."
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -978,7 +1201,7 @@
         }
       }
     },
-    "cant_create_events_in_the_past." : {
+    "cant_create_events_in_the_past" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
@@ -991,6 +1214,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "過去にイベントを作成することはできません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "과거 날짜에는 이벤트를 생성할 수 없습니다."
           }
         },
         "vi" : {
@@ -1014,6 +1243,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "表示名を変更"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "표시 이름 변경\n"
           }
         },
         "vi" : {
@@ -1040,6 +1275,12 @@
             "value" : "設定で言語を変更"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "설정에서 언어 변경"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1061,6 +1302,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "時間枠を選択"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "시간대를 선택하세요"
           }
         },
         "vi" : {
@@ -1086,6 +1333,12 @@
             "value" : "すべてクリア"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "모두 지우기"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1107,6 +1360,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "閉じる"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "닫기"
           }
         },
         "vi" : {
@@ -1132,6 +1391,12 @@
             "value" : "アカウント削除の確認"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "계정 삭제 확인"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1155,6 +1420,12 @@
             "value" : "パスワードを確認"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "비밀번호 확인"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1175,7 +1446,13 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "📞サポートに連絡"
+            "value" : "📞 サポートに問い合わせ\n"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "📞 고객 지원 문의"
           }
         },
         "vi" : {
@@ -1202,6 +1479,12 @@
             "value" : "操作が早すぎます。少しお待ちください。"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "요청이 너무 빠릅니다. 잠시만 기다려 주세요."
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -1222,6 +1505,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "操作が早すぎます。%lld秒お待ちください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "요청이 너무 빠릅니다. %lld초 후에 다시 시도해 주세요."
           }
         },
         "vi" : {
@@ -1247,6 +1536,12 @@
             "value" : "アカウントを作成"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "계정 생성"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1268,6 +1563,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "予定を作成"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "약속 생성"
           }
         },
         "vi" : {
@@ -1293,6 +1594,12 @@
             "value" : "イベントの作成に失敗しました。"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이벤트 생성에 실패했습니다."
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1314,6 +1621,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "他のユーザーのために作成したイベント"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "내가 다른 사람을 위해 만든 이벤트"
           }
         },
         "vi" : {
@@ -1339,6 +1652,12 @@
             "value" : "アカウントを作成しています…"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "계정을 생성하는 중입니다…"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1360,6 +1679,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "現在のイベント"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "현재 이벤트"
           }
         },
         "vi" : {
@@ -1385,6 +1710,12 @@
             "value" : "カスタム時間範囲"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "사용자 지정 시간 범위"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1406,6 +1737,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ダーク"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "다크 모드"
           }
         },
         "vi" : {
@@ -1431,6 +1768,12 @@
             "value" : "{y}年{m}月{d}日"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "{y}년 {m}월 {d}일"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1452,6 +1795,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "日付"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "날짜"
           }
         },
         "vi" : {
@@ -1476,6 +1825,12 @@
             "value" : "日付と時刻"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "날짜 및 시간"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1496,7 +1851,13 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "この日は休暇日としてマークされています。"
+            "value" : "この日は休日として設定されています。\n"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 날짜는 휴무일로 설정되어 있습니다."
           }
         },
         "vi" : {
@@ -1522,6 +1883,12 @@
             "value" : "この日は休暇日のため、イベントを予約できません。"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 날짜는 휴무일입니다. 이벤트를 예약할 수 없습니다."
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -1543,6 +1910,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "日"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "일"
           }
         },
         "vi" : {
@@ -1568,6 +1941,12 @@
             "value" : "予定"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "약속"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -1589,6 +1968,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "削除"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "삭제"
           }
         },
         "vi" : {
@@ -1614,6 +1999,12 @@
             "value" : "アカウントを削除"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "계정 삭제"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1637,6 +2028,12 @@
             "value" : "アカウントを削除してもよろしいですか？"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "계정을 삭제하시겠습니까?"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1658,6 +2055,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "すべてのデータは完全に消去され、元に戻すことはできません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "모든 데이터가 영구적으로 삭제되며 복구할 수 없습니다."
           }
         },
         "vi" : {
@@ -1684,6 +2087,12 @@
             "value" : "すべて削除"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "모두 삭제"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -1705,6 +2114,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "この項目を削除してもよろしいですか？"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 항목을 삭제하시겠습니까?"
           }
         },
         "vi" : {
@@ -1730,6 +2145,12 @@
             "value" : "削除の確認"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "삭제 확인"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1751,6 +2172,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "このイベントを削除してもよろしいですか？"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 이벤트를 삭제하시겠습니까?"
           }
         },
         "vi" : {
@@ -1776,6 +2203,12 @@
             "value" : "削除してもよろしいですか"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "삭제하시겠습니까?"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -1799,6 +2232,12 @@
             "value" : "このイベントを削除しますか？"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 이벤트를 삭제할까요?"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1820,6 +2259,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "アカウントを削除しています…"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "계정을 삭제하는 중입니다…"
           }
         },
         "vi" : {
@@ -1846,6 +2291,12 @@
             "value" : "配信済み"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "전송됨"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1867,6 +2318,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "拒否"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "거부"
           }
         },
         "vi" : {
@@ -1892,6 +2349,12 @@
             "value" : "表示のカスタマイズ"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "화면 사용자 설정"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1913,6 +2376,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "表示言語"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "표시 언어"
           }
         },
         "vi" : {
@@ -1938,6 +2407,12 @@
             "value" : "表示モード"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "표시 모드"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1961,6 +2436,12 @@
             "value" : "表示名"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "표시 이름"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1981,7 +2462,13 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "表示名が更新されました"
+            "value" : "表示名が更新されました。\n"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "표시 이름이 업데이트되었습니다."
           }
         },
         "vi" : {
@@ -2007,6 +2494,12 @@
             "value" : "表示"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "표시"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -2028,6 +2521,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "完了"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "완료"
           }
         },
         "vi" : {
@@ -2053,6 +2552,12 @@
             "value" : "閉じる"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "닫기"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -2074,6 +2579,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "メールアドレス"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이메일"
           }
         },
         "vi" : {
@@ -2099,6 +2610,12 @@
             "value" : "イベント名を入力してください。"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이벤트 제목은 비워둘 수 없습니다."
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -2120,6 +2637,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "終了"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "종료"
           }
         },
         "vi" : {
@@ -2145,6 +2668,12 @@
             "value" : "終了"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "종료"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -2166,6 +2695,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "まずメールアドレスを入力してください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "먼저 이메일을 입력해 주세요."
           }
         },
         "vi" : {
@@ -2192,6 +2727,12 @@
             "value" : "メッセージを入力"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "메시지를 입력하세요"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -2213,6 +2754,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "新しい表示名を入力"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "새 표시 이름 입력"
           }
         },
         "vi" : {
@@ -2238,6 +2785,12 @@
             "value" : "アカウント削除を確認するため、パスワードを入力してください。"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "계정 삭제를 확인하려면 비밀번호를 입력해 주세요."
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -2259,6 +2812,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Appleでのログインに失敗しました。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple 로그인에 실패했습니다."
           }
         },
         "vi" : {
@@ -2285,6 +2844,12 @@
             "value" : "Googleログインエラー"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Google 로그인 오류"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -2306,6 +2871,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "無効な状態です"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "유효하지 않은 상태"
           }
         },
         "vi" : {
@@ -2331,6 +2902,12 @@
             "value" : "エラー"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "오류"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -2352,6 +2929,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "IDトークンを取得できません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "인증 토큰을 가져올 수 없습니다."
           }
         },
         "vi" : {
@@ -2377,6 +2960,12 @@
             "value" : "イベントはすでに存在しています。"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이미 존재하는 이벤트입니다"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -2398,6 +2987,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "イベントカラー"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이벤트 색상\n"
           }
         },
         "vi" : {
@@ -2424,6 +3019,12 @@
             "value" : "イベント一覧"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이벤트 목록"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -2444,7 +3045,13 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "所有者: {name}"
+            "value" : "作成者：{name}\n"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "소유자: {name}"
           }
         },
         "vi" : {
@@ -2470,6 +3077,12 @@
             "value" : "予定のタイトル"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "약속 제목"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -2491,6 +3104,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "{count}件のイベント"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이벤트 {count}개"
           }
         },
         "vi" : {
@@ -2517,6 +3136,12 @@
             "value" : "各イベント内でチャットを使って素早くメッセージをやり取りし、双方の最新状況をリアルタイムで共有できます。メッセージは即時に同期され、イベント終了後は古いチャットが自動的に削除されます。"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "각 이벤트에는 채팅 기능이 있어 빠르게 메시지를 주고받고 실시간으로 서로의 상태를 확인할 수 있습니다. 메시지는 즉시 동기화되며, 이벤트가 종료되면 이전 채팅은 자동으로 삭제됩니다."
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -2538,6 +3163,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "👁‍🗨 イベント内チャット"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "👁‍🗨 이벤트 채팅"
           }
         },
         "vi" : {
@@ -2564,6 +3195,12 @@
             "value" : "イベントを左にスワイプすると削除できます。削除前に確認が求められます。"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이벤트를 왼쪽으로 스와이프하여 삭제할 수 있습니다. 삭제 전에 확인 메시지가 표시됩니다."
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -2586,6 +3223,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "🗑️ イベント削除"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "🗑️ 이벤트 삭제"
           }
         },
         "vi" : {
@@ -2612,6 +3255,12 @@
             "value" : "機能説明"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "기능 설명"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -2634,6 +3283,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "過去イベントモードでは、検索バーを使ってタイトルや内容でイベントを検索できます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "지난 이벤트 모드에서는 검색창을 사용해 제목이나 내용으로 이벤트를 검색할 수 있습니다."
           }
         },
         "vi" : {
@@ -2660,6 +3315,12 @@
             "value" : "🔍 イベント検索"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "🔍 이벤트 검색"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -2682,6 +3343,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "現在のイベントと過去のイベントを切り替えることができます。現在のイベントには、今後の予定（自分が作成したイベント、他者のために作成したイベント、他者が自分のために作成したイベント）が表示されます。過去のイベントは週ごとにまとめて表示されます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "현재 이벤트와 지난 이벤트 사이를 전환할 수 있습니다. 현재 이벤트에는 내가 만든 이벤트, 다른 사람을 위해 만든 이벤트, 그리고 다른 사람이 나를 위해 만든 이벤트를 포함한 모든 예정 일정이 표시됩니다. 지난 이벤트는 주 단위로 묶어 표시됩니다."
           }
         },
         "vi" : {
@@ -2708,6 +3375,12 @@
             "value" : "📌 表示モード"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "📌 보기 모드"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -2730,6 +3403,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ユーザーガイド"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "사용자 가이드"
           }
         },
         "vi" : {
@@ -2756,6 +3435,12 @@
             "value" : "過去のイベントは週ごとにグループ化されています。任意の週をタップすると、その週のすべてのイベントを詳細に確認できます。"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "지난 이벤트는 주별로 그룹화되어 표시됩니다. 원하는 주를 탭하면 해당 주의 모든 이벤트를 자세히 확인할 수 있습니다."
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -2780,6 +3465,12 @@
             "value" : "📅 週間グループ化"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "📅 주별 그룹화"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -2794,19 +3485,25 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Failed to create event:"
+            "value" : "Failed to create event"
           }
         },
         "ja" : {
           "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "イベントを作成できませんでした"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
             "state" : "translated",
-            "value" : "イベントを作成できませんでした："
+            "value" : "이벤트 생성에 실패했습니다"
           }
         },
         "vi" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tạo sự kiện thất bại:"
+            "state" : "needs_review",
+            "value" : "Tạo sự kiện thất bại"
           }
         }
       }
@@ -2824,6 +3521,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "❓ よくある質問（FAQ）"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "❓ 자주 묻는 질문(FAQ)"
           }
         },
         "vi" : {
@@ -2849,6 +3552,12 @@
             "value" : "イベントを開き →「共有リンク」をタップします。受け取った相手は、あなたの空き時間と予定あり時間のみ閲覧できますが、編集はできません。"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이벤트를 열고 ‘링크 공유’를 탭하세요. 상대방은 가능한 시간과 바쁜 시간을 볼 수 있지만, 수정은 할 수 없습니다."
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -2870,6 +3579,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "スケジュールを他の人と共有するには？"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "일정을 다른 사람과 어떻게 공유하나요?"
           }
         },
         "vi" : {
@@ -2895,6 +3610,12 @@
             "value" : "相手が「アクセスリクエスト」を送る必要があります。あなたは承認または拒否できます。スパム防止のため、知らない人のリクエストは承認しないでください。"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "상대방이 접근 요청을 보내야 합니다. 요청을 승인하거나 거절할 수 있으며, 스팸을 방지하기 위해 모르는 사람의 요청은 승인하지 않는 것이 좋습니다."
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -2909,18 +3630,24 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "How can others view my calendar?\""
+            "value" : "How can others view my calendar?"
           }
         },
         "ja" : {
           "stringUnit" : {
-            "state" : "translated",
+            "state" : "needs_review",
             "value" : "他の人はどのようにして私のカレンダーを閲覧できますか？"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "다른 사람은 어떻게 내 캘린더를 볼 수 있나요?"
           }
         },
         "vi" : {
           "stringUnit" : {
-            "state" : "translated",
+            "state" : "needs_review",
             "value" : "Người khác muốn xem lịch của tôi phải làm gì?"
           }
         }
@@ -2939,6 +3666,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "いいえ。承認した相手は、あなたの空き時間と予定あり時間のみ表示できます。イベントの詳細を見ることはできません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "아니요. 승인한 사용자만 빈 시간과 바쁜 시간만 볼 수 있으며, 이벤트의 상세 내용은 볼 수 없습니다."
           }
         },
         "vi" : {
@@ -2964,6 +3697,12 @@
             "value" : "私のカレンダーは公開されていますか？"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "내 캘린더는 공개되나요?"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -2984,7 +3723,13 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "無料アカウントは、1日2件、作成できるのは今日から7日先までです。\n"
+            "value" : "無料アカウントでは、1日2件まで、今日から7日先までイベントを作成できます。\n"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "무료 계정은 하루에 최대 2개의 이벤트를 생성할 수 있으며, 오늘 기준 7일 이내까지만 가능합니다."
           }
         },
         "vi" : {
@@ -3010,6 +3755,12 @@
             "value" : "無料ユーザーは何件イベントを作成できますか？"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "무료 사용자는 이벤트를 몇 개까지 만들 수 있나요?"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -3031,6 +3782,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "プレミアムユーザーは、1日最大30件のイベント作成、無制限共有、アカウント間のイベント同期、優先サポートを利用できます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "프리미엄 사용자는 하루 최대 30개의 이벤트를 생성할 수 있으며, 무제한 공유, 계정 간 이벤트 동기화, 우선 지원을 받을 수 있습니다."
           }
         },
         "vi" : {
@@ -3056,6 +3813,12 @@
             "value" : "プレミアムの特典は何ですか？"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "프리미엄의 혜택은 무엇인가요?"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -3077,6 +3840,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "1日の上限に達している可能性があります。無料：2件/日、プレミアム：30件/日。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "일일 생성 한도에 도달했을 수 있습니다. 무료: 하루 2개 / 프리미엄: 하루 30개"
           }
         },
         "vi" : {
@@ -3102,6 +3871,12 @@
             "value" : "なぜこれ以上イベントを作成できないのですか？"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "왜 이벤트를 더 만들 수 없나요?"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -3123,6 +3898,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "iPhoneの「設定」→「通知」→「EasySchedule」で通知を有効にしてください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iPhone 설정 → 알림 → EasySchedule로 이동하여 앱 알림을 활성화하세요."
           }
         },
         "vi" : {
@@ -3148,6 +3929,12 @@
             "value" : "通知が届かないのはなぜですか？"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "알림을 받지 못하는 이유는 무엇인가요?"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -3171,6 +3958,12 @@
             "value" : "相手は、あなたの共有リンクからウェブサイト経由でイベントを追加するか、アプリ内のリンクを使って追加できます。"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "사람들은 웹사이트 또는 앱 내 링크를 통해 이벤트를 추가할 수 있습니다."
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -3191,7 +3984,13 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "共有リンクを使って相手は何ができますか？"
+            "value" : "共有リンクで相手は何ができますか？\n"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "공유 링크는 어떻게 사용되나요?"
           }
         },
         "vi" : {
@@ -3217,6 +4016,12 @@
             "value" : "無料版とプレミアム版の制限"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "무료 vs 프리미엄 제한"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -3238,6 +4043,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "通知とアラート"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "알림 및 알림 설정"
           }
         },
         "vi" : {
@@ -3263,6 +4074,12 @@
             "value" : "共有とアクセス権限"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "공유 및 접근 권한"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -3284,6 +4101,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "住所を取得しています"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "주소를 불러오는 중"
           }
         },
         "vi" : {
@@ -3309,6 +4132,12 @@
             "value" : "パスワードをお忘れですか？"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "비밀번호를 잊으셨나요?"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -3330,6 +4159,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "無料"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "무료"
           }
         },
         "vi" : {
@@ -3355,6 +4190,12 @@
             "value" : "開始する"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "시작하기"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -3376,6 +4217,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "現在地"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "내 위치"
           }
         },
         "vi" : {
@@ -3401,6 +4248,12 @@
             "value" : "Googleでのログインに失敗しました"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Google 로그인에 실패했습니다"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -3422,6 +4275,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "機能説明"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "기능 설명"
           }
         },
         "vi" : {
@@ -3447,6 +4306,12 @@
             "value" : "あなたのカレンダーを閲覧できるユーザーを確認・管理できます。アクセスを許可したユーザーに対してのみイベントを追加できます。許可がない場合、相手の予定を編集できず、相手もあなたの予定を編集できません。"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "캘린더를 볼 수 있는 사용자를 확인하고 관리할 수 있습니다. 권한을 부여한 사용자에게만 이벤트를 추가할 수 있으며, 그렇지 않으면 서로의 일정을 수정할 수 없습니다."
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -3468,6 +4333,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "👥 アクセス権限"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "👥 접근 권한"
           }
         },
         "vi" : {
@@ -3493,6 +4364,12 @@
             "value" : "パートナーカレンダーを読み込んだ後、右上のプラスボタンをタップしてイベントを作成します。予定ありの時間は薄赤色で表示されます。相手のカレンダーで作成したイベントは、自分のカレンダーにも自動的に追加されます。"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "파트너 캘린더를 불러온 후 오른쪽 상단의 ‘＋’ 버튼을 탭하여 이벤트를 생성하세요. 바쁜 시간은 연한 빨간색으로 표시되며, 상대 캘린더에 생성한 이벤트는 내 캘린더에도 자동으로 추가됩니다."
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -3516,6 +4393,12 @@
             "value" : "📅 パートナーカレンダーでイベントを予約"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "📅 파트너 캘린더에 이벤트 예약"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -3536,7 +4419,13 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "他のユーザーのカレンダー上で作成したイベントがここに表示されます。これらのイベントは、相手のカレンダーと自分の現在のカレンダーの両方に同期されます。"
+            "value" : "これらのイベントは、相手のカレンダーと自分のカレンダーの両方に同期されます。\n"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "다른 사람의 캘린더에 생성한 이벤트가 여기에 표시됩니다. 이 이벤트는 상대방의 캘린더와 내 현재 캘린더에 모두 동기화됩니다."
           }
         },
         "vi" : {
@@ -3562,6 +4451,12 @@
             "value" : "➕ 他のユーザーのために作成したイベント"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "➕ 내가 다른 사람을 위해 만든 이벤트"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -3583,6 +4478,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "以前に開いたUIDが表示され、すばやくアクセスできます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이전에 열어본 UID를 표시하여 빠르게 접근할 수 있습니다."
           }
         },
         "vi" : {
@@ -3608,6 +4509,12 @@
             "value" : "🕒 閲覧履歴"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "🕒 조회 기록"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -3629,6 +4536,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "相手から共有カレンダーのリンクが送られてきた場合、そのリンクまたはUIDを上の入力欄に貼り付けて「カレンダーを読み込む」をタップするとスケジュールを確認できます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "상대방이 공유 캘린더 링크를 보내면, 위 입력란에 링크 또는 UID를 붙여넣은 후 ‘캘린더 불러오기’를 탭하여 일정을 확인할 수 있습니다."
           }
         },
         "vi" : {
@@ -3654,6 +4567,12 @@
             "value" : "🔗 共有UIDリンクを貼り付け\n"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "🔗 공유 UID 링크 붙여넣기"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -3675,6 +4594,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ユーザーガイド"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "사용자 가이드"
           }
         },
         "vi" : {
@@ -3701,6 +4626,12 @@
             "value" : "パスワードが正しくありません"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "비밀번호가 올바르지 않습니다"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -3722,6 +4653,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "情報"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "정보"
           }
         },
         "vi" : {
@@ -3747,6 +4684,12 @@
             "value" : "情報とサポート"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "정보 및 지원"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -3768,6 +4711,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "無効なメールアドレスです。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "유효하지 않은 이메일입니다."
           }
         },
         "vi" : {
@@ -3793,6 +4742,12 @@
             "value" : "言語"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "언어"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -3814,6 +4769,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ライト"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "라이트 모드"
           }
         },
         "vi" : {
@@ -3839,6 +4800,12 @@
             "value" : "🚫 1日に作成できるイベントは2件までです。無制限に作成するにはプレミアムにアップグレードしてください。"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "🚫 하루에 최대 2개의 이벤트만 생성할 수 있습니다. 무제한으로 생성하려면 프리미엄으로 업그레이드하세요."
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -3860,6 +4827,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "❗ イベントを作成できるのは7日以内です。無制限に作成するにはプレミアムにアップグレードしてください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "❗ 이벤트는 7일 이내만 생성할 수 있습니다. 무제한 이용을 위해 프리미엄으로 업그레이드하세요."
           }
         },
         "vi" : {
@@ -3886,6 +4859,12 @@
             "value" : "リンクをコピーしました。"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "링크가 복사되었습니다!"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -3907,6 +4886,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "リンクをコピーしました。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "링크가 복사되었습니다!"
           }
         },
         "vi" : {
@@ -3932,6 +4917,12 @@
             "value" : "カレンダーを読み込む"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "캘린더 불러오기"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -3953,6 +4944,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "読み込み中…"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "불러오는 중…"
           }
         },
         "vi" : {
@@ -3978,6 +4975,12 @@
             "value" : "カレンダーを読み込んでいます…"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "캘린더를 불러오는 중"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -3999,6 +5002,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "パッケージを読み込んでいます…"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "패키지를 불러오는 중…"
           }
         },
         "vi" : {
@@ -4024,6 +5033,12 @@
             "value" : "位置情報を送信しました"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "위치가 전송되었습니다"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -4045,6 +5060,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ログインしました"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "로그인됨"
           }
         },
         "vi" : {
@@ -4070,6 +5091,12 @@
             "value" : "ログイン"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "로그인"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -4091,6 +5118,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Googleでログイン"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Google로 로그인"
           }
         },
         "vi" : {
@@ -4116,6 +5149,12 @@
             "value" : "イベントを予約するにはログインが必要です。"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이벤트를 예약하려면 로그인해야 합니다."
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -4137,6 +5176,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ログイン"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "로그인"
           }
         },
         "vi" : {
@@ -4162,6 +5207,12 @@
             "value" : "Googleでログイン"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Google로 로그인"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -4183,6 +5234,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ログアウト"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "로그아웃"
           }
         },
         "vi" : {
@@ -4208,6 +5265,12 @@
             "value" : "ログアウトしてもよろしいですか？"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "로그아웃하시겠습니까?"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -4229,6 +5292,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "続行するには再度ログインする必要があります。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "계속하려면 다시 로그인해야 합니다."
           }
         },
         "vi" : {
@@ -4255,6 +5324,12 @@
             "value" : "アクセス管理"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "접근 권한 관리"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -4276,6 +5351,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "アクセス管理"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "접근 권한 관리"
           }
         },
         "vi" : {
@@ -4302,6 +5383,12 @@
             "value" : "サブスクリプション管理"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "구독 관리"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -4326,6 +5413,12 @@
             "value" : "サブスクリプションは、App Storeのアカウント設定でいつでも管理または解約できます。"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "구독은 App Store 계정 설정에서 언제든지 관리하거나 취소할 수 있습니다."
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -4347,6 +5440,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "{value}分前"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "{value}분 전"
           }
         },
         "vi" : {
@@ -4373,6 +5472,12 @@
             "value" : "マイカレンダー"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "내 캘린더"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -4393,6 +5498,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "機能説明"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "기능 설명"
           }
         },
         "vi" : {
@@ -4417,6 +5528,12 @@
             "value" : "ここでは、自分のすべての予定（自分が作成したイベント、他の人があなたのために作成したイベント、あなたが他の人のために作成したイベント）を確認できます。すべてのイベントは日別で表示されます。"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "여기에서 내가 만든 이벤트, 다른 사람이 나를 위해 만든 이벤트, 그리고 내가 다른 사람을 위해 만든 이벤트를 포함한 모든 약속을 확인할 수 있습니다. 모든 이벤트는 날짜별로 표시됩니다."
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -4437,6 +5554,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "📅 あなたのカレンダー"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "📅 내 캘린더"
           }
         },
         "vi" : {
@@ -4461,6 +5584,12 @@
             "value" : "このオプションをオフにすると、重複できるのは最大5分までとなります。競合するイベントは、開始時刻と終了時刻が同一だったり、同じタイトルを共有したりすることはできません。重複は限られた範囲内のみ許可されます。"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 옵션을 끄면 최대 5분까지만 일정이 겹치도록 이벤트를 생성할 수 있습니다. 충돌하는 이벤트는 시작 및 종료 시간이 같을 수 없으며, 동일한 제목을 사용할 수 없습니다. 겹침은 제한된 범위 내에서만 허용됩니다."
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -4481,6 +5610,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "⚠️ イベントの競合を許可"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "⚠️ 일정 겹침 허용"
           }
         },
         "vi" : {
@@ -4505,6 +5640,12 @@
             "value" : "日付を選択し、ボタンをタップすると休暇日として設定したり、勤務日に戻したりできます。休暇日設定はサーバーに同期されます。他のユーザーにあなたのカレンダーへの閲覧・追加権限がある場合、予定あり時間と休暇日ステータスが表示され、スケジュールの重複を避けられます。"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "날짜를 선택한 후 버튼을 탭하여 휴무일로 설정하거나 근무일로 다시 변경할 수 있습니다. 휴무일 설정은 서버에 동기화되며, 캘린더를 볼 수 있거나 이벤트를 추가할 수 있는 다른 사용자는 바쁜 시간과 휴무일 상태를 확인하여 일정 충돌을 피할 수 있습니다."
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -4525,6 +5666,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "🌙 休暇日を設定"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "🌙 휴무일 설정"
           }
         },
         "vi" : {
@@ -4549,6 +5696,12 @@
             "value" : "カレンダーのリンクを共有すると、相手はあなたの空き状況を確認し、予定を予約できるようになります。"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "캘린더 링크를 다른 사람과 공유하여 가능한 시간을 확인하고 약속을 예약하도록 할 수 있습니다."
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -4569,6 +5722,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "🔗 カレンダーを共有"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "🔗 캘린더 공유"
           }
         },
         "vi" : {
@@ -4594,6 +5753,12 @@
             "value" : "各イベントにはチャットがあり、参加者はそのイベントに関連するToDoやメモを追加できます。ToDoを使うことで、必要な作業を共有し、把握しやすくなります。"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "각 이벤트에는 채팅이 포함되어 있어 참여자가 할 일이나 메모를 추가할 수 있습니다. 할 일 목록을 통해 필요한 작업을 모두가 쉽게 공유하고 확인할 수 있습니다."
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -4613,8 +5778,14 @@
         },
         "ja" : {
           "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "✅ イベントチャットのToDo"
+            "state" : "translated",
+            "value" : "✅ イベント内チャットのToDo\n"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "✅ 이벤트 채팅의 할 일"
           }
         },
         "vi" : {
@@ -4637,6 +5808,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "使用ガイド"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "사용 가이드"
           }
         },
         "vi" : {
@@ -4662,6 +5839,12 @@
             "value" : "自分が作成したイベント"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "내가 만든 이벤트"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -4683,6 +5866,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "接続エラーが発生しました。再試行してください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "연결 오류가 발생했습니다. 다시 시도해 주세요."
           }
         },
         "vi" : {
@@ -4709,6 +5898,12 @@
             "value" : "ネットワークエラーが発生しました。再試行してください。"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "네트워크 오류가 발생했습니다. 다시 시도해 주세요."
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -4732,6 +5927,12 @@
             "value" : "許可したユーザーはいません。"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "허용된 사용자가 없습니다."
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -4753,6 +5954,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "予定ありのイベントはありません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "바쁜 일정이 없습니다."
           }
         },
         "vi" : {
@@ -4779,6 +5986,12 @@
             "value" : "このユーザーには予定ありのイベントがありません。"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 사용자에게는 바쁜 일정이 없습니다."
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -4800,6 +6013,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "今日はイベントがありません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "오늘은 이벤트가 없습니다."
           }
         },
         "vi" : {
@@ -4826,6 +6045,12 @@
             "value" : "インターネットに接続されていません。"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "인터넷에 연결되어 있지 않습니다."
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -4847,6 +6072,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "名前なし"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이름 없음"
           }
         },
         "vi" : {
@@ -4872,6 +6103,12 @@
             "value" : "過去のイベントはありません。"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "지난 이벤트가 없습니다."
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -4893,6 +6130,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "リクエストはありません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "요청이 없습니다."
           }
         },
         "vi" : {
@@ -4918,6 +6161,12 @@
             "value" : "該当する結果はありません。"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "결과를 찾을 수 없습니다."
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -4939,6 +6188,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "一致する結果がありません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "일치하는 결과가 없습니다."
           }
         },
         "vi" : {
@@ -4964,6 +6219,12 @@
             "value" : "時間枠が選択されていません。"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "선택된 시간대가 없습니다."
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -4985,6 +6246,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "UIDがまだありません。リンクを貼り付けて「読み込む」を押してください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "아직 UID가 없습니다. 링크를 붙여넣고 ‘불러오기’를 누르세요."
           }
         },
         "vi" : {
@@ -5010,6 +6277,12 @@
             "value" : "今後のイベントはありません。"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "예정된 이벤트가 없습니다."
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -5031,6 +6304,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "未ログイン"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "로그인되지 않음"
           }
         },
         "vi" : {
@@ -5056,6 +6335,12 @@
             "value" : "未設定"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "설정되지 않음"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -5079,6 +6364,12 @@
             "value" : "通知"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "알림"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -5099,6 +6390,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "通知"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "알림"
           }
         },
         "vi" : {
@@ -5124,6 +6421,12 @@
             "value" : "今後のイベントがあるときに通知を受け取る"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이벤트가 다가오면 알림 받기"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -5145,6 +6448,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "新しいイベントの通知を受け取る"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "새 이벤트 알림 받기"
           }
         },
         "vi" : {
@@ -5170,6 +6479,12 @@
             "value" : "{count}件のイベント"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이벤트 {count}개"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -5191,6 +6506,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "{count}件のイベント"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이벤트 {count}개"
           }
         },
         "vi" : {
@@ -5215,6 +6536,12 @@
             "value" : "日付"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "날짜"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -5235,6 +6562,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ok"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "확인"
           }
         },
         "vi" : {
@@ -5261,6 +6594,12 @@
             "value" : "Ok"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "확인"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -5282,6 +6621,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "予定とタスクをすっきり管理しましょう。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "약속과 할 일을 깔끔하게 정리하세요."
           }
         },
         "vi" : {
@@ -5307,6 +6652,12 @@
             "value" : "予約リンクを共有すると、相手はあなたのスケジュールに直接イベントを追加できます。"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "예약 링크를 고객 및 파트너와 공유하여 일정에 직접 이벤트를 추가할 수 있도록 하세요."
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -5328,6 +6679,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "新しいイベントを素早く追加し、効率的にスケジュールを管理できます。重要なイベントの通知やリマインダーも受け取れます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "새 이벤트를 빠르게 추가하고 일정을 효율적으로 관리하세요. 중요한 이벤트에 대한 알림과 리마인더를 받을 수 있습니다."
           }
         },
         "vi" : {
@@ -5353,6 +6710,12 @@
             "value" : "スケジュールを整理"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "일정을 정리하세요."
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -5374,6 +6737,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "大事な予定を見逃さない"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "약속을 놓치지 마세요."
           }
         },
         "vi" : {
@@ -5399,6 +6768,12 @@
             "value" : "シンプルで便利なスケジューリング"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "간편하고 편리한 일정 관리."
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -5420,6 +6795,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Appleマップで開く"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple 지도에서 열기"
           }
         },
         "vi" : {
@@ -5445,6 +6826,12 @@
             "value" : "予定あり"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "바쁜 시간대"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -5466,6 +6853,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "パートナーが作成"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "파트너가 생성함"
           }
         },
         "vi" : {
@@ -5491,6 +6884,12 @@
             "value" : "パートナーのために作成"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "파트너를 위해 내가 생성함"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -5512,6 +6911,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "自分のイベント"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "내 이벤트"
           }
         },
         "vi" : {
@@ -5537,6 +6942,12 @@
             "value" : "カレンダーの所有者がこの日を休暇日に設定しています。イベントを予約できません。"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "캘린더 소유자가 이 날짜를 휴무일로 설정했습니다. 이벤트를 예약할 수 없습니다."
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -5560,6 +6971,12 @@
             "value" : "カレンダーの所有者がこの日を休暇日に設定しています。イベントを予約できません。"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "캘린더 소유자가 이 날짜를 휴무일로 설정했습니다. 이벤트를 예약할 수 없습니다."
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -5581,6 +6998,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "所有者:"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "소유자:"
           }
         },
         "vi" : {
@@ -5607,6 +7030,12 @@
             "value" : "パートナーカレンダー"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "파트너 캘린더"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -5629,6 +7058,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "パートナー"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "파트너"
           }
         },
         "vi" : {
@@ -5654,6 +7089,12 @@
             "value" : "パスワード"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "비밀번호"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -5675,6 +7116,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "パスワードが一致しません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "비밀번호가 일치하지 않습니다."
           }
         },
         "vi" : {
@@ -5700,6 +7147,12 @@
             "value" : "パスワード"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "비밀번호"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -5721,6 +7174,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "パスワード再設定用のメールが送信されました。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "비밀번호 재설정 이메일이 전송되었습니다."
           }
         },
         "vi" : {
@@ -5746,6 +7205,12 @@
             "value" : "パスワードは6文字以上である必要があります。"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "비밀번호는 최소 6자 이상이어야 합니다."
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -5767,6 +7232,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "過去"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "지난"
           }
         },
         "vi" : {
@@ -5792,6 +7263,12 @@
             "value" : "過去のイベント"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "지난 이벤트"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -5815,6 +7292,12 @@
             "value" : "共有リンクUIDを貼り付け"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "공유 링크 UID 붙여넣기"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -5836,6 +7319,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "リンクまたはUIDを貼り付けてください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "링크 또는 UID를 붙여넣어 주세요."
           }
         },
         "vi" : {
@@ -5862,6 +7351,12 @@
             "value" : "購入確定時に、お使いのApple IDアカウントに請求されます。"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "구매가 확인되면 결제 금액이 Apple ID 계정으로 청구됩니다."
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -5883,6 +7378,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "決済に失敗しました。もう一度お試しください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "결제에 실패했습니다. 다시 시도해 주세요."
           }
         },
         "vi" : {
@@ -5908,6 +7409,12 @@
             "value" : "カラーを選択"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "색상 선택"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -5929,6 +7436,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "場所を選択"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "위치 선택"
           }
         },
         "vi" : {
@@ -5955,6 +7468,12 @@
             "value" : "地図上で場所を選択"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "지도에서 위치 선택"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -5976,6 +7495,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "⭐ プレミアム"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "⭐ 프리미엄"
           }
         },
         "vi" : {
@@ -6002,6 +7527,12 @@
             "value" : "プレミアムが有効になりました"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "프리미엄이 활성화되었습니다"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -6023,6 +7554,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "プレミアムを利用中です"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "프리미엄을 사용 중입니다"
           }
         },
         "vi" : {
@@ -6048,6 +7585,12 @@
             "value" : "すべての機能を解除し、無制限の保存容量と使用時間を利用できます"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "모든 기능을 잠금 해제하고, 저장 공간과 시간 제한 없이 이용하세요"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -6070,6 +7613,12 @@
             "value" : "1日の上限に達しました！"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "하루 이용 한도에 도달했습니다!"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -6086,6 +7635,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "プライバシーポリシー・アプリ情報"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "개인정보 처리방침 및 앱 정보"
           }
         },
         "vi" : {
@@ -6109,6 +7664,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "プライバシー・情報"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "개인정보 및 정보"
           }
         },
         "vi" : {
@@ -6135,6 +7696,12 @@
             "value" : "プライバシーポリシー"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "개인정보 처리방침"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -6156,6 +7723,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "EasyScheduleはお客様のプライバシーを尊重します。\nアプリで作成されたカレンダーイベントは、すべて端末上にローカル保存され、第三者と共有されることはありません。\nお客様がリンクを介してイベントを共有することは可能ですが、これはお客様が明示的に共有を選択した場合にのみ行われます。\nアプリはお客様を追跡せず、位置情報、連絡先、ヘルスデータを収集しません。\nプレミアム購読情報は、Appleのアプリ内課金システムによって安全に処理されます。\nアプリのパフォーマンス向上のため、クラッシュデータまたは匿名の利用データを収集する場合がありますが、これらのデータがお客様個人を特定することはありません。\nプライバシーに関するご質問がございましたら、こちらまでご連絡ください：\nManhcuong5311@gmail.com\nVersion: 1.2.0\nDeveloper: SamCorp.EasySchedule"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "EasySchedule는 사용자의 개인정보를 존중합니다.\n앱에서 생성된 모든 캘린더 이벤트는 사용자의 기기에 로컬로 저장되며, 제3자와 공유되지 않습니다.\n이벤트 공유는 사용자가 명시적으로 링크 공유를 선택한 경우에만 이루어집니다.\n본 앱은 사용자를 추적하지 않으며, 위치 정보, 연락처, 건강 데이터 등을 수집하지 않습니다.\n프리미엄 구독 관련 정보는 Apple의 인앱 결제(In-App Purchase) 시스템을 통해 안전하게 처리됩니다.\n앱 성능 개선을 위해 충돌 로그 또는 익명 사용 데이터를 수집할 수 있으나, 해당 데이터는 개인을 식별할 수 없으며 사용자와 직접 연결되지 않습니다.\n개인정보와 관련된 문의 사항이 있으시면 아래 이메일로 연락해 주세요.\n📧 문의: Manhcuong5311@gmail.com\n버전: 1.2.0\n개발자: SamCorp.EasySchedule"
           }
         },
         "vi" : {
@@ -6181,6 +7754,12 @@
             "value" : "🧾 プライバシーポリシー・アプリ情報"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "🧾 개인정보 처리방침 및 앱 정보"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -6202,6 +7781,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "購入エラー"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "구매 오류"
           }
         },
         "vi" : {
@@ -6227,6 +7812,12 @@
             "value" : "購入が保留されています。"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "구매가 처리 중입니다."
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -6248,6 +7839,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "不明な購入エラーです。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "알 수 없는 구매 오류가 발생했습니다."
           }
         },
         "vi" : {
@@ -6273,6 +7870,12 @@
             "value" : "ユーザーを認証できませんでした。"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "사용자 인증에 실패했습니다."
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -6296,6 +7899,12 @@
             "value" : "受信者"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "수신자"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -6317,6 +7926,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "リマインダー時刻"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "알림 시간"
           }
         },
         "vi" : {
@@ -6343,6 +7958,12 @@
             "value" : "アクセス権を削除"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "접근 권한 제거"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -6365,6 +7986,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "削除"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "제거"
           }
         },
         "vi" : {
@@ -6391,6 +8018,12 @@
             "value" : "このユーザーは、あなたのカレンダーを表示または予約できなくなります。"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 사용자는 더 이상 내 캘린더를 보거나 예약할 수 없습니다."
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -6413,6 +8046,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "アクセス権を削除しますか？"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "접근 권한을 제거하시겠습니까?"
           }
         },
         "vi" : {
@@ -6438,6 +8077,12 @@
             "value" : "この日を勤務日に戻す"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 날짜를 근무일로 다시 열기"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -6459,6 +8104,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "カレンダー所有者からまだアクセス許可が付与されていません。リクエストを送信しました。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "아직 캘린더 소유자로부터 접근 권한을 받지 못했습니다. 요청이 전송되었습니다."
           }
         },
         "vi" : {
@@ -6484,6 +8135,12 @@
             "value" : "リクエスト"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "요청"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -6505,6 +8162,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "復元できる購入履歴が見つかりませんでした。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "복원할 거래 내역을 찾을 수 없습니다."
           }
         },
         "vi" : {
@@ -6530,6 +8193,12 @@
             "value" : "購入を復元"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "구매 복원"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -6551,6 +8220,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "保存"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "저장"
           }
         },
         "vi" : {
@@ -6576,6 +8251,12 @@
             "value" : "保存しました"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "저장됨"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -6597,6 +8278,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "名前で検索…"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이름으로 검색…"
           }
         },
         "vi" : {
@@ -6622,6 +8309,12 @@
             "value" : "名前で検索"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이름으로 검색"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -6643,6 +8336,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "タイトルまたは作成者で検索…"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "제목 또는 작성자로 검색…"
           }
         },
         "vi" : {
@@ -6668,6 +8367,12 @@
             "value" : "アカウントのセキュリティ"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "계정 보안"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -6689,6 +8394,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "非操作時に自動ロック"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "비활성 상태 시 자동 잠금"
           }
         },
         "vi" : {
@@ -6714,6 +8425,12 @@
             "value" : "Face ID / Touch ID を使用"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Face ID / Touch ID 사용"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -6735,6 +8452,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "認証に失敗しました"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "인증에 실패했습니다"
           }
         },
         "vi" : {
@@ -6760,6 +8483,12 @@
             "value" : "セキュリティ管理"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "보안 관리"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -6783,6 +8512,12 @@
             "value" : "セキュリティ"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "보안"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -6804,6 +8539,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Face ID / Touch ID を有効にするには認証してください"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Face ID / Touch ID를 사용하려면 인증하세요"
           }
         },
         "vi" : {
@@ -6830,6 +8571,12 @@
             "value" : "既読"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "읽음"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -6853,6 +8600,12 @@
             "value" : "日付を選択してイベントを表示します。"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이벤트를 보려면 날짜를 선택하세요."
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -6874,6 +8627,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "時間を選択"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "시간 선택"
           }
         },
         "vi" : {
@@ -6900,6 +8659,12 @@
             "value" : "送信"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "보내기"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -6924,6 +8689,12 @@
             "value" : "現在地を送信"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "현재 위치 보내기"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -6945,6 +8716,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "休暇日に設定"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "휴무일로 설정"
           }
         },
         "vi" : {
@@ -6971,6 +8748,12 @@
             "value" : "設定"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "설정"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -6992,6 +8775,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "このユーザーに対して予約できるのは7日以内のみです。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 사용자에 대해서는 7일 이내만 예약할 수 있습니다."
           }
         },
         "vi" : {
@@ -7017,6 +8806,12 @@
             "value" : "カレンダーを共有"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "캘린더 공유"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -7038,6 +8833,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "名前を表示"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이름 표시"
           }
         },
         "vi" : {
@@ -7063,6 +8864,12 @@
             "value" : "「マイカレンダー」ラベルを表示"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“내 캘린더” 라벨 표시"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -7084,6 +8891,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "サインアップ"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "회원가입"
           }
         },
         "vi" : {
@@ -7109,6 +8922,12 @@
             "value" : "サインアップ"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "회원가입"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -7130,6 +8949,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "サインアップ"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "회원가입"
           }
         },
         "vi" : {
@@ -7155,6 +8980,12 @@
             "value" : "サイズ"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "크기"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -7176,6 +9007,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "開始"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "시작"
           }
         },
         "vi" : {
@@ -7201,6 +9038,12 @@
             "value" : "開始"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "시작"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -7222,6 +9065,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "この端末ではストアを利用できません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 기기에서는 스토어를 사용할 수 없습니다."
           }
         },
         "vi" : {
@@ -7248,6 +9097,12 @@
             "value" : "サブスクリプションは、現在の期間終了24時間前までに解約しない限り自動更新されます。"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "현재 기간 종료 24시간 전까지 취소하지 않으면 구독이 자동으로 갱신됩니다."
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -7271,6 +9126,12 @@
             "value" : "成功しました"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "성공"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -7292,6 +9153,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Easy Schedule サポート"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Easy Schedule 지원"
           }
         },
         "vi" : {
@@ -7318,32 +9185,15 @@
             "value" : "システム"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "시스템"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Hệ thống"
-          }
-        }
-      }
-    },
-    "system " : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "System"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "システム"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
             "value" : "Hệ thống"
           }
         }
@@ -7362,6 +9212,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "利用規約"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이용 약관"
           }
         },
         "vi" : {
@@ -7387,6 +9243,12 @@
             "value" : "この時間枠はすでに予約されています！"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 시간대는 이미 예약되었습니다!"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -7407,7 +9269,13 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "時間カラー"
+            "value" : "時間の色\n"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "시간 색상"
           }
         },
         "vi" : {
@@ -7431,6 +9299,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "時間表示"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "시간 표시"
           }
         },
         "vi" : {
@@ -7457,6 +9331,12 @@
             "value" : "時間枠が埋まっています！"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "해당 시간대는 사용 중입니다!"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -7478,6 +9358,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "時間枠（30分）"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "시간대 (30분)"
           }
         },
         "vi" : {
@@ -7503,6 +9389,12 @@
             "value" : "この時間枠は予定あり、または休暇日に該当します。"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 시간대는 이미 일정이 있거나 휴무일에 해당합니다."
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -7524,6 +9416,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "タイトル"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "제목"
           }
         },
         "vi" : {
@@ -7549,6 +9447,12 @@
             "value" : "タイトル"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "제목"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -7568,8 +9472,14 @@
         },
         "ja" : {
           "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "共有タスクリスト"
+            "state" : "translated",
+            "value" : "共有ToDoリスト\n"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "공유 할 일 목록"
           }
         },
         "vi" : {
@@ -7595,6 +9505,12 @@
             "value" : "操作が早すぎます。少し待ってください。"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "너무 빠르게 진행하고 있습니다. 잠시만 기다려 주세요."
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -7616,6 +9532,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "取引が検証できませんでした。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "거래를 확인할 수 없습니다."
           }
         },
         "vi" : {
@@ -7641,6 +9563,12 @@
             "value" : "まずUIDを読み込む必要があります。"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "먼저 UID를 불러와야 합니다."
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -7660,6 +9588,12 @@
           }
         },
         "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "UID:"
+          }
+        },
+        "ko" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "UID:"
@@ -7689,6 +9623,12 @@
             "value" : "UID: %@"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "UID: %@"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -7712,6 +9652,12 @@
             "value" : "ルートビューコントローラが見つかりません。"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "루트 뷰 컨트롤러를 찾을 수 없습니다."
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -7733,6 +9679,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "受信者のUIDを特定できません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "수신자의 UID를 확인할 수 없습니다."
           }
         },
         "vi" : {
@@ -7759,6 +9711,12 @@
             "value" : "Face ID / Touch IDでロック解除"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Face ID / Touch ID로 잠금 해제"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -7783,6 +9741,12 @@
             "value" : "アプリを解除するには認証してください"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "앱을 잠금 해제하려면 인증하세요"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -7804,6 +9768,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "今後"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "예정됨"
           }
         },
         "vi" : {
@@ -7830,6 +9800,12 @@
             "value" : "今後のイベント"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "다가오는 이벤트"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -7853,6 +9829,12 @@
             "value" : "アカウントをアップグレード\n"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "계정 업그레이드"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -7874,7 +9856,13 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "全機能と無制限利用を解除します。"
+            "value" : "すべての機能を無制限で利用できます。\n"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "모든 기능을 잠금 해제하고 무제한으로 이용하세요."
           }
         },
         "vi" : {
@@ -7901,6 +9889,12 @@
             "value" : "プレミアムにアップグレード"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "프리미엄으로 업그레이드"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -7921,7 +9915,13 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "カスタム時間を使用"
+            "value" : "時間をカスタマイズ\n"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "프리미엄으로 업그레이드"
           }
         },
         "vi" : {
@@ -7947,6 +9947,12 @@
             "value" : "ユーザーがキャンセルしました。"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "사용자가 취소했습니다."
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -7968,6 +9974,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "このユーザーはプレミアムに登録していません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 사용자는 프리미엄에 가입하지 않았습니다."
           }
         },
         "vi" : {
@@ -7993,6 +10005,12 @@
             "value" : "ログインする前にメールアドレスを確認してください。受信トレイに送信された確認リンクをご確認ください。"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "로그인하기 전에 이메일 인증을 완료해 주세요. 받은편지함에서 인증 링크를 확인하세요."
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -8014,6 +10032,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "確認メールを再送する"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "인증 이메일 다시 보내기"
           }
         },
         "vi" : {
@@ -8039,6 +10063,12 @@
             "value" : "メール確認が必要です"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이메일 인증이 필요합니다"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -8062,6 +10092,12 @@
             "value" : "ベトナム語"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "베트남어"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "needs_review",
@@ -8083,6 +10119,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "閲覧履歴"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "조회 기록"
           }
         },
         "vi" : {
@@ -8109,6 +10151,12 @@
             "value" : "ウェブサイト 🧾 プライバシーポリシー・アプリ情報"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "웹사이트 🧾 개인정보 처리방침 및 앱 정보"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -8130,6 +10178,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "週"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "주"
           }
         },
         "vi" : {
@@ -8155,6 +10209,12 @@
             "value" : "ようこそ！"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "환영합니다!"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -8176,6 +10236,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ようこそ！ログインが完了しました。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "환영합니다! 로그인되었습니다."
           }
         },
         "vi" : {
@@ -8201,6 +10267,12 @@
             "value" : "Easy Scheduleへようこそ！"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Easy Schedule에 오신 것을 환영합니다!"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -8222,6 +10294,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "パスワードが正しくありません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "비밀번호가 올바르지 않습니다."
           }
         },
         "vi" : {
@@ -8247,6 +10325,12 @@
             "value" : "あなた"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "나"
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -8268,6 +10352,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "オフラインです。再接続してください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "오프라인 상태입니다. 다시 연결해 주세요."
           }
         },
         "vi" : {
@@ -8293,6 +10383,12 @@
             "value" : "予約できるのは今後7日以内のみです。"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "앞으로 7일 이내만 예약할 수 있습니다."
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -8314,6 +10410,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "このイベントを作成できません。\n"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 이벤트를 생성할 수 없습니다."
           }
         },
         "vi" : {
@@ -8339,6 +10441,12 @@
             "value" : "ログインが必要です。"
           }
         },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "로그인이 필요합니다."
+          }
+        },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
@@ -8361,6 +10469,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "現在地を送信してもよろしいですか？"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "현재 위치를 보내시겠습니까?"
           }
         },
         "vi" : {
