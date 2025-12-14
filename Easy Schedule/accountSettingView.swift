@@ -129,7 +129,7 @@ struct AccountSettingsView: View {
             await performDeleteAccount()
 
         } catch {
-            deleteError = String(localized: "incorrect_password.")
+            deleteError = String(localized: "incorrect_password")
             print("❌ Re-authenticate failed:", error.localizedDescription)
         }
     }

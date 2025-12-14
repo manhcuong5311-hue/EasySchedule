@@ -1467,6 +1467,13 @@ struct EventListView: View {
                             Text(String(localized: "events_help_chat_desc"))
                                 .foregroundColor(.secondary)
                         }
+                        Group {
+                            Text(String(localized: "my_calendar_help_section_todo_title"))
+                                .font(.headline)
+
+                            Text(String(localized: "my_calendar_help_section_todo_desc"))
+                                .foregroundColor(.secondary)
+                        }
 
                         Spacer(minLength: 40)
                     }
@@ -2319,7 +2326,7 @@ struct CustomizableCalendarView: View {
                                 Text(String(localized: "my_calendar_help_section_conflict_desc"))
                                     .foregroundColor(.secondary)
                             }
-
+                         
                             Spacer(minLength: 40)
                         }
                         .padding()
