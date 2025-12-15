@@ -1022,24 +1022,19 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     }
 }
 
-
 struct ChatButtonWithBadge: View {
     let event: CalendarEvent
     let otherUserId: String
-    
+
     @EnvironmentObject var session: SessionStore
     @EnvironmentObject var eventManager: EventManager
-    
-    @State private var metaVM: ChatMetaViewModel? = nil   // ⭐ optional để gán sau
-    
-    // ⭐ computed property → luôn có VM hợp lệ
-    private var chatMeta: ChatMetaViewModel {
-        metaVM ?? eventManager.chatMeta(for: event.id)
-    }
-    
+
+    @State private var metaVM: ChatMetaViewModel?
+    @State private var didBindMeta = false
+
     var body: some View {
         ZStack(alignment: .topTrailing) {
-            
+
             NavigationLink {
                 ChatView(
                     eventId: event.id,
@@ -1051,11 +1046,11 @@ struct ChatButtonWithBadge: View {
             } label: {
                 Image(systemName: "bubble.right.fill")
                     .symbolRenderingMode(.monochrome)
-                    .foregroundColor(chatMeta.unread ? .red : .blue)
+                    .foregroundColor((metaVM?.unread ?? false) ? .red : .blue)
                     .font(.system(size: 20))
             }
-            
-            if chatMeta.unread {
+
+            if metaVM?.unread == true {
                 Circle()
                     .fill(Color.red)
                     .frame(width: 10, height: 10)
@@ -1063,15 +1058,12 @@ struct ChatButtonWithBadge: View {
             }
         }
         .onAppear {
-            // ⭐ Gán 1 lần duy nhất, không tạo duplicate listener
-            if metaVM == nil {
-                metaVM = eventManager.chatMeta(for: event.id)
-            }
+            guard !didBindMeta else { return }
+            didBindMeta = true
+            metaVM = eventManager.chatMeta(for: event.id)
         }
     }
 }
-
-
 
 
 import SwiftUI

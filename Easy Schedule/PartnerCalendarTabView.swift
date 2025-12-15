@@ -99,7 +99,7 @@ struct PartnerCalendarTabView: View {
                             showAccessSheet = true
                         } label: {
                             HStack(spacing: 12) {
-                                Image(systemName: "person.2.checkmark")
+                                Image(systemName: "person.2.fill")
                                     .font(.system(size: 18, weight: .medium))
                                     .foregroundColor(.blue)
 
