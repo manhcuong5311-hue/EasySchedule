@@ -162,7 +162,7 @@ struct TodoListView: View {
     private let freeLimit = 5
     private let premiumLimit = 20
     @State private var showPaywall = false
-
+    @State private var chatListener: ListenerRegistration?
     @StateObject private var vm: TodoViewModel
     @ObservedObject private var nameCache = SessionStore.UserNameCache.shared
 
@@ -173,7 +173,17 @@ struct TodoListView: View {
     @State private var newTodo = ""
     @State private var showDeleteConfirm = false
     @State private var todoToDelete: TodoItem? = nil
-    @State private var showLimitAlert = false
+    enum TodoLimitAlertType: Identifiable {
+        case freeLimit        // Free user vượt 5
+        case upgradeChat      // Premium user vượt 5
+        case chatMaxReached   // Chat premium vượt 20
+
+        var id: Int { hashValue }
+    }
+
+    @State private var limitAlert: TodoLimitAlertType? = nil
+
+
 
     init(chatId: String, myId: String) {
         self.chatId = chatId
@@ -215,29 +225,44 @@ struct TodoListView: View {
 
                     // NÚT ADD
                     Button {
-                        if newTodo.trimmingCharacters(in: .whitespaces).isEmpty {
+                        let text = newTodo.trimmingCharacters(in: .whitespaces)
+                        guard !text.isEmpty else { return }
+
+                        // ===== CASE 1: Chat đã premium =====
+                        if isChatPremium {
+                            if vm.todos.count >= premiumLimit {
+                                limitAlert = .chatMaxReached
+                                return
+                            }
+                            vm.addTodo(text: text)
+                            newTodo = ""
                             return
                         }
 
-                        guard canAddTodo else {
-                            showLimitAlert = true
+                        // ===== CASE 2: Chat chưa premium =====
+                        if vm.todos.count >= freeLimit {
+                            if premium.isPremium {
+                                limitAlert = .upgradeChat
+                            } else {
+                                limitAlert = .freeLimit
+                            }
                             return
                         }
 
-                        vm.addTodo(text: newTodo)
+                        // ===== CASE 3: Trong quota free =====
+                        vm.addTodo(text: text)
                         newTodo = ""
-                    } label: {
+                    }
+
+                    label: {
                         Image(systemName: "plus")
                             .foregroundColor(.white)
                             .frame(width: 40, height: 40)
-                            .background(
-                                canAddTodo
-                                ? Color.blue
-                                : Color.gray.opacity(0.4)
-                            )
+                            .background(Color.blue)
                             .clipShape(Circle())
                     }
                     .disabled(newTodo.trimmingCharacters(in: .whitespaces).isEmpty)
+
 
                 }
                 .padding(.horizontal)
@@ -249,7 +274,9 @@ struct TodoListView: View {
             .onAppear { vm.listen()
                 listenChatPremium()
             }
-            .onDisappear { vm.stop() }
+            .onDisappear { vm.stop()
+                chatListener?.remove()
+            }
             .sheet(isPresented: $showPaywall) {
                 PremiumUpgradeSheet()
                     .environmentObject(premium)
@@ -263,41 +290,55 @@ struct TodoListView: View {
                     }
                 }
             }
-            .alert(String(localized: "todo_limit_title"), isPresented: $showLimitAlert) {
-                Button(String(localized: "upgrade_to_premium")) {
-                    if premium.isPremium {
-                        Task {
-                            guard let uid = Auth.auth().currentUser?.uid else { return }
-                            do {
-                                try await Firestore.firestore()
-                                    .collection("chats")
-                                    .document(chatId)
-                                    .updateData([
-                                        "isPremium": true,
-                                        "premiumBy": uid
-                                    ])
-                            } catch {
-                                print("❌ Failed to upgrade chat:", error)
-                            }
-                        }
-                    } else {
-                        showPaywall = true
-                    }
-                }
+            .alert(item: $limitAlert) { type in
+                switch type {
 
-                Button(String(localized: "ok"), role: .cancel) {}
-            } message: {
-                if vm.todos.count >= totalTodoLimit {
-                    Text(String(localized: "todo_limit_reached_message"))
-                } else {
-                    Text(
-                        String(
-                            format: String(localized: "todo_free_limit_message"),
-                            freeLimit
-                        )
+                // ===== Free user vượt 5 =====
+                case .freeLimit:
+                    return Alert(
+                        title: Text(String(localized: "todo_limit_title")),
+                        message: Text(
+                            String(
+                                format: String(localized: "todo_free_limit_message"),
+                                freeLimit
+                            )
+                        ),
+                        primaryButton: .default(Text(String(localized: "upgrade_to_premium"))) {
+                            showPaywall = true
+                            limitAlert = nil
+                        },
+                        secondaryButton: .cancel {
+                            limitAlert = nil
+                        }
+                    )
+
+                // ===== Premium user → upgrade chat =====
+                case .upgradeChat:
+                    return Alert(
+                        title: Text(String(localized: "todo_limit_title")),
+                        message: Text(String(localized: "todo_upgrade_chat_message")),
+                        primaryButton: .default(Text(String(localized: "upgrade_to_premium"))) {
+                            upgradeChat()
+                            limitAlert = nil
+                        },
+                        secondaryButton: .cancel {
+                            limitAlert = nil
+                        }
+                    )
+
+                // ===== Chat premium chạm 20 =====
+                case .chatMaxReached:
+                    return Alert(
+                        title: Text(String(localized: "todo_limit_title")),
+                        message: Text(String(localized: "todo_limit_reached_message")),
+                        dismissButton: .default(Text(String(localized: "ok"))) {
+                            limitAlert = nil
+                        }
                     )
                 }
             }
+
+
 
 
         }
@@ -355,26 +396,17 @@ struct TodoListView: View {
         }
         .padding(.vertical, 6)
     }
-    private var myCreateLimit: Int {
-        isMyPremium ? premiumLimit : freeLimit
-    }
-    private var totalTodoLimit: Int {
+  
+    private var currentChatLimit: Int {
         isChatPremium ? premiumLimit : freeLimit
     }
-    private var myTodoCount: Int {
-        vm.todos.filter {
-            $0.createdBy == myId || $0.createdBy.isEmpty
-        }.count
-    }
+
+  
     private var canAddTodo: Bool {
-        // Chặn theo tổng
-        guard vm.todos.count < totalTodoLimit else { return false }
-
-        // Chặn theo quota cá nhân
-        guard myTodoCount < myCreateLimit else { return false }
-
-        return true
+        !newTodo.trimmingCharacters(in: .whitespaces).isEmpty
     }
+
+
     private var isMyPremium: Bool {
         premium.isPremium
     }
@@ -386,6 +418,28 @@ struct TodoListView: View {
                 guard let data = snap?.data() else { return }
                 self.isChatPremium = data["isPremium"] as? Bool ?? false
             }
+    }
+    private func upgradeChat() {
+        guard premium.isPremium else {
+            showPaywall = true
+            return
+        }
+
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+
+        Task {
+            do {
+                try await Firestore.firestore()
+                    .collection("chats")
+                    .document(chatId)
+                    .updateData([
+                        "isPremium": true,
+                        "premiumBy": uid
+                    ])
+            } catch {
+                print("❌ Failed to upgrade chat:", error)
+            }
+        }
     }
 
 }
