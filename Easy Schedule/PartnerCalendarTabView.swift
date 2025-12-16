@@ -7,6 +7,7 @@
 
 import SwiftUI
 import FirebaseAuth
+import FirebaseFirestore
 
 struct PartnerCalendarTabView: View {
     @EnvironmentObject var eventManager: EventManager
@@ -435,42 +436,65 @@ struct PartnerCalendarTabView: View {
     }
 
     // MARK: - Actions & Helpers
-
     private func addAppointmentPressed() {
         let input = linkText.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        // Kiểm tra người dùng có nhập UID/link chưa
+        // 1️⃣ Chưa nhập gì
         guard !input.isEmpty else {
             alertMessage = String(localized: "uid_required")
             showAlert = true
             return
         }
 
-        // Auto parse UID từ link hoặc text thường
-        let uid: String
+        // 2️⃣ Parse UID
+        let parsed: String
         if let url = URL(string: input),
            let last = url.pathComponents.last,
            !last.isEmpty {
-            uid = last
+            parsed = last
         } else {
-            uid = input
+            parsed = input
         }
 
-        // Lưu UID
-        parsedUID = uid
-        selectedSharedUserId = uid
+        // 3️⃣ Check format UID (NGĂN UID RÁC)
+        guard isValidUIDFormat(parsed) else {
+            alertMessage = String(localized: "invalid_uid")
+            showAlert = true
+            return
+        }
 
-        // Kiểm tra đăng nhập
+        // 4️⃣ Check đăng nhập
         guard Auth.auth().currentUser != nil else {
             alertMessage = String(localized: "login_required")
             showAlert = true
             return
         }
 
-        // Mở sheet tạo lịch ✔️
-        showAddAppointmentSheet = true
+        // 5️⃣ Check UID tồn tại (ASYNC)
+        isLoading = true
+        eventManager.validateUserExists(uid: parsed) { exists in
+            DispatchQueue.main.async {
+                self.isLoading = false
+
+                guard exists else {
+                    self.alertMessage = String(localized: "uid_not_found")
+                    self.showAlert = true
+                    return
+                }
+
+                // ✅ OK → mới cho mở sheet
+                self.parsedUID = parsed
+                self.selectedSharedUserId = parsed
+                self.showAddAppointmentSheet = true
+            }
+        }
     }
 
+    private func isValidUIDFormat(_ uid: String) -> Bool {
+        let regex = "^[A-Za-z0-9_-]{20,}$"
+        return NSPredicate(format: "SELF MATCHES %@", regex)
+            .evaluate(with: uid)
+    }
 
     private func parseAndLoad() {
         errorMessage = nil
@@ -483,21 +507,40 @@ struct PartnerCalendarTabView: View {
             return
         }
 
+        let uid: String
         if let url = URL(string: input),
            let last = url.pathComponents.last,
            !last.isEmpty {
-            parsedUID = last
+            uid = last
         } else {
-            parsedUID = input
+            uid = input
         }
 
-        guard let uid = parsedUID else {
-            errorMessage = String(localized: "cannot_extract_uid")
+        // ❌ UID sai format → dừng luôn
+        guard isValidUIDFormat(uid) else {
+            errorMessage = String(localized: "invalid_uid")
             return
         }
 
-        loadBusySlots(uid: uid)
+        isLoading = true
+
+        // ❌ UID không tồn tại → dừng
+        eventManager.validateUserExists(uid: uid) { exists in
+            DispatchQueue.main.async {
+                self.isLoading = false
+
+                guard exists else {
+                    self.errorMessage = String(localized: "uid_not_found")
+                    return
+                }
+
+                // ✅ UID hợp lệ → mới load
+                self.parsedUID = uid
+                self.loadBusySlots(uid: uid)
+            }
+        }
     }
+
 
     private func loadBusySlots(uid: String) {
         isLoading = true
@@ -522,9 +565,22 @@ struct PartnerCalendarTabView: View {
                 } else if filtered.isEmpty {
                     self.errorMessage = String(localized: "no_busy_events_for_uid")
                 }
+                if !eventManager.sharedLinks.contains(where: { $0.uid == uid }) {
+                    eventManager.sharedLinks.append(
+                        SharedLink(
+                            id: UUID().uuidString,
+                            uid: uid,
+                            url: linkText,
+                            createdAt: Date(),
+                            displayName: eventManager.userNames[uid]
+                        )
+                    )
+                    eventManager.saveSharedLinks()
+                }
             }
         }
     }
+  
 
 
     private func sectionHeader(for day: Date) -> String {

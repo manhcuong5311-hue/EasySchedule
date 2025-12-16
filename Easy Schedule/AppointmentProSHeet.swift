@@ -472,19 +472,33 @@ struct CalendarMiniView: View {
 
                     VStack {
                         Text("\(Calendar.current.component(.day, from: day))")
+                            .font(.body)
                             .frame(width: 34, height: 34)
                             .background(
-                                Circle().fill(
-                                    isToday ? Color.blue.opacity(0.35) :    // 🔵 TODAY highlight
-                                    (isSelected ? Color.accentColor :
-                                    (isOffDay ? Color.orange.opacity(0.4) :
-                                    (isBusy ? Color.red.opacity(0.25) : Color.clear)))
-                                )
+                                Circle()
+                                    .fill(
+                                        isSelected
+                                        ? Color.clear                      // ❌ selected KHÔNG fill
+                                        : (isOffDay
+                                            ? Color.orange.opacity(0.35)  // ngày nghỉ
+                                            : (isToday
+                                                ? Color.blue.opacity(0.25) // hôm nay
+                                                : Color.clear))
+                                    )
+                            )
+                            .overlay(
+                                Circle()
+                                    .stroke(
+                                        isSelected ? Color.accentColor : Color.clear,
+                                        lineWidth: 2                      // ✅ khoanh vòng rõ
+                                    )
                             )
                             .foregroundColor(
-                                isToday ? Color.blue :                     // chữ Today
-                                (isSelected ? .white : .primary)
+                                isSelected
+                                ? Color.accentColor
+                                : (isToday ? Color.blue : .primary)
                             )
+
                     }
                     .contentShape(Rectangle())
                     .onTapGesture { selectedDate = day }

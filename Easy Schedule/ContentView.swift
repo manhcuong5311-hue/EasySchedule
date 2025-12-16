@@ -541,7 +541,14 @@ final class EventManager: ObservableObject {
         }.resume()
     }
 
-    
+    func validateUserExists(uid: String, completion: @escaping (Bool) -> Void) {
+        Firestore.firestore()
+            .collection("users")
+            .document(uid)
+            .getDocument { snap, _ in
+                completion(snap?.exists == true)
+            }
+    }
     
 
 }
@@ -790,10 +797,17 @@ extension EventManager {
                 .document(userId)
                 .getDocument { snapshot, error in
 
-                    guard let data = snapshot?.data(), error == nil else {
+                    // ⭐️ FIX QUAN TRỌNG
+                    guard
+                        error == nil,
+                        let snapshot = snapshot,
+                        snapshot.exists,
+                        let data = snapshot.data()
+                    else {
                         completion([], isPremium)
                         return
                     }
+
 
                     let premiumFlag = data["isPremium"] as? Bool ?? isPremium
                     let rawSlots = data["busySlots"] as? [[String: Any]] ?? []
