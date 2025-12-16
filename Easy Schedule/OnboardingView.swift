@@ -12,33 +12,70 @@ struct EnhancedOnboardingView: View {
                 imageName: "appstore",
                 title: String(localized: "onboarding_title_1"),
                 description: String(localized: "onboarding_desc_1"),
-                gradient: LinearGradient(colors: [Color.orange, Color.red], startPoint: .topLeading, endPoint: .bottomTrailing),
+                gradient: LinearGradient(
+                    colors: [Color.orange, Color.red],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ),
                 useSystemImage: false
-                
             )
-            
-            // Slide 2: Calendar SF Symbol
+
+            // Slide 2: Calendar
             featureSlide(
                 imageName: "calendar",
                 title: String(localized: "onboarding_title_2"),
                 description: String(localized: "onboarding_desc_2"),
-                gradient: LinearGradient(colors: [Color.blue, Color.purple], startPoint: .topLeading, endPoint: .bottomTrailing),
+                gradient: LinearGradient(
+                    colors: [Color.blue, Color.purple],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ),
                 useSystemImage: true
             )
-            
-            // Slide 3: Bell SF Symbol + Button
+
+            // Slide 3: Todo
             featureSlide(
-                imageName: "bell",
+                imageName: "checklist",
                 title: String(localized: "onboarding_title_3"),
                 description: String(localized: "onboarding_desc_3"),
-                gradient: LinearGradient(colors: [Color.green, Color.teal], startPoint: .topLeading, endPoint: .bottomTrailing),
+                gradient: LinearGradient(
+                    colors: [Color.green, Color.teal],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ),
+                useSystemImage: true
+            )
+
+            // Slide 4: Chat in Events
+            featureSlide(
+                imageName: "bubble.left.and.bubble.right.fill",
+                title: String(localized: "onboarding_title_4"),
+                description: String(localized: "onboarding_desc_4"),
+                gradient: LinearGradient(
+                    colors: [Color.indigo, Color.cyan],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ),
+                useSystemImage: true
+            )
+
+            // Slide 5: Notifications + CTA
+            featureSlide(
+                imageName: "bell",
+                title: String(localized: "onboarding_title_5"),
+                description: String(localized: "onboarding_desc_5"),
+                gradient: LinearGradient(
+                    colors: [Color.orange, Color.red],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ),
                 useSystemImage: true,
                 showButton: true
             )
         }
         .tabViewStyle(PageTabViewStyle())
     }
-    
+
     @ViewBuilder
     func featureSlide(imageName: String, title: String, description: String, gradient: LinearGradient, useSystemImage: Bool, showButton: Bool = false) -> some View {
         ZStack {

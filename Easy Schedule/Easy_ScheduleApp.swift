@@ -46,6 +46,9 @@ struct Easy_scheduleApp: App {
                         .transition(.opacity)
                 }
             }
+            .environmentObject(session)        // ⭐ BẮT BUỘC
+                   .environmentObject(premium)        // ⭐ BẮT BUỘC
+                   .environmentObject(eventManager) 
             .onAppear {
                 lockManager.startTimer()
             }
@@ -69,6 +72,7 @@ extension Easy_scheduleApp {
             LaunchView()
                 .preferredColorScheme(colorScheme)
                 .environmentObject(eventManager)
+                .environmentObject(premium)
                 .onAppear {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                         withAnimation { showLaunch = false }
@@ -84,7 +88,6 @@ extension Easy_scheduleApp {
             RootView()
                 .preferredColorScheme(colorScheme)
                 .environmentObject(session)
-                .environmentObject(premium)
                 .environmentObject(eventManager)
         }
     }
@@ -108,7 +111,6 @@ struct RootView: View {
         } else {
             ContentView()
                 .environmentObject(session)
-                .environmentObject(premium)
                 .environmentObject(eventManager)
         }
     }

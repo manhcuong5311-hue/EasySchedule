@@ -266,7 +266,7 @@ struct SettingsView: View {
             }
 
             .sheet(isPresented: $showUpgradeSheet) {
-                PremiumUpgradeSheet().environmentObject(premium)
+                PremiumUpgradeSheet()
             }
 
             .sheet(isPresented: $showPrivacySheet) {

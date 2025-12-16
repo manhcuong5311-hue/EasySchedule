@@ -33,7 +33,7 @@ struct AppointmentProSheet: View {
     @State private var partnerIsPremium: Bool = true
     @State private var showPremiumAlert = false
     @EnvironmentObject var network: NetworkMonitor
-
+    @State private var busyIntervals: [(Date, Date)] = []
     @State private var customStart: Date = Date()
     @State private var customEnd: Date = Date()
     @State private var useCustomTime: Bool = false
@@ -124,40 +124,9 @@ struct AppointmentProSheet: View {
 
                     // ⭐ KHUNG GIỜ 30P
                     Section(header: Text(String(localized: "time_slots_30min"))) {
-                        let slots = generateSlots(for: selectedDate)
-                        let now = Date()
-                        let maxDate = calendar.date(
-                            byAdding: .day,
-                            value: partnerIsPremium ? 180 : 7,
-                            to: now
-                        )!
-                        let dayBlocked = selectedDate > maxDate
-
-
-                        ScrollView {
-                            LazyVStack(spacing: 8) {
-                                ForEach(slots, id: \.self) { slot in
-
-                                    let blocked = dayBlocked
-
-                                    SlotRowPro(
-                                        slot: slot,
-                                        isBusy: checkBusy(slot),
-                                        isSelected: selectedSlot == slot,
-                                        action: {
-                                            if !blocked && !useCustomTime && !checkBusy(slot) {
-                                                selectedSlot = slot
-                                            }
-                                        }
-                                    )
-                                    .opacity(blocked ? 0.35 : 1.0)
-                                    .allowsHitTesting(!blocked)
-                                }
-                            }
-                            .padding(.vertical, 6)
-                        }
-                        .frame(maxHeight: 300)
+                        timeSlotsSection
                     }
+
                 }
 
             }
@@ -187,12 +156,17 @@ struct AppointmentProSheet: View {
 
                 }
             }
-            .onAppear { loadBusy() }
+            .onAppear {
+                if busySlots.isEmpty {
+                    loadBusy()
+                }
+            }
             .onChange(of: sharedUserId) { _, newValue in
                 if newValue != nil {
                     loadBusy()
                 }
             }
+
 
             // Popup lỗi chung — ƯU TIÊN CAO NHẤT
             .alert(item: Binding(
@@ -223,51 +197,72 @@ struct AppointmentProSheet: View {
         }
 
         .onChange(of: selectedDate) { _, newValue in
-            let maxDate = calendar.date(
+            guard let maxDate = calendar.date(
                 byAdding: .day,
                 value: partnerIsPremium ? 180 : 7,
                 to: Date()
-            )!
+            ) else { return }
+
 
             if newValue > maxDate {
                 selectedSlot = nil
             }
         }
     }
+    private var timeSlotsSection: some View {
+        ScrollView {
+            LazyVStack(spacing: 8) {
+                ForEach(slotsForSelectedDate, id: \.self) { slot in
+                    SlotRowPro(
+                        slot: slot,
+                        isBusy: checkBusy(slot),
+                        isSelected: selectedSlot == slot,
+                        action: {
+                            if !isDayBlocked && !useCustomTime && !checkBusy(slot) {
+                                selectedSlot = slot
+                            }
+                        }
+                    )
+                    .opacity(isDayBlocked ? 0.35 : 1.0)
+                    .allowsHitTesting(!isDayBlocked)
+                }
+            }
+            .padding(.vertical, 6)
+        }
+        .frame(maxHeight: 300)
+    }
 
+    private var slotsForSelectedDate: [ProSlot] {
+        generateSlots(for: selectedDate)
+    }
+
+    private var isDayBlocked: Bool {
+        guard let maxDate = calendar.date(
+            byAdding: .day,
+            value: partnerIsPremium ? 180 : 7,
+            to: Date()
+        ) else { return false }
+
+        return selectedDate > maxDate
+    }
+
+    
     // MARK: Load dữ liệu
     private func loadBusy() {
+        guard NetworkMonitor.shared.isOnline else {
+               loading = false
+               busySlots = []
+               partnerOffDays = []
+               errorMessage = String(localized: "no_internet_connection")
+               return
+           }
+
         guard let uid = sharedUserId else {
             loading = false
             busySlots = []
             errorMessage = String(localized: "unknown_uid")
             return
         }
-
-        // ⭐ Lưu lịch sử xem UID — 1 người chỉ 1 lần
-        let urlString = "https://easyschedule-ce98a.web.app/calendar/\(uid)"
-        let name = sharedUserName ?? eventManager.userNames[uid] ??  String(localized: "no_name")
-
-        // Nếu đã tồn tại → update
-        if let index = eventManager.sharedLinks.firstIndex(where: { $0.uid == uid }) {
-            eventManager.sharedLinks[index].url = urlString
-            eventManager.sharedLinks[index].displayName = name
-            eventManager.sharedLinks[index].createdAt = Date()
-        } else {
-            // Nếu chưa có → thêm mới
-            let link = SharedLink(
-                id: UUID().uuidString,
-                uid: uid,
-                url: urlString,
-                createdAt: Date(),
-                isPinned: false,
-                displayName: name
-            )
-            eventManager.sharedLinks.append(link)
-        }
-
-
-
         loading = true
 
         // 1️⃣ Load busy slots + premium
@@ -275,11 +270,16 @@ struct AppointmentProSheet: View {
             DispatchQueue.main.async {
                 print("🔥 UI nhận busySlots:", slots.count)
 
-                self.busySlots = slots           // DÙNG CHO UI
+                self.busySlots = slots
                 self.partnerIsPremium = premium
 
+                self.busyIntervals = slots.map {
+                    ($0.startTime, $0.endTime)
+                }
+
+
                 // ⭐ LƯU LOCAL CACHE TRONG EVENTMANAGER — KHÔNG sync vào events
-                self.eventManager.partnerBusySlots[uid] = slots
+               
             }
         }
 
@@ -400,10 +400,12 @@ struct AppointmentProSheet: View {
     private func checkBusy(_ slot: ProSlot) -> Bool {
         let day = Calendar.current.startOfDay(for: slot.start)
         if partnerOffDays.contains(day) { return true }
-        return busySlots.contains {
-            $0.startTime < slot.end && $0.endTime > slot.start
+
+        return busyIntervals.contains {
+            $0.0 < slot.end && $0.1 > slot.start
         }
     }
+
 
     private func generateSlots(for date: Date) -> [ProSlot] {
         var arr: [ProSlot] = []
@@ -470,19 +472,33 @@ struct CalendarMiniView: View {
 
                     VStack {
                         Text("\(Calendar.current.component(.day, from: day))")
+                            .font(.body)
                             .frame(width: 34, height: 34)
                             .background(
-                                Circle().fill(
-                                    isToday ? Color.blue.opacity(0.35) :    // 🔵 TODAY highlight
-                                    (isSelected ? Color.accentColor :
-                                    (isOffDay ? Color.orange.opacity(0.4) :
-                                    (isBusy ? Color.red.opacity(0.25) : Color.clear)))
-                                )
+                                Circle()
+                                    .fill(
+                                        isSelected
+                                        ? Color.clear                      // ❌ selected KHÔNG fill
+                                        : (isOffDay
+                                            ? Color.orange.opacity(0.35)  // ngày nghỉ
+                                            : (isToday
+                                                ? Color.blue.opacity(0.25) // hôm nay
+                                                : Color.clear))
+                                    )
+                            )
+                            .overlay(
+                                Circle()
+                                    .stroke(
+                                        isSelected ? Color.accentColor : Color.clear,
+                                        lineWidth: 2                      // ✅ khoanh vòng rõ
+                                    )
                             )
                             .foregroundColor(
-                                isToday ? Color.blue :                     // chữ Today
-                                (isSelected ? .white : .primary)
+                                isSelected
+                                ? Color.accentColor
+                                : (isToday ? Color.blue : .primary)
                             )
+
                     }
                     .contentShape(Rectangle())
                     .onTapGesture { selectedDate = day }

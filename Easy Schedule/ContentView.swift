@@ -541,7 +541,14 @@ final class EventManager: ObservableObject {
         }.resume()
     }
 
-    
+    func validateUserExists(uid: String, completion: @escaping (Bool) -> Void) {
+        Firestore.firestore()
+            .collection("users")
+            .document(uid)
+            .getDocument { snap, _ in
+                completion(snap?.exists == true)
+            }
+    }
     
 
 }
@@ -790,10 +797,17 @@ extension EventManager {
                 .document(userId)
                 .getDocument { snapshot, error in
 
-                    guard let data = snapshot?.data(), error == nil else {
+                    // ⭐️ FIX QUAN TRỌNG
+                    guard
+                        error == nil,
+                        let snapshot = snapshot,
+                        snapshot.exists,
+                        let data = snapshot.data()
+                    else {
                         completion([], isPremium)
                         return
                     }
+
 
                     let premiumFlag = data["isPremium"] as? Bool ?? isPremium
                     let rawSlots = data["busySlots"] as? [[String: Any]] ?? []
@@ -1263,7 +1277,6 @@ struct ContentView: View {
     
     @EnvironmentObject var eventManager: EventManager
     @State private var showPastEvents = false
-    @AppStorage("isPremiumUser") private var isPremiumUser: Bool = false
     
     var body: some View {
         
@@ -1285,6 +1298,7 @@ struct ContentView: View {
             
             NavigationStack {
                 PartnerCalendarTabView()
+                 
             }
             .tabItem {
                 Label(String(localized: "partners"), systemImage: "person.2.fill")
@@ -2012,7 +2026,6 @@ struct CustomizableCalendarView: View {
     @State private var isLoadingOffDays = false
     @State private var showOffDayAlert = false
     @State private var offDayAlertMessage = ""
-    @EnvironmentObject var premium: PremiumStoreViewModel
 
     @State private var offDays: Set<Date> = [] {
         didSet {
@@ -2084,9 +2097,9 @@ struct CustomizableCalendarView: View {
                             offDays: offDays,
                             isOwner: true
                         )
+                        
                         .padding(.top, 8)
                         .frame(maxWidth: .infinity)
-                        .simultaneousGesture(TapGesture())
 
                         // MARK: - Toggle trùng lịch
                         Toggle(String(localized: "allow_conflict"), isOn: Binding(
@@ -2111,18 +2124,13 @@ struct CustomizableCalendarView: View {
                                 Text(String(localized: "share_calendar"))
                                     .fontWeight(.semibold)
                             }
-                            .foregroundColor(
-                                premium.isPremium ? .white : .blue
-                            )
+                            
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background(
-                                premium.isPremium
-                                ? AppColors.premiumAccent
-                                : Color.blue.opacity(0.2)
-                            )
+                            .background(Color.blue.opacity(0.2))
                             .cornerRadius(12)
                         }
+
                         .padding(.horizontal)
 
                         .sheet(item: $shareItem) { item in
@@ -2255,22 +2263,16 @@ struct CustomizableCalendarView: View {
                                                 RoundedRectangle(cornerRadius: 14)
                                                     .fill(Color(.systemBackground))
                                                     .shadow(
-                                                        color: premium.isPremium
-                                                            ? AppColors.premiumAccent.opacity(0.10)
-                                                            : Color.black.opacity(0.08),
-                                                        radius: premium.isPremium ? 8 : 4,
+                                                        color: Color.black.opacity(0.08),
+                                                        radius: 4,
                                                         x: 0,
-                                                        y: premium.isPremium ? 4 : 2
+                                                        y: 2
                                                     )
                                                     .overlay(
                                                         RoundedRectangle(cornerRadius: 14)
-                                                            .stroke(
-                                                                premium.isPremium
-                                                                    ? AppColors.premiumBorder
-                                                                    : Color(.separator),
-                                                                lineWidth: premium.isPremium ? 1 : 0.5
-                                                            )
+                                                            .stroke(Color(.separator), lineWidth: 0.5)
                                                     )
+
                                             )
 
                                         }
@@ -2304,7 +2306,7 @@ struct CustomizableCalendarView: View {
                     .zIndex(999)
                 }
             }
-
+           
             .navigationTitle(String(localized: "my_calendar"))
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -2319,12 +2321,8 @@ struct CustomizableCalendarView: View {
                     } label: {
                         Image(systemName: "plus")
                             .font(.system(size: 20, weight: .semibold))
-                            .foregroundColor(
-                                premium.isPremium
-                                ? AppColors.premiumAccent
-                                : .blue
-                            )
                     }
+                    .tint(.accentColor)
                 }
             
             }
@@ -2403,12 +2401,14 @@ struct CustomizableCalendarView: View {
                 Text(offDayAlertMessage)
             }
 
-            
-            .onAppear {
+        .onAppear {
                 loadOffDaysFromLocal()
                 cleanPastOffDays()
             }
         }
+        .toolbarBackground(.visible, for: .navigationBar)
+        .toolbarBackground(Color(.systemBackground), for: .navigationBar)
+
     }
 
     
@@ -2766,7 +2766,6 @@ struct CalendarGridView: View {
     @Binding var selectedDate: Date?
     let eventsByDay: [Date: [CalendarEvent]]
     @EnvironmentObject var eventManager: EventManager
-    @EnvironmentObject var premium: PremiumStoreViewModel
     private let calendar = Calendar.current
     private let columns = Array(repeating: GridItem(.flexible()), count: 7)
     let offDays: Set<Date>
@@ -2784,6 +2783,8 @@ struct CalendarGridView: View {
                 Spacer()
                 Text(formattedMonth(currentMonth))
                     .font(.headline)
+                    
+
                 Spacer()
                 Button(action: { changeMonth(by: 1) }) {
                     Image(systemName: "chevron.right")
@@ -2830,14 +2831,13 @@ struct CalendarGridView: View {
                     VStack(spacing: 4) {
                         Text("\(day)")
                             .font(.body)
+                            .foregroundStyle(.primary) 
                             .frame(width: 36, height: 36)
                             .background(
                                 Circle()
                                     .fill(
                                         isSelected
-                                        ? (premium.isPremium
-                                            ? AppColors.premiumAccent.opacity(0.18)
-                                            : Color.accentColor)
+                                        ? Color.accentColor.opacity(0.25)
                                         : (isOffDay
                                             ? Color.gray.opacity(0.4)
                                             : (isToday
@@ -2845,21 +2845,15 @@ struct CalendarGridView: View {
                                                 : Color.clear)
                                         )
                                     )
-                                    .overlay(
-                                        Circle()
-                                            .stroke(
-                                                (isSelected && premium.isPremium)
-                                                ? AppColors.premiumAccent
-                                                : Color.clear,
-                                                lineWidth: 1.5
-                                            )
+                            )
+                            .overlay(
+                                Circle()
+                                    .stroke(
+                                        isSelected ? Color.accentColor : Color.clear,
+                                        lineWidth: 1.5
                                     )
                             )
-                            .foregroundColor(
-                                isSelected && premium.isPremium
-                                ? AppColors.premiumAccent
-                                : (isSelected ? .white : .primary)
-                            )
+
 
 
                         let key = calendar.startOfDay(for: date)
