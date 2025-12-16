@@ -116,8 +116,6 @@ struct RootView: View {
                     .environmentObject(session)
                     .environmentObject(eventManager)
                     .onAppear {
-                        PremiumIntroGate.reset()
-
                         // ⭐ REFRESH ENTITLEMENT TRƯỚC
                         Task { await premium.refresh() }
 

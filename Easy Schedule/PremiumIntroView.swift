@@ -60,6 +60,11 @@ struct PremiumIntroView: View {
                             icon: "person.2.fill",
                             text: String(localized: "premium_feature_shared")
                         )
+                        PremiumFeatureRow(
+                            icon: "checklist",
+                            text: String(localized: "premium_feature_more_todos")
+                        )
+
                     }
                     .padding(.top, 4)
 

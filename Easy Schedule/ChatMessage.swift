@@ -51,14 +51,23 @@ struct TodoItem: Identifiable, Codable {
     var text: String
     var doneBy: [String: Bool]
     var createdAt: Date
-    
-    init(id: String? = nil, text: String, doneBy: [String: Bool] = [:], createdAt: Date = Date()) {
+    var createdBy: String   // ⭐️ THÊM
+
+    init(
+        id: String? = nil,
+        text: String,
+        doneBy: [String: Bool] = [:],
+        createdAt: Date = Date(),
+        createdBy: String
+    ) {
         self.id = id
         self.text = text
         self.doneBy = doneBy
         self.createdAt = createdAt
+        self.createdBy = createdBy
     }
 }
+
 
 
 class TodoViewModel: ObservableObject {
@@ -119,20 +128,16 @@ class TodoViewModel: ObservableObject {
         let data: [String: Any] = [
             "text": text,
             "doneBy": [:],
-            "createdAt": Timestamp(date: Date())
+            "createdAt": Timestamp(date: Date()),
+            "createdBy": myId   // ⭐️ THÊM
         ]
 
         db.collection("chats")
             .document(chatId)
             .collection("todos")
-            .addDocument(data: data) { err in
-                if let err = err {
-                    print("❌ add TODO FAILED:", err)
-                } else {
-                    print("✅ TODO CREATED SUCCESS")
-                }
-            }
+            .addDocument(data: data)
     }
+
     func delete(_ todo: TodoItem) {
         guard let id = todo.id else { return }
 
@@ -154,14 +159,21 @@ class TodoViewModel: ObservableObject {
 struct TodoListView: View {
     let chatId: String
     let myId: String
+    private let freeLimit = 5
+    private let premiumLimit = 20
+    @State private var showPaywall = false
 
     @StateObject private var vm: TodoViewModel
     @ObservedObject private var nameCache = SessionStore.UserNameCache.shared
 
+    @EnvironmentObject var premium: PremiumStoreViewModel
+
+    @State private var isChatPremium = false
 
     @State private var newTodo = ""
     @State private var showDeleteConfirm = false
     @State private var todoToDelete: TodoItem? = nil
+    @State private var showLimitAlert = false
 
     init(chatId: String, myId: String) {
         self.chatId = chatId
@@ -203,35 +215,45 @@ struct TodoListView: View {
 
                     // NÚT ADD
                     Button {
-                        guard !newTodo.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+                        if newTodo.trimmingCharacters(in: .whitespaces).isEmpty {
+                            return
+                        }
+
+                        guard canAddTodo else {
+                            showLimitAlert = true
+                            return
+                        }
+
                         vm.addTodo(text: newTodo)
                         newTodo = ""
                     } label: {
                         Image(systemName: "plus")
-                            .font(.system(size: 18, weight: .semibold))
                             .foregroundColor(.white)
                             .frame(width: 40, height: 40)
                             .background(
-                                newTodo.trimmingCharacters(in: .whitespaces).isEmpty
-                                ? Color.gray.opacity(0.4)
-                                : Color.blue
+                                canAddTodo
+                                ? Color.blue
+                                : Color.gray.opacity(0.4)
                             )
                             .clipShape(Circle())
                     }
                     .disabled(newTodo.trimmingCharacters(in: .whitespaces).isEmpty)
+
                 }
                 .padding(.horizontal)
                 .padding(.vertical, 10)
-                .background(
-                    Color(.systemBackground)
-                        .ignoresSafeArea(edges: .bottom)
-                )
 
             }
             .navigationTitle(String(localized: "todo_list_title"))
             .navigationBarTitleDisplayMode(.inline)
-            .onAppear { vm.listen() }
+            .onAppear { vm.listen()
+                listenChatPremium()
+            }
             .onDisappear { vm.stop() }
+            .sheet(isPresented: $showPaywall) {
+                PremiumUpgradeSheet()
+                    .environmentObject(premium)
+            }
             .alert(String(localized: "delete_confirm_title"), isPresented: $showDeleteConfirm) {
                 Button(String(localized:"cancel"), role: .cancel) {}
 
@@ -241,6 +263,43 @@ struct TodoListView: View {
                     }
                 }
             }
+            .alert(String(localized: "todo_limit_title"), isPresented: $showLimitAlert) {
+                Button(String(localized: "upgrade_to_premium")) {
+                    if premium.isPremium {
+                        Task {
+                            guard let uid = Auth.auth().currentUser?.uid else { return }
+                            do {
+                                try await Firestore.firestore()
+                                    .collection("chats")
+                                    .document(chatId)
+                                    .updateData([
+                                        "isPremium": true,
+                                        "premiumBy": uid
+                                    ])
+                            } catch {
+                                print("❌ Failed to upgrade chat:", error)
+                            }
+                        }
+                    } else {
+                        showPaywall = true
+                    }
+                }
+
+                Button(String(localized: "ok"), role: .cancel) {}
+            } message: {
+                if vm.todos.count >= totalTodoLimit {
+                    Text(String(localized: "todo_limit_reached_message"))
+                } else {
+                    Text(
+                        String(
+                            format: String(localized: "todo_free_limit_message"),
+                            freeLimit
+                        )
+                    )
+                }
+            }
+
+
         }
     }
 
@@ -296,8 +355,42 @@ struct TodoListView: View {
         }
         .padding(.vertical, 6)
     }
+    private var myCreateLimit: Int {
+        isMyPremium ? premiumLimit : freeLimit
+    }
+    private var totalTodoLimit: Int {
+        isChatPremium ? premiumLimit : freeLimit
+    }
+    private var myTodoCount: Int {
+        vm.todos.filter {
+            $0.createdBy == myId || $0.createdBy.isEmpty
+        }.count
+    }
+    private var canAddTodo: Bool {
+        // Chặn theo tổng
+        guard vm.todos.count < totalTodoLimit else { return false }
+
+        // Chặn theo quota cá nhân
+        guard myTodoCount < myCreateLimit else { return false }
+
+        return true
+    }
+    private var isMyPremium: Bool {
+        premium.isPremium
+    }
+    private func listenChatPremium() {
+        Firestore.firestore()
+            .collection("chats")
+            .document(chatId)
+            .addSnapshotListener { snap, _ in
+                guard let data = snap?.data() else { return }
+                self.isChatPremium = data["isPremium"] as? Bool ?? false
+            }
+    }
 
 }
+
+
 import FirebaseFirestore
 
 
