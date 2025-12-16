@@ -304,8 +304,15 @@ struct AppointmentProSheet: View {
                 end: combine(selectedDate, customEnd)
             )
         }
-        // ❗ CHẶN NGÀY NGHỈ — áp dụng cho cả custom và preset slots
+        // ❌ CHẶN ĐẶT LỊCH QUÁ KHỨ
         let startOfSelectedDay = Calendar.current.startOfDay(for: selectedDate)
+        let today = Calendar.current.startOfDay(for: Date())
+
+        if startOfSelectedDay < today {
+            errorMessage = String(localized: "cannot_book_past_date")
+            return
+        }
+        // ❗ CHẶN NGÀY NGHỈ — áp dụng cho cả custom và preset slots
         if partnerOffDays.contains(startOfSelectedDay) {
             errorMessage = String(localized: "owner_day_off_no_booking")
             return
@@ -427,6 +434,12 @@ struct AppointmentProSheet: View {
         
         return arr
     }
+    
+    private func isPastDay(_ date: Date) -> Bool {
+        let today = Calendar.current.startOfDay(for: Date())
+        let target = Calendar.current.startOfDay(for: date)
+        return target < today
+    }
 
 
     struct SimpleError: Identifiable {
@@ -478,14 +491,17 @@ struct CalendarMiniView: View {
                                 Circle()
                                     .fill(
                                         isSelected
-                                        ? Color.clear                      // ❌ selected KHÔNG fill
+                                        ? Color.clear                       // selected: chỉ viền
                                         : (isOffDay
-                                            ? Color.orange.opacity(0.35)  // ngày nghỉ
-                                            : (isToday
-                                                ? Color.blue.opacity(0.25) // hôm nay
-                                                : Color.clear))
+                                            ? Color.orange.opacity(0.35)   // ngày nghỉ
+                                            : (isBusy
+                                                ? Color.red.opacity(0.18)  // 🔴 ngày có lịch bận (nhẹ)
+                                                : (isToday
+                                                    ? Color.blue.opacity(0.25) // hôm nay
+                                                    : Color.clear)))
                                     )
                             )
+
                             .overlay(
                                 Circle()
                                     .stroke(
@@ -501,7 +517,17 @@ struct CalendarMiniView: View {
 
                     }
                     .contentShape(Rectangle())
-                    .onTapGesture { selectedDate = day }
+                    .onTapGesture {
+                        let today = Calendar.current.startOfDay(for: Date())
+                        let tapped = Calendar.current.startOfDay(for: day)
+
+                        guard tapped >= today else {
+                            // ❌ không cho chọn ngày quá khứ
+                            return
+                        }
+
+                        selectedDate = day
+                    }
                 }
             }
 

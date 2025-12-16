@@ -43,27 +43,35 @@ final class PremiumStoreViewModel: ObservableObject {
     func refresh() async {
         products = await PremiumStore.shared.getProducts()
 
+        let old = isPremium
         let entitlements = await PremiumStore.shared.getPurchasedIDs()
         isPremium = !entitlements.isEmpty
+
+        if old != isPremium {
+            syncPremiumStatusToFirestore()
+        }
     }
+
 
     // MARK: - SYNC TO FIRESTORE (A là người mua Premium)
     func syncPremiumStatusToFirestore() {
         guard let uid = Auth.auth().currentUser?.uid else { return }
         let db = Firestore.firestore()
 
-        // Lưu vào premiumStatus (cho logic backend, fetchPremiumStatus, etc.)
+        let data: [String: Any] = [
+            "isPremium": isPremium,
+            "updatedAt": Timestamp(date: Date())
+        ]
+
         db.collection("premiumStatus")
             .document(uid)
-            .setData(["isPremium": true], merge: true)
+            .setData(data, merge: true)
 
-        // Lưu vào publicCalendar (để B khi load lịch A biết A premium)
         db.collection("publicCalendar")
             .document(uid)
-            .setData(["isPremium": true], merge: true)
-
-        print("🔥 Synced premium to Firestore for uid:", uid)
+            .setData(data, merge: true)
     }
+
 
     // MARK: - BUY
     func buy(_ product: Product) async -> Bool {

@@ -940,6 +940,14 @@ extension EventManager {
         createdBy: String,
         completion: @escaping (Bool, String?) -> Void
     ) {
+        // ❌ CHẶN ĐẶT LỊCH QUÁ KHỨ (logic-level, bắt buộc)
+        let now = Date()
+        if start < now {
+            DispatchQueue.main.async { self.isAdding = false }
+            completion(false, String(localized: "cannot_book_past_time"))
+            return
+        }
+
         // 1️⃣ Kiểm tra overlap trong lịch chủ sở hữu A
         fetchBusySlots(for: ownerUid) { busySlots, ownerIsPremium in
             let overlap = busySlots.contains { $0.startTime < end && $0.endTime > start }

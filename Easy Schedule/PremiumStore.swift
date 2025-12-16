@@ -135,6 +135,7 @@ actor PremiumStore {
 
     // MARK: - Restore
     func restore() async -> Bool {
+        purchasedProductIDs.removeAll()
         if isFakePremiumEnabled {
             for id in productIDs { await markPurchased(id) }
             notifyUpdate()
@@ -182,6 +183,7 @@ actor PremiumStore {
             do {
                 let transaction = try checkVerified(entitlement)
                 purchasedProductIDs.insert(transaction.productID)
+                await transaction.finish()
             } catch {}
         }
     }
