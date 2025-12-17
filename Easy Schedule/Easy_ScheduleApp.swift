@@ -104,14 +104,45 @@ struct RootView: View {
     @EnvironmentObject var premium: PremiumStoreViewModel
     @EnvironmentObject var eventManager: EventManager
 
+    @State private var showPremiumIntro = false
+    @State private var showPaywall = false
+
     var body: some View {
-        if session.currentUser == nil {
-            LoginView()
-                .environmentObject(eventManager)
-        } else {
-            ContentView()
-                .environmentObject(session)
-                .environmentObject(eventManager)
+        Group {
+            if session.currentUser == nil {
+                LoginView()
+            } else {
+                ContentView()
+                    .environmentObject(session)
+                    .environmentObject(eventManager)
+                
+                    .onAppear {
+                        // ⭐ REFRESH ENTITLEMENT TRƯỚC
+                        Task { await premium.refresh() }
+
+                        // ⭐ SAU ĐÓ MỚI QUYẾT ĐỊNH SHOW INTRO
+                        if !premium.isPremium,
+                           PremiumIntroGate.shouldShowToday() {
+
+                            showPremiumIntro = true
+                            PremiumIntroGate.markShown()
+                        }
+                    }
+            }
+        }
+        .sheet(isPresented: $showPremiumIntro) {
+            PremiumIntroView(
+                isPresented: $showPremiumIntro,
+                onUpgrade: {
+                    showPaywall = true
+                }
+            )
+        }
+        .sheet(isPresented: $showPaywall) {
+            PremiumUpgradeSheet()
+                .environmentObject(premium)
         }
     }
 }
+
+

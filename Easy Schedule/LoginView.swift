@@ -333,7 +333,7 @@ struct SignUpView: View {
         }
         .padding()
         .alert(String(localized: "account_created_title"), isPresented: $success) {
-            Button("OK") { dismiss() }
+            Button(String(localized:"ok")) { dismiss() }
         } message: {
             Text(String(localized: "account_created_message"))
         }

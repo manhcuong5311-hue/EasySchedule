@@ -34,7 +34,7 @@ struct UpdateUserNameView: View {
             newName = session.currentUserName
         }
         .alert( String(localized: "saved"), isPresented: $showSaved) {
-            Button("OK") {
+            Button(String(localized:"ok")) {
                 dismiss()
             }
         } message: {

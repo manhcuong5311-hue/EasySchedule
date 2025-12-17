@@ -1114,6 +1114,64 @@
         }
       }
     },
+    "cannot_book_past_date" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You cannot book an event in the past."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "過去の日付には予約できません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "과거 날짜에는 예약할 수 없습니다."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không thể đặt lịch trong quá khứ."
+          }
+        }
+      }
+    },
+    "cannot_book_past_time" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You cannot book a past time slot."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "すでに過ぎた時間は選択できません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "이미 지난 시간은 선택할 수 없습니다."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Không thể chọn khung giờ đã qua."
+          }
+        }
+      }
+    },
     "cannot_create_event" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1315,6 +1373,64 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Thay đổi ngôn ngữ trong Cài đặt"
+          }
+        }
+      }
+    },
+    "chat_limit_message" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You have reached 10 free messages. Upgrade to Premium, or wait until the other user opens the chat."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無料メッセージ10件の上限に達しました。Premiumにアップグレードするか、相手がチャットを開くまでお待ちください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "무료 메시지 10개 한도에 도달했습니다. Premium으로 업그레이드하거나 상대방이 채팅을 열 때까지 기다려 주세요."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bạn đã sử dụng hết 10 tin nhắn miễn phí. Nâng cấp lên Premium hoặc chờ khi người kia mở cuộc trò chuyện."
+          }
+        }
+      }
+    },
+    "chat_limit_title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chat limit reached"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "チャットの上限に達しました"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "채팅 한도에 도달했습니다"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đã đạt giới hạn chat"
           }
         }
       }
@@ -4031,6 +4147,64 @@
         }
       }
     },
+    "faq_chat_limit_a" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Free users can send up to 10 chat messages per event. After reaching the limit, you can upgrade to Premium to continue chatting without limits, or wait until the other participant opens the chat."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "無料ユーザーは、イベントごとに最大10件までメッセージを送信できます。上限に達した場合は、Premiumにアップグレードして無制限でチャットするか、相手がチャットを開くまでお待ちください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "무료 사용자는 이벤트당 최대 10개의 메시지를 보낼 수 있습니다. 제한에 도달하면 Premium으로 업그레이드하여 무제한으로 채팅하거나, 상대방이 채팅을 열 때까지 기다릴 수 있습니다."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Người dùng miễn phí có thể gửi tối đa 10 tin nhắn cho mỗi sự kiện. Khi đạt giới hạn, bạn có thể nâng cấp lên Premium để tiếp tục chat không giới hạn, hoặc chờ khi người còn lại mở cuộc trò chuyện."
+          }
+        }
+      }
+    },
+    "faq_chat_limit_q" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Is chat limited for free users?"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無料ユーザーのチャットには制限がありますか？"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "무료 사용자의 채팅에는 제한이 있나요?"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chat có bị giới hạn với người dùng miễn phí không?"
+          }
+        }
+      }
+    },
     "faq_section_limits" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4114,6 +4288,64 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Chia sẻ & Quyền xem lịch"
+          }
+        }
+      }
+    },
+    "faq_todo_limit_a" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Free users can create a limited number of to-do items per event. Premium users can create and manage more to-do items without restrictions."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "無料ユーザーは、イベントごとに作成できるToDoの数に制限があります。Premiumでは、制限なくToDoを作成・管理できます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "무료 사용자는 이벤트당 생성할 수 있는 할 일 수에 제한이 있습니다. Premium 사용자는 제한 없이 할 일을 생성하고 관리할 수 있습니다."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Người dùng miễn phí chỉ có thể tạo một số lượng công việc nhất định cho mỗi sự kiện. Với Premium, bạn có thể tạo và quản lý nhiều công việc hơn mà không bị giới hạn."
+          }
+        }
+      }
+    },
+    "faq_todo_limit_q" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Are there limits for to-do lists?"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ToDoリストに制限はありますか？"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "할 일 목록에 제한이 있나요?"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Danh sách công việc có bị giới hạn không?"
           }
         }
       }
@@ -6438,6 +6670,35 @@
         }
       }
     },
+    "notification_new_message_title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New message"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新しいメッセージ"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "새 메시지"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tin nhắn mới"
+          }
+        }
+      }
+    },
     "notifications" : {
       "localizations" : {
         "en" : {
@@ -6610,7 +6871,68 @@
         }
       }
     },
+    "offline_banner" : {
+      "comment" : "A message displayed when the app is offline, explaining that some features may not work.",
+      "isCommentAutoGenerated" : true,
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You're offline. Changes will sync when you're back online.\n"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "オフラインです。接続が回復すると変更が同期されます。\n"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "오프라인 상태입니다. 다시 연결되면 변경 사항이 동기화됩니다.\n"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bạn đang offline. Thay đổi sẽ được đồng bộ khi có mạng trở lại.\n"
+          }
+        }
+      }
+    },
+    "ok" : {
+      "comment" : "A button that dismisses an alert.",
+      "isCommentAutoGenerated" : true,
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ok"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ok"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "확인"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ok"
+          }
+        }
+      }
+    },
     "Ok" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -7775,6 +8097,151 @@
         }
       }
     },
+    "premium_feature_30_events" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Create up to 30 events per day"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1日最大30件の予定を作成可能"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "하루 최대 30개의 일정 생성"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tạo tối đa 30 lịch mỗi ngày"
+          }
+        }
+      }
+    },
+    "premium_feature_180_days" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Book events up to 180 days ahead"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "最大180日先まで予定を作成"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "최대 180일 전까지 일정 생성"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Đặt lịch trước tối đa 180 ngày"
+          }
+        }
+      }
+    },
+    "premium_feature_more_todos" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Create more tasks for each event"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "イベントごとにより多くのタスクを作成"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이벤트마다 더 많은 할 일 생성"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tạo nhiều công việc hơn cho mỗi sự kiện"
+          }
+        }
+      }
+    },
+    "premium_feature_shared" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Full access to shared calendars"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "共有カレンダーをフル利用"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "공유 캘린더 전체 이용"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Toàn quyền sử dụng lịch chia sẻ"
+          }
+        }
+      }
+    },
+    "premium_feature_unlimited_chat" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlimited chat messages in events"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "イベント内でのチャットが無制限"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이벤트 내 채팅 무제한"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nhắn tin không giới hạn trong sự kiện"
+          }
+        }
+      }
+    },
     "premium_features" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -7804,6 +8271,35 @@
         }
       }
     },
+    "premium_intro_title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlock Premium"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "プレミアムを解除"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "프리미엄 잠금 해제"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mở khóa Premium"
+          }
+        }
+      }
+    },
     "premium_limit_30_per_day" : {
       "localizations" : {
         "en" : {
@@ -7828,6 +8324,64 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Bạn đã tạo quá nhiều lịch trong 1 ngày!"
+          }
+        }
+      }
+    },
+    "premium_skip" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skip for now"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "今はスキップ"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "나중에"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Bỏ qua"
+          }
+        }
+      }
+    },
+    "premium_upgrade" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Upgrade to Premium"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "プレミアムにアップグレード"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "프리미엄 업그레이드"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nâng cấp Premium"
           }
         }
       }
@@ -9666,6 +10220,93 @@
         }
       }
     },
+    "todo_free_limit_message" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Free users can create up to %d tasks per event."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "無料ユーザーはイベントごとに最大%d件のタスクを作成できます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "무료 사용자는 이벤트당 최대 %d개의 할 일을 만들 수 있습니다."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Người dùng miễn phí chỉ có thể tạo tối đa %d công việc cho mỗi sự kiện."
+          }
+        }
+      }
+    },
+    "todo_limit_reached_message" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This event has reached the maximum number of tasks."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このイベントのタスク数が上限に達しました。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 이벤트의 할 일 수가 최대 한도에 도달했습니다."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sự kiện này đã đạt số lượng công việc tối đa."
+          }
+        }
+      }
+    },
+    "todo_limit_title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Todo limit reached"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "タスクの上限に達しました"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "할 일 한도에 도달했습니다"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đã đạt giới hạn."
+          }
+        }
+      }
+    },
     "todo_list_title" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -10138,6 +10779,64 @@
         }
       }
     },
+    "upgrade_to_premium" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Upgrade to Premium"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "プレミアムにアップグレード"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "프리미엄으로 업그레이드"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nâng cấp Premium"
+          }
+        }
+      }
+    },
+    "upgrade_todo_list_to_20" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Upgrade this todo list to 20"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このリストを20件のタスクにアップグレード\n"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 할 일 목록을 20개로 업그레이드\n"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nâng cấp danh sách này lên 20"
+          }
+        }
+      }
+    },
     "use_custom_time" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -10156,7 +10855,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "프리미엄으로 업그레이드"
+            "value" : "사용자 지정 시간 사용\n"
           }
         },
         "vi" : {
@@ -10366,6 +11065,35 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Lịch sử đã xem"
+          }
+        }
+      }
+    },
+    "wait_ok" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OK, I'll wait"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "待ちます"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "기다릴게요"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "OK, tôi sẽ chờ"
           }
         }
       }

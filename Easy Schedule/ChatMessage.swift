@@ -3,7 +3,9 @@ import SwiftUI
 import Combine
 import Foundation
 import FirebaseFirestore
-
+import FirebaseAuth
+import CoreLocation
+import MapKit
 
 struct ChatMessage: Identifiable, Codable {
     @DocumentID var id: String?
@@ -51,14 +53,23 @@ struct TodoItem: Identifiable, Codable {
     var text: String
     var doneBy: [String: Bool]
     var createdAt: Date
-    
-    init(id: String? = nil, text: String, doneBy: [String: Bool] = [:], createdAt: Date = Date()) {
+    var createdBy: String   // ⭐️ THÊM
+
+    init(
+        id: String? = nil,
+        text: String,
+        doneBy: [String: Bool] = [:],
+        createdAt: Date = Date(),
+        createdBy: String
+    ) {
         self.id = id
         self.text = text
         self.doneBy = doneBy
         self.createdAt = createdAt
+        self.createdBy = createdBy
     }
 }
+
 
 
 class TodoViewModel: ObservableObject {
@@ -119,20 +130,16 @@ class TodoViewModel: ObservableObject {
         let data: [String: Any] = [
             "text": text,
             "doneBy": [:],
-            "createdAt": Timestamp(date: Date())
+            "createdAt": Timestamp(date: Date()),
+            "createdBy": myId   // ⭐️ THÊM
         ]
 
         db.collection("chats")
             .document(chatId)
             .collection("todos")
-            .addDocument(data: data) { err in
-                if let err = err {
-                    print("❌ add TODO FAILED:", err)
-                } else {
-                    print("✅ TODO CREATED SUCCESS")
-                }
-            }
+            .addDocument(data: data)
     }
+
     func delete(_ todo: TodoItem) {
         guard let id = todo.id else { return }
 
@@ -154,14 +161,31 @@ class TodoViewModel: ObservableObject {
 struct TodoListView: View {
     let chatId: String
     let myId: String
-
+    private let freeLimit = 5
+    private let premiumLimit = 20
+    @State private var showPaywall = false
     @StateObject private var vm: TodoViewModel
     @ObservedObject private var nameCache = SessionStore.UserNameCache.shared
+    
+    @ObservedObject private var network = NetworkMonitor.shared
 
 
+    @State private var isSending = false
+
+    @EnvironmentObject var premium: PremiumStoreViewModel
     @State private var newTodo = ""
     @State private var showDeleteConfirm = false
     @State private var todoToDelete: TodoItem? = nil
+    enum TodoLimitAlertType: Identifiable {
+        case freeLimit        // Free user vượt 5
+        case chatMaxReached   // Chat premium vượt 20
+
+        var id: Int { hashValue }
+    }
+
+    @State private var limitAlert: TodoLimitAlertType? = nil
+
+
 
     init(chatId: String, myId: String) {
         self.chatId = chatId
@@ -172,17 +196,32 @@ struct TodoListView: View {
     var body: some View {
         NavigationView {
             VStack {
-                List {
-                    ForEach(vm.todos) { item in
-                        todoRow(item)
+                
+                // ===== OFFLINE BANNER =====
+                if !network.isOnline {
+                    HStack(spacing: 6) {
+                        Image(systemName: "wifi.slash")
+                        Text(String(localized: "offline_banner"))
+                            .font(.caption)
                     }
-                    .onDelete { indexSet in
-                        if let index = indexSet.first {
-                            todoToDelete = vm.todos[index]
-                            showDeleteConfirm = true
-                        }
-                    }
+                    .foregroundColor(.white)
+                    .padding(8)
+                    .frame(maxWidth: .infinity)
+                    .background(Color.orange)
                 }
+
+
+                  List {
+                      ForEach(vm.todos) { item in
+                          todoRow(item)
+                      }
+                      .onDelete { indexSet in
+                          if let index = indexSet.first {
+                              todoToDelete = vm.todos[index]
+                              showDeleteConfirm = true
+                          }
+                      }
+                  }
 
                 HStack(spacing: 8) {
 
@@ -203,35 +242,55 @@ struct TodoListView: View {
 
                     // NÚT ADD
                     Button {
-                        guard !newTodo.trimmingCharacters(in: .whitespaces).isEmpty else { return }
-                        vm.addTodo(text: newTodo)
+                        guard !isSending else { return }
+
+                        let text = newTodo.trimmingCharacters(in: .whitespaces)
+                        guard !text.isEmpty else { return }
+
+                        let limit = premium.isPremium ? premiumLimit : freeLimit
+
+                        if vm.todos.count >= limit {
+                            limitAlert = premium.isPremium ? .chatMaxReached : .freeLimit
+                            return
+                        }
+
+                        isSending = true
+                        vm.addTodo(text: text)
                         newTodo = ""
-                    } label: {
-                        Image(systemName: "plus")
-                            .font(.system(size: 18, weight: .semibold))
+
+                        // 🔑 chống spam (offline & online)
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                            isSending = false
+                        }
+                    }
+
+
+
+                    label: {
+                        Image(systemName: isSending ? "hourglass" : "plus")
                             .foregroundColor(.white)
                             .frame(width: 40, height: 40)
-                            .background(
-                                newTodo.trimmingCharacters(in: .whitespaces).isEmpty
-                                ? Color.gray.opacity(0.4)
-                                : Color.blue
-                            )
+                            .background(isSending ? Color.gray : Color.blue)
                             .clipShape(Circle())
                     }
-                    .disabled(newTodo.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .disabled(isSending || newTodo.trimmingCharacters(in: .whitespaces).isEmpty)
+
+
                 }
                 .padding(.horizontal)
                 .padding(.vertical, 10)
-                .background(
-                    Color(.systemBackground)
-                        .ignoresSafeArea(edges: .bottom)
-                )
 
             }
             .navigationTitle(String(localized: "todo_list_title"))
             .navigationBarTitleDisplayMode(.inline)
-            .onAppear { vm.listen() }
-            .onDisappear { vm.stop() }
+            .onAppear { vm.listen()
+            }
+            .onDisappear { vm.stop()
+            }
+            .sheet(isPresented: $showPaywall) {
+                PremiumUpgradeSheet()
+                    .environmentObject(premium)
+            }
             .alert(String(localized: "delete_confirm_title"), isPresented: $showDeleteConfirm) {
                 Button(String(localized:"cancel"), role: .cancel) {}
 
@@ -241,6 +300,43 @@ struct TodoListView: View {
                     }
                 }
             }
+            .alert(item: $limitAlert) { type in
+                switch type {
+
+                // ===== Free user vượt 5 =====
+                case .freeLimit:
+                    return Alert(
+                        title: Text(String(localized: "todo_limit_title")),
+                        message: Text(
+                            String(
+                                format: String(localized: "todo_free_limit_message"),
+                                freeLimit
+                            )
+                        ),
+                        primaryButton: .default(Text(String(localized: "upgrade_to_premium"))) {
+                            showPaywall = true
+                            limitAlert = nil
+                        },
+                        secondaryButton: .cancel {
+                            limitAlert = nil
+                        }
+                    )
+
+                // ===== Chat premium chạm 20 =====
+                case .chatMaxReached:
+                    return Alert(
+                        title: Text(String(localized: "todo_limit_title")),
+                        message: Text(String(localized: "todo_limit_reached_message")),
+                        dismissButton: .default(Text(String(localized: "ok"))) {
+                            limitAlert = nil
+                        }
+                    )
+                }
+            }
+
+
+
+
         }
     }
 
@@ -296,44 +392,77 @@ struct TodoListView: View {
         }
         .padding(.vertical, 6)
     }
-
 }
-import FirebaseFirestore
 
 
-import Foundation
-import FirebaseFirestore
-import FirebaseAuth
+
+
+
+
+
+
 
 class ChatViewModel: ObservableObject {
+
+    // MARK: - Published
     @Published var messages: [ChatMessage] = []
     @Published var messageText: String = ""
-    @Published var unreadCount = 0
-    @Published var limitReached = false
-    
+    @Published var reachedFreeLimit = false
+
+    // MARK: - Constants
+  
+    @Published var chatPremiumUnlocked: Bool = false
+    @Published var freeSentCount: Int = 0
+
+    // MARK: - Firestore
     private let db = Firestore.firestore()
     private var listener: ListenerRegistration?
-    
+
+    // MARK: - Identity
     let eventId: String
     let otherUserId: String
     let myId: String
     let myName: String
-    
+
+    // MARK: - Init
     init(eventId: String, otherUserId: String, myName: String) {
         self.eventId = eventId
         self.otherUserId = otherUserId
         self.myId = Auth.auth().currentUser?.uid ?? ""
         self.myName = myName
-        
+
         startListener()
-        markSeen()
+        listenChatMeta()
     }
-    
+
     deinit {
         listener?.remove()
     }
-    
-    // MARK: - Load realtime messages
+
+    // MARK: - Ensure chat exists (BẮT BUỘC)
+    @MainActor
+    func ensureChatExists(
+        participants: [String],
+        eventEndTime: Date
+    ) async {
+
+        let ref = db.collection("chats").document(eventId)
+
+        do {
+            let snap = try await ref.getDocument()
+            if snap.exists { return }
+
+            try await ref.setData([
+                "participants": participants,
+                "eventEndTime": Timestamp(date: eventEndTime),
+                "createdAt": Timestamp()
+            ])
+        } catch {
+            print("❌ ensureChatExists failed:", error)
+        }
+    }
+
+    // MARK: - Realtime listener
     func startListener() {
         listener?.remove()
 
@@ -341,119 +470,189 @@ class ChatViewModel: ObservableObject {
             .document(eventId)
             .collection("messages")
             .order(by: "timestamp")
-            .limit(toLast: 20)    // ⭐ CHỈ LOAD 50 TIN GẦN NHẤT
-            .addSnapshotListener { snap, err in
-                guard let snap = snap else { return }
+            .limit(toLast: 20)
+            .addSnapshotListener { snap, _ in
+                guard let snap else { return }
 
                 DispatchQueue.main.async {
                     self.messages = snap.documents.compactMap {
                         try? $0.data(as: ChatMessage.self)
                     }
+                 
                 }
             }
     }
 
+    // MARK: - Update free limit (CLIENT SIDE)
+   
+    // MARK: - Send text message
+    func sendMessage(
+        isPremium: Bool,
+        onLimitReached: @escaping () -> Void
+    ) {
+        let text = messageText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
 
-    
-    func sendCurrentLocation(lat: Double, lon: Double) {
-        let message = ChatMessage(
-            text: "[location]",
-            senderId: myId,
-            senderName: myName,
-            timestamp: Date(),
-            seenBy: [myId: true],
-            latitude: lat,
-            longitude: lon
-        )
-        
-        let chatRef = db.collection("chats").document(eventId)
-        
-        do {
-            try chatRef.collection("messages").addDocument(from: message)
-        } catch {
-            print("❌ Failed to send location:", error)
+        if !isPremium && reachedFreeLimit {
+            onLimitReached()
+            return
         }
-        
+
+        let chatRef = db.collection("chats").document(eventId)
+
+        let messageData: [String: Any] = [
+            "text": text,
+            "senderId": myId,
+            "senderName": myName,
+            "timestamp": Timestamp(),
+            "seenBy": [myId: true]
+        ]
+
+        chatRef.collection("messages").addDocument(data: messageData)
+        // ⭐ TĂNG COUNTER CHO FREE
+        if !isPremium {
+            chatRef.updateData([
+                "freeCount.\(myId)": FieldValue.increment(Int64(1))
+            ])
+        }
+
+        // ⭐ PREMIUM → UNLOCK CHAT
+        if isPremium {
+            chatRef.setData([
+                "premiumUnlocked": true
+            ], merge: true)
+        }
+
         chatRef.setData([
-            "lastMessage": "📍 Location",
-            "lastMessageTime": Timestamp(date: Date()),
+            "lastMessage": text,
+            "lastMessageTime": Timestamp(),
             "unread": [
-                myId: false,          // Tôi đã đọc
-                otherUserId: true     // Người kia chưa đọc
+                myId: false,
+                otherUserId: true
             ]
         ], merge: true)
+
+        messageText = ""
     }
 
-    // MARK: - Send message
-    func sendMessage() {
-        guard !messageText.trimmingCharacters(in: .whitespaces).isEmpty else { return }
-        
-        let message = ChatMessage(
-            text: messageText,
-            senderId: myId,
-            senderName: myName,
-            timestamp: Date(),
-            seenBy: [myId: true]
-        )
-        
-        let chatRef = db.collection("chats").document(eventId)
-        
-        do {
-            try chatRef.collection("messages").addDocument(from: message)
-            
-            // Update metadata
-            chatRef.setData([
-                "lastMessage": messageText,
-                "lastMessageTime": Timestamp(date: Date()),
-                "unread": [
-                    myId: false,
-                    otherUserId: true
-                ]
-            ], merge: true)
 
-            
-            messageText = ""
-            
-        } catch {
-            print("❌ Error sending message:", error)
+
+    // MARK: - Send location message
+    func sendCurrentLocation(
+        lat: Double,
+        lon: Double,
+        isPremium: Bool,
+        onLimitReached: @escaping () -> Void
+    ) {
+        if !isPremium && reachedFreeLimit {
+            onLimitReached()
+            return
+        }
+
+        let chatRef = db.collection("chats").document(eventId)
+
+        let messageData: [String: Any] = [
+            "latitude": lat,
+            "longitude": lon,
+            "senderId": myId,
+            "senderName": myName,
+            "timestamp": Timestamp(),
+            "seenBy": [myId: true]
+        ]
+
+        chatRef.collection("messages").addDocument(data: messageData)
+        // ⭐ TĂNG COUNTER CHO FREE
+        if !isPremium {
+            chatRef.updateData([
+                "freeCount.\(myId)": FieldValue.increment(Int64(1))
+            ])
+        }
+
+        // ⭐ PREMIUM → UNLOCK CHAT
+        if isPremium {
+            chatRef.setData([
+                "premiumUnlocked": true
+            ], merge: true)
+        }
+
+        chatRef.setData([
+            "lastMessage": "📍 Location",
+            "lastMessageTime": Timestamp(),
+            "unread": [
+                myId: false,
+                otherUserId: true
+            ]
+        ], merge: true)
+
+    }
+
+
+    private func listenChatMeta() {
+        let chatRef = db.collection("chats").document(eventId)
+
+        chatRef.addSnapshotListener { snap, _ in
+            guard let data = snap?.data() else { return }
+
+            DispatchQueue.main.async {
+                self.chatPremiumUnlocked = data["premiumUnlocked"] as? Bool ?? false
+
+                let freeCount = data["freeCount"] as? [String: Int] ?? [:]
+                self.freeSentCount = freeCount[self.myId] ?? 0
+
+                let limit = self.chatPremiumUnlocked ? 100 : 10
+                self.reachedFreeLimit = self.freeSentCount >= limit
+            }
         }
     }
-    
-    // MARK: - Mark messages seen
-    func markSeen() {
-        let chatRef = db.collection("chats").document(eventId)
 
-        chatRef.updateData([
-            "unread.\(myId)": false
-        ])
+
+    // MARK: - Mark seen
+    func markSeen() {
+        db.collection("chats")
+            .document(eventId)
+            .updateData([
+                "unread.\(myId)": false
+            ])
     }
 
-    
-    
-    // MARK: - Auto delete chat when event is past
+    // MARK: - Auto delete
     func autoDeleteIfPast(_ eventEndTime: Date) {
         if eventEndTime > Date() { return }
 
         let chatRef = db.collection("chats").document(eventId)
 
-        // 🧹 delete messages
         chatRef.collection("messages").getDocuments { snap, _ in
             snap?.documents.forEach { $0.reference.delete() }
         }
 
-        // 🧹 delete todos
         chatRef.collection("todos").getDocuments { snap, _ in
             snap?.documents.forEach { $0.reference.delete() }
         }
 
-        // 🗑 delete chat doc
         chatRef.delete()
     }
+    private func updateChatMeta(lastMessage: String) {
+        let chatRef = Firestore.firestore()
+            .collection("chats")
+            .document(eventId)
 
-}
+        chatRef.setData([
+            "lastMessage": lastMessage,
+            "lastMessageTime": Timestamp(),
+            "unread": [
+                myId: false,
+                otherUserId: true
+            ]
+        ], merge: true)
+    }
+   
+    }
 
 
-import SwiftUI
+
+
+
+
 
 struct ChatView: View {
     let eventId: String
@@ -472,6 +671,9 @@ struct ChatView: View {
     @State private var geocodeInProgress: Set<String> = []
     @State private var showTodoList = false
     @EnvironmentObject var premium: PremiumStoreViewModel
+
+    @State private var showLimitAlert = false
+    @State private var showPremiumSheet = false
 
     private let geocoder = CLGeocoder()
 
@@ -552,9 +754,8 @@ struct ChatView: View {
                         axis: .vertical
                     )
                     .lineLimit(1...4)
-                    .font(.system(size: 16))
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 10)
+                    .disabled(locked)
+                    .opacity(locked ? 0.6 : 1)
 
                     Button {
                         guard !sendCooldown,
@@ -562,7 +763,12 @@ struct ChatView: View {
                         else { return }
 
                         sendCooldown = true
-                        vm.sendMessage()
+                        vm.sendMessage(
+                            isPremium: premium.isPremium,
+                            onLimitReached: {
+                                showLimitAlert = true
+                            }
+                        )
 
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                             sendCooldown = false
@@ -571,17 +777,18 @@ struct ChatView: View {
                         Image(systemName: "paperplane.fill")
                             .font(.system(size: 16, weight: .semibold))
                             .foregroundColor(
-                                vm.messageText.isEmpty ? .gray : .white
+                                locked || vm.messageText.isEmpty ? .gray : .white
                             )
                             .frame(width: 36, height: 36)
                             .background(
-                                vm.messageText.isEmpty
+                                locked || vm.messageText.isEmpty
                                 ? Color.gray.opacity(0.3)
                                 : Color.blue
                             )
                             .clipShape(Circle())
                     }
-                    .disabled(vm.messageText.isEmpty)
+                    .disabled(locked || vm.messageText.isEmpty)
+
                 }
                 .background(
                     RoundedRectangle(cornerRadius: 22)
@@ -598,7 +805,15 @@ struct ChatView: View {
         }
         .sheet(isPresented: $showMapPicker) {
             MapPickerView(location: locationManager.location) { coord in
-                vm.sendCurrentLocation(lat: coord.latitude, lon: coord.longitude)
+                vm.sendCurrentLocation(
+                    lat: coord.latitude,
+                    lon: coord.longitude,
+                    isPremium: premium.isPremium,
+                    onLimitReached: {
+                        showLimitAlert = true
+                    }
+                )
+
             }
             .interactiveDismissDisabled(false)
             
@@ -624,12 +839,40 @@ struct ChatView: View {
                 }
             }
         }
+        .alert(
+            String(localized: "chat_limit_title"),
+            isPresented: $showLimitAlert
+        ) {
+            Button(String(localized: "upgrade_to_premium")) {
+                showLimitAlert = false
+                showPremiumSheet = true
+            }
+            Button(String(localized: "wait_ok"), role: .cancel) {}
+        } message: {
+            Text(String(localized: "chat_limit_message"))
+        }
+
+
+        .sheet(isPresented: $showPremiumSheet) {
+            PremiumUpgradeSheet()
+        }
+
 
         .sheet(isPresented: $showTodoList) {
             TodoListView(chatId: eventId, myId: session.currentUserId ?? "")
         }
         .onAppear {
             ChatForegroundTracker.shared.activeChatEventId = eventId
+
+            Task {
+                await vm.ensureChatExists(
+                    participants: [
+                        session.currentUserId!,
+                        otherUserId
+                    ],
+                    eventEndTime: eventEndTime
+                )
+            }
             vm.markSeen()
             vm.autoDeleteIfPast(eventEndTime)
         }
@@ -708,6 +951,9 @@ struct ChatView: View {
         .padding(.top, 6)
     }
 
+    private var locked: Bool {
+        !premium.isPremium && vm.reachedFreeLimit
+    }
 
     // MARK: - Bubble
     private func bubble(_ msg: ChatMessage) -> some View {
@@ -796,11 +1042,19 @@ struct ChatView: View {
     }
     func sendMyGPS() {
         guard let loc = locationManager.location else { return }
+
         vm.sendCurrentLocation(
             lat: loc.coordinate.latitude,
-            lon: loc.coordinate.longitude
+            lon: loc.coordinate.longitude,
+            isPremium: premium.isPremium,
+            onLimitReached: {
+                showLimitAlert = true
+            }
         )
     }
+
+
+
     private var timeSummary: String {
         let dfDate = DateFormatter()
         dfDate.locale = Locale(identifier: "vi_VN")
@@ -824,22 +1078,18 @@ extension EventManager {
     
     func cleanChatIfEventIsPast(_ event: CalendarEvent) {
         if event.endTime > Date() { return }
-        
-        let db = Firestore.firestore()
-        let ref = db.collection("chats").document(event.id)
-        
-        // delete messages
-        ref.collection("messages").getDocuments { snap, _ in
-            snap?.documents.forEach { $0.reference.delete() }
-        }
-        
-        ref.delete()
+
+        Firestore.firestore()
+            .collection("chats")
+            .document(event.id)
+            .updateData([
+                "expired": true
+            ])
     }
+
 }
 
-import Foundation
-import FirebaseFirestore
-import FirebaseAuth
+
 
 class ChatMetaViewModel: ObservableObject {
     @Published var lastMessage: String = ""
@@ -883,7 +1133,7 @@ class ChatMetaViewModel: ObservableObject {
                         self.lastNotifiedMessage = lastMsg
 
                         pushLocalChatNotification(
-                            title: "New message",
+                            title: String(localized: "notification_new_message_title"),
                             body: lastMsg,
                             identifier: "chat-\(self.eventId)"
                         )
@@ -896,7 +1146,7 @@ class ChatMetaViewModel: ObservableObject {
     
 }
 
-import SwiftUI
+
 struct EventRowWithChat: View {
     let event: CalendarEvent
     let timeFontSize: Int
@@ -910,8 +1160,9 @@ struct EventRowWithChat: View {
 
     // ⭐ computed → luôn trả về instance hợp lệ
     private var chatMeta: ChatMetaViewModel {
-        metaVM ?? eventManager.chatMeta(for: event.id)
+        metaVM!
     }
+
 
     // ❗ init KHÔNG được động chạm vào environmentObject
     init(event: CalendarEvent,
@@ -990,6 +1241,8 @@ struct EventRowWithChat: View {
             if metaVM == nil {
                 metaVM = eventManager.chatMeta(for: event.id)
             }
+        
+
         }
     }
     
@@ -1003,24 +1256,30 @@ struct EventRowWithChat: View {
     }
 }
 
-import CoreLocation
+
 
 class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     private let manager = CLLocationManager()
-    
+
     @Published var location: CLLocation?
-    
+
     override init() {
         super.init()
         manager.delegate = self
+        manager.desiredAccuracy = kCLLocationAccuracyHundredMeters
         manager.requestWhenInUseAuthorization()
-        manager.startUpdatingLocation()
+        manager.requestLocation() // 🔑 chỉ lấy 1 lần
     }
-    
+
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locs: [CLLocation]) {
         location = locs.first
     }
+
+    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        print("Location error:", error)
+    }
 }
+
 
 struct ChatButtonWithBadge: View {
     let event: CalendarEvent
@@ -1066,8 +1325,8 @@ struct ChatButtonWithBadge: View {
 }
 
 
-import SwiftUI
-import MapKit
+
+
 
 struct MapPickerView: View {
     @Environment(\.dismiss) var dismiss

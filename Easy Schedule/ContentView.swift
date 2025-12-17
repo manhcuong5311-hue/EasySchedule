@@ -940,6 +940,14 @@ extension EventManager {
         createdBy: String,
         completion: @escaping (Bool, String?) -> Void
     ) {
+        // ❌ CHẶN ĐẶT LỊCH QUÁ KHỨ (logic-level, bắt buộc)
+        let now = Date()
+        if start < now {
+            DispatchQueue.main.async { self.isAdding = false }
+            completion(false, String(localized: "cannot_book_past_time"))
+            return
+        }
+
         // 1️⃣ Kiểm tra overlap trong lịch chủ sở hữu A
         fetchBusySlots(for: ownerUid) { busySlots, ownerIsPremium in
             let overlap = busySlots.contains { $0.startTime < end && $0.endTime > start }
@@ -2382,7 +2390,7 @@ struct CustomizableCalendarView: View {
             }
 
             .alert(String(localized: "delete_event_title"), isPresented: $showDeleteAlert) {
-                Button(String(localized: "Ok"), role: .destructive) {
+                Button(String(localized: "ok"), role: .destructive) {
                     if let e = eventToDelete { eventManager.deleteEvent(e) }
                     eventToDelete = nil
                 }
@@ -2396,7 +2404,7 @@ struct CustomizableCalendarView: View {
                 String(localized: "notification"),
                 isPresented: $showOffDayAlert
             ) {
-                Button(String(localized: "Ok")) { }
+                Button(String(localized: "ok")) { }
             } message: {
                 Text(offDayAlertMessage)
             }
@@ -2727,7 +2735,7 @@ struct AddEventView: View {
 
             // PREMIUM popup
             .alert(alertMessage, isPresented: $showAlert) {
-                Button("OK", role: .cancel) {}
+                Button(String(localized:"ok"), role: .cancel) {}
             }
         }
     }
