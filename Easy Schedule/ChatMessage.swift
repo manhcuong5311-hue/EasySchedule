@@ -162,20 +162,15 @@ struct TodoListView: View {
     private let freeLimit = 5
     private let premiumLimit = 20
     @State private var showPaywall = false
-    @State private var chatListener: ListenerRegistration?
     @StateObject private var vm: TodoViewModel
     @ObservedObject private var nameCache = SessionStore.UserNameCache.shared
 
     @EnvironmentObject var premium: PremiumStoreViewModel
-
-    @State private var isChatPremium = false
-
     @State private var newTodo = ""
     @State private var showDeleteConfirm = false
     @State private var todoToDelete: TodoItem? = nil
     enum TodoLimitAlertType: Identifiable {
         case freeLimit        // Free user vượt 5
-        case upgradeChat      // Premium user vượt 5
         case chatMaxReached   // Chat premium vượt 20
 
         var id: Int { hashValue }
@@ -228,31 +223,21 @@ struct TodoListView: View {
                         let text = newTodo.trimmingCharacters(in: .whitespaces)
                         guard !text.isEmpty else { return }
 
-                        // ===== CASE 1: Chat đã premium =====
-                        if isChatPremium {
-                            if vm.todos.count >= premiumLimit {
-                                limitAlert = .chatMaxReached
-                                return
-                            }
-                            vm.addTodo(text: text)
-                            newTodo = ""
-                            return
-                        }
+                        let limit = premium.isPremium ? premiumLimit : freeLimit
 
-                        // ===== CASE 2: Chat chưa premium =====
-                        if vm.todos.count >= freeLimit {
+                        if vm.todos.count >= limit {
                             if premium.isPremium {
-                                limitAlert = .upgradeChat
+                                limitAlert = .chatMaxReached
                             } else {
                                 limitAlert = .freeLimit
                             }
                             return
                         }
 
-                        // ===== CASE 3: Trong quota free =====
                         vm.addTodo(text: text)
                         newTodo = ""
                     }
+
 
                     label: {
                         Image(systemName: "plus")
@@ -261,9 +246,6 @@ struct TodoListView: View {
                             .background(Color.blue)
                             .clipShape(Circle())
                     }
-                    .disabled(newTodo.trimmingCharacters(in: .whitespaces).isEmpty)
-
-
                 }
                 .padding(.horizontal)
                 .padding(.vertical, 10)
@@ -272,10 +254,8 @@ struct TodoListView: View {
             .navigationTitle(String(localized: "todo_list_title"))
             .navigationBarTitleDisplayMode(.inline)
             .onAppear { vm.listen()
-                listenChatPremium()
             }
             .onDisappear { vm.stop()
-                chatListener?.remove()
             }
             .sheet(isPresented: $showPaywall) {
                 PremiumUpgradeSheet()
@@ -305,20 +285,6 @@ struct TodoListView: View {
                         ),
                         primaryButton: .default(Text(String(localized: "upgrade_to_premium"))) {
                             showPaywall = true
-                            limitAlert = nil
-                        },
-                        secondaryButton: .cancel {
-                            limitAlert = nil
-                        }
-                    )
-
-                // ===== Premium user → upgrade chat =====
-                case .upgradeChat:
-                    return Alert(
-                        title: Text(String(localized: "todo_limit_title")),
-                        message: Text(String(localized: "todo_upgrade_chat_message")),
-                        primaryButton: .default(Text(String(localized: "upgrade_to_premium"))) {
-                            upgradeChat()
                             limitAlert = nil
                         },
                         secondaryButton: .cancel {
@@ -396,52 +362,6 @@ struct TodoListView: View {
         }
         .padding(.vertical, 6)
     }
-  
-    private var currentChatLimit: Int {
-        isChatPremium ? premiumLimit : freeLimit
-    }
-
-  
-    private var canAddTodo: Bool {
-        !newTodo.trimmingCharacters(in: .whitespaces).isEmpty
-    }
-
-
-    private var isMyPremium: Bool {
-        premium.isPremium
-    }
-    private func listenChatPremium() {
-        Firestore.firestore()
-            .collection("chats")
-            .document(chatId)
-            .addSnapshotListener { snap, _ in
-                guard let data = snap?.data() else { return }
-                self.isChatPremium = data["isPremium"] as? Bool ?? false
-            }
-    }
-    private func upgradeChat() {
-        guard premium.isPremium else {
-            showPaywall = true
-            return
-        }
-
-        guard let uid = Auth.auth().currentUser?.uid else { return }
-
-        Task {
-            do {
-                try await Firestore.firestore()
-                    .collection("chats")
-                    .document(chatId)
-                    .updateData([
-                        "isPremium": true,
-                        "premiumBy": uid
-                    ])
-            } catch {
-                print("❌ Failed to upgrade chat:", error)
-            }
-        }
-    }
-
 }
 
 
