@@ -3,7 +3,9 @@ import SwiftUI
 import Combine
 import Foundation
 import FirebaseFirestore
-
+import FirebaseAuth
+import CoreLocation
+import MapKit
 
 struct ChatMessage: Identifiable, Codable {
     @DocumentID var id: String?
@@ -164,6 +166,11 @@ struct TodoListView: View {
     @State private var showPaywall = false
     @StateObject private var vm: TodoViewModel
     @ObservedObject private var nameCache = SessionStore.UserNameCache.shared
+    
+    @ObservedObject private var network = NetworkMonitor.shared
+
+
+    @State private var isSending = false
 
     @EnvironmentObject var premium: PremiumStoreViewModel
     @State private var newTodo = ""
@@ -189,17 +196,32 @@ struct TodoListView: View {
     var body: some View {
         NavigationView {
             VStack {
-                List {
-                    ForEach(vm.todos) { item in
-                        todoRow(item)
+                
+                // ===== OFFLINE BANNER =====
+                if !network.isOnline {
+                    HStack(spacing: 6) {
+                        Image(systemName: "wifi.slash")
+                        Text(String(localized: "offline_banner"))
+                            .font(.caption)
                     }
-                    .onDelete { indexSet in
-                        if let index = indexSet.first {
-                            todoToDelete = vm.todos[index]
-                            showDeleteConfirm = true
-                        }
-                    }
+                    .foregroundColor(.white)
+                    .padding(8)
+                    .frame(maxWidth: .infinity)
+                    .background(Color.orange)
                 }
+
+
+                  List {
+                      ForEach(vm.todos) { item in
+                          todoRow(item)
+                      }
+                      .onDelete { indexSet in
+                          if let index = indexSet.first {
+                              todoToDelete = vm.todos[index]
+                              showDeleteConfirm = true
+                          }
+                      }
+                  }
 
                 HStack(spacing: 8) {
 
@@ -220,32 +242,40 @@ struct TodoListView: View {
 
                     // NÚT ADD
                     Button {
+                        guard !isSending else { return }
+
                         let text = newTodo.trimmingCharacters(in: .whitespaces)
                         guard !text.isEmpty else { return }
 
                         let limit = premium.isPremium ? premiumLimit : freeLimit
 
                         if vm.todos.count >= limit {
-                            if premium.isPremium {
-                                limitAlert = .chatMaxReached
-                            } else {
-                                limitAlert = .freeLimit
-                            }
+                            limitAlert = premium.isPremium ? .chatMaxReached : .freeLimit
                             return
                         }
 
+                        isSending = true
                         vm.addTodo(text: text)
                         newTodo = ""
+
+                        // 🔑 chống spam (offline & online)
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                            isSending = false
+                        }
                     }
+
 
 
                     label: {
-                        Image(systemName: "plus")
+                        Image(systemName: isSending ? "hourglass" : "plus")
                             .foregroundColor(.white)
                             .frame(width: 40, height: 40)
-                            .background(Color.blue)
+                            .background(isSending ? Color.gray : Color.blue)
                             .clipShape(Circle())
                     }
+                    .disabled(isSending || newTodo.trimmingCharacters(in: .whitespaces).isEmpty)
+
+
                 }
                 .padding(.horizontal)
                 .padding(.vertical, 10)
@@ -365,12 +395,12 @@ struct TodoListView: View {
 }
 
 
-import FirebaseFirestore
 
 
-import Foundation
-import FirebaseFirestore
-import FirebaseAuth
+
+
+
+
 
 class ChatViewModel: ObservableObject {
     @Published var messages: [ChatMessage] = []
@@ -520,7 +550,7 @@ class ChatViewModel: ObservableObject {
 }
 
 
-import SwiftUI
+
 
 struct ChatView: View {
     let eventId: String
@@ -904,9 +934,7 @@ extension EventManager {
     }
 }
 
-import Foundation
-import FirebaseFirestore
-import FirebaseAuth
+
 
 class ChatMetaViewModel: ObservableObject {
     @Published var lastMessage: String = ""
@@ -963,7 +991,7 @@ class ChatMetaViewModel: ObservableObject {
     
 }
 
-import SwiftUI
+
 struct EventRowWithChat: View {
     let event: CalendarEvent
     let timeFontSize: Int
@@ -1070,7 +1098,7 @@ struct EventRowWithChat: View {
     }
 }
 
-import CoreLocation
+
 
 class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     private let manager = CLLocationManager()
@@ -1133,8 +1161,8 @@ struct ChatButtonWithBadge: View {
 }
 
 
-import SwiftUI
-import MapKit
+
+
 
 struct MapPickerView: View {
     @Environment(\.dismiss) var dismiss

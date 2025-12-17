@@ -115,6 +115,7 @@ struct RootView: View {
                 ContentView()
                     .environmentObject(session)
                     .environmentObject(eventManager)
+                
                     .onAppear {
                         // ⭐ REFRESH ENTITLEMENT TRƯỚC
                         Task { await premium.refresh() }
