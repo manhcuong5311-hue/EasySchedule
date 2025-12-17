@@ -1377,6 +1377,64 @@
         }
       }
     },
+    "chat_limit_message" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You have reached 10 free messages. Upgrade to Premium, or wait until the other user opens the chat."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無料メッセージ10件の上限に達しました。Premiumにアップグレードするか、相手がチャットを開くまでお待ちください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "무료 메시지 10개 한도에 도달했습니다. Premium으로 업그레이드하거나 상대방이 채팅을 열 때까지 기다려 주세요."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bạn đã sử dụng hết 10 tin nhắn miễn phí. Nâng cấp lên Premium hoặc chờ khi người kia mở cuộc trò chuyện."
+          }
+        }
+      }
+    },
+    "chat_limit_title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chat limit reached"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "チャットの上限に達しました"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "채팅 한도에 도달했습니다"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đã đạt giới hạn chat"
+          }
+        }
+      }
+    },
     "choose_time_slot" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4089,6 +4147,64 @@
         }
       }
     },
+    "faq_chat_limit_a" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Free users can send up to 10 chat messages per event. After reaching the limit, you can upgrade to Premium to continue chatting without limits, or wait until the other participant opens the chat."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "無料ユーザーは、イベントごとに最大10件までメッセージを送信できます。上限に達した場合は、Premiumにアップグレードして無制限でチャットするか、相手がチャットを開くまでお待ちください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "무료 사용자는 이벤트당 최대 10개의 메시지를 보낼 수 있습니다. 제한에 도달하면 Premium으로 업그레이드하여 무제한으로 채팅하거나, 상대방이 채팅을 열 때까지 기다릴 수 있습니다."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Người dùng miễn phí có thể gửi tối đa 10 tin nhắn cho mỗi sự kiện. Khi đạt giới hạn, bạn có thể nâng cấp lên Premium để tiếp tục chat không giới hạn, hoặc chờ khi người còn lại mở cuộc trò chuyện."
+          }
+        }
+      }
+    },
+    "faq_chat_limit_q" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Is chat limited for free users?"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無料ユーザーのチャットには制限がありますか？"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "무료 사용자의 채팅에는 제한이 있나요?"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chat có bị giới hạn với người dùng miễn phí không?"
+          }
+        }
+      }
+    },
     "faq_section_limits" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4172,6 +4288,64 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Chia sẻ & Quyền xem lịch"
+          }
+        }
+      }
+    },
+    "faq_todo_limit_a" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Free users can create a limited number of to-do items per event. Premium users can create and manage more to-do items without restrictions."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "無料ユーザーは、イベントごとに作成できるToDoの数に制限があります。Premiumでは、制限なくToDoを作成・管理できます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "무료 사용자는 이벤트당 생성할 수 있는 할 일 수에 제한이 있습니다. Premium 사용자는 제한 없이 할 일을 생성하고 관리할 수 있습니다."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Người dùng miễn phí chỉ có thể tạo một số lượng công việc nhất định cho mỗi sự kiện. Với Premium, bạn có thể tạo và quản lý nhiều công việc hơn mà không bị giới hạn."
+          }
+        }
+      }
+    },
+    "faq_todo_limit_q" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Are there limits for to-do lists?"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ToDoリストに制限はありますか？"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "할 일 목록에 제한이 있나요?"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Danh sách công việc có bị giới hạn không?"
           }
         }
       }
@@ -6496,6 +6670,35 @@
         }
       }
     },
+    "notification_new_message_title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New message"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新しいメッセージ"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "새 메시지"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tin nhắn mới"
+          }
+        }
+      }
+    },
     "notifications" : {
       "localizations" : {
         "en" : {
@@ -6729,6 +6932,7 @@
       }
     },
     "Ok" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -8005,6 +8209,35 @@
           "stringUnit" : {
             "state" : "needs_review",
             "value" : "Toàn quyền sử dụng lịch chia sẻ"
+          }
+        }
+      }
+    },
+    "premium_feature_unlimited_chat" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlimited chat messages in events"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "イベント内でのチャットが無制限"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이벤트 내 채팅 무제한"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nhắn tin không giới hạn trong sự kiện"
           }
         }
       }
@@ -10832,6 +11065,35 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Lịch sử đã xem"
+          }
+        }
+      }
+    },
+    "wait_ok" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OK, I'll wait"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "待ちます"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "기다릴게요"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "OK, tôi sẽ chờ"
           }
         }
       }

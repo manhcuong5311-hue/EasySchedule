@@ -61,6 +61,10 @@ struct PremiumIntroView: View {
                             text: String(localized: "premium_feature_shared")
                         )
                         PremiumFeatureRow(
+                              icon: "bubble.left.and.bubble.right.fill",
+                              text: String(localized: "premium_feature_unlimited_chat")
+                          )
+                        PremiumFeatureRow(
                             icon: "checklist",
                             text: String(localized: "premium_feature_more_todos")
                         )

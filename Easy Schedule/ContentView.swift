@@ -2390,7 +2390,7 @@ struct CustomizableCalendarView: View {
             }
 
             .alert(String(localized: "delete_event_title"), isPresented: $showDeleteAlert) {
-                Button(String(localized: "Ok"), role: .destructive) {
+                Button(String(localized: "ok"), role: .destructive) {
                     if let e = eventToDelete { eventManager.deleteEvent(e) }
                     eventToDelete = nil
                 }
@@ -2404,7 +2404,7 @@ struct CustomizableCalendarView: View {
                 String(localized: "notification"),
                 isPresented: $showOffDayAlert
             ) {
-                Button(String(localized: "Ok")) { }
+                Button(String(localized: "ok")) { }
             } message: {
                 Text(offDayAlertMessage)
             }
@@ -2735,7 +2735,7 @@ struct AddEventView: View {
 
             // PREMIUM popup
             .alert(alertMessage, isPresented: $showAlert) {
-                Button("OK", role: .cancel) {}
+                Button(String(localized:"ok"), role: .cancel) {}
             }
         }
     }
