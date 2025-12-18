@@ -132,7 +132,7 @@ struct PremiumUpgradeSheet: View {
                     set: { _ in purchaseError = nil }
                 )
             ) {
-                Button("OK", role: .cancel) {}
+                Button(String(localized:"ok"), role: .cancel) {}
             } message: {
                 Text(purchaseError ?? "")
             }

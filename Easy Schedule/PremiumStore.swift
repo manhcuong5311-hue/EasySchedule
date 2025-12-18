@@ -226,5 +226,15 @@ actor PremiumStore {
     enum PremiumError: LocalizedError {
         case unverified
         case timeout
+
+        var errorDescription: String? {
+            switch self {
+            case .unverified:
+                return String(localized: "premium_error_unverified")
+            case .timeout:
+                return String(localized: "premium_error_timeout")
+            }
+        }
     }
+
 }

@@ -13,7 +13,6 @@ import GoogleSignIn
 import LocalAuthentication
 import UIKit
 import FirebaseFirestore
-import UserNotifications
 import FirebaseFunctions
 
 final class NotificationManager: ObservableObject {
@@ -41,7 +40,11 @@ final class NotificationManager: ObservableObject {
 
         let content = UNMutableNotificationContent()
         content.title = event.title
-        content.body = String(localized: "upcoming_event_message") + event.title
+        content.body = String(
+            format: String(localized: "upcoming_event_message"),
+            event.title
+        )
+
         content.sound = .default
 
         let triggerDate = Calendar.current.date(byAdding: .minute, value: -leadTime, to: event.startTime) ?? event.startTime
@@ -218,8 +221,7 @@ struct SettingsView: View {
                     Button {
                         showPrivacySheet = true
                     } label: {
-                        Label("Privacy Policy & App Info", systemImage: "doc.text")
-                    }
+                        Label(String(localized: "privacy_policy_and_info"), systemImage: "doc.text")                    }
 
                     Button {
                         contactSupport()
@@ -230,7 +232,7 @@ struct SettingsView: View {
                     NavigationLink {
                         FAQView()
                     } label: {
-                        Label("FAQ", systemImage: "questionmark.circle")
+                        Label(String(localized: "faq"), systemImage: "questionmark.circle")
                     }
 
                 } header: {
@@ -346,7 +348,7 @@ struct FAQView: View {
                 expandedSection: $expandedSection
             )
         }
-        .navigationTitle("FAQ")
+        .navigationTitle(String(localized: "faq"))
     }
 }
 struct FAQSectionView: View {
@@ -427,7 +429,7 @@ struct PrivacyPolicyView: View {
                         .font(.headline)
                     Text(String(localized: "privacy_text"))
                         .font(.body)
-                    Link("Website 🧾 Privacy Policy & App Info", destination: URL(string: "https://manhcuong5311-hue.github.io/easyschedule-privacy/")!)
+                    Link(String(localized: "privacy_policy_link"), destination: URL(string: "https://manhcuong5311-hue.github.io/easyschedule-privacy/")!)
                 }
                 .padding()
             }
@@ -467,7 +469,7 @@ struct SecuritySettingsView: View {
                         }
                     ))
                     .alert(String(localized: "security_biometric_fail"), isPresented: $showAuthError) {
-                        Button("OK", role: .cancel) {}
+                        Button(String(localized:"ok"), role: .cancel) {}
                     }
                     
                     // Auto Lock Toggle

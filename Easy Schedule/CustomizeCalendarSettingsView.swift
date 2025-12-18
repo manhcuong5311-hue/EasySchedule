@@ -24,14 +24,14 @@ struct CustomizeCalendarSettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section(header: Text("display_section_title")) {
-                    Toggle("show_owner_label", isOn: $showOwnerLabel)
+                Section(header: Text(String(localized: "display_section_title"))) {
+                    Toggle(String(localized: "show_owner_label"), isOn: $showOwnerLabel)
                 }
 
 
                 Section(header: Text(String(localized:"time_display_section_title"))) {
                     HStack {
-                        Text("size_label")
+                        Text(String(localized: "size_label"))
                         Spacer()
                         Text("\(Int(timeFontSize)) pt")
                             .foregroundColor(.secondary)

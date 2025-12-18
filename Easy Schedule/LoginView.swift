@@ -382,7 +382,9 @@ struct MainView: View {
 
             Button(String(localized:"logout")) {
                 do { try Auth.auth().signOut() }
-                catch { print("Logout error:", error.localizedDescription) }
+                catch {
+                    print(String(localized: "log_logout_error"), error.localizedDescription)
+                }
             }
             .foregroundColor(.red)
 

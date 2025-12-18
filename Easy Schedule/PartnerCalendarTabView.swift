@@ -123,8 +123,9 @@ struct PartnerCalendarTabView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         if let uid = parsedUID {
                             HStack {
-                                Text("UID:")
+                                Text(String(localized: "uid_label") + ":")
                                     .bold()
+
 
                                 Text(uid)
                                     .foregroundColor(.secondary)
@@ -343,7 +344,8 @@ struct PartnerCalendarTabView: View {
         Group {
             if let uid = parsedUID {
                 HStack {
-                    Text("UID:").bold()
+                    Text(String(localized: "uid_label") + ":")
+                        .bold()
                     Text(uid).lineLimit(1)
                     Spacer()
                     Text(
@@ -625,8 +627,9 @@ struct HistoryLinksView: View {
                     Text(link.displayName ?? "")
                         .font(.headline)
 
-                    Text("UID: \(link.uid)")
+                    Text("\(String(localized: "uid_label")): \(link.uid)")
                         .font(.caption)
+
 
                     Text(formatDate(link.createdAt))
                         .font(.caption2)
@@ -644,7 +647,7 @@ struct HistoryLinksView: View {
                     placement: .navigationBarDrawer(displayMode: .automatic),
                     prompt: String(localized: "search_name"))
         .alert(String(localized:"link_copied"), isPresented: $showCopied) {
-            Button("OK") {}
+            Button(String(localized:"ok")) {}
         }
     }
 
