@@ -40,7 +40,7 @@ class SessionStore: ObservableObject {
                 }
 
                 guard let docs = snapshot?.documents, !docs.isEmpty else {
-                    print("ℹ️ Không có event hết hạn để xoá.")
+                    print("ℹ️ No expired events to clean.")
                     return
                 }
 
@@ -51,7 +51,7 @@ class SessionStore: ObservableObject {
                     if let error = error {
                         print("❌ batch delete error:", error.localizedDescription)
                     } else {
-                        print("🧹 Firebase cleanup: đã xoá \(docs.count) event hết hạn cho user \(uid)")
+                        print("🧹 Firebase cleanup: deleted \(docs.count) expired events for user \(uid)")
                     }
                 }
             }
@@ -179,7 +179,8 @@ class SessionStore: ObservableObject {
             self.currentUserName = ""
 
         } catch {
-            print("❌ Logout error:", error)
+            print("❌ Logout error:", error.localizedDescription)
+
         }
     }
 

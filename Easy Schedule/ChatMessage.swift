@@ -371,7 +371,13 @@ struct TodoListView: View {
                         ? String(localized:"you")
                             : (nameCache.names[uid] ?? uid)
 
-                        Text("✓ \(name)")
+                        Text(
+                            String(
+                                format: String(localized: "todo_done_by"),
+                                name
+                            )
+                        )
+
                             .font(.caption2)
                             .foregroundColor(uid == myId ? .blue : .green)
                             .padding(.horizontal, 6)
@@ -576,7 +582,7 @@ class ChatViewModel: ObservableObject {
         }
 
         chatRef.setData([
-            "lastMessage": "📍 Location",
+            "lastMessage": String(localized: "location_message"),
             "lastMessageTime": Timestamp(),
             "unread": [
                 myId: false,
@@ -1056,20 +1062,23 @@ struct ChatView: View {
 
 
     private var timeSummary: String {
-        let dfDate = DateFormatter()
-        dfDate.locale = Locale(identifier: "vi_VN")
-        dfDate.dateFormat = "dd/MM/yyyy"
+        let date = eventInfo.startTime.formatted(
+            .dateTime.day().month().year()
+        )
 
-        let dfTime = DateFormatter()
-        dfTime.locale = Locale(identifier: "vi_VN")
-        dfTime.dateFormat = "HH:mm"
+        let start = eventInfo.startTime.formatted(
+            date: .omitted,
+            time: .shortened
+        )
 
-        let date = dfDate.string(from: eventInfo.startTime)
-        let start = dfTime.string(from: eventInfo.startTime)
-        let end = dfTime.string(from: eventInfo.endTime)
+        let end = eventInfo.endTime.formatted(
+            date: .omitted,
+            time: .shortened
+        )
 
         return "\(date) · \(start)–\(end)"
     }
+
 }
 
 

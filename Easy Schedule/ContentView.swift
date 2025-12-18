@@ -576,7 +576,7 @@ extension EventManager {
 
         // KHÔNG ĐƯỢC TẠO LỊCH TRONG QUÁ KHỨ
         if endTime < now {
-            self.alertMessage = String(localized: "cant_create_events_in_the_past.")
+            self.alertMessage = String(localized: "cant_create_events_in_the_past")
             self.showAlert = true
             return false
         }
@@ -953,7 +953,7 @@ extension EventManager {
             let overlap = busySlots.contains { $0.startTime < end && $0.endTime > start }
             if overlap {
                 DispatchQueue.main.async { self.isAdding = false }
-                completion(false, String(localized: "This_time_slot_is_already_booked!"))
+                completion(false, String(localized: "this_time_slot_is_already_booked"))
                 return
             }
             // 2️⃣ BOOKING RANGE RULE (FREE vs PREMIUM)
@@ -974,14 +974,14 @@ extension EventManager {
                    start > maxDate {
 
                     DispatchQueue.main.async { self.isAdding = false }
-                    completion(false, String(localized: "You_can_only_book_within_the_next_7days."))
+                    completion(false, String(localized: "booking_limit_7_days"))
                     return
                 }
             }
             // 3️⃣ Tạo dữ liệu Firestore
             guard let currentUid = Auth.auth().currentUser?.uid else {
                 DispatchQueue.main.async { self.isAdding = false }
-                completion(false, String(localized: "You_need_to_log_in."))
+                completion(false, String(localized: "you_need_to_log_in"))
                 return
             }
             // 2️⃣.5 CHECK LIMIT BY CREATOR (B)
@@ -1025,12 +1025,15 @@ extension EventManager {
                 DispatchQueue.main.async { self.isAdding = false }
 
                 if let err = err {
-                    completion(false, "Failed_to_create_event: \(err.localizedDescription)")
+                    completion(
+                        false,
+                        String(localized: "failed_to_create_event") + ": " + err.localizedDescription
+                    )
                     return
                 }
 
                 guard let id = ref?.documentID else {
-                    completion(false, "Missing document ID")
+                    completion(false, String(localized: "missing_document_id"))
                     return
                 }
 
@@ -1038,7 +1041,7 @@ extension EventManager {
                 self.db.collection("events").document(id).getDocument { snap, err in
                     guard let snap = snap,
                           let newEvent = CalendarEvent.from(snap) else {
-                        completion(false, "Failed to load created event")
+                        completion(false, String(localized: "failed_to_load_created_event"))
                         return
                     }
 
@@ -1052,7 +1055,7 @@ extension EventManager {
                     completion(true, nil)
 
                     DispatchQueue.main.async {
-                        self.alertMessage = String(localized: "Booking_created_successfully!")
+                        self.alertMessage = String(localized: "booking_created_successfully")
                         self.showAlert = true
                     }
                 }
@@ -1069,7 +1072,7 @@ extension EventManager {
 
             let newSlot: [String: Any] = [
                 "id": UUID().uuidString,
-                "title": "Bận",
+                "title": String(localized: "busy"),
                 "start": start.timeIntervalSince1970,
                 "end": end.timeIntervalSince1970
             ]
@@ -1222,7 +1225,7 @@ extension EventManager {
 
                     return CalendarEvent(
                         id: dict["id"] as? String ?? UUID().uuidString,
-                        title: dict["title"] as? String ?? "Bận",
+                        title: dict["title"] as? String ?? String(localized: "busy"),
                         date: Calendar.current.startOfDay(for: s),
                         startTime: s,
                         endTime: e,
@@ -1816,7 +1819,7 @@ struct EventListView: View {
                     }
                 }
 
-                Text("•")
+                Text(String(localized: "bullet_separator"))
                     .font(.subheadline)
                     .foregroundColor(.secondary)
 
@@ -2632,7 +2635,9 @@ struct AddEventView: View {
                         // 1️⃣ Kiểm tra ngày nghỉ
                         if offDays.contains(where: { calendar.isDate($0, inSameDayAs: date) }) {
                             let prefix = String(localized: "off_day_prefix")
-                            offDayMessage = "\(prefix) \(formattedDate(date)) là ngày nghỉ, bạn không thể đặt lịch."
+                            let template = String(localized: "off_day_full_message")
+                            offDayMessage = template
+                                .replacingOccurrences(of: "{date}", with: formattedDate(date))
                             showOffDayAlert = true
                             eventManager.isAdding = false
                             return
@@ -2693,7 +2698,7 @@ struct AddEventView: View {
                                 s < ev.endTime
                             }
                             if overlap {
-                                alertMessage = String(localized: "time_slot_taken!")
+                                alertMessage = String(localized: "time_slot_taken")
                                 showAlert = true
                                 eventManager.isAdding = false
                                 return
@@ -2956,7 +2961,7 @@ struct DayEventsSheetView: View {
                         // A tạo cho B
                         HStack(spacing: 4) {
                             UserNameView(uid: event.createdBy)   // A
-                            Text("→")
+                            Text(String(localized: "arrow_right"))
                             UserNameView(uid: event.owner)       // B
                         }
                         .font(.subheadline)

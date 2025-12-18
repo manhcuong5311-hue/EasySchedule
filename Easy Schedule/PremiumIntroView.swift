@@ -68,7 +68,13 @@ struct PremiumIntroView: View {
                             icon: "checklist",
                             text: String(localized: "premium_feature_more_todos")
                         )
+                        PremiumFeatureRow(
+                            icon: "arrow.triangle.2.circlepath",
+                            text: String(localized: "premium_feature_cloud_sync")
+                        )
 
+                        
+                        
                     }
                     .padding(.top, 4)
 

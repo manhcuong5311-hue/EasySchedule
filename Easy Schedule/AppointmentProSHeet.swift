@@ -180,7 +180,7 @@ struct AppointmentProSheet: View {
 
             // Popup thành công
             .alert( String(localized: "success"), isPresented: $showSuccessAlert) {
-                Button("OK") {
+                Button(String(localized:"ok")) {
                     isPresented = false
                 }
             } message: {
@@ -189,7 +189,7 @@ struct AppointmentProSheet: View {
 
             // Popup Premium — KHÔNG dùng lại errorMessage nữa
             .alert(String(localized: "notification"), isPresented: $showPremiumAlert) {
-                Button("OK", role: .cancel) {}
+                Button(String(localized:"ok"), role: .cancel) {}
             } message: {
                 Text(String(localized: "user_not_premium"))
             }
@@ -327,7 +327,7 @@ struct AppointmentProSheet: View {
         if selectedDate > maxDate {
             errorMessage = partnerIsPremium
                 ? String(localized: "premium_booking_limit_180_days")
-                : String(localized: "You_can_only_book_within_the_next_7days.")
+                : String(localized: "booking_limit_7_days")
             return
         }
 
@@ -579,9 +579,9 @@ struct SlotRowPro: View {
     }
 
     private func timeString(_ d: Date) -> String {
-        let f = DateFormatter(); f.timeStyle = .short; f.locale = Locale(identifier: "vi_VN")
-        return f.string(from: d)
+        d.formatted(date: .omitted, time: .shortened)
     }
+
 }
 struct HistoryView: View {
     @EnvironmentObject var eventManager: EventManager
@@ -608,7 +608,12 @@ struct HistoryView: View {
                                 .font(.subheadline)
 
 
-                            Text("UID: \(link.uid)")
+                            Text(
+                                String(
+                                    format: String(localized: "uid_prefix"),
+                                    link.uid
+                                )
+                            )
                                 .font(.caption)
                                 .foregroundColor(.secondary)
 
@@ -643,7 +648,7 @@ struct HistoryView: View {
             }
             .navigationTitle(String(localized: "viewed_history"))
             .alert(String(localized: "link_copied"), isPresented: $showCopied) {
-                Button("OK", role: .cancel) {}
+                Button(String(localized:"ok"), role: .cancel) {}
             }
         }
     }
@@ -957,9 +962,14 @@ struct CreatedEventsByDateView: View {
                 VStack(alignment: .leading) {
                     Text(ev.title).font(.headline)
                     let template = String(localized: "event_owner")
-                    Text(template.replacingOccurrences(of: "{name}", with: ev.owner))
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                    Text(
+                        String(
+                            format: String(localized: "event_owner1"),
+                            ev.owner
+                        )
+                    )
+                    .font(.caption)
+                    .foregroundColor(.secondary)
                     Text("\(formatTime(ev.startTime)) – \(formatTime(ev.endTime))")
                         .font(.caption)
                 }
