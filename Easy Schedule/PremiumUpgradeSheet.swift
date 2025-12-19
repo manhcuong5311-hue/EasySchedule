@@ -26,9 +26,14 @@ struct PremiumUpgradeSheet: View {
                     // MARK: - Header
                     VStack(spacing: 10) {
 
-                        Text(String(localized: "upgrade_premium_title"))
-                            .font(.largeTitle.bold())
-                            .multilineTextAlignment(.center)
+                        Text(String(localized: "premium_includes_title"))
+                               .font(.headline)
+
+                        Text("• " + String(localized: "premium_feature_events_per_day"))
+                           Text("• " + String(localized: "premium_feature_advance_days"))
+                           Text("• " + String(localized: "premium_feature_chat"))
+                           Text("• " + String(localized: "premium_feature_todo"))
+                           Text("• " + String(localized: "premium_feature_sync"))
 
                         Text(String(localized: "upgrade_premium_subtitle"))
                             .font(.body)

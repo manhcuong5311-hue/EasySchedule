@@ -89,6 +89,9 @@ class TodoViewModel: ObservableObject {
     deinit {
         listener?.remove()
     }
+    var unfinishedCount: Int {
+        todos.filter { !($0.doneBy[myId] ?? false) }.count
+    }
 
     func listen() {
         listener?.remove()
@@ -677,6 +680,7 @@ struct ChatView: View {
     @State private var geocodeInProgress: Set<String> = []
     @State private var showTodoList = false
     @EnvironmentObject var premium: PremiumStoreViewModel
+    @StateObject private var todoVM: TodoViewModel
 
     @State private var showLimitAlert = false
     @State private var showPremiumSheet = false
@@ -698,6 +702,12 @@ struct ChatView: View {
                 myName: SessionStore().currentUserName
             )
         )
+        _todoVM = StateObject(
+               wrappedValue: TodoViewModel(
+                   chatId: eventId,
+                   myId: SessionStore().currentUserId ?? ""
+               )
+           )
     }
     
     var body: some View {
@@ -841,6 +851,11 @@ struct ChatView: View {
                     } label: {
                         Image(systemName: "checklist")
                             .font(.system(size: 20))
+                        if todoVM.unfinishedCount > 0 {
+                                           Text("\(todoVM.unfinishedCount)")
+                                               .font(.caption2.bold())
+                                               .foregroundColor(.secondary)
+                                       }
                     }
                 }
             }
@@ -881,11 +896,13 @@ struct ChatView: View {
             }
             vm.markSeen()
             vm.autoDeleteIfPast(eventEndTime)
+            todoVM.listen()
         }
         .onDisappear {
             if ChatForegroundTracker.shared.activeChatEventId == eventId {
                 ChatForegroundTracker.shared.activeChatEventId = nil
             }
+            todoVM.stop()
         }
 
         
