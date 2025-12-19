@@ -961,7 +961,6 @@ struct CreatedEventsByDateView: View {
             List(eventsForDay) { ev in
                 VStack(alignment: .leading) {
                     Text(ev.title).font(.headline)
-                    let template = String(localized: "event_owner")
                     Text(
                         String(
                             format: String(localized: "event_owner1"),
