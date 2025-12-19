@@ -14,21 +14,53 @@ import LocalAuthentication
 import UIKit
 import FirebaseFirestore
 import FirebaseFunctions
+import FirebaseMessaging
+
+struct PushPreferenceManager {
+
+    static func enablePush() {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+
+        Messaging.messaging().token { token, _ in
+            guard let token else { return }
+
+            Firestore.firestore()
+                .collection("users")
+                .document(uid)
+                .setData([
+                    "notificationTokens": FieldValue.arrayUnion([token])
+                ], merge: true)
+        }
+    }
+
+    static func disablePush() {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+
+        Messaging.messaging().token { token, _ in
+            guard let token else { return }
+
+            Firestore.firestore()
+                .collection("users")
+                .document(uid)
+                .updateData([
+                    "notificationTokens": FieldValue.arrayRemove([token])
+                ])
+        }
+    }
+}
 
 final class NotificationManager: ObservableObject {
     static let shared = NotificationManager()
     @Published var notificationsEnabled = false
     @Published var leadTime: Int = 15 // phút trước khi nhắc
-    @AppStorage("firebasePushEnabled") private var firebasePushEnabled = true
-
-    
-    
-    
+ 
     func requestPermission() {
         UserNotifications.UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
             DispatchQueue.main.async {
                 self.notificationsEnabled = granted
+                UserDefaults.standard.set(granted, forKey: "notificationsEnabled")
             }
+
             if let error = error {
                 print("❌ Lỗi xin quyền thông báo: \(error.localizedDescription)")
             }
@@ -81,8 +113,6 @@ struct SettingsView: View {
     // MARK: - Environment Objects
     @EnvironmentObject var session: SessionStore
     @EnvironmentObject var premium: PremiumStoreViewModel
-    @AppStorage("firebasePushEnabled") private var firebasePushEnabled = true
-
 
     // MARK: - Constants
     let leadTimeOptions = [5, 10, 15, 30, 60]
@@ -97,8 +127,13 @@ struct SettingsView: View {
                     Toggle(isOn: $pushNotificationsEnabled) {
                         Label(String(localized: "notify_before_event"), systemImage: "bell.fill")
                     }
-                    .onChange(of: pushNotificationsEnabled) { _, newValue in
-                        if newValue { NotificationManager.shared.requestPermission() }
+                    .onChange(of: pushNotificationsEnabled) { _, enabled in
+                        if enabled {
+                            NotificationManager.shared.requestPermission()
+                            PushPreferenceManager.enablePush()
+                        } else {
+                            PushPreferenceManager.disablePush()
+                        }
                     }
 
                     Picker(selection: $leadTime) {
@@ -588,13 +623,22 @@ struct LockScreenView: View {
 
 
 
-class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+class AppDelegate: NSObject,
+                   UIApplicationDelegate,
+                   UNUserNotificationCenterDelegate,
+                   MessagingDelegate {
+
 
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
 
         // Firebase
         FirebaseApp.configure()
+        // Firebase Messaging
+        Messaging.messaging().delegate = self
+
+        // Register for remote notifications (APNs)
+        application.registerForRemoteNotifications()
 
         // Firestore offline cache
         let db = Firestore.firestore()
@@ -626,6 +670,25 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     func applicationDidEnterBackground(_ application: UIApplication) {
         ChatForegroundTracker.shared.activeChatEventId = nil
     }
+    // APNs device token → Firebase
+    func application(_ application: UIApplication,
+                     didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        Messaging.messaging().apnsToken = deviceToken
+    }
+
+    // Nhận FCM token
+    func messaging(_ messaging: Messaging,
+                   didReceiveRegistrationToken fcmToken: String?) {
+        guard let token = fcmToken else { return }
+
+        print("🔥 FCM TOKEN:", token)
+
+        // chỉ lưu nếu user đang bật push
+        if UserDefaults.standard.bool(forKey: "pushNotificationsEnabled") {
+            PushPreferenceManager.enablePush()
+        }
+    }
+
 
     // Show banner in foreground
     func userNotificationCenter(_ center: UNUserNotificationCenter,
