@@ -703,21 +703,31 @@ class AppDelegate: NSObject,
     ) {
         let userInfo = response.notification.request.content.userInfo
 
-        // Lấy payload từ push
-        guard
-            let type = userInfo["type"] as? String,
-            let eventId = userInfo["eventId"] as? String
-        else {
+        guard let type = userInfo["type"] as? String else {
             completionHandler()
             return
         }
 
         DispatchQueue.main.async {
-            NotificationRouter.shared.handle(type: type, eventId: eventId)
+
+            switch type {
+
+            case "chat", "event":
+                if let eventId = userInfo["eventId"] as? String {
+                    NotificationRouter.shared.handle(type: type, eventId: eventId)
+                }
+
+            case "calendar_access_request":
+                NotificationRouter.shared.handleAccessRequest()
+
+            default:
+                break
+            }
         }
 
         completionHandler()
     }
+
 
 }
 
@@ -746,4 +756,8 @@ final class NotificationRouter {
     private func openEvent(eventId: String) {
         UserDefaults.standard.set(eventId, forKey: "pendingEventId")
     }
+    func handleAccessRequest() {
+        UserDefaults.standard.set(true, forKey: "pendingAccessRequest")
+    }
+
 }

@@ -1312,10 +1312,8 @@ struct ContentView: View {
     @EnvironmentObject var eventManager: EventManager
     @State private var showPastEvents = false
     @State private var selectedTab: AppTab = .events
-    @State private var openChatRoute: ChatRoute?
-    @State private var openEventRoute: EventRoute?
     @State private var openChatEventId: String?
-    @State private var openEventId: String?
+    @State private var pendingChatEventId: String?
 
     var body: some View {
 
@@ -1326,6 +1324,17 @@ struct ContentView: View {
                     .navigationDestination(item: $openChatEventId) { id in
                         ChatEntryResolverView(eventId: id)
                     }
+                    .onAppear {
+
+                        // 🔔 CHAT
+                        if let chatId = pendingChatEventId,
+                           openChatEventId == nil {
+
+                            openChatEventId = chatId
+                            pendingChatEventId = nil
+                        }
+                    }
+
             }
             .tabItem {
                 Label("Events", systemImage: "list.bullet.rectangle")
@@ -1366,31 +1375,11 @@ struct ContentView: View {
         .onChange(of: eventManager.selectedChatEventId) { _, id in
             guard let id else { return }
 
-            // 1️⃣ Switch tab trước
-            selectedTab = .events
-
-            // 2️⃣ Đợi TabView + NavigationStack render xong
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                openChatEventId = id
-                eventManager.selectedChatEventId = nil
-            }
+            pendingChatEventId = id       // 1. Ghi nhớ intent
+            selectedTab = .events         // 2. Chỉ switch tab
+            eventManager.selectedChatEventId = nil
         }
-
-
-
-        // 🔔 EVENT PUSH (bạn sẽ xử lý tương tự nếu cần)
-        .onChange(of: eventManager.selectedEventId) { _, id in
-            guard let id else { return }
-
-            selectedTab = .events
-
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                openEventId = id
-                eventManager.selectedEventId = nil
-            }
-        }
-
-
+     
     }
 
     private func handlePendingPush() {
