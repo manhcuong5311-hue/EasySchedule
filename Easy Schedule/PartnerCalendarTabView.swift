@@ -293,7 +293,7 @@ struct PartnerCalendarTabView: View {
             // ================================
             .alert(isPresented: $showAlert) {
                 Alert(
-                    title: Text(String(localized: "notification")),
+                    title: Text(String(localized: "error")),
                     message: Text(alertMessage),
                     dismissButton: .default(Text(String(localized: "close")))
                 )
