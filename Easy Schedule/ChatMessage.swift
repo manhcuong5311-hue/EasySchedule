@@ -883,8 +883,20 @@ struct ChatView: View {
             TodoListView(chatId: eventId, myId: session.currentUserId ?? "")
         }
         .onAppear {
+            // ⭐ Local state (giữ nguyên)
             ChatForegroundTracker.shared.activeChatEventId = eventId
 
+            // ⭐ Backend state (THÊM)
+            if let uid = session.currentUserId {
+                Firestore.firestore()
+                    .collection("users")
+                    .document(uid)
+                    .setData([
+                        "activeChatEventId": eventId
+                    ], merge: true)
+            }
+
+            // ===== code cũ của bạn =====
             Task {
                 await vm.ensureChatExists(
                     participants: [
@@ -899,13 +911,24 @@ struct ChatView: View {
             todoVM.listen()
         }
         .onDisappear {
+            // ⭐ Local state (giữ nguyên)
             if ChatForegroundTracker.shared.activeChatEventId == eventId {
                 ChatForegroundTracker.shared.activeChatEventId = nil
             }
+
+            // ⭐ Backend state (THÊM)
+            if let uid = session.currentUserId {
+                Firestore.firestore()
+                    .collection("users")
+                    .document(uid)
+                    .setData([
+                        "activeChatEventId": FieldValue.delete()
+                    ], merge: true)
+            }
+
             todoVM.stop()
         }
 
-        
         
     }
     func fetchAddress(lat: Double, lon: Double, id: String, completion: @escaping (String) -> Void) {

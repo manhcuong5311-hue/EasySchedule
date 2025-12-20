@@ -50,7 +50,7 @@ struct CalendarEvent: Identifiable, Hashable, Codable {
 
 final class EventManager: ObservableObject {
     static let shared = EventManager()
-    @EnvironmentObject var session: SessionStore
+
     // Firestore listeners
     @Published var busySlotCache: [String: [CalendarEvent]] = [:]
     @Published var busySlotPremiumCache: [String: Bool] = [:]
@@ -72,6 +72,8 @@ final class EventManager: ObservableObject {
     // --- Persisted user name cache key
     private let kUserNamesKey = "es_userNames_cache_v1"
     private var lastEventCreateTime: Date?
+    @Published var selectedChatEventId: String?
+    @Published var selectedEventId: String?
 
     // persisted + in-memory cache
     @Published var userNames: [String: String] = [:] {
@@ -853,7 +855,13 @@ extension EventManager {
     }
 
 
+    func openChat(eventId: String) {
+          selectedChatEventId = eventId
+      }
 
+      func openEvent(eventId: String) {
+          selectedEventId = eventId
+      }
 
 
     // MARK: - Remove busy slot
@@ -1269,6 +1277,7 @@ extension EventManager {
     var currentUserId: String? {
         Auth.auth().currentUser?.uid
     }
+    
 }
 
 
@@ -1283,50 +1292,117 @@ extension Array {
     }
 }
 
+struct ChatRoute: Identifiable, Hashable {
+    let id: String
+}
+
+struct EventRoute: Identifiable, Hashable {
+    let id: String
+}
+
+enum AppTab: Hashable {
+    case events
+    case calendar
+    case partners
+    case settings
+}
 // MARK: - ContentView
 struct ContentView: View {
-    
+
     @EnvironmentObject var eventManager: EventManager
     @State private var showPastEvents = false
-    
+    @State private var selectedTab: AppTab = .events
+    @State private var openChatRoute: ChatRoute?
+    @State private var openEventRoute: EventRoute?
+    @State private var openChatEventId: String?
+    @State private var openEventId: String?
+
     var body: some View {
-        
-        TabView {
-            
+
+        TabView(selection: $selectedTab) {
+
             NavigationStack {
                 EventListView(showPastEvents: $showPastEvents)
+                    .navigationDestination(item: $openChatEventId) { id in
+                        ChatEntryResolverView(eventId: id)
+                    }
             }
             .tabItem {
-                Label(String(localized: "event_list"), systemImage: "list.bullet.rectangle")
+                Label("Events", systemImage: "list.bullet.rectangle")
             }
-            
+            .tag(AppTab.events)
+
             NavigationStack {
                 CustomizableCalendarView()
             }
             .tabItem {
-                Label(String(localized: "my_calendar"), systemImage: "calendar")
+                Label("Calendar", systemImage: "calendar")
             }
-            
+            .tag(AppTab.calendar)
+
             NavigationStack {
                 PartnerCalendarTabView()
-                 
             }
             .tabItem {
-                Label(String(localized: "partners"), systemImage: "person.2.fill")
+                Label("Partners", systemImage: "person.2.fill")
             }
-            
+            .tag(AppTab.partners)
+
             NavigationStack {
                 SettingsView()
             }
             .tabItem {
-                Label(String(localized: "settings"), systemImage: "gearshape")
+                Label("Settings", systemImage: "gearshape")
             }
+            .tag(AppTab.settings)
         }
         .onAppear {
             NotificationManager.shared.requestPermission()
-
-            // ⭐⭐ THÊM DÒNG NÀY ⭐⭐
+            handlePendingPush()
             eventManager.cleanUpPastEvents()
+        }
+
+        // 🔔 CHAT PUSH
+        .onChange(of: eventManager.selectedChatEventId) { _, id in
+            guard let id else { return }
+
+            // 1️⃣ Switch tab trước
+            selectedTab = .events
+
+            // 2️⃣ Đợi TabView + NavigationStack render xong
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                openChatEventId = id
+                eventManager.selectedChatEventId = nil
+            }
+        }
+
+
+
+        // 🔔 EVENT PUSH (bạn sẽ xử lý tương tự nếu cần)
+        .onChange(of: eventManager.selectedEventId) { _, id in
+            guard let id else { return }
+
+            selectedTab = .events
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                openEventId = id
+                eventManager.selectedEventId = nil
+            }
+        }
+
+
+    }
+
+    private func handlePendingPush() {
+
+        if let chatId = UserDefaults.standard.string(forKey: "pendingChatEventId") {
+            UserDefaults.standard.removeObject(forKey: "pendingChatEventId")
+            eventManager.openChat(eventId: chatId)
+        }
+
+        if let eventId = UserDefaults.standard.string(forKey: "pendingEventId") {
+            UserDefaults.standard.removeObject(forKey: "pendingEventId")
+            eventManager.openEvent(eventId: eventId)
         }
     }
 }
@@ -1368,6 +1444,7 @@ func displayName(for event: CalendarEvent, uid: String, eventManager: EventManag
 }
 
 
+
 struct EventListView: View {
     @EnvironmentObject var eventManager: EventManager
     @Binding var showPastEvents: Bool
@@ -1382,6 +1459,7 @@ struct EventListView: View {
     @EnvironmentObject var session: SessionStore
     @State private var collapsedDays: Set<Date> = []
     @State private var unreadCountForDay: Int = 0
+  
 
     // Lưu cấu hình hiển thị (AppStorage để giữ xuyên các lần chạy app)
     @AppStorage("showOwnerLabel") private var showOwnerLabel: Bool = true

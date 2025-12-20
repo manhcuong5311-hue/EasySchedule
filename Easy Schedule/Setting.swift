@@ -696,4 +696,54 @@ class AppDelegate: NSObject,
                                 withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
         completionHandler([.banner, .sound])
     }
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        let userInfo = response.notification.request.content.userInfo
+
+        // Lấy payload từ push
+        guard
+            let type = userInfo["type"] as? String,
+            let eventId = userInfo["eventId"] as? String
+        else {
+            completionHandler()
+            return
+        }
+
+        DispatchQueue.main.async {
+            NotificationRouter.shared.handle(type: type, eventId: eventId)
+        }
+
+        completionHandler()
+    }
+
+}
+
+final class NotificationRouter {
+    static let shared = NotificationRouter()
+    private init() {}
+
+    func handle(type: String, eventId: String) {
+        switch type {
+        case "chat":
+            openChat(eventId: eventId)
+
+        case "event":
+            openEvent(eventId: eventId)
+
+        default:
+            break
+        }
+    }
+
+    private func openChat(eventId: String) {
+        // Lưu tạm eventId để RootView đọc
+        UserDefaults.standard.set(eventId, forKey: "pendingChatEventId")
+    }
+
+    private func openEvent(eventId: String) {
+        UserDefaults.standard.set(eventId, forKey: "pendingEventId")
+    }
 }
