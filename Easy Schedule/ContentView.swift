@@ -1277,6 +1277,25 @@ extension EventManager {
     var currentUserId: String? {
         Auth.auth().currentUser?.uid
     }
+    func markSharedLinkConnected(uid: String) {
+
+        print("🟡 CALLED markSharedLinkConnected with uid =", uid)
+        print("📦 sharedLinks BEFORE:", sharedLinks.map { "\($0.uid)-\($0.status.rawValue)" })
+
+        guard let index = sharedLinks.firstIndex(where: { $0.uid == uid }) else {
+            print("❌ NO MATCH SharedLink for uid =", uid)
+            return
+        }
+
+        sharedLinks[index].status = .connected
+        sharedLinks[index].allowedAt = Date()
+
+        print("📦 sharedLinks AFTER:", sharedLinks.map { "\($0.uid)-\($0.status.rawValue)" })
+
+        saveSharedLinks()
+        print("💾 saveSharedLinks CALLED")
+    }
+
     
 }
 
@@ -1337,7 +1356,7 @@ struct ContentView: View {
 
             }
             .tabItem {
-                Label("Events", systemImage: "list.bullet.rectangle")
+                Label("tab_events", systemImage: "list.bullet.rectangle")
             }
             .tag(AppTab.events)
 
@@ -1345,7 +1364,7 @@ struct ContentView: View {
                 CustomizableCalendarView()
             }
             .tabItem {
-                Label("Calendar", systemImage: "calendar")
+                Label("tab_calendar", systemImage: "calendar")
             }
             .tag(AppTab.calendar)
 
@@ -1353,7 +1372,7 @@ struct ContentView: View {
                 PartnerCalendarTabView()
             }
             .tabItem {
-                Label("Partners", systemImage: "person.2.fill")
+                Label("tab_partners", systemImage: "person.2.fill")
             }
             .tag(AppTab.partners)
 
@@ -1361,7 +1380,7 @@ struct ContentView: View {
                 SettingsView()
             }
             .tabItem {
-                Label("Settings", systemImage: "gearshape")
+                Label("tab_settings", systemImage: "gearshape")
             }
             .tag(AppTab.settings)
         }
@@ -2983,12 +3002,13 @@ struct CalendarGridView: View {
             // MARK: - Tên thứ trong tuần
             HStack {
                 let symbols = Array(calendar.veryShortStandaloneWeekdaySymbols[1...6]) + [calendar.veryShortStandaloneWeekdaySymbols[0]]
-                ForEach(symbols, id: \.self) { symbol in
+                ForEach(Array(symbols.enumerated()), id: \.offset) { _, symbol in
                     Text(symbol)
                         .font(.caption)
                         .frame(maxWidth: .infinity)
                         .foregroundColor(.secondary)
                 }
+
             }
             
             // MARK: - Lưới ngày

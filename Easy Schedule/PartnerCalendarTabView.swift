@@ -55,66 +55,48 @@ struct PartnerCalendarTabView: View {
                     // ================================
                     // MARK: ACTION BUTTONS
                     // ================================
-                    VStack(spacing: 14) {
+                    VStack(alignment: .leading, spacing: 12) {
 
-                        // LỊCH SỬ ĐÃ XEM
-                        Button {
-                            showHistorySheet = true
-                        } label: {
-                            HStack(spacing: 12) {
-                                Image(systemName: "clock.arrow.circlepath")
-                                    .font(.system(size: 18, weight: .medium))
-                                    .foregroundColor(.blue)
+                        Text(String(localized: "manage_sharing"))
+                            .font(.headline)
+                            .padding(.leading, 4)
 
-                                Text(String(localized: "viewed_history"))
-                                    .font(.system(size: 16, weight: .semibold))
+                        VStack(spacing: 0) {
 
-                                Spacer()
+                            manageRow(
+                                icon: "clock.arrow.circlepath",
+                                title: String(localized: "viewed_history")
+                            ) {
+                                showHistorySheet = true
                             }
-                            .padding()
-                            .background(Color.blue.opacity(0.15))
-                            .cornerRadius(14)
-                        }
 
-                        // LỊCH TÔI TẠO CHO NGƯỜI KHÁC
-                        Button {
-                            showMyCreatedEvents = true
-                        } label: {
-                            HStack(spacing: 12) {
-                                Image(systemName: "person.crop.circle.badge.plus")
-                                    .font(.system(size: 18, weight: .medium))
-                                    .foregroundColor(.blue)
+                            Divider()
 
-                                Text(String(localized: "created_for_others"))
-                                    .font(.system(size: 16, weight: .semibold))
-
-                                Spacer()
+                            manageRow(
+                                icon: "person.crop.circle.badge.plus",
+                                title: String(localized: "created_for_others")
+                            ) {
+                                showMyCreatedEvents = true
                             }
-                            .padding()
-                            .background(Color.green.opacity(0.15))
-                            .cornerRadius(14)
-                        }
 
-                        // QUẢN LÝ QUYỀN TRUY CẬP
-                        Button {
-                            showAccessSheet = true
-                        } label: {
-                            HStack(spacing: 12) {
-                                Image(systemName: "person.2.fill")
-                                    .font(.system(size: 18, weight: .medium))
-                                    .foregroundColor(.blue)
+                            Divider()
 
-                                Text(String(localized: "manage_access"))
-                                    .font(.system(size: 16, weight: .semibold))
-
-                                Spacer()
+                            manageRow(
+                                icon: "person.2.fill",
+                                title: String(localized: "manage_access")
+                            ) {
+                                showAccessSheet = true
                             }
-                            .padding()
-                            .background(Color.orange.opacity(0.15))
-                            .cornerRadius(14)
                         }
+                        .background(Color(.systemBackground))
+                        .cornerRadius(14)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14)
+                                .stroke(Color.gray.opacity(0.15))
+                        )
                     }
                     .padding(.horizontal)
+
 
 
                     // ================================
@@ -132,9 +114,10 @@ struct PartnerCalendarTabView: View {
 
                                 Spacer()
 
-                                Text(String(localized: "logged_in"))
+                                Text(String(localized: "account_active"))
                                     .foregroundColor(.green)
-                                    .font(.subheadline)
+                                    .font(.caption)
+
                             }
                         }
                     }
@@ -583,6 +566,30 @@ struct PartnerCalendarTabView: View {
         }
     }
   
+    @ViewBuilder
+    private func manageRow(
+        icon: String,
+        title: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .foregroundColor(.blue)
+                    .frame(width: 22)
+
+                Text(title)
+                    .font(.system(size: 16, weight: .medium))
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .foregroundColor(.secondary)
+            }
+            .padding()
+        }
+        .buttonStyle(.plain)
+    }
 
 
     private func sectionHeader(for day: Date) -> String {
@@ -595,6 +602,8 @@ struct PartnerCalendarTabView: View {
     }
 
 }
+
+
 
 struct HistoryLinksView: View {
     @EnvironmentObject var eventManager: EventManager
@@ -631,8 +640,22 @@ struct HistoryLinksView: View {
                         .font(.caption)
 
 
-                    Text(formatDate(link.createdAt))
-                        .font(.caption2)
+                    HStack(spacing: 8) {
+
+                        Text(formatDate(link.createdAt))
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+
+                        if link.status == .connected {
+                            Text(String(localized: "connected"))
+                                .font(.caption2)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color.green.opacity(0.15))
+                                .foregroundColor(.green)
+                                .clipShape(Capsule())
+                        }
+                    }
                 }
                 .onTapGesture { onSelect(link.uid) }
                 .onLongPressGesture {

@@ -212,24 +212,52 @@ class AllowAccessViewModel: ObservableObject {
     }
 
     func allow(_ uid: String) {
+
+        // ===== CASE 1: Có request (user đang xin phép) =====
         if let request = requests.first(where: { $0.uid == uid }) {
+
             service.allowUser(
                 ownerUid: ownerUid,
                 otherUid: uid,
                 otherUserName: request.name
             ) { success in
-                if success { self.loadAll() }
+                if success {
+
+                    DispatchQueue.main.async {
+
+                        // ⭐ HOOK: update SharedLink (local history)
+                        EventManager.shared.markSharedLinkConnected(uid: uid)
+
+                        // ===== GIỮ NGUYÊN HÀNH VI CŨ =====
+                        self.loadAll()
+                    }
+                }
             }
-        } else {
+
+        }
+        // ===== CASE 2: Không có request (allow thủ công) =====
+        else {
+
             service.allowUser(
                 ownerUid: ownerUid,
                 otherUid: uid,
                 otherUserName: nil
             ) { success in
-                if success { self.loadAll() }
+                if success {
+
+                    DispatchQueue.main.async {
+
+                        // ⭐ HOOK: update SharedLink (local history)
+                        EventManager.shared.markSharedLinkConnected(uid: uid)
+
+                        // ===== GIỮ NGUYÊN HÀNH VI CŨ =====
+                        self.loadAll()
+                    }
+                }
             }
         }
     }
+
 
     func deny(_ uid: String) {
         service.denyUser(ownerUid: ownerUid, otherUid: uid) { success in

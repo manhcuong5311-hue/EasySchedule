@@ -187,43 +187,27 @@ struct SettingsView: View {
                     Button {
                         showUpgradeSheet = true
                     } label: {
-                        HStack(spacing: 12) {
-
-                            Image(systemName: "star.fill")
-                                .foregroundColor(
-                                    premium.isPremium
-                                    ? AppColors.premiumGold
-                                    : .secondary
-                                )
-
-                            Text(
+                        HStack {
+                            Label(
                                 premium.isPremium
                                 ? String(localized: "premium_active")
-                                : String(localized: "upgrade_account")
+                                : String(localized: "upgrade_account"),
+                                systemImage: "star.fill"
                             )
-                            .fontWeight(.medium)
 
                             Spacer()
 
-                            if premium.isPremium {
-                                Text(String(localized: "premium"))
-                                    .font(.caption)
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
-                                    .background(
-                                        AppColors.premiumGold.opacity(0.2)
-                                    )
-                                    .foregroundColor(AppColors.premiumGold)
-                                    .clipShape(Capsule())
-                            } else {
-                                Text(String(localized: "free"))
-                                    .foregroundColor(.secondary)
-                                    .font(.subheadline)
-                            }
+                            Text(
+                                premium.isPremium
+                                ? String(localized: "premium")
+                                : String(localized: "free")
+                            )
+                            .font(.caption)
+                            .foregroundColor(.secondary)
                         }
-                        .padding(.vertical, 4)
-                        .contentShape(Rectangle())
                     }
+
+
 
 
                     NavigationLink {
