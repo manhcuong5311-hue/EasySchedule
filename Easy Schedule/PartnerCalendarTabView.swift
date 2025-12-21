@@ -276,7 +276,7 @@ struct PartnerCalendarTabView: View {
             // ================================
             .alert(isPresented: $showAlert) {
                 Alert(
-                    title: Text(String(localized: "error")),
+                    title: Text(String(localized: "access_required")),
                     message: Text(alertMessage),
                     dismissButton: .default(Text(String(localized: "close")))
                 )
@@ -672,6 +672,10 @@ struct HistoryLinksView: View {
         .alert(String(localized:"link_copied"), isPresented: $showCopied) {
             Button(String(localized:"ok")) {}
         }
+        .onAppear {
+            eventManager.refreshSharedLinksStatus()
+        }
+
     }
 
     private func deleteAt(at offsets: IndexSet) {

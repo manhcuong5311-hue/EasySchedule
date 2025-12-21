@@ -1295,6 +1295,26 @@ extension EventManager {
         saveSharedLinks()
         print("💾 saveSharedLinks CALLED")
     }
+    func refreshSharedLinksStatus() {
+        guard let myUid = Auth.auth().currentUser?.uid else { return }
+
+        for i in sharedLinks.indices {
+            let otherUid = sharedLinks[i].uid
+
+            AccessService.shared.isAllowed(
+                ownerUid: myUid,
+                otherUid: otherUid
+            ) { allowed in
+                DispatchQueue.main.async {
+                    if allowed {
+                        self.sharedLinks[i].status = .connected
+                    }
+                }
+            }
+        }
+
+        saveSharedLinks()
+    }
 
     
 }
