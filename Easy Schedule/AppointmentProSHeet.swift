@@ -173,7 +173,7 @@ struct AppointmentProSheet: View {
                 get: { errorMessage.map { SimpleError(id: 0, message: $0) } },
                 set: { _ in errorMessage = nil }
             )) { err in
-                Alert(title:  Text(String(localized: "error_title")),
+                Alert(title:  Text(String(localized: "cant_book_title")),
                       message: Text(err.message),
                       dismissButton: .default(Text(String(localized: "close"))))
             }
@@ -386,7 +386,17 @@ struct AppointmentProSheet: View {
         ) { success, msg in
             DispatchQueue.main.async {
                 if success { showSuccessAlert = true }
-                else { errorMessage = msg ?? String(localized: "create_event_failed") }
+                else {
+                    if let msg = msg,
+                       msg.contains("granted access") || msg.contains("permission") {
+
+                        errorMessage = String(localized: "booking_permission_required")
+
+                    } else {
+                        errorMessage = msg ?? String(localized: "create_event_failed")
+                    }
+                }
+
             }
         }
         

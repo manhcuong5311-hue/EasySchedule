@@ -1298,23 +1298,31 @@ extension EventManager {
     func refreshSharedLinksStatus() {
         guard let myUid = Auth.auth().currentUser?.uid else { return }
 
-        for i in sharedLinks.indices {
-            let otherUid = sharedLinks[i].uid
+        let links = sharedLinks
+        let group = DispatchGroup()
+
+        for link in links {
+            group.enter()
 
             AccessService.shared.isAllowed(
-                ownerUid: myUid,
-                otherUid: otherUid
+                ownerUid: link.uid,   // 🔥 SỬA Ở ĐÂY
+                otherUid: myUid
             ) { allowed in
                 DispatchQueue.main.async {
-                    if allowed {
-                        self.sharedLinks[i].status = .connected
+                    if let index = self.sharedLinks.firstIndex(where: { $0.id == link.id }) {
+                        self.sharedLinks[index].status = allowed ? .connected : .pending
                     }
+                    group.leave()
                 }
             }
         }
 
-        saveSharedLinks()
+        group.notify(queue: .main) {
+            self.saveSharedLinks()
+        }
     }
+
+
 
     
 }

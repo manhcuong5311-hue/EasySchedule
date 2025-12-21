@@ -173,7 +173,9 @@ struct PartnerCalendarTabView: View {
                                     .foregroundColor(.blue)
                             )
                     }
+                    .disabled(parsedUID == nil)
                 }
+                
             }
             .sheet(isPresented: $showHelpSheet) {
                 NavigationStack {
