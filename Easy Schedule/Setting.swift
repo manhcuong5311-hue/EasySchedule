@@ -187,43 +187,27 @@ struct SettingsView: View {
                     Button {
                         showUpgradeSheet = true
                     } label: {
-                        HStack(spacing: 12) {
-
-                            Image(systemName: "star.fill")
-                                .foregroundColor(
-                                    premium.isPremium
-                                    ? AppColors.premiumGold
-                                    : .secondary
-                                )
-
-                            Text(
+                        HStack {
+                            Label(
                                 premium.isPremium
                                 ? String(localized: "premium_active")
-                                : String(localized: "upgrade_account")
+                                : String(localized: "upgrade_account"),
+                                systemImage: "star.fill"
                             )
-                            .fontWeight(.medium)
 
                             Spacer()
 
-                            if premium.isPremium {
-                                Text(String(localized: "premium"))
-                                    .font(.caption)
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
-                                    .background(
-                                        AppColors.premiumGold.opacity(0.2)
-                                    )
-                                    .foregroundColor(AppColors.premiumGold)
-                                    .clipShape(Capsule())
-                            } else {
-                                Text(String(localized: "free"))
-                                    .foregroundColor(.secondary)
-                                    .font(.subheadline)
-                            }
+                            Text(
+                                premium.isPremium
+                                ? String(localized: "premium")
+                                : String(localized: "free")
+                            )
+                            .font(.caption)
+                            .foregroundColor(.secondary)
                         }
-                        .padding(.vertical, 4)
-                        .contentShape(Rectangle())
                     }
+
+
 
 
                     NavigationLink {
@@ -253,26 +237,47 @@ struct SettingsView: View {
 
                 // MARK: - 🛟 Support
                 Section {
+                    // ▶ View onboarding (NEW)
+                    Button {
+                        UserDefaults.standard.set(false, forKey: "hasSeenOnboarding")
+                    } label: {
+                        Label(
+                            String(localized: "view_onboarding"),
+                            systemImage: "rectangle.on.rectangle"
+                        )
+                    }
+
                     Button {
                         showPrivacySheet = true
                     } label: {
-                        Label(String(localized: "privacy_policy_and_info"), systemImage: "doc.text")                    }
+                        Label(
+                            String(localized: "privacy_policy_and_info"),
+                            systemImage: "doc.text"
+                        )
+                    }
 
                     Button {
                         contactSupport()
                     } label: {
-                        Label(String(localized: "contact_support"), systemImage: "envelope")
+                        Label(
+                            String(localized: "contact_support"),
+                            systemImage: "envelope"
+                        )
                     }
 
                     NavigationLink {
                         FAQView()
                     } label: {
-                        Label(String(localized: "faq"), systemImage: "questionmark.circle")
+                        Label(
+                            String(localized: "faq"),
+                            systemImage: "questionmark.circle"
+                        )
                     }
 
                 } header: {
                     Text(String(localized: "info_support"))
                 }
+
 
 
                 // MARK: - ⚙️ Account Actions
@@ -703,21 +708,31 @@ class AppDelegate: NSObject,
     ) {
         let userInfo = response.notification.request.content.userInfo
 
-        // Lấy payload từ push
-        guard
-            let type = userInfo["type"] as? String,
-            let eventId = userInfo["eventId"] as? String
-        else {
+        guard let type = userInfo["type"] as? String else {
             completionHandler()
             return
         }
 
         DispatchQueue.main.async {
-            NotificationRouter.shared.handle(type: type, eventId: eventId)
+
+            switch type {
+
+            case "chat", "event":
+                if let eventId = userInfo["eventId"] as? String {
+                    NotificationRouter.shared.handle(type: type, eventId: eventId)
+                }
+
+            case "calendar_access_request":
+                NotificationRouter.shared.handleAccessRequest()
+
+            default:
+                break
+            }
         }
 
         completionHandler()
     }
+
 
 }
 
@@ -746,4 +761,8 @@ final class NotificationRouter {
     private func openEvent(eventId: String) {
         UserDefaults.standard.set(eventId, forKey: "pendingEventId")
     }
+    func handleAccessRequest() {
+        UserDefaults.standard.set(true, forKey: "pendingAccessRequest")
+    }
+
 }

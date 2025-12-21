@@ -6,13 +6,23 @@
 //
 import Foundation
 
+enum LinkStatus: String, Codable {
+    case pending
+    case connected
+}
+
 struct SharedLink: Identifiable, Codable {
     var id: String
     var uid: String
-    var url: String          // 👉 chuyển sang var để update được
-    var createdAt: Date      // 👉 chuyển sang var để update được
+    var url: String
+    var createdAt: Date
+
     var isPinned: Bool = false
-    var displayName: String? = nil   // Nếu bạn có thêm trường tên
+    var displayName: String? = nil
+
+    // ✅ THÊM
+    var status: LinkStatus = .pending
+    var allowedAt: Date? = nil
 }
 
 

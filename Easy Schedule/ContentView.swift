@@ -1277,6 +1277,45 @@ extension EventManager {
     var currentUserId: String? {
         Auth.auth().currentUser?.uid
     }
+    func markSharedLinkConnected(uid: String) {
+
+        print("🟡 CALLED markSharedLinkConnected with uid =", uid)
+        print("📦 sharedLinks BEFORE:", sharedLinks.map { "\($0.uid)-\($0.status.rawValue)" })
+
+        guard let index = sharedLinks.firstIndex(where: { $0.uid == uid }) else {
+            print("❌ NO MATCH SharedLink for uid =", uid)
+            return
+        }
+
+        sharedLinks[index].status = .connected
+        sharedLinks[index].allowedAt = Date()
+
+        print("📦 sharedLinks AFTER:", sharedLinks.map { "\($0.uid)-\($0.status.rawValue)" })
+
+        saveSharedLinks()
+        print("💾 saveSharedLinks CALLED")
+    }
+    func refreshSharedLinksStatus() {
+        guard let myUid = Auth.auth().currentUser?.uid else { return }
+
+        for i in sharedLinks.indices {
+            let otherUid = sharedLinks[i].uid
+
+            AccessService.shared.isAllowed(
+                ownerUid: myUid,
+                otherUid: otherUid
+            ) { allowed in
+                DispatchQueue.main.async {
+                    if allowed {
+                        self.sharedLinks[i].status = .connected
+                    }
+                }
+            }
+        }
+
+        saveSharedLinks()
+    }
+
     
 }
 
@@ -1312,10 +1351,8 @@ struct ContentView: View {
     @EnvironmentObject var eventManager: EventManager
     @State private var showPastEvents = false
     @State private var selectedTab: AppTab = .events
-    @State private var openChatRoute: ChatRoute?
-    @State private var openEventRoute: EventRoute?
     @State private var openChatEventId: String?
-    @State private var openEventId: String?
+    @State private var pendingChatEventId: String?
 
     var body: some View {
 
@@ -1326,9 +1363,20 @@ struct ContentView: View {
                     .navigationDestination(item: $openChatEventId) { id in
                         ChatEntryResolverView(eventId: id)
                     }
+                    .onAppear {
+
+                        // 🔔 CHAT
+                        if let chatId = pendingChatEventId,
+                           openChatEventId == nil {
+
+                            openChatEventId = chatId
+                            pendingChatEventId = nil
+                        }
+                    }
+
             }
             .tabItem {
-                Label("Events", systemImage: "list.bullet.rectangle")
+                Label("tab_events", systemImage: "list.bullet.rectangle")
             }
             .tag(AppTab.events)
 
@@ -1336,7 +1384,7 @@ struct ContentView: View {
                 CustomizableCalendarView()
             }
             .tabItem {
-                Label("Calendar", systemImage: "calendar")
+                Label("tab_calendar", systemImage: "calendar")
             }
             .tag(AppTab.calendar)
 
@@ -1344,7 +1392,7 @@ struct ContentView: View {
                 PartnerCalendarTabView()
             }
             .tabItem {
-                Label("Partners", systemImage: "person.2.fill")
+                Label("tab_partners", systemImage: "person.2.fill")
             }
             .tag(AppTab.partners)
 
@@ -1352,7 +1400,7 @@ struct ContentView: View {
                 SettingsView()
             }
             .tabItem {
-                Label("Settings", systemImage: "gearshape")
+                Label("tab_settings", systemImage: "gearshape")
             }
             .tag(AppTab.settings)
         }
@@ -1366,31 +1414,11 @@ struct ContentView: View {
         .onChange(of: eventManager.selectedChatEventId) { _, id in
             guard let id else { return }
 
-            // 1️⃣ Switch tab trước
-            selectedTab = .events
-
-            // 2️⃣ Đợi TabView + NavigationStack render xong
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                openChatEventId = id
-                eventManager.selectedChatEventId = nil
-            }
+            pendingChatEventId = id       // 1. Ghi nhớ intent
+            selectedTab = .events         // 2. Chỉ switch tab
+            eventManager.selectedChatEventId = nil
         }
-
-
-
-        // 🔔 EVENT PUSH (bạn sẽ xử lý tương tự nếu cần)
-        .onChange(of: eventManager.selectedEventId) { _, id in
-            guard let id else { return }
-
-            selectedTab = .events
-
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                openEventId = id
-                eventManager.selectedEventId = nil
-            }
-        }
-
-
+     
     }
 
     private func handlePendingPush() {
@@ -2686,7 +2714,7 @@ struct AddEventView: View {
     let prefillDate: Date?
     let offDays: Set<Date>        // ✅ THÊM MỚI — danh sách ngày nghỉ truyền từ ngoài vào
     @State private var selectedDate: Date = Date()
-    @State private var selectedSlot: TimeSlot?
+   
     @State private var title: String = ""
     @State private var date: Date = Date()
     @State private var startTime: Date = Date()
@@ -2698,11 +2726,10 @@ struct AddEventView: View {
     @State private var alertMessage: String = ""
     @State private var showAlert: Bool = false
     @EnvironmentObject var session: SessionStore
-    @State private var dragStartHour: Int? = nil
-    @State private var dragCurrentHour: Int? = nil
     @State private var showBusyInfo = false
     @State private var busyInfoEvent: CalendarEvent? = nil
-    
+    @State private var hasSelectedSlot = false
+
     var body: some View {
         NavigationStack {
             Form {
@@ -2716,6 +2743,9 @@ struct AddEventView: View {
                         selection: $date,
                         displayedComponents: .date
                     )
+                    .onChange(of: date) { _, _ in
+                        hasSelectedSlot = false
+                    }
 
                     Section(String(localized: "select_time_section")) {
                         let hours = Array(0..<24)
@@ -2742,11 +2772,11 @@ struct AddEventView: View {
 
                                 // Check giờ được chọn
                                 let selectedHour = Calendar.current.component(.hour, from: startTime)
-                                let isSelected = (hour == selectedHour) && !isBusy
+                                let isSelected = hasSelectedSlot && (hour == selectedHour) && !isBusy
 
                                 // Màu nền
                                 let bgColor: Color = {
-                                    if isBusy { return .red.opacity(0.75) }
+                                    if isBusy { return .red.opacity(0.40) }
                                     if isSelected { return .blue.opacity(0.7) }
                                     return .gray.opacity(0.15)
                                 }()
@@ -2762,18 +2792,26 @@ struct AddEventView: View {
                                     // TAP để chọn giờ
                                     .onTapGesture {
                                         if !isBusy {
+                                            hasSelectedSlot = true
                                             startTime = slotStart
-                                            endTime = slotStart.addingTimeInterval(1800) // mặc định 30p
+                                            endTime = slotStart.addingTimeInterval(1800)
                                         }
                                     }
 
+
                                     // LONG PRESS để xem giờ bận
-                                    .onLongPressGesture(minimumDuration: 0.4) {
-                                        if let ev = busyEvent {
-                                            busyInfoEvent = ev
-                                            showBusyInfo = true
-                                        }
-                                    }
+                                    .simultaneousGesture(
+                                        LongPressGesture(minimumDuration: 0.4)
+                                            .onEnded { _ in
+                                                if let ev = busyEvent {
+                                                    busyInfoEvent = ev
+                                                    showBusyInfo = true
+                                                } else if isOffDay {
+                                                    alertMessage = String(localized: "off_day")
+                                                    showAlert = true
+                                                }
+                                            }
+                                    )
                             }
                         }
                         .padding(.vertical, 6)
@@ -2840,7 +2878,22 @@ struct AddEventView: View {
                         // 3️⃣ start < end
                         let s = combine(date: date, time: startTime)
                         var e = combine(date: date, time: endTime)
-                        if e <= s { e = s.addingTimeInterval(1800) }
+
+                        // đảm bảo end > start
+                        if e <= s {
+                            e = s.addingTimeInterval(1800)
+                        }
+
+                        // ⛔️ KHÔNG cho vượt qua ngày
+                        if !Calendar.current.isDate(e, inSameDayAs: s) {
+                            e = Calendar.current.date(
+                                bySettingHour: 23,
+                                minute: 59,
+                                second: 0,
+                                of: s
+                            )!
+                        }
+
 
                         // 4️⃣ PREMIUM / FREE LIMIT (giữ nguyên code cũ)
                         let now2 = now
@@ -2928,6 +2981,17 @@ struct AddEventView: View {
             .alert(alertMessage, isPresented: $showAlert) {
                 Button(String(localized:"ok"), role: .cancel) {}
             }
+            .alert(
+                String(localized: "busy_time"),
+                isPresented: $showBusyInfo
+            ) {
+                Button(String(localized: "ok"), role: .cancel) {}
+            } message: {
+                if let ev = busyInfoEvent {
+                    Text("\(ev.title)\n\(formattedTime(ev.startTime)) – \(formattedTime(ev.endTime))")
+                }
+            }
+
         }
     }
     
@@ -2994,12 +3058,13 @@ struct CalendarGridView: View {
             // MARK: - Tên thứ trong tuần
             HStack {
                 let symbols = Array(calendar.veryShortStandaloneWeekdaySymbols[1...6]) + [calendar.veryShortStandaloneWeekdaySymbols[0]]
-                ForEach(symbols, id: \.self) { symbol in
+                ForEach(Array(symbols.enumerated()), id: \.offset) { _, symbol in
                     Text(symbol)
                         .font(.caption)
                         .frame(maxWidth: .infinity)
                         .foregroundColor(.secondary)
                 }
+
             }
             
             // MARK: - Lưới ngày

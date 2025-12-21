@@ -26,8 +26,9 @@ struct Easy_scheduleApp: App {
     @AppStorage("appTheme") private var appTheme: String = "system"
 
     @State private var showLaunch = true
-    @State private var showOnboarding: Bool =
-        !UserDefaults.standard.bool(forKey: "hasSeenOnboarding")
+    @AppStorage("hasSeenOnboarding")
+    private var hasSeenOnboarding: Bool = false
+
 
     @StateObject var premium = PremiumStoreViewModel.shared
     @StateObject private var eventManager = EventManager.shared
@@ -79,10 +80,11 @@ extension Easy_scheduleApp {
                     }
                 }
 
-        } else if showOnboarding {
-            EnhancedOnboardingView(showOnboarding: $showOnboarding)
+        } else if !hasSeenOnboarding {
+            EnhancedOnboardingView()
                 .preferredColorScheme(colorScheme)
                 .environmentObject(eventManager)
+
 
         } else {
             RootView()
