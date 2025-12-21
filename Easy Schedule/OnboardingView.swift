@@ -1,15 +1,17 @@
 import SwiftUI
 
 struct EnhancedOnboardingView: View {
-    @Binding var showOnboarding: Bool
+    @AppStorage("hasSeenOnboarding")
+      private var hasSeenOnboarding: Bool = false
     @State private var logoScale: CGFloat = 0.6
     @State private var textOpacity: Double = 0.0
 
     var body: some View {
         TabView {
-            // Slide 1: Logo app
+
+            // Slide 1: POSITIONING — Made for two people (MOST IMPORTANT)
             featureSlide(
-                imageName: "appstore",
+                imageName: "person.2.fill",
                 title: String(localized: "onboarding_title_1"),
                 description: String(localized: "onboarding_desc_1"),
                 gradient: LinearGradient(
@@ -17,10 +19,10 @@ struct EnhancedOnboardingView: View {
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 ),
-                useSystemImage: false
+                useSystemImage: true
             )
 
-            // Slide 2: Calendar
+            // Slide 2: SHARED CALENDAR — Share availability
             featureSlide(
                 imageName: "calendar",
                 title: String(localized: "onboarding_title_2"),
@@ -33,24 +35,11 @@ struct EnhancedOnboardingView: View {
                 useSystemImage: true
             )
 
-            // Slide 3: Todo
-            featureSlide(
-                imageName: "checklist",
-                title: String(localized: "onboarding_title_3"),
-                description: String(localized: "onboarding_desc_3"),
-                gradient: LinearGradient(
-                    colors: [Color.green, Color.teal],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                ),
-                useSystemImage: true
-            )
-
-            // Slide 4: Chat in Events
+            // Slide 3: CHAT INSIDE EVENTS — Strong USP
             featureSlide(
                 imageName: "bubble.left.and.bubble.right.fill",
-                title: String(localized: "onboarding_title_4"),
-                description: String(localized: "onboarding_desc_4"),
+                title: String(localized: "onboarding_title_3"),
+                description: String(localized: "onboarding_desc_3"),
                 gradient: LinearGradient(
                     colors: [Color.indigo, Color.cyan],
                     startPoint: .topLeading,
@@ -59,7 +48,20 @@ struct EnhancedOnboardingView: View {
                 useSystemImage: true
             )
 
-            // Slide 5: Notifications + CTA
+            // Slide 4: TODO TOGETHER — Linked to events
+            featureSlide(
+                imageName: "checklist",
+                title: String(localized: "onboarding_title_4"),
+                description: String(localized: "onboarding_desc_4"),
+                gradient: LinearGradient(
+                    colors: [Color.green, Color.teal],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ),
+                useSystemImage: true
+            )
+
+            // Slide 5: NOTIFICATIONS + CTA — Activate real value
             featureSlide(
                 imageName: "bell",
                 title: String(localized: "onboarding_title_5"),
@@ -74,6 +76,7 @@ struct EnhancedOnboardingView: View {
             )
         }
         .tabViewStyle(PageTabViewStyle())
+
     }
 
     @ViewBuilder
@@ -122,21 +125,34 @@ struct EnhancedOnboardingView: View {
                 
                 // Button "Get Started" chỉ slide cuối
                 if showButton {
-                    Button(action: {
-                        showOnboarding = false
-                        UserDefaults.standard.set(true, forKey: "hasSeenOnboarding")
-                    }) {
-                        Text(String(localized: "get_started"))
-                            .font(.headline)
-                            .foregroundColor(.white)
-                            .padding()
-                            .frame(maxWidth: .infinity)
-                            .background(Color.orange)
-                            .cornerRadius(15)
-                            .padding(.horizontal)
+                    VStack(spacing: 14) {
+
+                        // 🔵 PRIMARY CTA — Invite someone
+                        Button {
+                            presentInviteSheet()
+                        } label: {
+                            Text(String(localized: "invite_someone"))
+                                .font(.headline)
+                                .foregroundColor(.white)
+                                .padding()
+                                .frame(maxWidth: .infinity)
+                                .background(Color.orange)
+                                .cornerRadius(15)
+                                .padding(.horizontal)
+                        }
+
+                        // ⚪ SECONDARY CTA — Get started
+                        Button {
+                            hasSeenOnboarding = true
+                        } label: {
+                            Text(String(localized: "get_started"))
+                                .font(.subheadline)
+                                .foregroundColor(.white.opacity(0.9))
+                        }
                     }
                     .padding(.top, 20)
                 }
+
             }
             .padding()
         }
@@ -147,8 +163,40 @@ struct EnhancedOnboardingView: View {
     }
 }
 
-struct EnhancedOnboardingView_Previews: PreviewProvider {
-    static var previews: some View {
-        EnhancedOnboardingView(showOnboarding: .constant(true))
+import UIKit
+
+private func presentInviteSheet() {
+    let appStoreURL = URL(
+        string: "https://apps.apple.com/app/id6756092474"
+    )!
+
+
+    let activityVC = UIActivityViewController(
+        activityItems: [appStoreURL],
+        applicationActivities: nil
+    )
+
+    if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+          let root = scene.windows.first?.rootViewController {
+
+           // ⭐ BẮT BUỘC CHO iPad / Mac Catalyst
+           activityVC.popoverPresentationController?.sourceView = root.view
+           activityVC.popoverPresentationController?.sourceRect = root.view.bounds
+
+           root.present(activityVC, animated: true)
+       }
+
+    if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+       let root = scene.windows.first?.rootViewController {
+        root.present(activityVC, animated: true)
     }
 }
+
+
+
+struct EnhancedOnboardingView_Previews: PreviewProvider {
+    static var previews: some View {
+        EnhancedOnboardingView()
+    }
+}
+

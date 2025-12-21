@@ -237,26 +237,47 @@ struct SettingsView: View {
 
                 // MARK: - 🛟 Support
                 Section {
+                    // ▶ View onboarding (NEW)
+                    Button {
+                        UserDefaults.standard.set(false, forKey: "hasSeenOnboarding")
+                    } label: {
+                        Label(
+                            String(localized: "view_onboarding"),
+                            systemImage: "rectangle.on.rectangle"
+                        )
+                    }
+
                     Button {
                         showPrivacySheet = true
                     } label: {
-                        Label(String(localized: "privacy_policy_and_info"), systemImage: "doc.text")                    }
+                        Label(
+                            String(localized: "privacy_policy_and_info"),
+                            systemImage: "doc.text"
+                        )
+                    }
 
                     Button {
                         contactSupport()
                     } label: {
-                        Label(String(localized: "contact_support"), systemImage: "envelope")
+                        Label(
+                            String(localized: "contact_support"),
+                            systemImage: "envelope"
+                        )
                     }
 
                     NavigationLink {
                         FAQView()
                     } label: {
-                        Label(String(localized: "faq"), systemImage: "questionmark.circle")
+                        Label(
+                            String(localized: "faq"),
+                            systemImage: "questionmark.circle"
+                        )
                     }
 
                 } header: {
                     Text(String(localized: "info_support"))
                 }
+
 
 
                 // MARK: - ⚙️ Account Actions

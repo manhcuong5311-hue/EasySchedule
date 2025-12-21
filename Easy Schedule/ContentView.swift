@@ -2714,7 +2714,7 @@ struct AddEventView: View {
     let prefillDate: Date?
     let offDays: Set<Date>        // ✅ THÊM MỚI — danh sách ngày nghỉ truyền từ ngoài vào
     @State private var selectedDate: Date = Date()
-    @State private var selectedSlot: TimeSlot?
+   
     @State private var title: String = ""
     @State private var date: Date = Date()
     @State private var startTime: Date = Date()
@@ -2726,11 +2726,10 @@ struct AddEventView: View {
     @State private var alertMessage: String = ""
     @State private var showAlert: Bool = false
     @EnvironmentObject var session: SessionStore
-    @State private var dragStartHour: Int? = nil
-    @State private var dragCurrentHour: Int? = nil
     @State private var showBusyInfo = false
     @State private var busyInfoEvent: CalendarEvent? = nil
-    
+    @State private var hasSelectedSlot = false
+
     var body: some View {
         NavigationStack {
             Form {
@@ -2744,6 +2743,9 @@ struct AddEventView: View {
                         selection: $date,
                         displayedComponents: .date
                     )
+                    .onChange(of: date) { _, _ in
+                        hasSelectedSlot = false
+                    }
 
                     Section(String(localized: "select_time_section")) {
                         let hours = Array(0..<24)
@@ -2770,11 +2772,11 @@ struct AddEventView: View {
 
                                 // Check giờ được chọn
                                 let selectedHour = Calendar.current.component(.hour, from: startTime)
-                                let isSelected = (hour == selectedHour) && !isBusy
+                                let isSelected = hasSelectedSlot && (hour == selectedHour) && !isBusy
 
                                 // Màu nền
                                 let bgColor: Color = {
-                                    if isBusy { return .red.opacity(0.75) }
+                                    if isBusy { return .red.opacity(0.40) }
                                     if isSelected { return .blue.opacity(0.7) }
                                     return .gray.opacity(0.15)
                                 }()
@@ -2790,18 +2792,26 @@ struct AddEventView: View {
                                     // TAP để chọn giờ
                                     .onTapGesture {
                                         if !isBusy {
+                                            hasSelectedSlot = true
                                             startTime = slotStart
-                                            endTime = slotStart.addingTimeInterval(1800) // mặc định 30p
+                                            endTime = slotStart.addingTimeInterval(1800)
                                         }
                                     }
 
+
                                     // LONG PRESS để xem giờ bận
-                                    .onLongPressGesture(minimumDuration: 0.4) {
-                                        if let ev = busyEvent {
-                                            busyInfoEvent = ev
-                                            showBusyInfo = true
-                                        }
-                                    }
+                                    .simultaneousGesture(
+                                        LongPressGesture(minimumDuration: 0.4)
+                                            .onEnded { _ in
+                                                if let ev = busyEvent {
+                                                    busyInfoEvent = ev
+                                                    showBusyInfo = true
+                                                } else if isOffDay {
+                                                    alertMessage = String(localized: "off_day")
+                                                    showAlert = true
+                                                }
+                                            }
+                                    )
                             }
                         }
                         .padding(.vertical, 6)
@@ -2868,7 +2878,22 @@ struct AddEventView: View {
                         // 3️⃣ start < end
                         let s = combine(date: date, time: startTime)
                         var e = combine(date: date, time: endTime)
-                        if e <= s { e = s.addingTimeInterval(1800) }
+
+                        // đảm bảo end > start
+                        if e <= s {
+                            e = s.addingTimeInterval(1800)
+                        }
+
+                        // ⛔️ KHÔNG cho vượt qua ngày
+                        if !Calendar.current.isDate(e, inSameDayAs: s) {
+                            e = Calendar.current.date(
+                                bySettingHour: 23,
+                                minute: 59,
+                                second: 0,
+                                of: s
+                            )!
+                        }
+
 
                         // 4️⃣ PREMIUM / FREE LIMIT (giữ nguyên code cũ)
                         let now2 = now
@@ -2956,6 +2981,17 @@ struct AddEventView: View {
             .alert(alertMessage, isPresented: $showAlert) {
                 Button(String(localized:"ok"), role: .cancel) {}
             }
+            .alert(
+                String(localized: "busy_time"),
+                isPresented: $showBusyInfo
+            ) {
+                Button(String(localized: "ok"), role: .cancel) {}
+            } message: {
+                if let ev = busyInfoEvent {
+                    Text("\(ev.title)\n\(formattedTime(ev.startTime)) – \(formattedTime(ev.endTime))")
+                }
+            }
+
         }
     }
     

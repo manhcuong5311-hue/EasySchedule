@@ -646,7 +646,8 @@ struct HistoryLinksView: View {
                             .font(.caption2)
                             .foregroundColor(.secondary)
 
-                        if link.status == .connected {
+                        switch link.status {
+                        case .connected:
                             Text(String(localized: "connected"))
                                 .font(.caption2)
                                 .padding(.horizontal, 6)
@@ -654,8 +655,18 @@ struct HistoryLinksView: View {
                                 .background(Color.green.opacity(0.15))
                                 .foregroundColor(.green)
                                 .clipShape(Capsule())
+
+                        case .pending:
+                            Text(String(localized: "pending"))
+                                .font(.caption2)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color.orange.opacity(0.15))
+                                .foregroundColor(.orange)
+                                .clipShape(Capsule())
                         }
                     }
+
                 }
                 .onTapGesture { onSelect(link.uid) }
                 .onLongPressGesture {
