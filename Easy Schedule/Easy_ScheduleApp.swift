@@ -105,7 +105,6 @@ struct RootView: View {
     @EnvironmentObject var session: SessionStore
     @EnvironmentObject var premium: PremiumStoreViewModel
     @EnvironmentObject var eventManager: EventManager
-
     @State private var showPremiumIntro = false
     @State private var showPaywall = false
 
@@ -117,12 +116,10 @@ struct RootView: View {
                 ContentView()
                     .environmentObject(session)
                     .environmentObject(eventManager)
-                
                     .onAppear {
-                        // ⭐ REFRESH ENTITLEMENT TRƯỚC
+        
                         Task { await premium.refresh() }
 
-                        // ⭐ SAU ĐÓ MỚI QUYẾT ĐỊNH SHOW INTRO
                         if !premium.isPremium,
                            PremiumIntroGate.shouldShowToday() {
 
@@ -132,6 +129,7 @@ struct RootView: View {
                     }
             }
         }
+     
         .sheet(isPresented: $showPremiumIntro) {
             PremiumIntroView(
                 isPresented: $showPremiumIntro,
@@ -145,6 +143,7 @@ struct RootView: View {
                 .environmentObject(premium)
         }
     }
+
 }
 
 

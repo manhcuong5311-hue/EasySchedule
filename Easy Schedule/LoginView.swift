@@ -14,6 +14,7 @@ struct LoginView: View {
     @State private var isLoggedIn = false
     @State private var currentNonce: String?
     @State private var showVerifyAlert = false
+    @State private var isLoading = false
 
     var body: some View {
         NavigationView {
@@ -57,13 +58,22 @@ struct LoginView: View {
 
                     // LOGIN
                     Button(action: login) {
-                        Text(String(localized: "login"))
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.blue)
-                            .cornerRadius(16)
+                        if isLoading {
+                            ProgressView()
+                                .tint(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                        } else {
+                            Text(String(localized: "login"))
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                        }
                     }
+                    .background(Color.blue)
+                    .cornerRadius(16)
+                    .disabled(isLoading)
+
 
                     // FORGOT PASSWORD
                     Button(action: resetPassword) {
@@ -115,6 +125,27 @@ struct LoginView: View {
             .fullScreenCover(isPresented: $isLoggedIn) {
                 MainView()
             }
+            .alert(
+                String(localized: "email_not_verified_title"),
+                isPresented: $showVerifyAlert
+            ) {
+                Button(String(localized: "ok"), role: .cancel) {}
+            } message: {
+                Text(String(localized: "email_not_verified_message"))
+            }
+            .alert(
+                String(localized: "login_failed_title"),
+                isPresented: .constant(errorMessage != nil)
+            ) {
+                Button(String(localized: "ok")) {
+                    errorMessage = nil
+                }
+            } message: {
+                Text(errorMessage ?? "")
+            }
+
+
+
         }
         .navigationViewStyle(.stack)
     }
@@ -124,29 +155,40 @@ struct LoginView: View {
     // MARK: - EMAIL LOGIN
     private func login() {
         errorMessage = nil
+        isLoading = true
 
-        Auth.auth().signIn(withEmail: email, password: password) { result, error in
+        Auth.auth().signIn(withEmail: email, password: password) { _, error in
             if let error = error {
-                errorMessage = error.localizedDescription
+                DispatchQueue.main.async {
+                    self.errorMessage = authErrorMessage(error)
+                    self.isLoading = false
+                }
                 return
             }
 
-            guard let user = Auth.auth().currentUser else { return }
+            guard let user = Auth.auth().currentUser else {
+                DispatchQueue.main.async {
+                    self.isLoading = false
+                }
+                return
+            }
 
             user.reload { _ in
-                if !user.isEmailVerified {
-                    showVerifyAlert = true
-                    try? Auth.auth().signOut()
-                    return
-                }
-                // Đã verify → cho vào app
                 DispatchQueue.main.async {
+                    self.isLoading = false
+
+                    if !user.isEmailVerified {
+                        self.showVerifyAlert = true
+                        try? Auth.auth().signOut()
+                        return
+                    }
+
                     self.isLoggedIn = true
                 }
-
             }
         }
     }
+
     private func resetPassword() {
         if email.isEmpty {
             errorMessage = String(localized: "enter_email_first")
@@ -155,7 +197,7 @@ struct LoginView: View {
 
         Auth.auth().sendPasswordReset(withEmail: email) { error in
             if let error = error {
-                errorMessage = error.localizedDescription
+                errorMessage = authErrorMessage(error)
                 return
             }
             errorMessage = String(localized: "password_reset_sent")
@@ -186,7 +228,7 @@ struct LoginView: View {
         GIDSignIn.sharedInstance.signIn(withPresenting: rootVC) { result, error in
             
             if let error = error {
-                self.errorMessage = error.localizedDescription
+                self.errorMessage = authErrorMessage(error)
                 return
             }
             
@@ -205,7 +247,7 @@ struct LoginView: View {
             
             Auth.auth().signIn(with: credential) { _, error in
                 if let error = error {
-                    self.errorMessage = error.localizedDescription
+                    self.errorMessage = authErrorMessage(error)
                 } else {
                     self.isLoggedIn = true
                 }
@@ -255,7 +297,7 @@ struct LoginView: View {
 
         Auth.auth().signIn(with: firebaseCredential) { _, error in
             if let error = error {
-                self.errorMessage = error.localizedDescription
+                self.errorMessage = authErrorMessage(error)
                 return
             }
             self.isLoggedIn = true
@@ -272,6 +314,33 @@ struct LoginView: View {
         let charset = "0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz"
         return String((0..<length).compactMap { _ in charset.randomElement() })
     }
+    private func authErrorMessage(_ error: Error) -> String {
+        let nsError = error as NSError
+        guard let code = AuthErrorCode(rawValue: nsError.code) else {
+            return String(localized: "login_failed_generic")
+        }
+
+        switch code {
+        case .wrongPassword:
+            return String(localized: "error_wrong_password")
+
+        case .userNotFound:
+            return String(localized: "error_user_not_found")
+
+        case .invalidEmail:
+            return String(localized: "error_invalid_email")
+
+        case .userDisabled:
+            return String(localized: "error_user_disabled")
+
+        case .invalidCredential, .credentialAlreadyInUse:
+            return String(localized: "error_invalid_credentials")
+
+        default:
+            return String(localized: "login_failed_generic")
+        }
+    }
+
 }
 
 
@@ -381,7 +450,9 @@ struct MainView: View {
                 .bold()
 
             Button(String(localized:"logout")) {
-                do { try Auth.auth().signOut() }
+                do {
+                    try Auth.auth().signOut()
+                }
                 catch {
                     print(String(localized: "log_logout_error"), error.localizedDescription)
                 }

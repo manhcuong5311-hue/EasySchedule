@@ -33,6 +33,24 @@
             "state" : "new",
             "value" : "%1$@\n%2$@ – %3$@"
           }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@\n%2$@ – %3$@"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@\n%2$@ – %3$@"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@\n%2$@ – %3$@"
+          }
         }
       }
     },
@@ -1093,6 +1111,35 @@
         }
       }
     },
+    "booking_permission_required" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The calendar owner hasn’t granted you booking access yet.\n"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このカレンダーの所有者から、予約の許可がまだ付与されていません。\n"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "캘린더 소유자가 아직 예약 권한을 허용하지 않았습니다.\n"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chủ lịch chưa cấp quyền cho bạn đặt lịch.\n"
+          }
+        }
+      }
+    },
     "booking_success_for_user" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1409,6 +1456,35 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Không thể chọn ngày nghỉ trong quá khứ"
+          }
+        }
+      }
+    },
+    "cant_book_title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cannot book appointment\n"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "予約できません\n"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "예약할 수 없습니다\n"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không thể đặt lịch\n"
           }
         }
       }
@@ -2866,6 +2942,64 @@
         }
       }
     },
+    "email_not_verified_message" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Please verify your email before logging in."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ログインする前にメールアドレスを確認してください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "로그인하기 전에 이메일을 인증해 주세요."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Vui lòng xác minh email của bạn trước khi đăng nhập."
+          }
+        }
+      }
+    },
+    "email_not_verified_title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Email not verified"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "メールが確認されていません"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이메일이 인증되지 않았습니다"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Email chưa được xác minh"
+          }
+        }
+      }
+    },
     "email_placeholder" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3187,6 +3321,64 @@
         }
       }
     },
+    "error_invalid_credentials" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invalid login credentials."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ログイン情報が正しくありません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "로그인 정보가 올바르지 않습니다."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thông tin đăng nhập không hợp lệ."
+          }
+        }
+      }
+    },
+    "error_invalid_email" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invalid email address."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "無効なメールアドレスです。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "유효하지 않은 이메일 주소입니다."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Email không hợp lệ."
+          }
+        }
+      }
+    },
     "error_invalid_state_no_nonce" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3270,6 +3462,93 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Không thể lấy identity token."
+          }
+        }
+      }
+    },
+    "error_user_disabled" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This account has been disabled."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このアカウントは無効化されています。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 계정은 비활성화되었습니다."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Tài khoản đã bị vô hiệu hóa."
+          }
+        }
+      }
+    },
+    "error_user_not_found" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Account not found."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アカウントが見つかりません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "계정을 찾을 수 없습니다."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Tài khoản không tồn tại."
+          }
+        }
+      }
+    },
+    "error_wrong_password" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Incorrect password."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "パスワードが正しくありません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "비밀번호가 올바르지 않습니다."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mật khẩu không đúng."
           }
         }
       }
@@ -5254,7 +5533,7 @@
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Mời người khác để luôn đồng bộ\n"
+            "value" : "Mời người khác để  đồng bộ\n"
           }
         }
       }
@@ -5691,6 +5970,64 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Đăng nhập"
+          }
+        }
+      }
+    },
+    "login_failed_generic" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unable to sign in. Please try again."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ログインできませんでした。もう一度お試しください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "로그인할 수 없습니다. 다시 시도해 주세요."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đăng nhập không thành công. Vui lòng thử lại."
+          }
+        }
+      }
+    },
+    "login_failed_title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Login Failed"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ログインに失敗しました"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "로그인 실패"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đăng nhập thất bại"
           }
         }
       }
@@ -7339,7 +7676,7 @@
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Luôn giữ cho 2 người luôn đồng bộ mà không cần phải chuyển qua giữa nhiều ứng dụng."
+            "value" : "Giữ cho 2 người luôn đồng bộ mà không cần phải chuyển qua giữa nhiều ứng dụng."
           }
         }
       }
@@ -7367,8 +7704,8 @@
         },
         "vi" : {
           "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Bạn có thể gửi đường dẫn cho khách hàng và đối tác, họ có thể thêm cuộc hẹn trực tiếp vào lịch của bạn."
+            "state" : "translated",
+            "value" : "Bạn có thể gửi đường dẫn (link) cho khách hàng và đối tác, họ có thể thêm cuộc hẹn trực tiếp vào lịch của bạn."
           }
         }
       }
@@ -7455,7 +7792,7 @@
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Bật thông báo để cả hai luôn nắm rõ công việc và không bỏ lỡ công việc quan trọng."
+            "value" : "Bật thông báo để cả hai luôn nắm rõ cuộc hẹn và không bỏ lỡ công việc quan trọng."
           }
         }
       }
@@ -7600,7 +7937,7 @@
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Luôn được thông báo"
+            "value" : "Thông báo nhắc nhở"
           }
         }
       }
@@ -10081,6 +10418,64 @@
         }
       }
     },
+    "session_expired_message" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your session has expired due to connectivity issues. Please log in again."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "接続の問題によりセッションが終了しました。再度ログインしてください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "네트워크 문제로 인해 세션이 만료되었습니다. 다시 로그인해 주세요."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Phiên đăng nhập của bạn đã hết hạn do kết nối mạng. Vui lòng đăng nhập lại."
+          }
+        }
+      }
+    },
+    "session_expired_title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Session Expired"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "セッションの有効期限が切れました"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "세션이 만료되었습니다"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Phiên đăng nhập đã hết hạn"
+          }
+        }
+      }
+    },
     "set_day_off" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -11242,6 +11637,35 @@
           "stringUnit" : {
             "state" : "needs_review",
             "value" : "Không tìm thấy người dùng."
+          }
+        }
+      }
+    },
+    "uid_not_verified" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Please load and verify the calendar before creating an appointment.\n"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "予定を作成する前に、カレンダーを読み込み、確認してください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "약속을 생성하기 전에 캘린더를 불러오고 확인해 주세요."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vui lòng tải và xác minh lịch trước khi tạo cuộc hẹn."
           }
         }
       }
