@@ -8,6 +8,7 @@ import Combine
 import FirebaseAuth
 import FirebaseFirestore
 
+
 class SessionStore: ObservableObject {
     @Published var currentUser: User?
     @Published var currentUserName: String = ""
@@ -16,6 +17,7 @@ class SessionStore: ObservableObject {
     private var authStateListenerHandle: AuthStateDidChangeListenerHandle?
     private let db = Firestore.firestore()
     private let nameKey = "currentUserName"
+   
 
     var currentUserId: String? {
         Auth.auth().currentUser?.uid

@@ -160,7 +160,7 @@ struct LoginView: View {
         Auth.auth().signIn(withEmail: email, password: password) { _, error in
             if let error = error {
                 DispatchQueue.main.async {
-                    self.errorMessage = error.localizedDescription
+                    self.errorMessage = authErrorMessage(error)
                     self.isLoading = false
                 }
                 return
@@ -197,7 +197,7 @@ struct LoginView: View {
 
         Auth.auth().sendPasswordReset(withEmail: email) { error in
             if let error = error {
-                errorMessage = error.localizedDescription
+                errorMessage = authErrorMessage(error)
                 return
             }
             errorMessage = String(localized: "password_reset_sent")
@@ -228,7 +228,7 @@ struct LoginView: View {
         GIDSignIn.sharedInstance.signIn(withPresenting: rootVC) { result, error in
             
             if let error = error {
-                self.errorMessage = error.localizedDescription
+                self.errorMessage = authErrorMessage(error)
                 return
             }
             
@@ -247,7 +247,7 @@ struct LoginView: View {
             
             Auth.auth().signIn(with: credential) { _, error in
                 if let error = error {
-                    self.errorMessage = error.localizedDescription
+                    self.errorMessage = authErrorMessage(error)
                 } else {
                     self.isLoggedIn = true
                 }
@@ -297,7 +297,7 @@ struct LoginView: View {
 
         Auth.auth().signIn(with: firebaseCredential) { _, error in
             if let error = error {
-                self.errorMessage = error.localizedDescription
+                self.errorMessage = authErrorMessage(error)
                 return
             }
             self.isLoggedIn = true
@@ -314,6 +314,33 @@ struct LoginView: View {
         let charset = "0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz"
         return String((0..<length).compactMap { _ in charset.randomElement() })
     }
+    private func authErrorMessage(_ error: Error) -> String {
+        let nsError = error as NSError
+        guard let code = AuthErrorCode(rawValue: nsError.code) else {
+            return String(localized: "login_failed_generic")
+        }
+
+        switch code {
+        case .wrongPassword:
+            return String(localized: "error_wrong_password")
+
+        case .userNotFound:
+            return String(localized: "error_user_not_found")
+
+        case .invalidEmail:
+            return String(localized: "error_invalid_email")
+
+        case .userDisabled:
+            return String(localized: "error_user_disabled")
+
+        case .invalidCredential, .credentialAlreadyInUse:
+            return String(localized: "error_invalid_credentials")
+
+        default:
+            return String(localized: "login_failed_generic")
+        }
+    }
+
 }
 
 
@@ -423,7 +450,9 @@ struct MainView: View {
                 .bold()
 
             Button(String(localized:"logout")) {
-                do { try Auth.auth().signOut() }
+                do {
+                    try Auth.auth().signOut()
+                }
                 catch {
                     print(String(localized: "log_logout_error"), error.localizedDescription)
                 }
