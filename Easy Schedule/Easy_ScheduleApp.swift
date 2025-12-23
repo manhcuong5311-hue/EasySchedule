@@ -105,6 +105,8 @@ struct RootView: View {
     @EnvironmentObject var session: SessionStore
     @EnvironmentObject var premium: PremiumStoreViewModel
     @EnvironmentObject var eventManager: EventManager
+    @State private var showSessionExpiredAlert = false
+    @State private var wasLoggedIn = false
 
     @State private var showPremiumIntro = false
     @State private var showPaywall = false
@@ -117,12 +119,11 @@ struct RootView: View {
                 ContentView()
                     .environmentObject(session)
                     .environmentObject(eventManager)
-                
                     .onAppear {
-                        // ⭐ REFRESH ENTITLEMENT TRƯỚC
+                        wasLoggedIn = true   // ⭐ ghi nhận đã từng login
+
                         Task { await premium.refresh() }
 
-                        // ⭐ SAU ĐÓ MỚI QUYẾT ĐỊNH SHOW INTRO
                         if !premium.isPremium,
                            PremiumIntroGate.shouldShowToday() {
 
@@ -131,6 +132,27 @@ struct RootView: View {
                         }
                     }
             }
+        }
+        .onChange(of: session.currentUser) {
+            let newUser = session.currentUser
+
+            if newUser == nil && wasLoggedIn {
+                showSessionExpiredAlert = true
+                wasLoggedIn = false
+            }
+
+            if newUser != nil {
+                wasLoggedIn = true
+            }
+        }
+
+        .alert(
+            String(localized: "session_expired_title"),
+            isPresented: $showSessionExpiredAlert
+        ) {
+            Button(String(localized: "ok")) {}
+        } message: {
+            Text(String(localized: "session_expired_message"))
         }
         .sheet(isPresented: $showPremiumIntro) {
             PremiumIntroView(
@@ -145,6 +167,7 @@ struct RootView: View {
                 .environmentObject(premium)
         }
     }
+
 }
 
 

@@ -11,6 +11,7 @@ import FirebaseFirestore
 class SessionStore: ObservableObject {
     @Published var currentUser: User?
     @Published var currentUserName: String = ""
+    private var didSetupSession = false
 
     private var authStateListenerHandle: AuthStateDidChangeListenerHandle?
     private let db = Firestore.firestore()
@@ -61,42 +62,56 @@ class SessionStore: ObservableObject {
     
     // MARK: - Auth Listener
     func listen() {
-        authStateListenerHandle = Auth.auth().addStateDidChangeListener { auth, user in
-            
+        authStateListenerHandle =
+        Auth.auth().addStateDidChangeListener { _, user in
+
             guard let user = user else {
                 print("ℹ️ No Firebase user → logged out.")
-                self.currentUser = nil
-                self.currentUserName = ""
+                DispatchQueue.main.async {
+                    self.currentUser = nil
+                    self.currentUserName = ""
+                    self.didSetupSession = false
+                }
                 return
             }
-            
-            user.getIDTokenResult { result, error in
+
+            user.getIDTokenResult { _, error in
                 if let error = error {
-                    print("❌ Invalid token → forcing logout:", error.localizedDescription)
-                    self.signOut()
+                    print("⚠️ Token fetch failed (network?):", error.localizedDescription)
                     return
                 }
-                
-                // ⭐️ TOKEN OK → CHECK EMAIL VERIFICATION
-                user.reload { _ in
-                    if !user.isEmailVerified {
-                        print("⛔ Unverified email → blocking session login")
-                        self.signOut()
+
+                user.reload { error in
+                    if let error = error {
+                        print("⚠️ Reload user failed (likely offline):", error.localizedDescription)
                         return
                     }
-                    
-                    print("✅ Verified email → session login allowed:", user.uid)
-                    
-                    // ⭐️ ONLY RUN THESE ONCE (bạn chạy sai 2 lần ở bản cũ)
-                    self.currentUser = user
-                    self.saveProfileIfNeeded(user: user)
-                    
-                    if let cachedName = UserDefaults.standard.string(forKey: self.nameKey) {
-                        self.currentUserName = cachedName
+
+                    if user.isEmailVerified == false {
+                        print("⛔ Unverified email → blocking session login")
+                        DispatchQueue.main.async {
+                            self.signOut()
+                        }
+                        return
                     }
-                    
-                    self.fetchProfile(uid: user.uid)
-                    self.cleanUpPastEventsOnFirebase(for: user.uid)
+
+                    print("✅ Verified email → session login allowed:", user.uid)
+
+                    DispatchQueue.main.async {
+                        self.currentUser = user
+
+                        guard self.didSetupSession == false else { return }
+                        self.didSetupSession = true
+
+                        self.saveProfileIfNeeded(user: user)
+
+                        if let cachedName = UserDefaults.standard.string(forKey: self.nameKey) {
+                            self.currentUserName = cachedName
+                        }
+
+                        self.fetchProfile(uid: user.uid)
+                        self.cleanUpPastEventsOnFirebase(for: user.uid)
+                    }
                 }
             }
         }
@@ -169,6 +184,8 @@ class SessionStore: ObservableObject {
     // MARK: - Sign Out
     func signOut() {
         do {
+            didSetupSession = false   // ⭐ RESET Ở ĐÂY
+
             UserNameCache.shared.clearCache()
             EventManager.shared.clearLocalEvents()
             EventManager.shared.reset()
@@ -180,9 +197,9 @@ class SessionStore: ObservableObject {
 
         } catch {
             print("❌ Logout error:", error.localizedDescription)
-
         }
     }
+
 
     deinit {
         if let handle = authStateListenerHandle {
