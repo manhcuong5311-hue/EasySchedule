@@ -163,7 +163,8 @@ struct PartnerCalendarTabView: View {
                 // NÚT + BÊN PHẢI (đã có)
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
-                        addAppointmentPressed()
+                        guard !isLoading else { return }
+                                addAppointmentPressed()
                     } label: {
                         Circle()
                             .fill(Color.blue.opacity(0.2))
@@ -173,7 +174,6 @@ struct PartnerCalendarTabView: View {
                                     .foregroundColor(.blue)
                             )
                     }
-                    .disabled(parsedUID == nil)
                 }
                 
             }
@@ -278,7 +278,7 @@ struct PartnerCalendarTabView: View {
             // ================================
             .alert(isPresented: $showAlert) {
                 Alert(
-                    title: Text(String(localized: "access_required")),
+                    title: Text(String(localized: "unable_to_proceed")),
                     message: Text(alertMessage),
                     dismissButton: .default(Text(String(localized: "close")))
                 )
@@ -300,9 +300,14 @@ struct PartnerCalendarTabView: View {
             }
 
             HStack {
-                Button(action: { parseAndLoad() }) {
+                Button(action: {
+                    guard !isLoading else { return }
+                    parseAndLoad()
+                }) {
                     HStack {
-                        if isLoading { ProgressView().scaleEffect(0.7) }
+                        if isLoading {
+                            ProgressView().scaleEffect(0.7)
+                        }
                         Text(String(localized: "load_calendar"))
                     }
                     .frame(maxWidth: .infinity)

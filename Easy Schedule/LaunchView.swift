@@ -1,50 +1,33 @@
-//
-//  LaunchView.swift
-//  Easy Schedule
-//
-//  Created by Sam Manh Cuong on 13/11/25.
-//
-
-
-
 import SwiftUI
 
 struct LaunchView: View {
-    @State private var logoScale: CGFloat = 0.5
-    @State private var textOpacity: Double = 0.0
+    @State private var logoScale: CGFloat = 0.8
+    @State private var logoOpacity: Double = 0.0
 
     var body: some View {
         ZStack {
-            // Gradient nền bắt mắt
-            LinearGradient(colors: [Color.orange, Color.red],
-                           startPoint: .topLeading,
-                           endPoint: .bottomTrailing)
+            // NỀN TRẮNG – an toàn tuyệt đối
+            Color.white
                 .ignoresSafeArea()
-            
-            VStack(spacing: 30) {
-                // Logo ES với animation phóng to
-                Image("appstore") // logo trong Assets
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 150, height: 150)
-                    .shadow(color: .black.opacity(0.3), radius: 10, x: 0, y: 5)
-                    .scaleEffect(logoScale)
-                    .animation(.easeOut(duration: 1.0), value: logoScale)
-                
-                // Text Welcome với fade in
-                Text(String(localized: "welcome_message"))
-                    .multilineTextAlignment(.center)
-                    .font(.title)
-                    .fontWeight(.bold)
-                    .foregroundColor(.white)
-                    .opacity(textOpacity)
-                    .animation(.easeIn(duration: 1.0).delay(0.5), value: textOpacity)
-            }
+
+            Image("1") // tên ảnh trong Assets
+                .resizable()
+                .scaledToFit()
+                .frame(width: 160, height: 160)
+                .scaleEffect(logoScale)
+                .opacity(logoOpacity)
+                .animation(
+                    .easeOut(duration: 0.6),
+                    value: logoScale
+                )
+                .animation(
+                    .easeIn(duration: 0.4),
+                    value: logoOpacity
+                )
         }
         .onAppear {
-            // Trigger animation khi view xuất hiện
             logoScale = 1.0
-            textOpacity = 1.0
+            logoOpacity = 1.0
         }
     }
 }
@@ -54,4 +37,3 @@ struct LaunchView_Previews: PreviewProvider {
         LaunchView()
     }
 }
-

@@ -11705,25 +11705,25 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "You must load UID first."
+            "value" : "Please load a shared UID before adding an appointment."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "まずUIDを読み込む必要があります。"
+            "value" : "予定を追加する前に、共有UIDを読み込んでください。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "먼저 UID를 불러와야 합니다."
+            "value" : "일정을 추가하기 전에 공유 UID를 먼저 불러오세요."
           }
         },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Bạn cần load UID trước."
+            "value" : "Vui lòng nhập UID được chia sẻ trước khi thêm lịch hẹn."
           }
         }
       }
@@ -11753,6 +11753,35 @@
           "stringUnit" : {
             "state" : "needs_review",
             "value" : "Không thể tìm thấy root view controller."
+          }
+        }
+      }
+    },
+    "unable_to_proceed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unable to proceed"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "続行できません"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "계속할 수 없습니다"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không thể tiếp tục"
           }
         }
       }

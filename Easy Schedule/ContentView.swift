@@ -551,7 +551,33 @@ final class EventManager: ObservableObject {
                 completion(snap?.exists == true)
             }
     }
-    
+    func addBusyHoursForDay(
+        userId: String,
+        slots: [ProSlot],
+        completion: (() -> Void)? = nil
+    ) {
+        let doc = db.collection("publicCalendar").document(userId)
+
+        doc.getDocument { snap, _ in
+            var existing = snap?.data()?["busySlots"] as? [[String: Any]] ?? []
+
+            let newSlots: [[String: Any]] = slots.map { slot in
+                [
+                    "id": UUID().uuidString,
+                    "title": String(localized: "busy"),
+                    "start": slot.start.timeIntervalSince1970,
+                    "end": slot.end.timeIntervalSince1970
+                ]
+            }
+
+            existing.append(contentsOf: newSlots)
+
+            doc.setData(["busySlots": existing], merge: true) { _ in
+                completion?()
+            }
+        }
+    }
+
 
 }
 
