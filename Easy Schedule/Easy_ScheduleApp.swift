@@ -105,8 +105,11 @@ struct RootView: View {
     @EnvironmentObject var session: SessionStore
     @EnvironmentObject var premium: PremiumStoreViewModel
     @EnvironmentObject var eventManager: EventManager
+
     @State private var showPremiumIntro = false
     @State private var showPaywall = false
+    private let network = NetworkMonitor.shared
+
 
     var body: some View {
         Group {
@@ -114,22 +117,22 @@ struct RootView: View {
                 LoginView()
             } else {
                 ContentView()
-                    .environmentObject(session)
-                    .environmentObject(eventManager)
                     .onAppear {
-        
                         Task { await premium.refresh() }
 
                         if !premium.isPremium,
                            PremiumIntroGate.shouldShowToday() {
-
                             showPremiumIntro = true
                             PremiumIntroGate.markShown()
                         }
                     }
             }
         }
-     
+        // ⭐⭐⭐ INJECT Ở ĐÂY — NGOÀI GROUP ⭐⭐⭐
+        .environmentObject(session)
+        .environmentObject(eventManager)
+        .environmentObject(network)
+
         .sheet(isPresented: $showPremiumIntro) {
             PremiumIntroView(
                 isPresented: $showPremiumIntro,
@@ -143,7 +146,5 @@ struct RootView: View {
                 .environmentObject(premium)
         }
     }
-
 }
-
 
