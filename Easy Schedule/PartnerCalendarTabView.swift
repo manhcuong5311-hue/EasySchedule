@@ -150,20 +150,11 @@ struct PartnerCalendarTabView: View {
             // ================================
             .navigationTitle(String(localized: "partner_calendar"))
             .toolbar {
-                // NÚT HELP BÊN TRÁI
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button {
-                        showHelpSheet = true
-                    } label: {
-                        Image(systemName: "questionmark.circle")
-                            .font(.system(size: 20, weight: .semibold))
-                    }
-                }
-
                 // NÚT + BÊN PHẢI (đã có)
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
-                        addAppointmentPressed()
+                        guard !isLoading else { return }
+                                addAppointmentPressed()
                     } label: {
                         Circle()
                             .fill(Color.blue.opacity(0.2))
@@ -173,66 +164,10 @@ struct PartnerCalendarTabView: View {
                                     .foregroundColor(.blue)
                             )
                     }
-                    .disabled(parsedUID == nil)
                 }
                 
             }
-            .sheet(isPresented: $showHelpSheet) {
-                NavigationStack {
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 20) {
-
-                            Text(String(localized: "help_title"))
-                                .font(.title2.bold())
-                                .padding(.bottom, 10)
-
-                            Group {
-                                Text(String(localized: "help_section_paste_uid_title"))
-                                    .font(.headline)
-                                Text(String(localized: "help_section_paste_uid_desc"))
-                                    .foregroundColor(.secondary)
-                            }
-
-                            Group {
-                                Text(String(localized: "help_section_history_title"))
-                                    .font(.headline)
-                                Text(String(localized: "help_section_history_desc"))
-                                    .foregroundColor(.secondary)
-                            }
-
-                            Group {
-                                Text(String(localized: "help_section_created_for_others_title"))
-                                    .font(.headline)
-                                     Text(String(localized: "help_section_created_for_others_desc"))
-                                    .foregroundColor(.secondary)
-                            }
-
-                            Group {
-                                Text(String(localized: "help_section_access_title"))
-                                    .font(.headline)
-                                Text(String(localized: "help_section_access_desc"))
-                                    .foregroundColor(.secondary)
-                            }
-
-                            Group {
-                                Text(String(localized: "help_section_add_event_title"))
-                                    .font(.headline)
-                                Text(String(localized: "help_section_add_event_desc"))
-                                    .foregroundColor(.secondary)
-                            }
-
-                            Spacer(minLength: 40)
-                        }
-                        .padding()
-                    }
-                    .navigationTitle(String(localized: "help_nav_title"))
-                    .toolbar {
-                        ToolbarItem(placement: .navigationBarTrailing) {
-                            Button(String(localized:"close")) { showHelpSheet = false }
-                        }
-                    }
-                }
-            }
+            
 
             // ================================
             // MARK: SHEETS
@@ -278,7 +213,7 @@ struct PartnerCalendarTabView: View {
             // ================================
             .alert(isPresented: $showAlert) {
                 Alert(
-                    title: Text(String(localized: "access_required")),
+                    title: Text(String(localized: "unable_to_proceed")),
                     message: Text(alertMessage),
                     dismissButton: .default(Text(String(localized: "close")))
                 )
@@ -300,9 +235,14 @@ struct PartnerCalendarTabView: View {
             }
 
             HStack {
-                Button(action: { parseAndLoad() }) {
+                Button(action: {
+                    guard !isLoading else { return }
+                    parseAndLoad()
+                }) {
                     HStack {
-                        if isLoading { ProgressView().scaleEffect(0.7) }
+                        if isLoading {
+                            ProgressView().scaleEffect(0.7)
+                        }
                         Text(String(localized: "load_calendar"))
                     }
                     .frame(maxWidth: .infinity)

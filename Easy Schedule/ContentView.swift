@@ -551,7 +551,33 @@ final class EventManager: ObservableObject {
                 completion(snap?.exists == true)
             }
     }
-    
+    func addBusyHoursForDay(
+        userId: String,
+        slots: [ProSlot],
+        completion: (() -> Void)? = nil
+    ) {
+        let doc = db.collection("publicCalendar").document(userId)
+
+        doc.getDocument { snap, _ in
+            var existing = snap?.data()?["busySlots"] as? [[String: Any]] ?? []
+
+            let newSlots: [[String: Any]] = slots.map { slot in
+                [
+                    "id": UUID().uuidString,
+                    "title": String(localized: "busy"),
+                    "start": slot.start.timeIntervalSince1970,
+                    "end": slot.end.timeIntervalSince1970
+                ]
+            }
+
+            existing.append(contentsOf: newSlots)
+
+            doc.setData(["busySlots": existing], merge: true) { _ in
+                completion?()
+            }
+        }
+    }
+
 
 }
 
@@ -1322,9 +1348,55 @@ extension EventManager {
         }
     }
 
+    func removePublicCalendarBusySlot(
+          for uid: String,
+          start: Date,
+          end: Date
+      ) {
+          let db = Firestore.firestore()
 
+          db.collection("publicCalendars")
+              .document(uid)
+              .collection("busyHours")
+              .whereField("startTime", isEqualTo: start)
+              .whereField("endTime", isEqualTo: end)
+              .getDocuments { snapshot, error in
 
-    
+                  guard let docs = snapshot?.documents else { return }
+
+                  for doc in docs {
+                      doc.reference.delete()
+                  }
+              }
+      }
+
+    func syncBusyHoursToFirebase(
+        busyIntervals: [(Date, Date)],
+        completion: (() -> Void)? = nil
+    ) {
+        guard let uid = currentUserId else {
+            completion?()
+            return
+        }
+
+        let busySlots = busyIntervals.map { interval in
+            [
+                "start": interval.0.timeIntervalSince1970,
+                "end": interval.1.timeIntervalSince1970,
+                "title": "Busy"
+            ]
+        }
+
+        db.collection("publicCalendar")
+            .document(uid)
+            .setData(
+                ["busySlots": busySlots],
+                merge: true
+            ) { _ in
+                completion?()
+            }
+    }
+
 }
 
 
@@ -1489,7 +1561,6 @@ struct EventListView: View {
     @State private var searchText: String = ""    // dùng để tìm kiếm
     @State private var showDeleteAlert = false
     @State private var eventToDelete: CalendarEvent? = nil
-    @State private var showHelpSheet = false
     // MARK: — tùy chỉnh UI
     @State private var showCustomizeSheet = false
     @EnvironmentObject var session: SessionStore
@@ -1538,15 +1609,7 @@ struct EventListView: View {
             : String(localized: "current_events")
         )
         .toolbar {
-            // NÚT HELP BÊN TRÁI
-            ToolbarItem(placement: .navigationBarLeading) {
-                Button {
-                    showHelpSheet = true
-                } label: {
-                    Image(systemName: "questionmark.circle")
-                        .font(.system(size: 20, weight: .semibold))
-                }
-            }
+
             // NÚT TÙY CHỈNH Ở BÊN PHẢI
              ToolbarItem(placement: .navigationBarTrailing) {
                  Button { showCustomizeSheet = true } label: {
@@ -1573,70 +1636,6 @@ struct EventListView: View {
             if let week = selectedWeek {
                 PastEventsByWeekView(week: week)
                     .environmentObject(eventManager)
-            }
-        }
-        .sheet(isPresented: $showHelpSheet) {
-            NavigationStack {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 20) {
-
-                        Text(String(localized: "events_help_title"))
-                            .font(.title2.bold())
-
-                        Group {
-                            Text(String(localized: "events_help_segment_title"))
-                                .font(.headline)
-                            Text(String(localized: "events_help_segment_desc"))
-                                .foregroundColor(.secondary)
-                        }
-
-                        Group {
-                            Text(String(localized: "events_help_search_title"))
-                                .font(.headline)
-                            Text(String(localized: "events_help_search_desc"))
-                                .foregroundColor(.secondary)
-                        }
-
-                        Group {
-                            Text(String(localized: "events_help_weekgroup_title"))
-                                .font(.headline)
-                            Text(String(localized: "events_help_weekgroup_desc"))
-                                .foregroundColor(.secondary)
-                        }
-
-                        Group {
-                            Text(String(localized: "events_help_delete_title"))
-                                .font(.headline)
-                            Text(String(localized: "events_help_delete_desc"))
-                                .foregroundColor(.secondary)
-                        }
-                        Group {
-                            Text(String(localized: "events_help_chat_title"))
-                                .font(.headline)
-
-                            Text(String(localized: "events_help_chat_desc"))
-                                .foregroundColor(.secondary)
-                        }
-                        Group {
-                            Text(String(localized: "my_calendar_help_section_todo_title"))
-                                .font(.headline)
-
-                            Text(String(localized: "my_calendar_help_section_todo_desc"))
-                                .foregroundColor(.secondary)
-                        }
-
-                        Spacer(minLength: 40)
-                    }
-                    .padding()
-                }
-                .navigationTitle(String(localized: "events_help_nav_title"))
-                .toolbar {
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Button(String(localized: "close")) {
-                            showHelpSheet = false
-                        }
-                    }
-                }
             }
         }
         .sheet(isPresented: $showCustomizeSheet) {
@@ -2241,459 +2240,6 @@ struct PastEventsByWeekView: View {
 
 
 
-struct CustomizableCalendarView: View {
-    @EnvironmentObject var eventManager: EventManager
-    @State private var selectedDate: Date? = nil
-    @State private var showAddSheet: Bool = false
-    @State private var showDeleteAlert = false
-    @State private var eventToDelete: CalendarEvent? = nil
-    @State private var showShareSheet = false
-    @State private var shareItem: ShareItem?
-    @State private var isTogglingOffDay = false
-    @State private var isCooldown = false
-    @State private var lastTapTime: Date = .distantPast
-    @State private var toggleCount = 0
-    @State private var syncWorkItem: DispatchWorkItem?
-    @State private var showCooldownToast = false
-    @State private var cooldownRemaining = 0
-    @State private var showHelpSheet = false
-    @State private var isLoadingOffDays = false
-    @State private var showOffDayAlert = false
-    @State private var offDayAlertMessage = ""
-
-    @State private var offDays: Set<Date> = [] {
-        didSet {
-            guard !isLoadingOffDays else { return }
-            saveOffDaysToLocal()
-        }
-    }
-
-
-    private func saveOffDaysToLocal() {
-        let timestamps = offDays.map { $0.timeIntervalSince1970 }
-        UserDefaults.standard.set(timestamps, forKey: "offDays")
-    }
-
-    private func loadOffDaysFromLocal() {
-        isLoadingOffDays = true
-
-        let timestamps =
-            UserDefaults.standard.array(forKey: "offDays") as? [Double] ?? []
-
-        let dates = timestamps.map { Date(timeIntervalSince1970: $0) }
-        offDays = Set(dates)
-
-        isLoadingOffDays = false
-    }
-
-    private func cleanPastOffDays() {
-        let today = calendar.startOfDay(for: Date())
-
-        let cleaned = offDays.filter {
-            calendar.startOfDay(for: $0) >= today
-        }
-
-        guard cleaned != offDays else { return }
-
-        isLoadingOffDays = true
-        offDays = cleaned
-        isLoadingOffDays = false
-
-        eventManager.syncOffDaysToFirebase(offDays: offDays)
-    }
-    private func isPastDay(_ date: Date) -> Bool {
-        calendar.startOfDay(for: date) < calendar.startOfDay(for: Date())
-    }
-
-
-    private var calendar: Calendar {
-        var cal = Calendar.current
-        cal.firstWeekday = 2
-        return cal
-    }
-
-    private func showDeleteConfirmation(for event: CalendarEvent) {
-        eventToDelete = event
-        showDeleteAlert = true
-    }
-    var body: some View {
-        NavigationStack {
-            ZStack {
-
-                // ======= MAIN UI =======
-                ScrollView {
-                    VStack(spacing: 12) {
-
-                        // MARK: - Calendar grid
-                        CalendarGridView(
-                            selectedDate: $selectedDate,
-                            eventsByDay: eventManager.groupedByDay,
-                            offDays: offDays,
-                            isOwner: true
-                        )
-                        
-                        .padding(.top, 8)
-                        .frame(maxWidth: .infinity)
-
-                        // MARK: - Toggle trùng lịch
-                        Toggle(String(localized: "allow_conflict"), isOn: Binding(
-                            get: { eventManager.allowDuplicateEvents },
-                            set: { eventManager.allowDuplicateEvents = $0 }
-                        ))
-                        .padding(.horizontal)
-                        .padding(.bottom, 4)
-
-                        Divider()
-                        // MARK: - Chia sẻ lịch
-                        Button {
-                            if let uid = Auth.auth().currentUser?.uid,
-                               let url = URL(string: "https://easyschedule-ce98a.web.app/calendar/\(uid)") {
-                                shareItem = ShareItem(url: url)
-                            }
-                        } label: {
-                            HStack(spacing: 8) {
-                                Image(systemName: "square.and.arrow.up")
-                                    .font(.system(size: 16, weight: .semibold))
-
-                                Text(String(localized: "share_calendar"))
-                                    .fontWeight(.semibold)
-                            }
-                            
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.blue.opacity(0.2))
-                            .cornerRadius(12)
-                        }
-
-                        .padding(.horizontal)
-
-                        .sheet(item: $shareItem) { item in
-                            ActivityView(activityItems: [item.url])
-                        }
-
-
-                        // MARK: - Ngày được chọn
-                        if let date = selectedDate {
-                            VStack(spacing: 10) {
-
-                                // Button ngày nghỉ
-                                Button {
-                                    guard !isPastDay(date) else {
-                                          offDayAlertMessage = String(localized: "cannot_set_offday_in_past")
-                                          showOffDayAlert = true
-                                          return
-                                      }
-                                    cleanPastOffDays()
-                                    guard !isCooldown else { return }
-
-                                    let now = Date()
-                                    guard now.timeIntervalSince(lastTapTime) > 0.3 else { return }
-                                    lastTapTime = now
-
-                                    toggleCount += 1
-                                    if toggleCount > 5 {
-                                        startCooldown(seconds: 30)
-                                        return
-                                    }
-
-                                    toggleOffDay(for: date)
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                                        eventManager.syncOffDaysToFirebase(offDays: offDays)
-                                    }
-
-                                } label: {
-                                    HStack {
-                                        Image(systemName: isOffDay(date) ? "xmark.circle" : "bed.double.fill")
-                                        Text(isOffDay(date)
-                                             ? String(localized: "reopen_day")
-                                             : String(localized: "set_day_off"))
-                                        .bold()
-                                    }
-                                    .frame(maxWidth: .infinity)
-                                    .padding()
-                                    .background(isCooldown ? Color.gray.opacity(0.1)
-                                                           : (isOffDay(date) ? Color.green.opacity(0.2)
-                                                                             : Color.gray.opacity(0.2)))
-                                    .cornerRadius(10)
-                                }
-                                .disabled(isCooldown)
-                                .opacity(isCooldown ? 0.4 : 1)
-                                .padding(.horizontal)
-
-                                // Text messages...
-                                if isOffDay(date) {
-                                    Text(String(localized: "day_off_message"))
-                                        .foregroundColor(.red)
-                                        .font(.subheadline)
-                                } else if eventManager.events(for: date).isEmpty {
-                                    Text(String(localized: "no_events_today"))
-                                        .foregroundColor(.secondary)
-                                        .padding(.vertical, 12)
-                                } else {
-                                    VStack(spacing: 12) {
-                                        ForEach(eventManager.events(for: date).sorted { $0.startTime < $1.startTime }) { event in
-
-                                            HStack(alignment: .top, spacing: 12) {
-
-                                                // MARK: - Màu sự kiện
-                                                Circle()
-                                                    .fill(Color(hex: event.colorHex.isEmpty ? "#FF0000" : event.colorHex))
-                                                    .frame(width: 12, height: 12)
-                                                    .padding(.top, 4)
-
-                                                // MARK: - Nội dung
-                                                VStack(alignment: .leading, spacing: 6) {
-
-                                                    // Tiêu đề
-                                                    Text(event.title)
-                                                        .font(.headline)
-                                                        .foregroundColor(.primary)
-
-                                                    // Nguồn tạo sự kiện
-                                                    Text(originLabel(for: event))
-                                                        .font(.caption)
-                                                        .foregroundColor(.blue)
-
-                                                    // Người liên quan
-                                                    if event.origin == .iCreatedForOther {
-                                                        HStack(spacing: 6) {
-                                                            UserNameView(uid: event.createdBy)
-                                                            Image(systemName: "arrow.right")
-                                                                .font(.caption)
-                                                            UserNameView(uid: event.owner)
-                                                        }
-                                                        .font(.subheadline)
-                                                        .foregroundColor(.secondary)
-                                                    } else {
-                                                        Text(displayName(for: event, uid: event.createdBy, eventManager: eventManager))
-                                                            .font(.subheadline)
-                                                            .foregroundColor(.secondary)
-                                                    }
-
-                                                    // Giờ
-                                                    Text("\(formattedTime(event.startTime)) - \(formattedTime(event.endTime))")
-                                                        .font(.caption)
-                                                        .foregroundColor(.secondary.opacity(0.8))
-                                                }
-
-                                                Spacer()
-
-                                                // MARK: - Nút xoá
-                                                Button {
-                                                    showDeleteConfirmation(for: event)
-                                                } label: {
-                                                    Image(systemName: "trash.fill")
-                                                        .foregroundColor(.red)
-                                                        .font(.system(size: 15, weight: .semibold))
-                                                        .padding(6)
-                                                        .background(Color.red.opacity(0.07))
-                                                        .clipShape(Circle())
-                                                }
-                                                .buttonStyle(.plain)
-                                            }
-                                            .padding(.vertical, 10)
-                                            .padding(.horizontal, 12)
-                                            .background(
-                                                RoundedRectangle(cornerRadius: 14)
-                                                    .fill(Color(.systemBackground))
-                                                    .shadow(
-                                                        color: Color.black.opacity(0.08),
-                                                        radius: 4,
-                                                        x: 0,
-                                                        y: 2
-                                                    )
-                                                    .overlay(
-                                                        RoundedRectangle(cornerRadius: 14)
-                                                            .stroke(Color(.separator), lineWidth: 0.5)
-                                                    )
-
-                                            )
-
-                                        }
-                                    }
-                                    .padding(.horizontal, 4)
-                                }
-                            }
-                        } else {
-                            Text(String(localized: "select_day_to_view"))
-                                .foregroundColor(.secondary)
-                                .padding(.vertical, 12)
-                        }
-
-                        Spacer(minLength: 40)
-                    }
-                }
-
-                // ======= TOAST (ĐÃ FIX) =======
-            if showCooldownToast {
-                    VStack {
-                        Spacer()
-                        Text(String(localized:"cooldown_warning \(cooldownRemaining)s."))
-                            .padding()
-                            .background(Color.black.opacity(0.85))
-                            .foregroundColor(.white)
-                            .cornerRadius(12)
-                            .padding(.bottom, 60)
-                            .shadow(radius: 5)
-                    }
-                    .transition(.opacity)
-                    .zIndex(999)
-                }
-            }
-           
-            .navigationTitle(String(localized: "my_calendar"))
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                       Button { showHelpSheet = true } label: {
-                           Image(systemName: "questionmark.circle")
-                               .font(.system(size: 20, weight: .semibold))
-                       }
-                   }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        showAddSheet = true
-                    } label: {
-                        Image(systemName: "plus")
-                            .font(.system(size: 20, weight: .semibold))
-                    }
-                    .tint(.accentColor)
-                }
-            
-            }
-            .sheet(isPresented: $showAddSheet) {
-                AddEventView(prefillDate: selectedDate, offDays: offDays)
-                    .environmentObject(eventManager)
-            }
-            .sheet(isPresented: $showHelpSheet) {
-                NavigationStack {
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 20) {
-
-                            Text(String(localized: "my_calendar_help_title"))
-                                .font(.title2.bold())
-
-                            Group {
-                                Text(String(localized: "my_calendar_help_section_calendar_title"))
-                                    .font(.headline)
-                                Text(String(localized: "my_calendar_help_section_calendar_desc"))
-                                    .foregroundColor(.secondary)
-                            }
-
-                            Group {
-                                Text(String(localized: "my_calendar_help_section_offday_title"))
-                                    .font(.headline)
-                                Text(String(localized: "my_calendar_help_section_offday_desc"))
-                                    .foregroundColor(.secondary)
-                            }
-
-                            Group {
-                                Text(String(localized: "my_calendar_help_section_share_title"))
-                                    .font(.headline)
-                                Text(String(localized: "my_calendar_help_section_share_desc"))
-                                    .foregroundColor(.secondary)
-                            }
-
-                            Group {
-                                Text(String(localized: "my_calendar_help_section_conflict_title"))
-                                    .font(.headline)
-                                Text(String(localized: "my_calendar_help_section_conflict_desc"))
-                                    .foregroundColor(.secondary)
-                            }
-                         
-                            Spacer(minLength: 40)
-                        }
-                        .padding()
-                    }
-                    .navigationTitle(String(localized: "my_calendar_help_nav_title"))
-                    .toolbar {
-                        ToolbarItem(placement: .navigationBarTrailing) {
-                            Button(String(localized: "close")) {
-                                showHelpSheet = false
-                            }
-                        }
-                    }
-                }
-            }
-
-            .alert(String(localized: "delete_event_title"), isPresented: $showDeleteAlert) {
-                Button(String(localized: "ok"), role: .destructive) {
-                    if let e = eventToDelete { eventManager.deleteEvent(e) }
-                    eventToDelete = nil
-                }
-                Button(String(localized:"cancel"), role: .cancel) {
-                    eventToDelete = nil
-                }
-            } message: {
-                Text("\(String(localized: "delete_event_prefix")) “\(eventToDelete?.title ?? "")”?")
-            }
-            .alert(
-                String(localized: "notification"),
-                isPresented: $showOffDayAlert
-            ) {
-                Button(String(localized: "ok")) { }
-            } message: {
-                Text(offDayAlertMessage)
-            }
-
-        .onAppear {
-                loadOffDaysFromLocal()
-                cleanPastOffDays()
-            }
-        }
-        .toolbarBackground(.visible, for: .navigationBar)
-        .toolbarBackground(Color(.systemBackground), for: .navigationBar)
-
-    }
-
-    
-   
-    
-    
-    func startCooldown(seconds: Int) {
-        isCooldown = true
-        cooldownRemaining = seconds
-        showCooldownToast = true
-
-        // Timer mỗi 1 giây
-        Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { timer in
-            cooldownRemaining -= 1
-            
-            if cooldownRemaining <= 0 {
-                timer.invalidate()
-                isCooldown = false
-                showCooldownToast = false
-                toggleCount = 0
-            }
-        }
-    }
-
-    func showCooldownMessage() {
-        showCooldownToast = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-            showCooldownToast = false
-        }
-    }
-
-    // MARK: - SUPPORT
-    private func toggleOffDay(for date: Date) {
-        let key = calendar.startOfDay(for: date)
-        if offDays.contains(key) {
-            offDays.remove(key)
-        } else {
-            offDays.insert(key)
-        }
-    }
-
-    private func isOffDay(_ date: Date) -> Bool {
-        offDays.contains(calendar.startOfDay(for: date))
-    }
-
-    func formattedTime(_ date: Date) -> String {
-        date.formatted(date: .omitted, time: .shortened)
-    }
-
-}
-
 
 struct ShareItem: Identifiable {
     let id = UUID()
@@ -2712,551 +2258,4 @@ struct ActivityView: UIViewControllerRepresentable {
     func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
-
-struct AddEventView: View {
-    
-    @EnvironmentObject var eventManager: EventManager
-    @Environment(\.dismiss) private var dismiss
-    @State private var selectedColor: Color = .blue // ✅ màu mặc định
-    // Pre-fill date if user selected a date in calendar
-    let prefillDate: Date?
-    let offDays: Set<Date>        // ✅ THÊM MỚI — danh sách ngày nghỉ truyền từ ngoài vào
-    @State private var selectedDate: Date = Date()
-   
-    @State private var title: String = ""
-    @State private var date: Date = Date()
-    @State private var startTime: Date = Date()
-    @State private var endTime: Date = Date().addingTimeInterval(1800) // default +1h
-    // ✅ THÊM MỚI — biến trạng thái popup
-    @State private var showOffDayAlert = false
-    @State private var offDayMessage = ""
-    @EnvironmentObject var premium: PremiumStoreViewModel
-    @State private var alertMessage: String = ""
-    @State private var showAlert: Bool = false
-    @EnvironmentObject var session: SessionStore
-    @State private var showBusyInfo = false
-    @State private var busyInfoEvent: CalendarEvent? = nil
-    @State private var hasSelectedSlot = false
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section(header: Text(String(localized: "info_section"))) {
-                    TextField(String(localized: "title_placeholder"), text: $title)
-                }
-
-                Section(header: Text(String(localized: "date_time_section"))) {
-                    DatePicker(
-                        String(localized: "date_label"),
-                        selection: $date,
-                        displayedComponents: .date
-                    )
-                    .onChange(of: date) { _, _ in
-                        hasSelectedSlot = false
-                    }
-
-                    Section(String(localized: "select_time_section")) {
-                        let hours = Array(0..<24)
-                        let eventsToday = eventManager.events(for: date)
-
-                        // Kiểm tra ngày nghỉ
-                        let isOffDay = offDays.contains {
-                            Calendar.current.isDate($0, inSameDayAs: date)
-                        }
-
-
-                        LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 10) {
-
-                            ForEach(hours, id: \.self) { hour in
-
-                                let slotStart = Calendar.current.date(bySettingHour: hour, minute: 0, second: 0, of: date)!
-                                let slotEnd   = slotStart.addingTimeInterval(3600)
-
-                                // Check giờ bận
-                                let busyEvent = eventsToday.first {
-                                    $0.startTime < slotEnd && $0.endTime > slotStart
-                                }
-                                let isBusy = (busyEvent != nil) || isOffDay
-
-                                // Check giờ được chọn
-                                let selectedHour = Calendar.current.component(.hour, from: startTime)
-                                let isSelected = hasSelectedSlot && (hour == selectedHour) && !isBusy
-
-                                // Màu nền
-                                let bgColor: Color = {
-                                    if isBusy { return .red.opacity(0.40) }
-                                    if isSelected { return .blue.opacity(0.7) }
-                                    return .gray.opacity(0.15)
-                                }()
-
-                                Text(String(format: "%02d:00", hour))
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 10)
-                                    .background(bgColor)
-                                    .foregroundColor(isBusy ? .white : .primary)
-                                    .cornerRadius(8)
-                                    .contentShape(Rectangle())
-
-                                    // TAP để chọn giờ
-                                    .onTapGesture {
-                                        if !isBusy {
-                                            hasSelectedSlot = true
-                                            startTime = slotStart
-                                            endTime = slotStart.addingTimeInterval(1800)
-                                        }
-                                    }
-
-
-                                    // LONG PRESS để xem giờ bận
-                                    .simultaneousGesture(
-                                        LongPressGesture(minimumDuration: 0.4)
-                                            .onEnded { _ in
-                                                if let ev = busyEvent {
-                                                    busyInfoEvent = ev
-                                                    showBusyInfo = true
-                                                } else if isOffDay {
-                                                    alertMessage = String(localized: "off_day")
-                                                    showAlert = true
-                                                }
-                                            }
-                                    )
-                            }
-                        }
-                        .padding(.vertical, 6)
-                    }
-
-                    DatePicker( String(localized: "start_label"), selection: $startTime, displayedComponents: .hourAndMinute)
-                    DatePicker( String(localized: "end_label"), selection: $endTime, displayedComponents: .hourAndMinute)
-                }
-                Section(header: Text(String(localized: "event_color_section"))) {
- 
-                    ColorPicker(String(localized: "pick_color"), selection: $selectedColor, supportsOpacity: false)
-                }
-               
-
-            }
-            .onAppear {
-                if let d = prefillDate {
-                    date = d
-                    selectedDate = d                  // <- QUAN TRỌNG: đồng bộ
-                    // set startTime/endTime to that day same hour as current
-                    let comps = Calendar.current.dateComponents([.year, .month, .day], from: d)
-                    if let dayStart = Calendar.current.date(from: comps) {
-                        // keep times (only change date portion)
-                        startTime = combine(date: dayStart, time: startTime)
-                        endTime = combine(date: dayStart, time: endTime)
-                    }
-                }
-            }
-
-            .navigationTitle(String(localized: "add_event_title"))
-
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(String(localized: "save")) {
-
-                        // 🔒 1) Chặn spam click
-                        if eventManager.isAdding {
-                            print("⛔ Đang xử lý, không cho bấm nữa")
-                            return
-                        }
-                        eventManager.isAdding = true
-                        
-                        let calendar = Calendar.current
-                        let now = Date()
-
-                        // 1️⃣ Kiểm tra ngày nghỉ
-                        if offDays.contains(where: { calendar.isDate($0, inSameDayAs: date) }) {
-                            let template = String(localized: "off_day_full_message")
-                            offDayMessage = template
-                                .replacingOccurrences(of: "{date}", with: formattedDate(date))
-                            showOffDayAlert = true
-                            eventManager.isAdding = false
-                            return
-                        }
-
-                        // 2️⃣ Title trống
-                        guard !title.trimmingCharacters(in: .whitespaces).isEmpty else {
-                            alertMessage = String(localized: "empty_title")
-                            showAlert = true
-                            eventManager.isAdding = false
-                            return
-                        }
-
-                        // 3️⃣ start < end
-                        let s = combine(date: date, time: startTime)
-                        var e = combine(date: date, time: endTime)
-
-                        // đảm bảo end > start
-                        if e <= s {
-                            e = s.addingTimeInterval(1800)
-                        }
-
-                        // ⛔️ KHÔNG cho vượt qua ngày
-                        if !Calendar.current.isDate(e, inSameDayAs: s) {
-                            e = Calendar.current.date(
-                                bySettingHour: 23,
-                                minute: 59,
-                                second: 0,
-                                of: s
-                            )!
-                        }
-
-
-                        // 4️⃣ PREMIUM / FREE LIMIT (giữ nguyên code cũ)
-                        let now2 = now
-                        if !premium.isPremium {
-                            if let maxDate = calendar.date(byAdding: .day, value: 7, to: now2),
-                               date > maxDate {
-                                alertMessage = String(localized: "limit_7_days")
-                                showAlert = true
-                                eventManager.isAdding = false
-                                return
-                            }
-
-                            let sameDayFree = eventManager.events.filter {
-                                calendar.isDate($0.date, inSameDayAs: date)
-                            }
-                            if sameDayFree.count >= 2 {
-                                alertMessage = String(localized: "limit_2_events_per_day")
-                                showAlert = true
-                                eventManager.isAdding = false
-                                return
-                            }
-                        }
-
-                        // 5️⃣ Trùng giờ / trùng event
-                        let exactDup = eventManager.events.contains { ev in
-                            Calendar.current.isDate(ev.date, inSameDayAs: date) &&
-                            ev.startTime == s &&
-                            ev.endTime == e
-                        }
-                        if exactDup {
-                            alertMessage = String(localized: "event_already_exists")
-                            showAlert = true
-                            eventManager.isAdding = false
-                            return
-                        }
-
-                        if !eventManager.allowDuplicateEvents {
-                            let overlap = eventManager.events.contains { ev in
-                                Calendar.current.isDate(ev.date, inSameDayAs: date) &&
-                                ev.startTime < e &&
-                                s < ev.endTime
-                            }
-                            if overlap {
-                                alertMessage = String(localized: "time_slot_taken")
-                                showAlert = true
-                                eventManager.isAdding = false
-                                return
-                            }
-                        }
-
-                        // 6️⃣ Tạo event
-                        let success = eventManager.addEvent(
-                            title: title,
-                            ownerName: session.currentUserName,
-                            date: date,
-                            startTime: s,
-                            endTime: e,
-                            colorHex: selectedColor.toHex() ?? "#007AFF"
-                        )
-
-                        if !success {
-                            eventManager.isAdding = false
-                            return
-                        }
-
-                        // 🟢 Thành công → reset trạng thái và đóng view
-                        eventManager.isAdding = false
-                        dismiss()
-                    }
-                  
-                }
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(String(localized: "cancel")) { dismiss() }
-                }
-            }
-            // ✅ THÊM MỚI — popup cảnh báo
-            // OFFDAY popup
-            .alert(String(localized: "cannot_book"), isPresented: $showOffDayAlert) {
-                Button(String(localized: "close"), role: .cancel) { }
-            } message: {
-                Text(offDayMessage)
-            }
-
-            // PREMIUM popup
-            .alert(alertMessage, isPresented: $showAlert) {
-                Button(String(localized:"ok"), role: .cancel) {}
-            }
-            .alert(
-                String(localized: "busy_time"),
-                isPresented: $showBusyInfo
-            ) {
-                Button(String(localized: "ok"), role: .cancel) {}
-            } message: {
-                if let ev = busyInfoEvent {
-                    Text("\(ev.title)\n\(formattedTime(ev.startTime)) – \(formattedTime(ev.endTime))")
-                }
-            }
-
-        }
-    }
-    
-    // Helper: combine date portion of `date` with time portion of `time`
-    private func combine(date: Date, time: Date) -> Date {
-        let cal = Calendar.current
-        let dComp = cal.dateComponents([.year, .month, .day], from: date)
-        let tComp = cal.dateComponents([.hour, .minute, .second], from: time)
-        var comps = DateComponents()
-        comps.year = dComp.year
-        comps.month = dComp.month
-        comps.day = dComp.day
-        comps.hour = tComp.hour
-        comps.minute = tComp.minute
-        comps.second = tComp.second ?? 0
-        return cal.date(from: comps) ?? date
-    }
-  
-    func formattedTime(_ date: Date) -> String {
-        date.formatted(date: .omitted, time: .shortened)
-    }
-
-
-    // ✅ THÊM MỚI — định dạng ngày hiển thị trong popup
-    private func formattedDate(_ date: Date) -> String {
-        date.formatted(.dateTime.day().month().year())
-    }
-
-    
-}
-
-
-
-struct CalendarGridView: View {
-    @Binding var selectedDate: Date?
-    let eventsByDay: [Date: [CalendarEvent]]
-    @EnvironmentObject var eventManager: EventManager
-    private let calendar = Calendar.current
-    private let columns = Array(repeating: GridItem(.flexible()), count: 7)
-    let offDays: Set<Date>
-    let isOwner: Bool
-    // Alert trạng thái chung, riêng cho CalendarGridView
-    @State private var showOffDayAlert = false
-    
-    var body: some View {
-        VStack(spacing: 8) {
-            // MARK: - Header tháng
-            HStack {
-                Button(action: { changeMonth(by: -1) }) {
-                    Image(systemName: "chevron.left")
-                }
-                Spacer()
-                Text(formattedMonth(currentMonth))
-                    .font(.headline)
-                    
-
-                Spacer()
-                Button(action: { changeMonth(by: 1) }) {
-                    Image(systemName: "chevron.right")
-                }
-            }
-            .padding(.horizontal)
-            
-            // MARK: - Tên thứ trong tuần
-            HStack {
-                let symbols = Array(calendar.veryShortStandaloneWeekdaySymbols[1...6]) + [calendar.veryShortStandaloneWeekdaySymbols[0]]
-                ForEach(Array(symbols.enumerated()), id: \.offset) { _, symbol in
-                    Text(symbol)
-                        .font(.caption)
-                        .frame(maxWidth: .infinity)
-                        .foregroundColor(.secondary)
-                }
-
-            }
-            
-            // MARK: - Lưới ngày
-            LazyVGrid(columns: columns, spacing: 12) {
-                let allDays = daysInMonth(for: currentMonth)
-                    .map { calendar.startOfDay(for: $0) }
-
-                if let firstDay = allDays.first {
-                    let weekday = calendar.component(.weekday, from: firstDay)
-                    let emptySlots = weekday - calendar.firstWeekday
-                    if emptySlots > 0 {
-                        ForEach(0..<emptySlots, id: \.self) { idx in
-                            Text("")
-                                .id("empty_\(currentMonth)_\(idx)") // ép ID duy nhất
-                        }
-                    }
-                }
-                
-                // Hiển thị các ngày trong tháng
-                ForEach(allDays.indices, id: \.self) { index in
-                    let date = allDays[index]
-
-                    let day = calendar.component(.day, from: date)
-                    let isSelected = selectedDate.map { calendar.isDate($0, inSameDayAs: date) } ?? false
-                    let isToday = calendar.isDateInToday(date)
-                    let isOffDay = offDays.contains(where: { calendar.isDate($0, inSameDayAs: date) })
-
-                    VStack(spacing: 4) {
-                        Text("\(day)")
-                            .font(.body)
-                            .foregroundStyle(.primary) 
-                            .frame(width: 36, height: 36)
-                            .background(
-                                Circle()
-                                    .fill(
-                                        isSelected
-                                        ? Color.accentColor.opacity(0.25)
-                                        : (isOffDay
-                                            ? Color.gray.opacity(0.4)
-                                            : (isToday
-                                                ? Color.green.opacity(0.3)
-                                                : Color.clear)
-                                        )
-                                    )
-                            )
-                            .overlay(
-                                Circle()
-                                    .stroke(
-                                        isSelected ? Color.accentColor : Color.clear,
-                                        lineWidth: 1.5
-                                    )
-                            )
-
-
-
-                        let key = calendar.startOfDay(for: date)
-                        let events = eventsByDay[key] ?? []
-
-                        VStack(spacing: 2) {
-                            // Dot màu theo sự kiện đầu tiên
-                            Circle()
-                                .frame(width: 6, height: 6)
-                                .foregroundColor(events.isEmpty ? .clear : Color(hex: events.first!.colorHex))
-
-                            // Số lượng sự kiện
-                            if events.count > 1 {
-                                Text("\(events.count)")
-                                    .font(.caption2)
-                                    .foregroundColor(.secondary)
-                            }
-                        }
-
-
-                    }
-                    .frame(maxWidth: .infinity)
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        let key = calendar.startOfDay(for: date)
-
-                        if !isOwner, offDays.contains(key) {
-                            showOffDayAlert = true
-                        } else {
-                            selectedDate = date
-                        }
-
-                    }
-
-                }
-
-            }
-            .padding(.horizontal)
-        }
-        // ✅ Alert riêng cho CalendarGridView (ngày nghỉ)
-        .alert(String(localized: "cannot_book"), isPresented: $showOffDayAlert) {
-            Button(String(localized: "close"), role: .cancel) {}
-        } message: {
-            Text(String(localized: "day_off_message_full"))
-        }
-    }
-    
-    // MARK: - Month navigation
-    @State private var currentMonth: Date = Date()
-    private func changeMonth(by value: Int) {
-        if let newMonth = calendar.date(byAdding: .month, value: value, to: currentMonth) {
-            currentMonth = newMonth
-        }
-    }
-    
-    // MARK: - Ngày trong tháng
-    private func daysInMonth(for date: Date) -> [Date] {
-        guard let monthInterval = calendar.dateInterval(of: .month, for: date) else { return [] }
-        var days: [Date] = []
-        var current = monthInterval.start
-        while current < monthInterval.end {
-            days.append(current)
-            current = calendar.date(byAdding: .day, value: 1, to: current)!
-        }
-        return days
-    }
-    
-    // MARK: - Định dạng tháng
-    private func formattedMonth(_ date: Date) -> String {
-        date.formatted(.dateTime.month(.wide).year())
-    }
-
-}
-
-
-struct DayEventsSheetView: View {
-    @EnvironmentObject var eventManager: EventManager
-    let date: Date
-    @Environment(\.dismiss) private var dismiss
-    
-    var body: some View {
-        NavigationStack {
-            List(eventManager.events(for: date)) { event in
-                VStack(alignment: .leading, spacing: 4) {
-                    
-                    // ⭐ Tiêu đề sự kiện
-                    Text(event.title)
-                        .font(.headline)
-                    
-                    // ⭐ Thêm hiển thị tên người tạo / người được tạo
-                    if event.origin == .iCreatedForOther {
-                        // A tạo cho B
-                        HStack(spacing: 4) {
-                            UserNameView(uid: event.createdBy)   // A
-                            Text(String(localized: "arrow_right"))
-                            UserNameView(uid: event.owner)       // B
-                        }
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                        
-                    } else {
-                        // Tự tạo hoặc người khác tạo cho tôi
-                        Text(displayName(for: event, uid: event.createdBy, eventManager: eventManager))
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    // ⭐ Thời gian sự kiện
-                    Text("\(formattedTime(event.startTime)) - \(formattedTime(event.endTime))")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                .padding(.vertical, 4)
-            }
-            .navigationTitle("\(String(localized: "day_prefix")) \(formattedDate(date))")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button(String(localized: "close")) { dismiss() }
-                }
-            }
-        }
-    }
-    
-    func formattedTime(_ date: Date) -> String {
-        date.formatted(date: .omitted, time: .shortened)
-    }
-
-
-    private func formattedDate(_ date: Date) -> String {
-        date.formatted(.dateTime.day().month().year())
-    }
-
-}
 
