@@ -41,9 +41,7 @@ struct CustomizableCalendarView: View {
     @State private var shareItem: ShareItem?
     @State private var isTogglingOffDay = false
     @State private var isCooldown = false
-    @State private var lastTapTime: Date = .distantPast
     @State private var toggleCount = 0
-    @State private var syncWorkItem: DispatchWorkItem?
     @State private var showCooldownToast = false
     @State private var cooldownRemaining = 0
     @State private var isLoadingOffDays = false
@@ -164,7 +162,10 @@ struct CustomizableCalendarView: View {
             loadOffDaysFromLocal()
             cleanPastOffDays()
         }
-        .onChange(of: selectedDate, perform: handleDateChange)
+        .onChange(of: selectedDate, initial: false) { _, newValue in
+            handleDateChange(newValue)
+        }
+
     }
 
     private var allowConflictToggle: some View {
@@ -226,7 +227,12 @@ struct CustomizableCalendarView: View {
             if showCooldownToast {
                 VStack {
                     Spacer()
-                    Text("Cooldown \(cooldownRemaining)s")
+                    Text(
+                        String(
+                            format: String(localized: "cooldown_message"),
+                            cooldownRemaining
+                        )
+                    )
                         .padding()
                         .background(Color.black.opacity(0.85))
                         .foregroundColor(.white)
@@ -246,9 +252,14 @@ struct CustomizableCalendarView: View {
         }
     }
     private var addEventSheet: some View {
-        AddEventView(prefillDate: selectedDate, offDays: offDays)
-            .environmentObject(eventManager)
+        AddEventView(
+            prefillDate: selectedDate,
+            offDays: offDays,
+            busyHours: localBusyIntervals   // 👈 TRUYỀN VÀO
+        )
+        .environmentObject(eventManager)
     }
+
 
     private var busyHoursSheet: some View {
         Group {
@@ -380,12 +391,11 @@ struct CustomizableCalendarView: View {
             if let date = selectedDate {
                 selectedDayView(date: date)
             } else {
-                Text(String(localized: "select_day_to_view"))
-                    .foregroundColor(.secondary)
-                    .padding(.vertical, 12)
+                EmptyView()   // 👈 THAY DÒNG TEXT
             }
         }
     }
+
     private func selectedDayView(date: Date) -> some View {
         VStack(spacing: 12) {
             // ===== DAY OFF =====
@@ -462,27 +472,8 @@ struct CustomizableCalendarView: View {
             )
             .padding(.horizontal)
 
-            // ===== EVENTS / EMPTY STATE =====
-            if eventManager.events(for: date).isEmpty {
-                Text(String(localized: "no_events_today"))
-                    .foregroundColor(.secondary)
-                    .padding(.top, 8)
-            } else {
-                ForEach(eventManager.events(for: date)) { event in
-                    eventRow(event)
-                }
-            }
         }
     }
-
-
-    private func eventRow(_ event: CalendarEvent) -> some View {
-        HStack {
-            Text(event.title)
-            Spacer()
-        }
-    }
-
 }
 
 
@@ -494,6 +485,7 @@ struct AddEventView: View {
     // Pre-fill date if user selected a date in calendar
     let prefillDate: Date?
     let offDays: Set<Date>        // ✅ THÊM MỚI — danh sách ngày nghỉ truyền từ ngoài vào
+    let busyHours: [(Date, Date)]
     @State private var selectedDate: Date = Date()
    
     @State private var title: String = ""
@@ -546,10 +538,19 @@ struct AddEventView: View {
                                 let slotEnd   = slotStart.addingTimeInterval(3600)
 
                                 // Check giờ bận
+                                // 1️⃣ Busy do EVENT
                                 let busyEvent = eventsToday.first {
                                     $0.startTime < slotEnd && $0.endTime > slotStart
                                 }
-                                let isBusy = (busyEvent != nil) || isOffDay
+
+                                // 2️⃣ Busy do BUSY HOURS
+                                let busyHour = busyHours.first {
+                                    $0.0 < slotEnd && $0.1 > slotStart
+                                }
+
+                                // 3️⃣ Tổng hợp
+                                let isBusy = (busyEvent != nil) || (busyHour != nil) || isOffDay
+
 
                                 // Check giờ được chọn
                                 let selectedHour = Calendar.current.component(.hour, from: startTime)
@@ -587,11 +588,17 @@ struct AddEventView: View {
                                                 if let ev = busyEvent {
                                                     busyInfoEvent = ev
                                                     showBusyInfo = true
+
+                                                } else if busyHour != nil {
+                                                    alertMessage = String(localized: "busy_hours")
+                                                    showAlert = true
+
                                                 } else if isOffDay {
                                                     alertMessage = String(localized: "off_day")
                                                     showAlert = true
                                                 }
                                             }
+
                                     )
                             }
                         }
@@ -1070,3 +1077,4 @@ extension View {
         )
     }
 }
+

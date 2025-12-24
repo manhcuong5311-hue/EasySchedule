@@ -1561,7 +1561,6 @@ struct EventListView: View {
     @State private var searchText: String = ""    // dùng để tìm kiếm
     @State private var showDeleteAlert = false
     @State private var eventToDelete: CalendarEvent? = nil
-    @State private var showHelpSheet = false
     // MARK: — tùy chỉnh UI
     @State private var showCustomizeSheet = false
     @EnvironmentObject var session: SessionStore
@@ -1610,15 +1609,6 @@ struct EventListView: View {
             : String(localized: "current_events")
         )
         .toolbar {
-            // NÚT HELP BÊN TRÁI
-            ToolbarItem(placement: .navigationBarLeading) {
-                Button {
-                    showHelpSheet = true
-                } label: {
-                    Image(systemName: "questionmark.circle")
-                        .font(.system(size: 20, weight: .semibold))
-                }
-            }
             // NÚT TÙY CHỈNH Ở BÊN PHẢI
              ToolbarItem(placement: .navigationBarTrailing) {
                  Button { showCustomizeSheet = true } label: {
@@ -1645,70 +1635,6 @@ struct EventListView: View {
             if let week = selectedWeek {
                 PastEventsByWeekView(week: week)
                     .environmentObject(eventManager)
-            }
-        }
-        .sheet(isPresented: $showHelpSheet) {
-            NavigationStack {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 20) {
-
-                        Text(String(localized: "events_help_title"))
-                            .font(.title2.bold())
-
-                        Group {
-                            Text(String(localized: "events_help_segment_title"))
-                                .font(.headline)
-                            Text(String(localized: "events_help_segment_desc"))
-                                .foregroundColor(.secondary)
-                        }
-
-                        Group {
-                            Text(String(localized: "events_help_search_title"))
-                                .font(.headline)
-                            Text(String(localized: "events_help_search_desc"))
-                                .foregroundColor(.secondary)
-                        }
-
-                        Group {
-                            Text(String(localized: "events_help_weekgroup_title"))
-                                .font(.headline)
-                            Text(String(localized: "events_help_weekgroup_desc"))
-                                .foregroundColor(.secondary)
-                        }
-
-                        Group {
-                            Text(String(localized: "events_help_delete_title"))
-                                .font(.headline)
-                            Text(String(localized: "events_help_delete_desc"))
-                                .foregroundColor(.secondary)
-                        }
-                        Group {
-                            Text(String(localized: "events_help_chat_title"))
-                                .font(.headline)
-
-                            Text(String(localized: "events_help_chat_desc"))
-                                .foregroundColor(.secondary)
-                        }
-                        Group {
-                            Text(String(localized: "my_calendar_help_section_todo_title"))
-                                .font(.headline)
-
-                            Text(String(localized: "my_calendar_help_section_todo_desc"))
-                                .foregroundColor(.secondary)
-                        }
-
-                        Spacer(minLength: 40)
-                    }
-                    .padding()
-                }
-                .navigationTitle(String(localized: "events_help_nav_title"))
-                .toolbar {
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Button(String(localized: "close")) {
-                            showHelpSheet = false
-                        }
-                    }
-                }
             }
         }
         .sheet(isPresented: $showCustomizeSheet) {

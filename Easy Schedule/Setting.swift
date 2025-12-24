@@ -353,30 +353,78 @@ struct FAQView: View {
                 id: "sharing",
                 titleKey: "faq_section_sharing",
                 questions: [
+                    // Existing FAQ
                     ("faq_1_q", "faq_1_a"),
                     ("faq_2_q", "faq_2_a"),
                     ("faq_3_q", "faq_3_a"),
-                    ("faq_8_q", "faq_8_a")
+                    ("faq_8_q", "faq_8_a"),
+
+                    // From Calendar Help
+                    ("my_calendar_help_section_calendar_title",
+                     "my_calendar_help_section_calendar_desc"),
+                    ("my_calendar_help_section_offday_title",
+                     "my_calendar_help_section_offday_desc"),
+                    ("my_calendar_help_section_share_title",
+                     "my_calendar_help_section_share_desc"),
+
+                    // From Events Help
+                    ("events_help_segment_title",
+                     "events_help_segment_desc"),
+                    ("events_help_search_title",
+                     "events_help_search_desc"),
+                    ("events_help_weekgroup_title",
+                     "events_help_weekgroup_desc"),
+
+                    // ⬇️ FROM GENERAL HELP SHEET
+                    ("help_section_paste_uid_title",
+                     "help_section_paste_uid_desc"),
+
+                    ("help_section_history_title",
+                     "help_section_history_desc"),
+
+                    ("help_section_created_for_others_title",
+                     "help_section_created_for_others_desc"),
+
+                    ("help_section_access_title",
+                     "help_section_access_desc")
                 ],
                 expandedSection: $expandedSection
             )
+
+
 
             FAQSectionView(
                 id: "limits",
                 titleKey: "faq_section_limits",
                 questions: [
+                    // Existing limits
                     ("faq_4_q", "faq_4_a"),
                     ("faq_5_q", "faq_5_a"),
                     ("faq_6_q", "faq_6_a"),
-
-                    // ⭐ NEW — Chat limit
                     ("faq_chat_limit_q", "faq_chat_limit_a"),
+                    ("faq_todo_limit_q", "faq_todo_limit_a"),
 
-                    // ⭐ NEW — Todo limit
-                    ("faq_todo_limit_q", "faq_todo_limit_a")
+                    // From Calendar Help
+                    ("my_calendar_help_section_conflict_title",
+                     "my_calendar_help_section_conflict_desc"),
+
+                    // From Events Help
+                    ("events_help_delete_title",
+                     "events_help_delete_desc"),
+                    ("events_help_chat_title",
+                     "events_help_chat_desc"),
+                    ("my_calendar_help_section_todo_title",
+                     "my_calendar_help_section_todo_desc"),
+
+                    // ⬇️ FROM GENERAL HELP SHEET
+                    ("help_section_add_event_title",
+                     "help_section_add_event_desc")
                 ],
                 expandedSection: $expandedSection
             )
+
+
+
 
 
             FAQSectionView(
