@@ -153,7 +153,7 @@ struct CustomizableCalendarView: View {
         } message: {
             deleteAlertMessage
         }
-        .alert(String(localized: "notification"), isPresented: $showOffDayAlert) {
+        .alert(String(localized: "off_day_title"), isPresented: $showOffDayAlert) {
             Button(String(localized: "ok")) { }
         } message: {
             Text(offDayAlertMessage)
@@ -466,10 +466,9 @@ struct CustomizableCalendarView: View {
             }
             .calendarActionStyle(
                 showsHint: isOffDay(date),
-                hintText: isOffDay(date)
-                    ? String(localized: "day_off")
-                    : nil
+                hintText: nil
             )
+
             .padding(.horizontal)
 
         }

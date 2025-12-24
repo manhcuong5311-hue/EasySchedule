@@ -1609,6 +1609,7 @@ struct EventListView: View {
             : String(localized: "current_events")
         )
         .toolbar {
+
             // NÚT TÙY CHỈNH Ở BÊN PHẢI
              ToolbarItem(placement: .navigationBarTrailing) {
                  Button { showCustomizeSheet = true } label: {

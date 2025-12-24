@@ -353,13 +353,16 @@ struct FAQView: View {
                 id: "sharing",
                 titleKey: "faq_section_sharing",
                 questions: [
-                    // Existing FAQ
+                    // Core concepts
                     ("faq_1_q", "faq_1_a"),
                     ("faq_2_q", "faq_2_a"),
                     ("faq_3_q", "faq_3_a"),
                     ("faq_8_q", "faq_8_a"),
 
-                    // From Calendar Help
+                    // ⭐ NEW — Busy Hours explanation
+                    ("faq_busy_hours_q", "faq_busy_hours_a"),
+
+                    // Calendar Help
                     ("my_calendar_help_section_calendar_title",
                      "my_calendar_help_section_calendar_desc"),
                     ("my_calendar_help_section_offday_title",
@@ -367,7 +370,7 @@ struct FAQView: View {
                     ("my_calendar_help_section_share_title",
                      "my_calendar_help_section_share_desc"),
 
-                    // From Events Help
+                    // Events Help
                     ("events_help_segment_title",
                      "events_help_segment_desc"),
                     ("events_help_search_title",
@@ -375,21 +378,19 @@ struct FAQView: View {
                     ("events_help_weekgroup_title",
                      "events_help_weekgroup_desc"),
 
-                    // ⬇️ FROM GENERAL HELP SHEET
+                    // General Help
                     ("help_section_paste_uid_title",
                      "help_section_paste_uid_desc"),
-
                     ("help_section_history_title",
                      "help_section_history_desc"),
-
                     ("help_section_created_for_others_title",
                      "help_section_created_for_others_desc"),
-
                     ("help_section_access_title",
                      "help_section_access_desc")
                 ],
                 expandedSection: $expandedSection
             )
+
 
 
 
