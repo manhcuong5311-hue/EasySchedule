@@ -267,13 +267,14 @@ struct AppointmentProSheet: View {
         loading = true
 
         // 1️⃣ Load busy slots + premium
-        eventManager.fetchBusySlots(for: uid, forceRefresh: true) { slots, premium in
+        eventManager.fetchBusySlots(for: uid, forceRefresh: true) { slots, tier in
             DispatchQueue.main.async {
                 self.busySlots = slots
-                self.partnerTier = premium ? .premium : .free
+                self.partnerTier = tier
                 self.busyIntervals = slots.map { ($0.startTime, $0.endTime) }
             }
         }
+
 
 
         // 2️⃣ Load ngày nghỉ

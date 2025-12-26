@@ -9975,6 +9975,7 @@
       }
     },
     "premium_limit_30_per_day" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
