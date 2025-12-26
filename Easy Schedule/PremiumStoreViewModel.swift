@@ -148,7 +148,7 @@ struct PremiumLimits {
             return .init(
                 maxEventsPerDay: 2,
                 maxBookingDaysAhead: 7,
-                maxChatMessagesPerEvent: 10,
+                maxChatMessagesPerEvent: 100,
                 maxTodosPerEvent: 5
             )
 

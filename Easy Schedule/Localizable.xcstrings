@@ -6018,6 +6018,9 @@
         }
       }
     },
+    "Key" : {
+      "extractionState" : "manual"
+    },
     "language" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -6340,6 +6343,64 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "📍 Vị trí"
+          }
+        }
+      }
+    },
+    "location_not_ready_message" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Please wait a moment and try again."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "しばらく待ってからもう一度お試しください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "잠시 후 다시 시도해 주세요."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Vui lòng đợi trong giây lát rồi thử lại."
+          }
+        }
+      }
+    },
+    "location_not_ready_title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Location not ready"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "位置を取得できません"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "위치를 가져올 수 없습니다"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chưa xác định được vị trí"
           }
         }
       }
