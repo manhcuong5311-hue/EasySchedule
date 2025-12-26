@@ -321,7 +321,7 @@ struct SettingsView: View {
 
     // MARK: - Actions
     private func contactSupport() {
-        let supportEmail = "Manhcuong5311@gmail.com"
+        let supportEmail = "easyschedulehelp@gmail.com"
         let subjectText = String(localized: "support_email_subject")
         let subject = subjectText.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
         if let url = URL(string: "mailto:\(supportEmail)?subject=\(subject)") {
