@@ -151,8 +151,12 @@ struct CustomizableCalendarView: View {
                         selectedDate: $selectedDate,
                         eventsByDay: eventManager.groupedByDay,
                         offDays: offDays,
-                        isOwner: true
+                        isOwner: true,
+                        maxBookingDays: PremiumLimits
+                            .limits(for: PremiumStoreViewModel.shared.tier)
+                            .maxBookingDaysAhead
                     )
+
                     .padding(.top, 8)
 
                     allowConflictToggle
@@ -738,41 +742,48 @@ struct AddEventView: View {
                             )!
                         }
 
+                        // ===============================
+                        // 4️⃣ LIMIT THEO TIER (FREE / PREMIUM / PRO)
+                        // ===============================
+                        let tier = premium.tier
+                        let limits = PremiumLimits.limits(for: tier)
 
-                        // 4️⃣ PREMIUM / FREE LIMIT (giữ nguyên code cũ)
-                        let now2 = now
-                        if !premium.isPremium {
-                            if let maxDate = calendar.date(byAdding: .day, value: 7, to: now2),
-                               date > maxDate {
-                                alertMessage = String(localized: "limit_7_days")
-                                showAlert = true
-                                eventManager.isAdding = false
-                                return
-                            }
+                        // 4️⃣a BOOKING RANGE (ngày được tạo event)
+                        if let maxDate = calendar.date(
+                            byAdding: .day,
+                            value: limits.maxBookingDaysAhead,
+                            to: now
+                        ),
+                        date > maxDate {
 
-                            let sameDayFree = eventManager.events.filter {
-                                calendar.isDate($0.date, inSameDayAs: date)
-                            }
-                            if sameDayFree.count >= 2 {
-                                alertMessage = String(localized: "limit_2_events_per_day")
-                                showAlert = true
-                                eventManager.isAdding = false
-                                return
-                            }
-                            // 4️⃣b PREMIUM LIMIT — tối đa 180 ngày
-                            if premium.isPremium {
-                                let maxPremiumDays = 180
-                                if let maxDate = calendar.date(byAdding: .day, value: maxPremiumDays, to: now2),
-                                   date > maxDate {
-                                    alertMessage = String(localized: "limit_180_days")
-                                    showAlert = true
-                                    eventManager.isAdding = false
-                                    return
+                            alertMessage = {
+                                switch tier {
+                                case .free:
+                                    return String(localized: "limit_7_days")
+                                case .premium:
+                                    return String(localized: "limit_90_days")
+                                case .pro:
+                                    return String(localized: "limit_270_days")
                                 }
-                            }
+                            }()
 
-                            
+                            showAlert = true
+                            eventManager.isAdding = false
+                            return
                         }
+
+                        // 4️⃣b LIMIT SỐ EVENT / NGÀY
+                        let sameDayEvents = eventManager.events.filter {
+                            calendar.isDate($0.date, inSameDayAs: date)
+                        }
+
+                        if sameDayEvents.count >= limits.maxEventsPerDay {
+                            alertMessage = String(localized: "event_limit_reached")
+                            showAlert = true
+                            eventManager.isAdding = false
+                            return
+                        }
+
 
                         // 5️⃣ Trùng giờ / trùng event
                         let exactDup = eventManager.events.contains { ev in
@@ -892,7 +903,16 @@ struct CalendarGridView: View {
     let isOwner: Bool
     // Alert trạng thái chung, riêng cho CalendarGridView
     @State private var showOffDayAlert = false
-    
+    let maxBookingDays: Int
+    private var maxSelectableDate: Date {
+        let raw = calendar.date(
+            byAdding: .day,
+            value: maxBookingDays,
+            to: Date()
+        )!
+        return calendar.startOfDay(for: raw)
+    }
+
     var body: some View {
         VStack(spacing: 8) {
             // MARK: - Header tháng
@@ -943,6 +963,12 @@ struct CalendarGridView: View {
                 // Hiển thị các ngày trong tháng
                 ForEach(allDays.indices, id: \.self) { index in
                     let date = allDays[index]
+                    let dayStart = calendar.startOfDay(for: date)
+                    let today = calendar.startOfDay(for: Date())
+
+                    let isPast = dayStart < today
+                    let isOutOfRange = dayStart > maxSelectableDate
+                    let isLocked = isPast || isOutOfRange
 
                     let day = calendar.component(.day, from: date)
                     let isSelected = selectedDate.map { calendar.isDate($0, inSameDayAs: date) } ?? false
@@ -952,7 +978,7 @@ struct CalendarGridView: View {
                     VStack(spacing: 4) {
                         Text("\(day)")
                             .font(.body)
-                            .foregroundStyle(.primary)
+                            .foregroundColor(isLocked ? .secondary : .primary)
                             .frame(width: 36, height: 36)
                             .background(
                                 Circle()
@@ -996,9 +1022,13 @@ struct CalendarGridView: View {
 
 
                     }
+                    .opacity(isLocked ? 0.35 : 1.0)
+
                     .frame(maxWidth: .infinity)
                     .contentShape(Rectangle())
                     .onTapGesture {
+                        guard !isLocked else { return }
+
                         let key = calendar.startOfDay(for: date)
 
                         if !isOwner, offDays.contains(key) {
@@ -1006,8 +1036,9 @@ struct CalendarGridView: View {
                         } else {
                             selectedDate = date
                         }
-
                     }
+                    .allowsHitTesting(!isLocked)
+
 
                 }
 

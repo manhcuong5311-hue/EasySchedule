@@ -69,7 +69,8 @@ struct AppointmentProSheet: View {
                 CalendarMiniView(
                     selectedDate: $selectedDate,
                     busySlots: busySlots,
-                    offDays: partnerOffDays
+                    offDays: partnerOffDays,
+                    maxBookingDays: partnerMaxBookingDays
                 )
                 .frame(height: 260)
 
@@ -470,12 +471,20 @@ struct CalendarMiniView: View {
     @Binding var selectedDate: Date
     let busySlots: [CalendarEvent]
     let offDays: Set<Date>
-
+    let maxBookingDays: Int
     @State private var month: Date = Date()
     private var calendar: Calendar {
         var c = Calendar.current
         c.firstWeekday = 2
         return c
+    }
+    private var maxSelectableDate: Date {
+        let raw = calendar.date(
+            byAdding: .day,
+            value: maxBookingDays,
+            to: Date()
+        )!
+        return calendar.startOfDay(for: raw)
     }
 
     var body: some View {
@@ -493,6 +502,11 @@ struct CalendarMiniView: View {
 
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 7), spacing: 8) {
                 ForEach(days, id: \.self) { day in
+                    let dayStart = calendar.startOfDay(for: day)
+                    let today = calendar.startOfDay(for: Date())
+
+                    let isPast = dayStart < today
+                    let isOutOfRange = dayStart > maxSelectableDate
 
                     let isToday = Calendar.current.isDateInToday(day)
                     let isSelected = Calendar.current.isDate(selectedDate, inSameDayAs: day)
@@ -532,18 +546,14 @@ struct CalendarMiniView: View {
                             )
 
                     }
+                    .opacity(isPast || isOutOfRange ? 0.35 : 1.0)
+
                     .contentShape(Rectangle())
                     .onTapGesture {
-                        let today = Calendar.current.startOfDay(for: Date())
-                        let tapped = Calendar.current.startOfDay(for: day)
-
-                        guard tapped >= today else {
-                            // ❌ không cho chọn ngày quá khứ
-                            return
-                        }
-
+                        guard !isPast && !isOutOfRange else { return }
                         selectedDate = day
                     }
+
                 }
             }
 

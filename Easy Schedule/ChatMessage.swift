@@ -164,8 +164,6 @@ class TodoViewModel: ObservableObject {
 struct TodoListView: View {
     let chatId: String
     let myId: String
-    private let freeLimit = 5
-    private let premiumLimit = 20
     @State private var showPaywall = false
     @StateObject private var vm: TodoViewModel
     @ObservedObject private var nameCache = SessionStore.UserNameCache.shared
@@ -250,10 +248,23 @@ struct TodoListView: View {
                         let text = newTodo.trimmingCharacters(in: .whitespaces)
                         guard !text.isEmpty else { return }
 
-                        let limit = premium.isPremium ? premiumLimit : freeLimit
+                        let limits = PremiumLimits.limits(for: premium.tier)
+                        let limit = limits.maxTodosPerEvent
 
-                        if vm.todos.count >= limit {
-                            limitAlert = premium.isPremium ? .chatMaxReached : .freeLimit
+                        // Pro: không giới hạn
+                        if limit != .max && vm.todos.count >= limit {
+
+                            switch premium.tier {
+                            case .free:
+                                limitAlert = .freeLimit
+
+                            case .premium:
+                                limitAlert = .chatMaxReached
+
+                            case .pro:
+                                break // Pro không bao giờ vào đây
+                            }
+
                             return
                         }
 
@@ -313,8 +324,11 @@ struct TodoListView: View {
                         message: Text(
                             String(
                                 format: String(localized: "todo_free_limit_message"),
-                                freeLimit
+                                PremiumLimits
+                                    .limits(for: .free)
+                                    .maxTodosPerEvent
                             )
+
                         ),
                         primaryButton: .default(Text(String(localized: "upgrade_to_premium"))) {
                             showPaywall = true

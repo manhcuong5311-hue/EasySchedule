@@ -4652,25 +4652,25 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Premium\nCreate up to 20 events per day,\nunlock scheduling up to 90 days in advance so you and others can book appointments.\nEnjoy unlimited messaging,\ncreate up to 20 tasks in the To-do list,\nand sync your data online across devices."
+            "value" : "Premium lets you create up to 20 events per day and schedule appointments up to 90 days in advance.\nEnjoy extended messaging, manage up to 20 tasks per event, and keep your data synced across devices. Pro is designed for power users. Create up to 50 events per day and schedule appointments up to 270 days in advance.\nEnjoy unlimited messaging, advanced scheduling, and higher task limits."
           }
         },
         "ja" : {
           "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "1日あたり最大30件の予定を作成でき、\n最大180日先まで公開して、あなたや他のユーザーが予約可能です。\nメッセージは無制限で、\nTo-doリストでは最大20件のタスクを作成できます。\nさらに、データはオンラインで同期されます。"
+            "state" : "translated",
+            "value" : "Premiumでは、1日に最大20件の予定を作成でき、最大90日先まで予約できます。\nメッセージ機能の拡張、イベントごとに最大20件のTo-do管理、デバイス間のデータ同期が可能です。 Proは上級ユーザー向けです。1日に最大50件の予定を作成でき、最大270日先まで予約できます。\n無制限のメッセージ機能と高度なスケジューリングを利用できます。"
           }
         },
         "ko" : {
           "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "프리미엄\n하루에 최대 30개의 일정을 생성할 수 있으며,\n최대 180일까지 일정을 공개하여 본인과 다른 사용자가 예약할 수 있습니다.\n채팅은 무제한이며,\nTo-do 목록에서 최대 20개의 작업을 생성할 수 있습니다.\n또한 데이터가 온라인으로 동기화됩니다."
+            "state" : "translated",
+            "value" : "Premium을 사용하면 하루 최대 20개의 일정을 생성하고 최대 90일 후까지 예약할 수 있습니다.\n더 많은 메시지를 주고받을 수 있으며, 이벤트당 최대 20개의 할 일을 관리하고 기기 간 데이터를 동기화할 수 있습니다. Pro는 전문가용 플랜입니다. 하루 최대 50개의 일정을 생성하고 최대 270일 후까지 예약할 수 있습니다.\n무제한 메시지, 고급 일정 관리 기능을 제공합니다."
           }
         },
         "vi" : {
           "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Premium tạo tối đa 30 lịch/ngày, mở khoá tới 180 ngày để bạn và người khác có thể đặt lịch, nhắn tin không giới hạn,tạo được đến 20 công việc trong mục To-do và được đồng bộ dữ liệu qua mạng."
+            "state" : "translated",
+            "value" : "Premium cho phép bạn tạo tối đa 20 sự kiện mỗi ngày và đặt lịch trước đến 90 ngày.\nBạn có thể nhắn tin nhiều hơn, quản lý tối đa 20 công việc cho mỗi sự kiện và đồng bộ dữ liệu giữa các thiết bị. Pro dành cho người dùng nâng cao. Bạn có thể tạo tối đa 50 sự kiện mỗi ngày và đặt lịch trước đến 270 ngày.\nTrải nghiệm nhắn tin không giới hạn, lập lịch nâng cao và giới hạn công việc cao hơn."
           }
         }
       }
@@ -4681,25 +4681,25 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "What are the benefits of Premium?"
+            "value" : "What are the benefits of Premium and pro ?"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "プレミアムの特典は何ですか？"
+            "value" : "Premium と Pro の特典は何ですか？"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "프리미엄의 혜택은 무엇인가요?"
+            "value" : "Premium 및 Pro의 혜택은 무엇인가요?"
           }
         },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nâng cấp Premium có lợi gì?"
+            "value" : "Premium và Pro mang lại những quyền lợi gì?"
           }
         }
       }
@@ -4710,25 +4710,25 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "You may have reached the daily limit. Free: 2/day. Premium: 30/day."
+            "value" : "You’ve reached your daily limit.\nFree: 2 events/day · Premium: 20 events/day · Pro: 50 events/day"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "1日の上限に達している可能性があります。無料：2件/日、プレミアム：30件/日。"
+            "value" : "本日の作成上限に達しました。\n無料: 2件/日 · Premium: 20件/日 · Pro: 50件/日"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "일일 생성 한도에 도달했을 수 있습니다. 무료: 하루 2개 / 프리미엄: 하루 30개"
+            "value" : "오늘 생성할 수 있는 일정 한도에 도달했습니다.\n무료: 2개/일 · Premium: 20개/일 · Pro: 50개/일"
           }
         },
         "vi" : {
           "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Có thể bạn đã đạt giới hạn mỗi ngày. Free: 2 lịch/ngày. Premium: 30 lịch/ngày."
+            "state" : "translated",
+            "value" : "Bạn đã đạt giới hạn tạo sự kiện trong ngày.\nFree: 2/ngày · Premium: 20/ngày · Pro: 50/ngày"
           }
         }
       }
@@ -6134,7 +6134,10 @@
         }
       }
     },
-    "limit_180_days" : {
+    "limit_90_days" : {
+
+    },
+    "limit_270_days" : {
 
     },
     "link_copied" : {
@@ -9974,35 +9977,6 @@
         }
       }
     },
-    "premium_limit_30_per_day" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You have reach your limit for one day!"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "1日の上限に達しました！"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "하루 이용 한도에 도달했습니다!"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bạn đã tạo quá nhiều lịch trong 1 ngày!"
-          }
-        }
-      }
-    },
     "premium_skip" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -12368,25 +12342,25 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Free users can create up to %d tasks per event."
+            "value" : "Free users can create up to %d tasks.\nUpgrade to Premium to add more tasks.\n"
           }
         },
         "ja" : {
           "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "無料ユーザーはイベントごとに最大%d件のタスクを作成できます。"
+            "state" : "translated",
+            "value" : "無料ユーザーは最大%d件のタスクを作成できます。\nPremiumにアップグレードすると、さらにタスクを追加できます。\n"
           }
         },
         "ko" : {
           "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "무료 사용자는 이벤트당 최대 %d개의 할 일을 만들 수 있습니다."
+            "state" : "translated",
+            "value" : "무료 사용자는 최대 %d개의 작업을 생성할 수 있습니다.\nPremium으로 업그레이드하면 더 많은 작업을 추가할 수 있습니다.\n"
           }
         },
         "vi" : {
           "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Người dùng miễn phí chỉ có thể tạo tối đa %d công việc cho mỗi sự kiện."
+            "state" : "translated",
+            "value" : "Người dùng miễn phí có thể tạo tối đa %d công việc.\nNâng cấp lên Premium để tạo thêm công việc.\n"
           }
         }
       }
