@@ -16,8 +16,15 @@ actor PremiumStore {
 
     // MARK: - Product IDs
     private let productIDs: Set<String> = [
+        // PREMIUM
         "com.SamCorp.EasySchedule.premium.monthly",
-        "com.SamCorp.EasySchedule.premium.yearly"
+        "com.SamCorp.EasySchedule.premium.yearly",
+
+        // PRO
+        "com.SamCorp.EasySchedule.pro.monthly",
+        "com.SamCorp.EasySchedule.pro.yearly"
+        // hoặc:
+        // "com.SamCorp.EasySchedule.pro.lifetime"
     ]
 
     // MARK: - Stored properties

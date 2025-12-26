@@ -51,6 +51,8 @@ struct CustomizableCalendarView: View {
     @EnvironmentObject var network: NetworkMonitor
     @State private var localBusyIntervals: [(Date, Date)] = []   // CHỈ busy hours
     @State private var eventBusyIntervals: [(Date, Date)] = []   // event
+    @State private var showConfirmOffDayAlert = false
+    @State private var pendingOffDayDate: Date? = nil
 
    
 
@@ -59,6 +61,29 @@ struct CustomizableCalendarView: View {
         didSet {
             guard !isLoadingOffDays else { return }
             saveOffDaysToLocal()
+        }
+    }
+
+    private func hasEventOrBusy(on date: Date) -> Bool {
+        let dayStart = calendar.startOfDay(for: date)
+        let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart)!
+
+        let hasEvent =
+            !eventManager.events(for: dayStart).isEmpty
+
+        let hasBusy =
+            localBusyIntervals.contains { interval in
+                interval.0 < dayEnd && interval.1 > dayStart
+            }
+
+        return hasEvent || hasBusy
+    }
+    private func hasBusyHours(on date: Date) -> Bool {
+        let dayStart = calendar.startOfDay(for: date)
+        let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart)!
+
+        return localBusyIntervals.contains { interval in
+            interval.0 < dayEnd && interval.1 > dayStart
         }
     }
 
@@ -158,6 +183,25 @@ struct CustomizableCalendarView: View {
         } message: {
             Text(offDayAlertMessage)
         }
+        .alert(
+            String(localized: "off_day_warning_title"),
+            isPresented: $showConfirmOffDayAlert
+        ) {
+            Button(String(localized: "confirm"), role: .destructive) {
+                if let date = pendingOffDayDate {
+                    toggleOffDay(for: date)
+                    eventManager.syncOffDaysToFirebase(offDays: offDays)
+                }
+                pendingOffDayDate = nil
+            }
+
+            Button(String(localized: "cancel"), role: .cancel) {
+                pendingOffDayDate = nil
+            }
+        } message: {
+            Text(String(localized: "off_day_warning_message"))
+        }
+
         .onAppear {
             loadOffDaysFromLocal()
             cleanPastOffDays()
@@ -400,21 +444,28 @@ struct CustomizableCalendarView: View {
         VStack(spacing: 12) {
             // ===== DAY OFF =====
             Button {
-                // ❗ GIỮ NGUYÊN LOGIC CŨ
+                // ❗ KHÔNG CHO QUÁ KHỨ
                 guard !isPastDay(date) else {
                     offDayAlertMessage = String(localized: "cannot_set_offday_in_past")
                     showOffDayAlert = true
                     return
                 }
 
-                // 🔒 COOLDOWN GUARD
+                // 🔒 COOLDOWN
                 guard !isCooldown else {
                     showCooldownMessage()
                     return
                 }
 
-                toggleCount += 1
+                // ⚠️ CẢNH BÁO NẾU CÓ EVENT / BUSY
+                if !isOffDay(date) && hasEventOrBusy(on: date) {
+                    pendingOffDayDate = date
+                    showConfirmOffDayAlert = true
+                    return
+                }
 
+                // ⏱️ COOLDOWN COUNT
+                toggleCount += 1
                 if toggleCount >= 3 {
                     startCooldown(seconds: 5)
                     return
@@ -446,6 +497,8 @@ struct CustomizableCalendarView: View {
                .padding(.horizontal)
                .disabled(isCooldown)
             // ===== BUSY HOURS =====
+            let hasBusy = hasBusyHours(on: date)
+
             Button {
                 if isOffDay(date) {
                     offDayAlertMessage = String(
@@ -458,7 +511,7 @@ struct CustomizableCalendarView: View {
             } label: {
                 HStack(spacing: 10) {
                     Image(systemName: "clock")
-                        .foregroundColor(.blue)
+                        .foregroundColor(hasBusy ? .orange : .blue)
 
                     Text(String(localized: "busy_hours"))
                         .font(.body.weight(.semibold))
@@ -468,8 +521,12 @@ struct CustomizableCalendarView: View {
                 showsHint: isOffDay(date),
                 hintText: nil
             )
-
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(hasBusy ? Color.orange.opacity(0.15) : Color.clear)
+            )
             .padding(.horizontal)
+
 
         }
     }
@@ -702,6 +759,19 @@ struct AddEventView: View {
                                 eventManager.isAdding = false
                                 return
                             }
+                            // 4️⃣b PREMIUM LIMIT — tối đa 180 ngày
+                            if premium.isPremium {
+                                let maxPremiumDays = 180
+                                if let maxDate = calendar.date(byAdding: .day, value: maxPremiumDays, to: now2),
+                                   date > maxDate {
+                                    alertMessage = String(localized: "limit_180_days")
+                                    showAlert = true
+                                    eventManager.isAdding = false
+                                    return
+                                }
+                            }
+
+                            
                         }
 
                         // 5️⃣ Trùng giờ / trùng event

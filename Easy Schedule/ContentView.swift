@@ -643,28 +643,20 @@ extension EventManager {
             }
         }
 
+        // PREMIUM / PRO LIMIT CHECK (Tier-based)
+        let premium = PremiumStoreViewModel.shared
+        let limits = premium.limits
 
-        // PREMIUM LIMIT CHECK
-        let isPremium = PremiumStoreViewModel.shared.isPremium
-        if !isPremium {
-            let eventsSameDay = events.filter {
-                Calendar.current.isDate($0.date, inSameDayAs: date)
-            }
-            if eventsSameDay.count >= 2 {
-                print("🚫 FREE: 2 events/day")
-                return false
-            }
+        let eventsSameDay = events.filter {
+            Calendar.current.isDate($0.date, inSameDayAs: date)
         }
 
-        // PREMIUM MAX 30/DAY
-        if isPremium {
-            let sameDay = events.filter {
-                Calendar.current.isDate($0.date, inSameDayAs: date)
-            }
-            if sameDay.count >= 30 {
-                return false
-            }
+        guard eventsSameDay.count < limits.maxEventsPerDay else {
+            self.alertMessage = String(localized: "event_limit_reached")
+            self.showAlert = true
+            return false
         }
+
 
         // TẠO OBJECT
         let newEvent = CalendarEvent(

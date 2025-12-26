@@ -30,7 +30,7 @@ struct AppointmentProSheet: View {
     @State private var loading: Bool = true
     @State private var errorMessage: String? = nil
     @State private var partnerOffDays: Set<Date> = []
-    @State private var partnerIsPremium: Bool = true
+    @State private var partnerTier: PremiumTier = .free
     @State private var showPremiumAlert = false
     @EnvironmentObject var network: NetworkMonitor
     @State private var busyIntervals: [(Date, Date)] = []
@@ -199,15 +199,15 @@ struct AppointmentProSheet: View {
         .onChange(of: selectedDate) { _, newValue in
             guard let maxDate = calendar.date(
                 byAdding: .day,
-                value: partnerIsPremium ? 180 : 7,
+                value: partnerMaxBookingDays,
                 to: Date()
             ) else { return }
-
 
             if newValue > maxDate {
                 selectedSlot = nil
             }
         }
+
     }
     private var timeSlotsSection: some View {
         ScrollView {
@@ -239,12 +239,13 @@ struct AppointmentProSheet: View {
     private var isDayBlocked: Bool {
         guard let maxDate = calendar.date(
             byAdding: .day,
-            value: partnerIsPremium ? 180 : 7,
+            value: partnerMaxBookingDays,
             to: Date()
         ) else { return false }
 
         return selectedDate > maxDate
     }
+
 
     
     // MARK: Load dữ liệu
@@ -268,20 +269,12 @@ struct AppointmentProSheet: View {
         // 1️⃣ Load busy slots + premium
         eventManager.fetchBusySlots(for: uid, forceRefresh: true) { slots, premium in
             DispatchQueue.main.async {
-                print("🔥 UI nhận busySlots:", slots.count)
-
                 self.busySlots = slots
-                self.partnerIsPremium = premium
-
-                self.busyIntervals = slots.map {
-                    ($0.startTime, $0.endTime)
-                }
-
-
-                // ⭐ LƯU LOCAL CACHE TRONG EVENTMANAGER — KHÔNG sync vào events
-               
+                self.partnerTier = premium ? .premium : .free
+                self.busyIntervals = slots.map { ($0.startTime, $0.endTime) }
             }
         }
+
 
         // 2️⃣ Load ngày nghỉ
         eventManager.fetchOffDays(for: uid, forceRefresh: true) { offDays in
@@ -292,6 +285,16 @@ struct AppointmentProSheet: View {
         }
     }
 
+    private var partnerMaxBookingDays: Int {
+        switch partnerTier {
+        case .free:
+            return 7
+        case .premium:
+            return 180
+        case .pro:
+            return 270   // hoặc 270 nếu bạn muốn
+        }
+    }
 
     // MARK: Xử lý đặt lịch
     private func handleCreate() {
@@ -320,14 +323,23 @@ struct AppointmentProSheet: View {
         // ⭐ BOOKING RANGE LIMIT (UI safety check)
         let maxDate = calendar.date(
             byAdding: .day,
-            value: partnerIsPremium ? 180 : 7,
+            value: partnerMaxBookingDays,
             to: Date()
         )!
 
+
         if selectedDate > maxDate {
-            errorMessage = partnerIsPremium
-                ? String(localized: "premium_booking_limit_180_days")
-                : String(localized: "booking_limit_7_days")
+            errorMessage = {
+                switch partnerTier {
+                case .free:
+                    return String(localized: "booking_limit_7_days")
+                case .premium:
+                    return String(localized: "premium_booking_limit_90_days")
+                case .pro:
+                    return String(localized: "pro_booking_limit_270_days")
+                }
+            }()
+
             return
         }
 
@@ -341,22 +353,15 @@ struct AppointmentProSheet: View {
 
 
 
-        // ⭐ Giới hạn theo người tạo (B)
-        let creatorIsPremium = PremiumStoreViewModel.shared.isPremium
+        // ⭐ LIMIT CHECK — theo người tạo (B)
+        let premium = PremiumStoreViewModel.shared
+        let limits = premium.limits
 
-        if !creatorIsPremium {
-            // B không premium ⇒ 2 lịch/ngày
-            if eventsCreatedByMeToday.count >= 2 {
-                errorMessage = String(localized: "limit_2_events_per_day")
-                return
-            }
-        } else {
-            // B premium ⇒ 30 lịch/ngày
-            if eventsCreatedByMeToday.count >= 30 {
-                 errorMessage = String(localized: "premium_limit_30_per_day")
-                 return
-             }
+        if eventsCreatedByMeToday.count >= limits.maxEventsPerDay {
+            errorMessage = String(localized: "event_limit_reached")
+            return
         }
+
 
 
         guard NetworkMonitor.shared.isOnline else {
