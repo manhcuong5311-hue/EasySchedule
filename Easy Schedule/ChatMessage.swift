@@ -965,6 +965,14 @@ struct ChatView: View {
 
             todoVM.stop()
         }
+        .onChange(of: vm.reachedFreeLimit) { _, reached in
+            guard reached else { return }
+
+            // Không spam alert nếu đã là Premium
+            if !premium.isPremium {
+                showLimitAlert = true
+            }
+        }
 
         
     }
@@ -1431,39 +1439,54 @@ struct ChatButtonWithBadge: View {
 
 
 
+import SwiftUI
+import MapKit
 
 struct MapPickerView: View {
     @Environment(\.dismiss) var dismiss
+
     let location: CLLocation?
     var onPick: (CLLocationCoordinate2D) -> Void
-    
-    @State private var region: MKCoordinateRegion
-    
-    init(location: CLLocation?, onPick: @escaping (CLLocationCoordinate2D) -> Void) {
+
+    // iOS 17+ dùng MapCameraPosition
+    @State private var position: MapCameraPosition
+
+    init(
+        location: CLLocation?,
+        onPick: @escaping (CLLocationCoordinate2D) -> Void
+    ) {
         self.location = location
         self.onPick = onPick
-        
+
         let coord = location?.coordinate ??
-        CLLocationCoordinate2D(latitude: 10.7626, longitude: 106.6601)
-        
-        _region = State(initialValue: MKCoordinateRegion(
+            CLLocationCoordinate2D(latitude: 10.7626, longitude: 106.6601)
+
+        let region = MKCoordinateRegion(
             center: coord,
             span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
-        ))
+        )
+
+        _position = State(initialValue: .region(region))
     }
-    
+
     var body: some View {
         ZStack {
-            Map(coordinateRegion: $region, showsUserLocation: true)
-                .ignoresSafeArea()
-            
+
+            // 🗺️ MAP – API MỚI
+            Map(position: $position) {
+                UserAnnotation()
+            }
+            .ignoresSafeArea()
+
+            // 📍 PIN GIỮA MÀN HÌNH
             Image(systemName: "mappin.circle.fill")
                 .font(.system(size: 42))
                 .foregroundColor(.red)
                 .offset(y: -22)
-            
+
             VStack {
-                // NÚT ĐÓNG
+
+                // ❌ NÚT ĐÓNG
                 HStack {
                     Button {
                         dismiss()
@@ -1475,22 +1498,30 @@ struct MapPickerView: View {
                     }
                     .padding(.leading, 16)
                     .padding(.top, 30)
-                    
+
                     Spacer()
                 }
-                
+
                 Spacer()
-                
-                // NÚT VỀ VỊ TRÍ CỦA TÔI
+
+                // 📍 VỀ VỊ TRÍ CỦA TÔI
                 if let loc = location {
                     Button {
                         withAnimation {
-                            region.center = loc.coordinate
+                            position = .region(
+                                MKCoordinateRegion(
+                                    center: loc.coordinate,
+                                    span: MKCoordinateSpan(
+                                        latitudeDelta: 0.01,
+                                        longitudeDelta: 0.01
+                                    )
+                                )
+                            )
                         }
                     } label: {
                         HStack {
                             Image(systemName: "location.fill")
-                            Text(String(localized:"go_to_my_location"))
+                            Text(String(localized: "go_to_my_location"))
                         }
                         .padding(8)
                         .background(Color.white.opacity(0.9))
@@ -1498,12 +1529,15 @@ struct MapPickerView: View {
                     }
                     .padding(.bottom, 8)
                 }
-                
-                // NÚT CHỌN VỊ TRÍ
-                Button(String(localized:"pick_location")) {
-                    onPick(region.center)
+
+                // ✅ CHỌN VỊ TRÍ
+                Button(String(localized: "pick_location")) {
+                    if let region = position.region {
+                        onPick(region.center)
+                    }
                     dismiss()
                 }
+
                 .padding()
                 .background(Color.blue)
                 .foregroundColor(.white)
@@ -1514,4 +1548,3 @@ struct MapPickerView: View {
         .interactiveDismissDisabled(false)
     }
 }
-

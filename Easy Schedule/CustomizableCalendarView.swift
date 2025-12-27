@@ -266,8 +266,12 @@ struct CustomizableCalendarView: View {
     }
     private var deleteAlertMessage: some View {
         Text(
-            "\(String(localized: "delete_event_prefix")) “\(eventToDelete?.title ?? "")”?"
+            String(
+                format: String(localized: "delete_event_full"),
+                eventToDelete?.title ?? ""
+            )
         )
+
     }
 
     private var cooldownToast: some View {

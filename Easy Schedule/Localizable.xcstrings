@@ -1116,25 +1116,25 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "You can only book within the next 7 days."
+            "value" : "Free plan allows booking up to 7 days in advance."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "予約できるのは今後7日以内のみです。"
+            "value" : "無料プランでは、最大7日先まで予約できます。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "예약은 향후 7일 이내로만 가능합니다."
+            "value" : "무료 플랜에서는 최대 7일까지 예약할 수 있습니다."
           }
         },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Bạn chỉ có thể đặt lịch trong vòng 7 ngày tới."
+            "value" : "Gói miễn phí chỉ cho phép đặt lịch trước tối đa 7 ngày."
           }
         }
       }
@@ -1729,25 +1729,25 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "You have reached 10 free messages. Upgrade to Premium, or wait until the other user opens the chat."
+            "value" : "You’ve used all 100 free messages.\nUpgrade to Premium for unlimited messaging."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "無料メッセージ10件の上限に達しました。Premiumにアップグレードするか、相手がチャットを開くまでお待ちください。"
+            "value" : "無料メッセージ100件をすべて使用しました。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "무료 메시지 10개 한도에 도달했습니다. Premium으로 업그레이드하거나 상대방이 채팅을 열 때까지 기다려 주세요."
+            "value" : "무료 메시지 100개를 모두 사용했습니다."
           }
         },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Bạn đã sử dụng hết 10 tin nhắn miễn phí. Nâng cấp lên Premium hoặc chờ khi người kia mở cuộc trò chuyện."
+            "value" : "Bạn đã sử dụng hết 100 tin nhắn miễn phí. Nâng cấp Premium để tiếp tục trò chuyện."
           }
         }
       }
@@ -2823,6 +2823,35 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Bạn có chắc muốn xoá sự kiện?"
+          }
+        }
+      }
+    },
+    "delete_event_full" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete “%@”?"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「%@」を削除しますか？"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%@”을(를) 삭제하시겠습니까?"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bạn có chắc muốn xoá “%@” không?"
           }
         }
       }
@@ -4942,25 +4971,25 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Free users can send up to 10 chat messages per event. After reaching the limit, you can upgrade to Premium to continue chatting without limits, or wait until the other participant opens the chat."
+            "value" : "Free users can send up to 100 messages.Upgrade to Premium or Pro to send more messages."
           }
         },
         "ja" : {
           "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "無料ユーザーは、イベントごとに最大10件までメッセージを送信できます。上限に達した場合は、Premiumにアップグレードして無制限でチャットするか、相手がチャットを開くまでお待ちください。"
+            "state" : "translated",
+            "value" : "無料ユーザーは最大100件までメッセージを送信できます。PremiumまたはProにアップグレードすると、より多くのメッセージを送信できます。"
           }
         },
         "ko" : {
           "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "무료 사용자는 이벤트당 최대 10개의 메시지를 보낼 수 있습니다. 제한에 도달하면 Premium으로 업그레이드하여 무제한으로 채팅하거나, 상대방이 채팅을 열 때까지 기다릴 수 있습니다."
+            "state" : "translated",
+            "value" : "무료 사용자는 최대 100개의 메시지를 보낼 수 있습니다.Premium 또는 Pro로 업그레이드하여 더 많은 메시지를 보낼 수 있습니다."
           }
         },
         "vi" : {
           "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Người dùng miễn phí có thể gửi tối đa 10 tin nhắn cho mỗi sự kiện. Khi đạt giới hạn, bạn có thể nâng cấp lên Premium để tiếp tục chat không giới hạn, hoặc chờ khi người còn lại mở cuộc trò chuyện."
+            "state" : "translated",
+            "value" : "Người dùng miễn phí có thể gửi tối đa 100 tin nhắn.Nâng cấp Premium hoặc Pro để gửi thêm nhiều tin nhắn hơn."
           }
         }
       }
@@ -6018,9 +6047,6 @@
         }
       }
     },
-    "Key" : {
-      "extractionState" : "manual"
-    },
     "language" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -6138,10 +6164,60 @@
       }
     },
     "limit_90_days" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium plan allows booking up to 90 days in advance."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "プレミアムプランでは、最大90日先まで予約できます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "프리미엄 플랜에서는 최대 90일까지 예약할 수 있습니다."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Gói Premium cho phép đặt lịch trước tối đa 90 ngày."
+          }
+        }
+      }
     },
     "limit_270_days" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pro plan allows booking up to 270 days in advance."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "プロプランでは、最大270日先まで予約できます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "프로 플랜에서는 최대 270일까지 예약할 수 있습니다."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gói Pro cho phép đặt lịch trước tối đa 270 ngày."
+          }
+        }
+      }
     },
     "link_copied" : {
       "comment" : "An alert title that appears when a link is copied to the clipboard.",
@@ -13336,25 +13412,25 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "OK, I'll wait"
+            "value" : "Not now"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "待ちます"
+            "value" : "後で"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "기다릴게요"
+            "value" : "나중에"
           }
         },
         "vi" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "Được, tôi sẽ chờ"
+            "state" : "needs_review",
+            "value" : "Để sau"
           }
         }
       }

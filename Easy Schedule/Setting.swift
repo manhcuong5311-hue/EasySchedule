@@ -537,7 +537,8 @@ struct SecuritySettingsView: View {
     // MARK: - AppStorage để lưu trạng thái
     @AppStorage("useBiometricAuth") private var useBiometricAuth = false
     @AppStorage("autoLockEnabled") private var autoLockEnabled = false
-    
+    @Environment(\.scenePhase) private var scenePhase
+
     // MARK: - State
     @State private var showAuthError = false
     @ObservedObject private var lockManager = LockManager.shared
@@ -578,46 +579,73 @@ struct SecuritySettingsView: View {
         .onAppear {
             lockManager.startTimer()
         }
+        .onChange(of: scenePhase) { oldPhase, newPhase in
+            if newPhase != .active {
+                lockManager.lock()
+            }
+        }
+
+
     }
     
     // MARK: - Face ID / Touch ID xác thực
     private func authenticateUser() {
+        guard !lockManager.isAuthenticating else { return }
+        lockManager.isAuthenticating = true
+
         let context = LAContext()
         var error: NSError?
-        
+
         if context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) {
             let reason = String(localized: "security_reason")
-            context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: reason) { success, _ in
+            context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics,
+                                   localizedReason: reason) { success, _ in
                 DispatchQueue.main.async {
+                    self.lockManager.isAuthenticating = false
+
                     if success {
-                        useBiometricAuth = true
+                        self.useBiometricAuth = true
                     } else {
-                        showAuthError = true
+                        self.useBiometricAuth = false
+                        self.showAuthError = true
                     }
                 }
             }
         } else {
+            lockManager.isAuthenticating = false
             showAuthError = true
         }
     }
+
 }
 
 // MARK: - Lock Manager
 class LockManager: ObservableObject {
     static let shared = LockManager()
-    
+    @Published var isAuthenticating = false
+
     @Published var isLocked = false
     private var lastInteractionTime = Date()
     private var timer: Timer?
     
     private init() { }
     
+    private var isTimerRunning = false
+
     func startTimer() {
-        timer?.invalidate()
+        guard !isTimerRunning else { return }
+        isTimerRunning = true
+
         timer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { _ in
             self.checkForInactivity()
         }
     }
+    func stopTimer() {
+        timer?.invalidate()
+        timer = nil
+        isTimerRunning = false
+    }
+
     
     func userDidInteract() {
         lastInteractionTime = Date()
@@ -634,16 +662,28 @@ class LockManager: ObservableObject {
     }
     
     func lock() {
+        guard !isAuthenticating else { return }
+
         if UserDefaults.standard.bool(forKey: "useBiometricAuth") {
             isLocked = true
         }
     }
+
     
     func unlock() {
+        guard !isAuthenticating else { return }
+        guard UIApplication.shared.applicationState == .active else { return }
+
+        isAuthenticating = true
+
         let context = LAContext()
         let reason = String(localized: "unlock_reason")
-        context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: reason) { success, _ in
+
+        context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics,
+                               localizedReason: reason) { success, _ in
             DispatchQueue.main.async {
+                self.isAuthenticating = false
+
                 if success {
                     self.isLocked = false
                     self.lastInteractionTime = Date()
@@ -651,20 +691,24 @@ class LockManager: ObservableObject {
             }
         }
     }
+
+
 }
 
 // MARK: - Lock Screen View
 struct LockScreenView: View {
     @ObservedObject var lockManager = LockManager.shared
-    
+
     var body: some View {
         VStack(spacing: 20) {
             Image(systemName: "lock.fill")
                 .font(.system(size: 60))
                 .foregroundColor(.blue)
+
             Text(String(localized: "app_locked"))
                 .font(.title3)
                 .bold()
+
             Button(String(localized: "unlock_button")) {
                 lockManager.unlock()
             }
@@ -672,6 +716,7 @@ struct LockScreenView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(.systemBackground))
+        .ignoresSafeArea()   // 👈 BẮT BUỘC
     }
 }
 

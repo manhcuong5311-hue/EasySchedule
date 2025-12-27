@@ -1412,7 +1412,7 @@ extension EventManager {
             [
                 "start": interval.0.timeIntervalSince1970,
                 "end": interval.1.timeIntervalSince1970,
-                "title": "Busy"
+                "title": String(localized: "busy")
             ]
         }
 

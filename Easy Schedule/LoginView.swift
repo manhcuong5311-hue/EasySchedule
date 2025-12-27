@@ -15,6 +15,7 @@ struct LoginView: View {
     @State private var currentNonce: String?
     @State private var showVerifyAlert = false
     @State private var isLoading = false
+    @State private var showErrorAlert = false
 
     var body: some View {
         NavigationView {
@@ -135,7 +136,7 @@ struct LoginView: View {
             }
             .alert(
                 String(localized: "login_failed_title"),
-                isPresented: .constant(errorMessage != nil)
+                isPresented: $showErrorAlert
             ) {
                 Button(String(localized: "ok")) {
                     errorMessage = nil
@@ -143,9 +144,6 @@ struct LoginView: View {
             } message: {
                 Text(errorMessage ?? "")
             }
-
-
-
         }
         .navigationViewStyle(.stack)
     }

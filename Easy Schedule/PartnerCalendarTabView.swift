@@ -211,13 +211,15 @@ struct PartnerCalendarTabView: View {
             // ================================
             // MARK: ALERT
             // ================================
-            .alert(isPresented: $showAlert) {
-                Alert(
-                    title: Text(String(localized: "unable_to_proceed")),
-                    message: Text(alertMessage),
-                    dismissButton: .default(Text(String(localized: "close")))
-                )
+            .alert(
+                String(localized: "unable_to_proceed"),
+                isPresented: $showAlert
+            ) {
+                Button(String(localized: "close"), role: .cancel) {}
+            } message: {
+                Text(alertMessage)
             }
+
         }
     }
 
