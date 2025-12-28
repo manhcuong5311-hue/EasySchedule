@@ -50,6 +50,7 @@ struct CalendarEvent: Identifiable, Hashable, Codable {
 
 final class EventManager: ObservableObject {
     static let shared = EventManager()
+    private var partnerTierCache: [String: PremiumTier] = [:]
 
     // Firestore listeners
     @Published var busySlotCache: [String: [CalendarEvent]] = [:]
@@ -643,28 +644,20 @@ extension EventManager {
             }
         }
 
+        // PREMIUM / PRO LIMIT CHECK (Tier-based)
+        let premium = PremiumStoreViewModel.shared
+        let limits = premium.limits
 
-        // PREMIUM LIMIT CHECK
-        let isPremium = PremiumStoreViewModel.shared.isPremium
-        if !isPremium {
-            let eventsSameDay = events.filter {
-                Calendar.current.isDate($0.date, inSameDayAs: date)
-            }
-            if eventsSameDay.count >= 2 {
-                print("🚫 FREE: 2 events/day")
-                return false
-            }
+        let eventsSameDay = events.filter {
+            Calendar.current.isDate($0.date, inSameDayAs: date)
         }
 
-        // PREMIUM MAX 30/DAY
-        if isPremium {
-            let sameDay = events.filter {
-                Calendar.current.isDate($0.date, inSameDayAs: date)
-            }
-            if sameDay.count >= 30 {
-                return false
-            }
+        guard eventsSameDay.count < limits.maxEventsPerDay else {
+            self.alertMessage = String(localized: "event_limit_reached")
+            self.showAlert = true
+            return false
         }
+
 
         // TẠO OBJECT
         let newEvent = CalendarEvent(
@@ -807,77 +800,98 @@ extension EventManager {
 
     
     // MARK: - Fetch busy slots (one-shot)
-    func fetchBusySlots(for userId: String,
-                        forceRefresh: Bool = false,
-                        completion: @escaping ([CalendarEvent], Bool) -> Void) {
+    func fetchBusySlots(
+        for userId: String,
+        forceRefresh: Bool = false,
+        completion: @escaping ([CalendarEvent], PremiumTier) -> Void
+    ) {
 
-        // 1️⃣ Nếu không force và đã có cache → trả về ngay
+        // 1️⃣ Cache (nếu có và không force)
         if !forceRefresh,
            let cachedSlots = partnerBusySlotCache[userId],
-           let cachedPremium = partnerPremiumCache[userId] {
-            completion(cachedSlots, cachedPremium)
+           let cachedTier  = partnerTierCache[userId] {
+
+            completion(cachedSlots, cachedTier)
             return
         }
 
-        // 2️⃣ Nếu chưa có cache → gọi Firestore
-        fetchPremiumStatus(for: userId) { isPremium in
-            self.db.collection("publicCalendar")
-                .document(userId)
-                .getDocument { snapshot, error in
+        // 2️⃣ Load Firestore
+        db.collection("publicCalendar")
+            .document(userId)
+            .getDocument { snapshot, error in
 
-                    // ⭐️ FIX QUAN TRỌNG
-                    guard
-                        error == nil,
-                        let snapshot = snapshot,
-                        snapshot.exists,
-                        let data = snapshot.data()
-                    else {
-                        completion([], isPremium)
-                        return
-                    }
-
-
-                    let premiumFlag = data["isPremium"] as? Bool ?? isPremium
-                    let rawSlots = data["busySlots"] as? [[String: Any]] ?? []
-
-                    let now = Date()
-
-                    let slots = rawSlots.compactMap { dict -> CalendarEvent? in
-                        guard let start = dict["start"] as? TimeInterval,
-                              let end   = dict["end"]   as? TimeInterval else { return nil }
-
-                        let s = Date(timeIntervalSince1970: start)
-                        let e = Date(timeIntervalSince1970: end)
-
-                        // ⭐ LỌC BUSY SLOT HẾT HẠN (chỉ thêm dòng này)
-                        if e < now { return nil }
-
-                        return CalendarEvent(
-                            id: dict["id"] as? String ?? UUID().uuidString,
-                            title: dict["title"] as? String ?? String(localized: "busy"),
-                            date: Calendar.current.startOfDay(for: s),
-                            startTime: s,
-                            endTime: e,
-                            owner: userId,
-                            sharedUser: userId,
-                            createdBy: userId,
-                            participants: [userId],
-                            colorHex: "#FF0000",
-                            pendingDelete: false,
-                            origin: .busySlot
-                        )
-                    }
-
-                    // 3️⃣ LƯU CACHE
-                    DispatchQueue.main.async {
-                        self.partnerBusySlotCache[userId] = slots
-                        self.partnerPremiumCache[userId] = premiumFlag
-                        self.partnerBusySlots[userId] = slots   // UI cache
-                    }
-
-                    completion(slots, premiumFlag)
+                guard
+                    error == nil,
+                    let snapshot = snapshot,
+                    snapshot.exists,
+                    let data = snapshot.data()
+                else {
+                    completion([], .free)
+                    return
                 }
-        }
+
+                // ===============================
+                // ✅ RESOLVE TIER (CORE FIX)
+                // ===============================
+                let tierString = data["tier"] as? String ?? "free"
+                let tier: PremiumTier
+                switch tierString {
+                case "pro":
+                    tier = .pro
+                case "premium":
+                    tier = .premium
+                default:
+                    tier = .free
+                }
+
+                // (backward compatibility – không dùng cho logic)
+                let _ = data["isPremium"] as? Bool ?? (tier != .free)
+
+                // ===============================
+                // BUSY SLOTS
+                // ===============================
+                let rawSlots = data["busySlots"] as? [[String: Any]] ?? []
+                let now = Date()
+
+                let slots: [CalendarEvent] = rawSlots.compactMap { dict in
+                    guard
+                        let start = dict["start"] as? TimeInterval,
+                        let end   = dict["end"]   as? TimeInterval
+                    else { return nil }
+
+                    let s = Date(timeIntervalSince1970: start)
+                    let e = Date(timeIntervalSince1970: end)
+
+                    // ❌ Loại slot đã kết thúc
+                    if e < now { return nil }
+
+                    return CalendarEvent(
+                        id: dict["id"] as? String ?? UUID().uuidString,
+                        title: dict["title"] as? String ?? String(localized: "busy"),
+                        date: Calendar.current.startOfDay(for: s),
+                        startTime: s,
+                        endTime: e,
+                        owner: userId,
+                        sharedUser: userId,
+                        createdBy: userId,
+                        participants: [userId],
+                        colorHex: "#FF0000",
+                        pendingDelete: false,
+                        origin: .busySlot
+                    )
+                }
+
+                // ===============================
+                // 3️⃣ CACHE
+                // ===============================
+                DispatchQueue.main.async {
+                    self.partnerBusySlotCache[userId] = slots
+                    self.partnerTierCache[userId] = tier
+                    self.partnerBusySlots[userId] = slots
+                }
+
+                completion(slots, tier)
+            }
     }
 
 
@@ -974,7 +988,7 @@ extension EventManager {
         createdBy: String,
         completion: @escaping (Bool, String?) -> Void
     ) {
-        // ❌ CHẶN ĐẶT LỊCH QUÁ KHỨ (logic-level, bắt buộc)
+        // ❌ CHẶN ĐẶT LỊCH QUÁ KHỨ
         let now = Date()
         if start < now {
             DispatchQueue.main.async { self.isAdding = false }
@@ -982,65 +996,76 @@ extension EventManager {
             return
         }
 
-        // 1️⃣ Kiểm tra overlap trong lịch chủ sở hữu A
-        fetchBusySlots(for: ownerUid) { busySlots, ownerIsPremium in
+        // ===============================
+        // 1️⃣ KIỂM TRA OVERLAP (OWNER A)
+        // ===============================
+        fetchBusySlots(for: ownerUid) { busySlots, ownerTier in
             let overlap = busySlots.contains { $0.startTime < end && $0.endTime > start }
             if overlap {
                 DispatchQueue.main.async { self.isAdding = false }
                 completion(false, String(localized: "this_time_slot_is_already_booked"))
                 return
             }
-            // 2️⃣ BOOKING RANGE RULE (FREE vs PREMIUM)
-            let now = Date()
 
-            if ownerIsPremium {
-                // ⭐ PREMIUM: cho đặt tối đa 180 ngày
-                if let maxDate = Calendar.current.date(byAdding: .day, value: 180, to: now),
-                   start > maxDate {
+            // ===============================
+            // 2️⃣ BOOKING RANGE — THEO TIER CỦA OWNER (A)
+            // ===============================
+            let ownerLimits = PremiumLimits.limits(for: ownerTier)
 
-                    DispatchQueue.main.async { self.isAdding = false }
-                    completion(false, String(localized: "premium_booking_limit_180_days"))
-                    return
-                }
-            } else {
-                // ⭐ FREE: chỉ 7 ngày
-                if let maxDate = Calendar.current.date(byAdding: .day, value: 7, to: now),
-                   start > maxDate {
+            if let maxDate = Calendar.current.date(
+                byAdding: .day,
+                value: ownerLimits.maxBookingDaysAhead,
+                to: now
+            ),
+            start > maxDate {
 
-                    DispatchQueue.main.async { self.isAdding = false }
-                    completion(false, String(localized: "booking_limit_7_days"))
-                    return
-                }
+                DispatchQueue.main.async { self.isAdding = false }
+
+                let msg = {
+                    switch ownerTier {
+                    case .free:
+                        return String(localized: "booking_limit_7_days")
+                    case .premium:
+                        return String(localized: "premium_booking_limit_90_days")
+                    case .pro:
+                        return String(localized: "pro_booking_limit_270_days")
+                    }
+                }()
+
+                completion(false, msg)
+                return
             }
-            // 3️⃣ Tạo dữ liệu Firestore
+
+            // ===============================
+            // 3️⃣ CHECK LOGIN
+            // ===============================
             guard let currentUid = Auth.auth().currentUser?.uid else {
                 DispatchQueue.main.async { self.isAdding = false }
                 completion(false, String(localized: "you_need_to_log_in"))
                 return
             }
-            // 2️⃣.5 CHECK LIMIT BY CREATOR (B)
-            let creatorUid = currentUid
+
+            // ===============================
+            // 4️⃣ LIMIT EVENT / NGÀY — THEO CREATOR (B)
+            // ===============================
+            let creatorTier = PremiumStoreViewModel.shared.tier
+            let creatorLimits = PremiumLimits.limits(for: creatorTier)
+
+            let calendar = Calendar.current
             let eventsCreatedByMeToday = self.events.filter {
-                $0.createdBy == creatorUid &&
-                Calendar.current.isDate($0.startTime, inSameDayAs: start)
+                $0.createdBy == currentUid &&
+                calendar.isDate($0.startTime, inSameDayAs: start)
             }
 
-            let creatorIsPremium = PremiumStoreViewModel.shared.isPremium
-
-            if !creatorIsPremium {
-                if eventsCreatedByMeToday.count >= 2 {
-                    DispatchQueue.main.async { self.isAdding = false }
-                    completion(false, String(localized: "limit_2_events_per_day"))
-                    return
-                }
-            } else {
-                if eventsCreatedByMeToday.count >= 30 {
-                    DispatchQueue.main.async { self.isAdding = false }
-                    completion(false, String(localized: "premium_limit_30_per_day"))
-                    return
-                }
+            if eventsCreatedByMeToday.count >= creatorLimits.maxEventsPerDay {
+                DispatchQueue.main.async { self.isAdding = false }
+                completion(false, String(localized: "event_limit_reached"))
+                return
             }
 
+            // ===============================
+            // 5️⃣ TẠO EVENT DATA
+            // ===============================
             let eventData: [String: Any] = [
                 "title": title,
                 "owner": ownerUid,
@@ -1053,7 +1078,9 @@ extension EventManager {
                 "colorHex": "#007AFF"
             ]
 
-            // 4️⃣ Ghi Firestore
+            // ===============================
+            // 6️⃣ GHI FIRESTORE
+            // ===============================
             var ref: DocumentReference?
             ref = self.db.collection("events").addDocument(data: eventData) { err in
                 DispatchQueue.main.async { self.isAdding = false }
@@ -1071,18 +1098,20 @@ extension EventManager {
                     return
                 }
 
-                // 5️⃣ Load lại event để convert đúng dữ liệu (Timestamp → Date)
-                self.db.collection("events").document(id).getDocument { snap, err in
+                // ===============================
+                // 7️⃣ LOAD LẠI EVENT + SYNC BUSY
+                // ===============================
+                self.db.collection("events").document(id).getDocument { snap, _ in
                     guard let snap = snap,
                           let newEvent = CalendarEvent.from(snap) else {
                         completion(false, String(localized: "failed_to_load_created_event"))
                         return
                     }
 
-                    // ⭐ Cập nhật busySlots cho A và B
+                    // cập nhật busySlots cho A & B
                     self.syncBusySlots(for: newEvent)
 
-                    // Xoá cache A & B để load lại real-time
+                    // clear cache để reload realtime
                     self.partnerBusySlotCache.removeValue(forKey: ownerUid)
                     self.partnerBusySlotCache.removeValue(forKey: currentUid)
 
@@ -1383,7 +1412,7 @@ extension EventManager {
             [
                 "start": interval.0.timeIntervalSince1970,
                 "end": interval.1.timeIntervalSince1970,
-                "title": "Busy"
+                "title": String(localized: "busy")
             ]
         }
 

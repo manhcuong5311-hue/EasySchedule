@@ -8,6 +8,11 @@ struct PremiumUpgradeSheet: View {
 
     @EnvironmentObject var premium: PremiumStoreViewModel
     @Environment(\.dismiss) var dismiss
+    @State private var selectedPlan: PlanType = .premium
+    private var currentTier: PremiumTier {
+        premium.tier
+    }
+
 
     @State private var purchaseError: String? = nil
     @State private var isLoading = false
@@ -26,43 +31,146 @@ struct PremiumUpgradeSheet: View {
                     // MARK: - Header
                     VStack(spacing: 10) {
 
-                        Text(String(localized: "premium_includes_title"))
-                               .font(.headline)
+                        Text(String(localized: "premium_title"))
+                            .font(.headline)
 
-                        Text("• " + String(localized: "premium_feature_events_per_day"))
-                           Text("• " + String(localized: "premium_feature_advance_days"))
-                           Text("• " + String(localized: "premium_feature_chat"))
-                           Text("• " + String(localized: "premium_feature_todo"))
-                           Text("• " + String(localized: "premium_feature_sync"))
 
                         Text(String(localized: "upgrade_premium_subtitle"))
                             .font(.body)
                             .foregroundColor(.secondary)
                             .multilineTextAlignment(.center)
 
-                        if premium.isPremium {
-                            Label(String(localized: "premium_activated"),
-                                  systemImage: "star.fill")
-                                .foregroundColor(.yellow)
-                                .font(.headline)
-                                .padding(.top, 4)
+                        if currentTier != .free {
+                            Label(
+                                currentTier == .pro
+                                ? String(localized: "pro_activated")
+                                : String(localized: "premium_activated"),
+                                systemImage: currentTier == .pro ? "crown.fill" : "star.fill"
+                            )
+                            .foregroundColor(currentTier == .pro ? .orange : .yellow)
+                            .font(.headline)
+                            .padding(.top, 4)
                         }
+
                     }
                     .padding(.top, 20)
+                    // MARK: - Plan Selector (Premium / Pro)
+                    HStack(spacing: 12) {
+                        ForEach(PlanType.allCases, id: \.self) { plan in
+                            Button {
+                                selectedPlan = plan
+                            } label: {
+                                Text(plan.rawValue)
+                                    .font(.subheadline.weight(.semibold))
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 10)
+                                    .background(
+                                        selectedPlan == plan
+                                        ? Color.blue.opacity(0.15)
+                                        : Color.gray.opacity(0.1)
+                                    )
+                                    .cornerRadius(12)
+                            }
+                            .disabled(
+                                currentTier == .pro ||
+                                (currentTier == .premium && plan == .premium)
+                            )
+                            .opacity(
+                                currentTier == .pro ||
+                                (currentTier == .premium && plan == .premium)
+                                ? 0.5 : 1
+                            )
+
+                        }
+                    }
+                    .padding(.horizontal)
+
+                    // MARK: - Plan Comparison (Side by Side)
+                    VStack(spacing: 12) {
+
+                        // Header row
+                        HStack {
+                            Text("")
+                                .frame(maxWidth: .infinity, alignment: .leading)
+
+                            Text(String(localized: "premium_label"))
+                                .font(.caption.weight(.semibold))
+                                .frame(width: 80)
+
+                            Text(String(localized: "pro_label"))
+                                .font(.caption.weight(.semibold))
+                                .frame(width: 80)
+                        }
+                        .foregroundColor(.secondary)
+
+                        Divider()
+
+                        // Feature rows
+                        ForEach(FeatureRow.allCases, id: \.self) { row in
+                            HStack {
+
+                                // Feature title
+                                Text(featureTitle(row))
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                                // Premium value
+                                featureValue(row, plan: .premium)
+                                    .frame(width: 80)
+
+                                // Pro value
+                                featureValue(row, plan: .pro)
+                                    .frame(width: 80)
+                            }
+                            .font(.subheadline)
+                        }
+                    }
+                    .padding()
+                    .background(Color(.systemGray6))
+                    .cornerRadius(16)
+                    .padding(.horizontal)
+
 
                     // MARK: - Product Cards
-                    if premium.products.isEmpty {
+                    if currentTier == .pro {
+
+                        // ✅ Pro: không mua thêm gì được
+                        subscribedView(title: "pro_active_note")
+
+                    }
+                    else if currentTier == .premium && selectedPlan == .premium {
+
+                        // ✅ Premium đang xem Premium → đã kích hoạt
+                        subscribedView(title: "premium_active_note")
+
+                    }
+                    else if premium.products.isEmpty {
+
                         ProgressView(String(localized: "loading_packages"))
                             .padding(.vertical, 40)
                             .task { premium.start() }
-                    } else {
+
+                    }
+                    else {
+
+                        // ✅ Free, hoặc Premium đang xem Pro → cho mua
                         VStack(spacing: 18) {
-                            ForEach(premium.products, id: \.id) { product in
+                            ForEach(
+                                premium.products.filter { product in
+                                    switch selectedPlan {
+                                    case .premium:
+                                        return product.id.contains("premium")
+                                    case .pro:
+                                        return product.id.contains("pro")
+                                    }
+                                },
+                                id: \.id
+                            ) { product in
                                 premiumCard(for: product)
                             }
                         }
                         .padding(.horizontal)
                     }
+
 
                     // MARK: - Restore Button
                     VStack(spacing: 8) {
@@ -130,6 +238,12 @@ struct PremiumUpgradeSheet: View {
                     Spacer().frame(height: 40)
                 }
             }
+            .onAppear {
+                // ⭐ UX IMPROVEMENT
+                if currentTier == .premium {
+                    selectedPlan = .pro
+                }
+            }
             .alert(
                 String(localized: "purchase_error"),
                 isPresented: Binding(
@@ -143,11 +257,31 @@ struct PremiumUpgradeSheet: View {
             }
         }
     }
+    @ViewBuilder
+    func subscribedView(title: String.LocalizationValue) -> some View {
+        VStack(spacing: 12) {
+            Image(systemName: "checkmark.seal.fill")
+                .font(.largeTitle)
+                .foregroundColor(.green)
+
+            Text(String(localized: title))
+                .font(.headline)
+
+            Text(String(localized: "subscription_active_note"))
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding(.vertical, 40)
+    }
+
 
     // MARK: - Premium Card UI
     private func premiumCard(for product: Product) -> some View {
 
         Button {
+            guard currentTier != .pro else { return }
+
             Task {
                 isLoading = true
                 let success = await premium.buy(product)
@@ -199,5 +333,114 @@ struct PremiumUpgradeSheet: View {
         }
         .buttonStyle(.plain)
         .opacity(isLoading ? 0.4 : 1)
+        .disabled(isLoading || currentTier == .pro)
+    }
+    @ViewBuilder
+    func featureValue(_ row: FeatureRow, plan: PlanType) -> some View {
+
+        let limits = planData[plan]!
+
+        switch row {
+        case .eventsPerDay:
+            Text("\(limits.eventsPerDay)")
+
+        case .advanceDays:
+            Text(
+                String(
+                    format: String(localized: "days_suffix"),
+                    "\(limits.advanceDays)"
+                )
+            )
+
+
+
+        case .chat:
+            if let limit = limits.chatPerEvent {
+                Text("\(limit)")
+            } else {
+                Text(String(localized: "unlimited"))
+            }
+
+
+        case .todo:
+            Text("\(limits.todosPerEvent)")
+
+        case .offDays:
+            Image(systemName: limits.unlimitedOffDays
+                  ? "checkmark.circle.fill"
+                  : "minus.circle")
+                .foregroundColor(limits.unlimitedOffDays ? .green : .gray)
+
+        case .busyHours:
+            Image(systemName: limits.unlimitedBusyHours
+                  ? "checkmark.circle.fill"
+                  : "minus.circle")
+                .foregroundColor(limits.unlimitedBusyHours ? .green : .gray)
+
+        case .sync:
+            Image(systemName: limits.syncOnline
+                  ? "checkmark.circle.fill"
+                  : "minus.circle")
+                .foregroundColor(limits.syncOnline ? .green : .gray)
+        }
+    }
+
+
+}
+
+enum PlanType: String, CaseIterable {
+    case premium = "Premium"
+    case pro = "Pro"
+}
+enum FeatureRow: CaseIterable {
+    case eventsPerDay
+    case advanceDays
+    case chat
+    case todo
+    case offDays
+    case busyHours
+    case sync
+}
+func featureTitle(_ row: FeatureRow) -> LocalizedStringKey {
+    switch row {
+    case .eventsPerDay: return "feature_events_per_day"
+    case .advanceDays: return "feature_advance_days"
+    case .chat: return "feature_chat"
+    case .todo: return "feature_todo"
+    case .offDays: return "feature_off_days"
+    case .busyHours: return "feature_busy_hours"
+    case .sync: return "feature_sync"
     }
 }
+
+
+struct PlanLimits {
+    let eventsPerDay: Int
+    let advanceDays: Int
+    let chatPerEvent: Int?        // nil = unlimited
+    let todosPerEvent: Int
+    let unlimitedOffDays: Bool
+    let unlimitedBusyHours: Bool
+    let syncOnline: Bool
+}
+
+let planData: [PlanType: PlanLimits] = [
+    .premium: PlanLimits(
+        eventsPerDay: 20,
+        advanceDays: 90,
+        chatPerEvent: 500,
+        todosPerEvent: 20,
+        unlimitedOffDays: true,
+        unlimitedBusyHours: true,
+        syncOnline: true
+    ),
+    .pro: PlanLimits(
+        eventsPerDay: 50,
+        advanceDays: 270,
+        chatPerEvent: nil,   // ← unlimited
+        todosPerEvent: 50,
+        unlimitedOffDays: true,
+        unlimitedBusyHours: true,
+        syncOnline: true
+    )
+]

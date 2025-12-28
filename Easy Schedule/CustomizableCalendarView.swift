@@ -51,6 +51,8 @@ struct CustomizableCalendarView: View {
     @EnvironmentObject var network: NetworkMonitor
     @State private var localBusyIntervals: [(Date, Date)] = []   // CHỈ busy hours
     @State private var eventBusyIntervals: [(Date, Date)] = []   // event
+    @State private var showConfirmOffDayAlert = false
+    @State private var pendingOffDayDate: Date? = nil
 
    
 
@@ -59,6 +61,29 @@ struct CustomizableCalendarView: View {
         didSet {
             guard !isLoadingOffDays else { return }
             saveOffDaysToLocal()
+        }
+    }
+
+    private func hasEventOrBusy(on date: Date) -> Bool {
+        let dayStart = calendar.startOfDay(for: date)
+        let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart)!
+
+        let hasEvent =
+            !eventManager.events(for: dayStart).isEmpty
+
+        let hasBusy =
+            localBusyIntervals.contains { interval in
+                interval.0 < dayEnd && interval.1 > dayStart
+            }
+
+        return hasEvent || hasBusy
+    }
+    private func hasBusyHours(on date: Date) -> Bool {
+        let dayStart = calendar.startOfDay(for: date)
+        let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart)!
+
+        return localBusyIntervals.contains { interval in
+            interval.0 < dayEnd && interval.1 > dayStart
         }
     }
 
@@ -126,8 +151,12 @@ struct CustomizableCalendarView: View {
                         selectedDate: $selectedDate,
                         eventsByDay: eventManager.groupedByDay,
                         offDays: offDays,
-                        isOwner: true
+                        isOwner: true,
+                        maxBookingDays: PremiumLimits
+                            .limits(for: PremiumStoreViewModel.shared.tier)
+                            .maxBookingDaysAhead
                     )
+
                     .padding(.top, 8)
 
                     allowConflictToggle
@@ -158,6 +187,25 @@ struct CustomizableCalendarView: View {
         } message: {
             Text(offDayAlertMessage)
         }
+        .alert(
+            String(localized: "off_day_warning_title"),
+            isPresented: $showConfirmOffDayAlert
+        ) {
+            Button(String(localized: "confirm"), role: .destructive) {
+                if let date = pendingOffDayDate {
+                    toggleOffDay(for: date)
+                    eventManager.syncOffDaysToFirebase(offDays: offDays)
+                }
+                pendingOffDayDate = nil
+            }
+
+            Button(String(localized: "cancel"), role: .cancel) {
+                pendingOffDayDate = nil
+            }
+        } message: {
+            Text(String(localized: "off_day_warning_message"))
+        }
+
         .onAppear {
             loadOffDaysFromLocal()
             cleanPastOffDays()
@@ -218,8 +266,12 @@ struct CustomizableCalendarView: View {
     }
     private var deleteAlertMessage: some View {
         Text(
-            "\(String(localized: "delete_event_prefix")) “\(eventToDelete?.title ?? "")”?"
+            String(
+                format: String(localized: "delete_event_full"),
+                eventToDelete?.title ?? ""
+            )
         )
+
     }
 
     private var cooldownToast: some View {
@@ -400,21 +452,28 @@ struct CustomizableCalendarView: View {
         VStack(spacing: 12) {
             // ===== DAY OFF =====
             Button {
-                // ❗ GIỮ NGUYÊN LOGIC CŨ
+                // ❗ KHÔNG CHO QUÁ KHỨ
                 guard !isPastDay(date) else {
                     offDayAlertMessage = String(localized: "cannot_set_offday_in_past")
                     showOffDayAlert = true
                     return
                 }
 
-                // 🔒 COOLDOWN GUARD
+                // 🔒 COOLDOWN
                 guard !isCooldown else {
                     showCooldownMessage()
                     return
                 }
 
-                toggleCount += 1
+                // ⚠️ CẢNH BÁO NẾU CÓ EVENT / BUSY
+                if !isOffDay(date) && hasEventOrBusy(on: date) {
+                    pendingOffDayDate = date
+                    showConfirmOffDayAlert = true
+                    return
+                }
 
+                // ⏱️ COOLDOWN COUNT
+                toggleCount += 1
                 if toggleCount >= 3 {
                     startCooldown(seconds: 5)
                     return
@@ -446,6 +505,8 @@ struct CustomizableCalendarView: View {
                .padding(.horizontal)
                .disabled(isCooldown)
             // ===== BUSY HOURS =====
+            let hasBusy = hasBusyHours(on: date)
+
             Button {
                 if isOffDay(date) {
                     offDayAlertMessage = String(
@@ -458,7 +519,7 @@ struct CustomizableCalendarView: View {
             } label: {
                 HStack(spacing: 10) {
                     Image(systemName: "clock")
-                        .foregroundColor(.blue)
+                        .foregroundColor(hasBusy ? .orange : .blue)
 
                     Text(String(localized: "busy_hours"))
                         .font(.body.weight(.semibold))
@@ -468,8 +529,12 @@ struct CustomizableCalendarView: View {
                 showsHint: isOffDay(date),
                 hintText: nil
             )
-
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(hasBusy ? Color.orange.opacity(0.15) : Color.clear)
+            )
             .padding(.horizontal)
+
 
         }
     }
@@ -681,28 +746,48 @@ struct AddEventView: View {
                             )!
                         }
 
+                        // ===============================
+                        // 4️⃣ LIMIT THEO TIER (FREE / PREMIUM / PRO)
+                        // ===============================
+                        let tier = premium.tier
+                        let limits = PremiumLimits.limits(for: tier)
 
-                        // 4️⃣ PREMIUM / FREE LIMIT (giữ nguyên code cũ)
-                        let now2 = now
-                        if !premium.isPremium {
-                            if let maxDate = calendar.date(byAdding: .day, value: 7, to: now2),
-                               date > maxDate {
-                                alertMessage = String(localized: "limit_7_days")
-                                showAlert = true
-                                eventManager.isAdding = false
-                                return
-                            }
+                        // 4️⃣a BOOKING RANGE (ngày được tạo event)
+                        if let maxDate = calendar.date(
+                            byAdding: .day,
+                            value: limits.maxBookingDaysAhead,
+                            to: now
+                        ),
+                        date > maxDate {
 
-                            let sameDayFree = eventManager.events.filter {
-                                calendar.isDate($0.date, inSameDayAs: date)
-                            }
-                            if sameDayFree.count >= 2 {
-                                alertMessage = String(localized: "limit_2_events_per_day")
-                                showAlert = true
-                                eventManager.isAdding = false
-                                return
-                            }
+                            alertMessage = {
+                                switch tier {
+                                case .free:
+                                    return String(localized: "limit_7_days")
+                                case .premium:
+                                    return String(localized: "limit_90_days")
+                                case .pro:
+                                    return String(localized: "limit_270_days")
+                                }
+                            }()
+
+                            showAlert = true
+                            eventManager.isAdding = false
+                            return
                         }
+
+                        // 4️⃣b LIMIT SỐ EVENT / NGÀY
+                        let sameDayEvents = eventManager.events.filter {
+                            calendar.isDate($0.date, inSameDayAs: date)
+                        }
+
+                        if sameDayEvents.count >= limits.maxEventsPerDay {
+                            alertMessage = String(localized: "event_limit_reached")
+                            showAlert = true
+                            eventManager.isAdding = false
+                            return
+                        }
+
 
                         // 5️⃣ Trùng giờ / trùng event
                         let exactDup = eventManager.events.contains { ev in
@@ -822,7 +907,16 @@ struct CalendarGridView: View {
     let isOwner: Bool
     // Alert trạng thái chung, riêng cho CalendarGridView
     @State private var showOffDayAlert = false
-    
+    let maxBookingDays: Int
+    private var maxSelectableDate: Date {
+        let raw = calendar.date(
+            byAdding: .day,
+            value: maxBookingDays,
+            to: Date()
+        )!
+        return calendar.startOfDay(for: raw)
+    }
+
     var body: some View {
         VStack(spacing: 8) {
             // MARK: - Header tháng
@@ -873,6 +967,12 @@ struct CalendarGridView: View {
                 // Hiển thị các ngày trong tháng
                 ForEach(allDays.indices, id: \.self) { index in
                     let date = allDays[index]
+                    let dayStart = calendar.startOfDay(for: date)
+                    let today = calendar.startOfDay(for: Date())
+
+                    let isPast = dayStart < today
+                    let isOutOfRange = dayStart > maxSelectableDate
+                    let isLocked = isPast || isOutOfRange
 
                     let day = calendar.component(.day, from: date)
                     let isSelected = selectedDate.map { calendar.isDate($0, inSameDayAs: date) } ?? false
@@ -882,7 +982,7 @@ struct CalendarGridView: View {
                     VStack(spacing: 4) {
                         Text("\(day)")
                             .font(.body)
-                            .foregroundStyle(.primary)
+                            .foregroundColor(isLocked ? .secondary : .primary)
                             .frame(width: 36, height: 36)
                             .background(
                                 Circle()
@@ -926,9 +1026,13 @@ struct CalendarGridView: View {
 
 
                     }
+                    .opacity(isLocked ? 0.35 : 1.0)
+
                     .frame(maxWidth: .infinity)
                     .contentShape(Rectangle())
                     .onTapGesture {
+                        guard !isLocked else { return }
+
                         let key = calendar.startOfDay(for: date)
 
                         if !isOwner, offDays.contains(key) {
@@ -936,8 +1040,9 @@ struct CalendarGridView: View {
                         } else {
                             selectedDate = date
                         }
-
                     }
+                    .allowsHitTesting(!isLocked)
+
 
                 }
 

@@ -164,8 +164,6 @@ class TodoViewModel: ObservableObject {
 struct TodoListView: View {
     let chatId: String
     let myId: String
-    private let freeLimit = 5
-    private let premiumLimit = 20
     @State private var showPaywall = false
     @StateObject private var vm: TodoViewModel
     @ObservedObject private var nameCache = SessionStore.UserNameCache.shared
@@ -250,10 +248,23 @@ struct TodoListView: View {
                         let text = newTodo.trimmingCharacters(in: .whitespaces)
                         guard !text.isEmpty else { return }
 
-                        let limit = premium.isPremium ? premiumLimit : freeLimit
+                        let limits = PremiumLimits.limits(for: premium.tier)
+                        let limit = limits.maxTodosPerEvent
 
-                        if vm.todos.count >= limit {
-                            limitAlert = premium.isPremium ? .chatMaxReached : .freeLimit
+                        // Pro: không giới hạn
+                        if limit != .max && vm.todos.count >= limit {
+
+                            switch premium.tier {
+                            case .free:
+                                limitAlert = .freeLimit
+
+                            case .premium:
+                                limitAlert = .chatMaxReached
+
+                            case .pro:
+                                break // Pro không bao giờ vào đây
+                            }
+
                             return
                         }
 
@@ -313,8 +324,11 @@ struct TodoListView: View {
                         message: Text(
                             String(
                                 format: String(localized: "todo_free_limit_message"),
-                                freeLimit
+                                PremiumLimits
+                                    .limits(for: .free)
+                                    .maxTodosPerEvent
                             )
+
                         ),
                         primaryButton: .default(Text(String(localized: "upgrade_to_premium"))) {
                             showPaywall = true
@@ -417,6 +431,7 @@ class ChatViewModel: ObservableObject {
     @Published var messages: [ChatMessage] = []
     @Published var messageText: String = ""
     @Published var reachedFreeLimit = false
+    @Published var myTier: PremiumTier = .free
 
     // MARK: - Constants
   
@@ -502,7 +517,8 @@ class ChatViewModel: ObservableObject {
         let text = messageText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
 
-        if !isPremium && reachedFreeLimit {
+        // 🔒 Check limit
+        if reachedFreeLimit && !isPremium {
             onLimitReached()
             return
         }
@@ -517,21 +533,15 @@ class ChatViewModel: ObservableObject {
             "seenBy": [myId: true]
         ]
 
+        // 1️⃣ Send message
         chatRef.collection("messages").addDocument(data: messageData)
-        // ⭐ TĂNG COUNTER CHO FREE
-        if !isPremium {
-            chatRef.updateData([
-                "freeCount.\(myId)": FieldValue.increment(Int64(1))
-            ])
-        }
 
-        // ⭐ PREMIUM → UNLOCK CHAT
-        if isPremium {
-            chatRef.setData([
-                "premiumUnlocked": true
-            ], merge: true)
-        }
+        // 2️⃣ Increment counter (vẫn đếm, nhưng Premium không bị chặn)
+        chatRef.updateData([
+            "freeCount.\(myId)": FieldValue.increment(Int64(1))
+        ])
 
+        // 3️⃣ Update chat meta
         chatRef.setData([
             "lastMessage": text,
             "lastMessageTime": Timestamp(),
@@ -546,6 +556,7 @@ class ChatViewModel: ObservableObject {
 
 
 
+
     // MARK: - Send location message
     func sendCurrentLocation(
         lat: Double,
@@ -553,7 +564,8 @@ class ChatViewModel: ObservableObject {
         isPremium: Bool,
         onLimitReached: @escaping () -> Void
     ) {
-        if !isPremium && reachedFreeLimit {
+        // 🔒 Check limit (Premium được bypass)
+        if reachedFreeLimit && !isPremium {
             onLimitReached()
             return
         }
@@ -569,31 +581,25 @@ class ChatViewModel: ObservableObject {
             "seenBy": [myId: true]
         ]
 
+        // 1️⃣ Send location message
         chatRef.collection("messages").addDocument(data: messageData)
-        // ⭐ TĂNG COUNTER CHO FREE
-        if !isPremium {
-            chatRef.updateData([
-                "freeCount.\(myId)": FieldValue.increment(Int64(1))
-            ])
-        }
 
-        // ⭐ PREMIUM → UNLOCK CHAT
-        if isPremium {
-            chatRef.setData([
-                "premiumUnlocked": true
-            ], merge: true)
-        }
+        // 2️⃣ Increment counter (vẫn đếm, nhưng Premium không bị chặn)
+        chatRef.updateData([
+            "freeCount.\(myId)": FieldValue.increment(Int64(1))
+        ])
 
+        // 3️⃣ Update chat meta
         chatRef.setData([
-            "lastMessage": String(localized: "location_message"),
+            "lastMessage": String(localized: "location_sent"),
             "lastMessageTime": Timestamp(),
             "unread": [
                 myId: false,
                 otherUserId: true
             ]
         ], merge: true)
-
     }
+
 
 
     private func listenChatMeta() {
@@ -603,16 +609,32 @@ class ChatViewModel: ObservableObject {
             guard let data = snap?.data() else { return }
 
             DispatchQueue.main.async {
-                self.chatPremiumUnlocked = data["premiumUnlocked"] as? Bool ?? false
 
                 let freeCount = data["freeCount"] as? [String: Int] ?? [:]
-                self.freeSentCount = freeCount[self.myId] ?? 0
+                let sentByMe = freeCount[self.myId] ?? 0
 
-                let limit = self.chatPremiumUnlocked ? 100 : 10
-                self.reachedFreeLimit = self.freeSentCount >= limit
+                self.freeSentCount = sentByMe
+
+                // 🔑 LIMIT THEO TIER
+                if let limit = self.chatLimit(for: self.myTier) {
+                    self.reachedFreeLimit = sentByMe >= limit
+                } else {
+                    self.reachedFreeLimit = false
+                }
             }
         }
     }
+    private func chatLimit(for tier: PremiumTier) -> Int? {
+        switch tier {
+        case .free:
+            return 100
+        case .premium:
+            return 500
+        case .pro:
+            return nil // unlimited
+        }
+    }
+
 
 
     // MARK: - Mark seen
@@ -681,6 +703,8 @@ struct ChatView: View {
     @State private var showTodoList = false
     @EnvironmentObject var premium: PremiumStoreViewModel
     @StateObject private var todoVM: TodoViewModel
+    @State private var showLocationNotReadyAlert = false
+   
 
     @State private var showLimitAlert = false
     @State private var showPremiumSheet = false
@@ -736,12 +760,20 @@ struct ChatView: View {
                 // NÚT +
                 Menu {
                     Button {
+                        if locked {
+                            showLimitAlert = true
+                            return
+                        }
                         showLocationConfirm = true
                     } label: {
                         Label(String(localized: "send_current_location"), systemImage: "location.fill")
                     }
 
                     Button {
+                        if locked {
+                            showLimitAlert = true
+                            return
+                        }
                         showMapPicker = true
                     } label: {
                         Label(String(localized: "pick_location_on_map"), systemImage: "map.fill")
@@ -749,17 +781,14 @@ struct ChatView: View {
                 } label: {
                     Image(systemName: "plus")
                         .font(.system(size: 18, weight: .semibold))
-                        .foregroundColor(.blue)
+                        .foregroundColor(locked ? .gray : .blue)
                         .frame(width: 36, height: 36)
-                        .background(Color.blue.opacity(0.12))
+                        .background(
+                            (locked ? Color.gray : Color.blue).opacity(0.12)
+                        )
                         .clipShape(Circle())
                 }
-                .alert(String(localized:"you_sure_sending_your_location"), isPresented: $showLocationConfirm) {
-                    Button(String(localized:"cancel"), role: .cancel) {}
-                    Button(String(localized:"send"), role: .destructive) {
-                        sendMyGPS()
-                    }
-                }
+
 
                 // INPUT + SEND (1 KHỐI)
                 HStack(spacing: 6) {
@@ -779,12 +808,11 @@ struct ChatView: View {
                         else { return }
 
                         sendCooldown = true
-                        vm.sendMessage(
-                            isPremium: premium.isPremium,
-                            onLimitReached: {
-                                showLimitAlert = true
-                            }
-                        )
+                        vm.sendMessage(isPremium: premium.isPremium) {
+                            showLimitAlert = true
+                        }
+
+
 
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                             sendCooldown = false
@@ -824,16 +852,14 @@ struct ChatView: View {
                 vm.sendCurrentLocation(
                     lat: coord.latitude,
                     lon: coord.longitude,
-                    isPremium: premium.isPremium,
-                    onLimitReached: {
-                        showLimitAlert = true
-                    }
-                )
-
+                    isPremium: premium.isPremium
+                ) {
+                    showLimitAlert = true
+                }
             }
             .interactiveDismissDisabled(false)
-            
         }
+
         .navigationTitle(otherName)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
@@ -871,6 +897,22 @@ struct ChatView: View {
             Button(String(localized: "wait_ok"), role: .cancel) {}
         } message: {
             Text(String(localized: "chat_limit_message"))
+        }
+        .alert(
+            String(localized: "location_not_ready_title"),
+            isPresented: $showLocationNotReadyAlert
+        ) {
+            Button(String(localized: "ok"), role: .cancel) {}
+        } message: {
+            Text(String(localized: "location_not_ready_message"))
+        }
+
+        .alert(String(localized:"you_sure_sending_your_location"),
+               isPresented: $showLocationConfirm) {
+            Button(String(localized:"cancel"), role: .cancel) {}
+            Button(String(localized:"send"), role: .destructive) {
+                sendMyGPS()
+            }
         }
 
 
@@ -927,6 +969,14 @@ struct ChatView: View {
             }
 
             todoVM.stop()
+        }
+        .onChange(of: vm.reachedFreeLimit) { _, reached in
+            guard reached else { return }
+
+            // Không spam alert nếu đã là Premium
+            if !premium.isPremium {
+                showLimitAlert = true
+            }
         }
 
         
@@ -1000,6 +1050,8 @@ struct ChatView: View {
     private var locked: Bool {
         !premium.isPremium && vm.reachedFreeLimit
     }
+
+
 
     // MARK: - Bubble
     private func bubble(_ msg: ChatMessage) -> some View {
@@ -1087,17 +1139,27 @@ struct ChatView: View {
         .id(msg.id)
     }
     func sendMyGPS() {
-        guard let loc = locationManager.location else { return }
+        guard !vm.reachedFreeLimit || premium.isPremium else {
+            showLimitAlert = true
+            return
+        }
+
+        guard let loc = locationManager.location else {
+            showLocationNotReadyAlert = true
+            return
+        }
 
         vm.sendCurrentLocation(
             lat: loc.coordinate.latitude,
             lon: loc.coordinate.longitude,
-            isPremium: premium.isPremium,
-            onLimitReached: {
-                showLimitAlert = true
-            }
-        )
+            isPremium: premium.isPremium
+        ) {
+            showLimitAlert = true
+        }
     }
+
+
+
 
 
 
@@ -1307,7 +1369,8 @@ struct EventRowWithChat: View {
 
 
 
-class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
+final class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
+
     private let manager = CLLocationManager()
 
     @Published var location: CLLocation?
@@ -1317,17 +1380,25 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
         manager.delegate = self
         manager.desiredAccuracy = kCLLocationAccuracyHundredMeters
         manager.requestWhenInUseAuthorization()
-        manager.requestLocation() // 🔑 chỉ lấy 1 lần
+        manager.startUpdatingLocation()   // 🔑 BẮT BUỘC
     }
 
-    func locationManager(_ manager: CLLocationManager, didUpdateLocations locs: [CLLocation]) {
-        location = locs.first
+    func locationManager(
+        _ manager: CLLocationManager,
+        didUpdateLocations locations: [CLLocation]
+    ) {
+        location = locations.last
+        manager.stopUpdatingLocation() // 🔒 dừng sau khi có
     }
 
-    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+    func locationManager(
+        _ manager: CLLocationManager,
+        didFailWithError error: Error
+    ) {
         print("Location error:", error)
     }
 }
+
 
 
 struct ChatButtonWithBadge: View {
@@ -1376,39 +1447,54 @@ struct ChatButtonWithBadge: View {
 
 
 
+import SwiftUI
+import MapKit
 
 struct MapPickerView: View {
     @Environment(\.dismiss) var dismiss
+
     let location: CLLocation?
     var onPick: (CLLocationCoordinate2D) -> Void
-    
-    @State private var region: MKCoordinateRegion
-    
-    init(location: CLLocation?, onPick: @escaping (CLLocationCoordinate2D) -> Void) {
+
+    // iOS 17+ dùng MapCameraPosition
+    @State private var position: MapCameraPosition
+
+    init(
+        location: CLLocation?,
+        onPick: @escaping (CLLocationCoordinate2D) -> Void
+    ) {
         self.location = location
         self.onPick = onPick
-        
+
         let coord = location?.coordinate ??
-        CLLocationCoordinate2D(latitude: 10.7626, longitude: 106.6601)
-        
-        _region = State(initialValue: MKCoordinateRegion(
+            CLLocationCoordinate2D(latitude: 10.7626, longitude: 106.6601)
+
+        let region = MKCoordinateRegion(
             center: coord,
             span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
-        ))
+        )
+
+        _position = State(initialValue: .region(region))
     }
-    
+
     var body: some View {
         ZStack {
-            Map(coordinateRegion: $region, showsUserLocation: true)
-                .ignoresSafeArea()
-            
+
+            // 🗺️ MAP – API MỚI
+            Map(position: $position) {
+                UserAnnotation()
+            }
+            .ignoresSafeArea()
+
+            // 📍 PIN GIỮA MÀN HÌNH
             Image(systemName: "mappin.circle.fill")
                 .font(.system(size: 42))
                 .foregroundColor(.red)
                 .offset(y: -22)
-            
+
             VStack {
-                // NÚT ĐÓNG
+
+                // ❌ NÚT ĐÓNG
                 HStack {
                     Button {
                         dismiss()
@@ -1420,22 +1506,30 @@ struct MapPickerView: View {
                     }
                     .padding(.leading, 16)
                     .padding(.top, 30)
-                    
+
                     Spacer()
                 }
-                
+
                 Spacer()
-                
-                // NÚT VỀ VỊ TRÍ CỦA TÔI
+
+                // 📍 VỀ VỊ TRÍ CỦA TÔI
                 if let loc = location {
                     Button {
                         withAnimation {
-                            region.center = loc.coordinate
+                            position = .region(
+                                MKCoordinateRegion(
+                                    center: loc.coordinate,
+                                    span: MKCoordinateSpan(
+                                        latitudeDelta: 0.01,
+                                        longitudeDelta: 0.01
+                                    )
+                                )
+                            )
                         }
                     } label: {
                         HStack {
                             Image(systemName: "location.fill")
-                            Text(String(localized:"go_to_my_location"))
+                            Text(String(localized: "go_to_my_location"))
                         }
                         .padding(8)
                         .background(Color.white.opacity(0.9))
@@ -1443,12 +1537,15 @@ struct MapPickerView: View {
                     }
                     .padding(.bottom, 8)
                 }
-                
-                // NÚT CHỌN VỊ TRÍ
-                Button(String(localized:"pick_location")) {
-                    onPick(region.center)
+
+                // ✅ CHỌN VỊ TRÍ
+                Button(String(localized: "pick_location")) {
+                    if let region = position.region {
+                        onPick(region.center)
+                    }
                     dismiss()
                 }
+
                 .padding()
                 .background(Color.blue)
                 .foregroundColor(.white)
@@ -1459,4 +1556,3 @@ struct MapPickerView: View {
         .interactiveDismissDisabled(false)
     }
 }
-

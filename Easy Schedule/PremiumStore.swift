@@ -16,21 +16,20 @@ actor PremiumStore {
 
     // MARK: - Product IDs
     private let productIDs: Set<String> = [
+        // PREMIUM
         "com.SamCorp.EasySchedule.premium.monthly",
-        "com.SamCorp.EasySchedule.premium.yearly"
+        "com.SamCorp.EasySchedule.premium.yearly",
+
+        // PRO
+        "com.SamCorp.EasySchedule.pro.monthly",
+        "com.SamCorp.EasySchedule.pro.yearly"
+        // hoặc:
+        // "com.SamCorp.EasySchedule.pro.lifetime"
     ]
 
     // MARK: - Stored properties
     private var products: [Product] = []
     private var purchasedProductIDs: Set<String> = []
-
-    // Optional fake premium (for dev mode)
-    private let fakePremiumKey = "PremiumStore_FakePremiumEnabled"
-    var isFakePremiumEnabled: Bool {
-        get { UserDefaults.standard.bool(forKey: fakePremiumKey) }
-        set { UserDefaults.standard.set(newValue, forKey: fakePremiumKey) }
-    }
-
     // MARK: - Init
     init() {
         if #available(iOS 15.0, *) {
@@ -67,12 +66,7 @@ actor PremiumStore {
 
     // MARK: - Purchase
     func purchase(_ product: Product) async -> Bool {
-        if isFakePremiumEnabled {
-            await markPurchased(product.id)
-            notifyUpdate()
-            return true
-        }
-
+       
         guard #available(iOS 15.0, *) else { return false }
 
         // 🔥 FIX 1 — Ensure products loaded before purchase
@@ -136,12 +130,7 @@ actor PremiumStore {
     // MARK: - Restore
     func restore() async -> Bool {
         purchasedProductIDs.removeAll()
-        if isFakePremiumEnabled {
-            for id in productIDs { await markPurchased(id) }
-            notifyUpdate()
-            return true
-        }
-
+       
         guard #available(iOS 15.0, *) else { return false }
 
         do {
@@ -183,7 +172,6 @@ actor PremiumStore {
             do {
                 let transaction = try checkVerified(entitlement)
                 purchasedProductIDs.insert(transaction.productID)
-                await transaction.finish()
             } catch {}
         }
     }
@@ -201,20 +189,12 @@ actor PremiumStore {
         case .verified(let safe):
             return safe
 
-        case .unverified(let unsafe, _):
-            if isSandbox {
-                // Cho phép sandbox để Apple review được
-                print("⚠️ Accepting unverified transaction in SANDBOX")
-                return unsafe
-            }
-            // Production: không cho phép → đúng chuẩn bảo mật
+        case .unverified(_, let error):
+            // Không accept unverified ở bất kỳ môi trường nào
+            print("⚠️ Unverified transaction:", error.localizedDescription)
             throw PremiumError.unverified
         }
     }
-
-
-
-
     // MARK: - Mark purchased
     private func notifyUpdate() {
         DispatchQueue.main.async {

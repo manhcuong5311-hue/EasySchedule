@@ -48,34 +48,43 @@ struct PremiumIntroView: View {
                         .multilineTextAlignment(.center)
 
                     VStack(alignment: .leading, spacing: 12) {
+
                         PremiumFeatureRow(
                             icon: "calendar.badge.clock",
-                            text: String(localized: "premium_feature_180_days")
+                            text: String(localized: "premium_feature_extended_schedule")
                         )
+
                         PremiumFeatureRow(
                             icon: "bolt.fill",
-                            text: String(localized: "premium_feature_30_events")
+                            text: String(localized: "premium_feature_higher_limits")
                         )
+
                         PremiumFeatureRow(
-                            icon: "person.2.fill",
-                            text: String(localized: "premium_feature_shared")
+                            icon: "bubble.left.and.bubble.right.fill",
+                            text: String(localized: "premium_feature_chat_access")
                         )
-                        PremiumFeatureRow(
-                              icon: "bubble.left.and.bubble.right.fill",
-                              text: String(localized: "premium_feature_unlimited_chat")
-                          )
+
                         PremiumFeatureRow(
                             icon: "checklist",
-                            text: String(localized: "premium_feature_more_todos")
+                            text: String(localized: "premium_feature_task_management")
                         )
+
+                        PremiumFeatureRow(
+                            icon: "calendar.badge.plus",
+                            text: String(localized: "premium_feature_off_days")
+                        )
+
+                        PremiumFeatureRow(
+                            icon: "clock.arrow.circlepath",
+                            text: String(localized: "premium_feature_busy_hours")
+                        )
+
                         PremiumFeatureRow(
                             icon: "arrow.triangle.2.circlepath",
                             text: String(localized: "premium_feature_cloud_sync")
                         )
-
-                        
-                        
                     }
+
                     .padding(.top, 4)
 
                     Button {

@@ -211,13 +211,15 @@ struct PartnerCalendarTabView: View {
             // ================================
             // MARK: ALERT
             // ================================
-            .alert(isPresented: $showAlert) {
-                Alert(
-                    title: Text(String(localized: "unable_to_proceed")),
-                    message: Text(alertMessage),
-                    dismissButton: .default(Text(String(localized: "close")))
-                )
+            .alert(
+                String(localized: "unable_to_proceed"),
+                isPresented: $showAlert
+            ) {
+                Button(String(localized: "close"), role: .cancel) {}
+            } message: {
+                Text(alertMessage)
             }
+
         }
     }
 
@@ -468,12 +470,12 @@ struct PartnerCalendarTabView: View {
         }
     }
 
-
     private func loadBusySlots(uid: String) {
         isLoading = true
         errorMessage = nil
         fetchedEvents.removeAll()
-        eventManager.fetchBusySlots(for: uid, forceRefresh: true) { slots, isPremiumUser in
+
+        eventManager.fetchBusySlots(for: uid, forceRefresh: true) { slots, tier in
             DispatchQueue.main.async {
                 self.isLoading = false
 
@@ -484,30 +486,36 @@ struct PartnerCalendarTabView: View {
                 }
 
                 self.fetchedEvents = filtered.sorted { $0.startTime < $1.startTime }
-                eventManager.partnerBusySlots[uid] = filtered
-               
+                self.eventManager.partnerBusySlots[uid] = filtered
 
-                if !isPremiumUser {
+                // ===============================
+                // MESSAGE THEO TIER (KHÔNG DÙNG BOOL)
+                // ===============================
+                if tier == .free {
                     self.errorMessage = String(localized: "seven_day_limit")
                 } else if filtered.isEmpty {
                     self.errorMessage = String(localized: "no_busy_events_for_uid")
                 }
-                if !eventManager.sharedLinks.contains(where: { $0.uid == uid }) {
-                    eventManager.sharedLinks.append(
+
+                // ===============================
+                // SHARED LINK (GIỮ NGUYÊN)
+                // ===============================
+                if !self.eventManager.sharedLinks.contains(where: { $0.uid == uid }) {
+                    self.eventManager.sharedLinks.append(
                         SharedLink(
                             id: UUID().uuidString,
                             uid: uid,
                             url: linkText,
                             createdAt: Date(),
-                            displayName: eventManager.userNames[uid]
+                            displayName: self.eventManager.userNames[uid]
                         )
                     )
-                    eventManager.saveSharedLinks()
+                    self.eventManager.saveSharedLinks()
                 }
             }
         }
     }
-  
+
     @ViewBuilder
     private func manageRow(
         icon: String,

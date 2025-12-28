@@ -67,58 +67,45 @@ class SessionStore: ObservableObject {
         authStateListenerHandle =
         Auth.auth().addStateDidChangeListener { _, user in
 
+            DispatchQueue.main.async {
+                self.currentUser = user
+            }
+
             guard let user = user else {
-                print("ℹ️ No Firebase user → logged out.")
                 DispatchQueue.main.async {
-                    self.currentUser = nil
                     self.currentUserName = ""
                     self.didSetupSession = false
                 }
                 return
             }
 
-            user.getIDTokenResult { _, error in
-                if let error = error {
-                    print("⚠️ Token fetch failed (network?):", error.localizedDescription)
-                    return
-                }
+            // ❌ KHÔNG block login vì token / reload
+            // ❌ KHÔNG signOut khi offline
 
-                user.reload { error in
-                    if let error = error {
-                        print("⚠️ Reload user failed (likely offline):", error.localizedDescription)
-                        return
-                    }
-
+            // ✅ Chỉ check email verified KHI ONLINE
+            user.reload { error in
+                if error == nil {
                     if user.isEmailVerified == false {
-                        print("⛔ Unverified email → blocking session login")
                         DispatchQueue.main.async {
                             self.signOut()
                         }
-                        return
-                    }
-
-                    print("✅ Verified email → session login allowed:", user.uid)
-
-                    DispatchQueue.main.async {
-                        self.currentUser = user
-
-                        guard self.didSetupSession == false else { return }
-                        self.didSetupSession = true
-
-                        self.saveProfileIfNeeded(user: user)
-
-                        if let cachedName = UserDefaults.standard.string(forKey: self.nameKey) {
-                            self.currentUserName = cachedName
-                        }
-
-                        self.fetchProfile(uid: user.uid)
-                        self.cleanUpPastEventsOnFirebase(for: user.uid)
                     }
                 }
             }
+
+            guard self.didSetupSession == false else { return }
+            self.didSetupSession = true
+
+            self.saveProfileIfNeeded(user: user)
+
+            if let cachedName = UserDefaults.standard.string(forKey: self.nameKey) {
+                self.currentUserName = cachedName
+            }
+
+            self.fetchProfile(uid: user.uid)
+            self.cleanUpPastEventsOnFirebase(for: user.uid)
         }
     }
-
 
 
     // MARK: - Fetch Firestore 1 lần
