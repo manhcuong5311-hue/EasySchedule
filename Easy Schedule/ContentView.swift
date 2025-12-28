@@ -1109,7 +1109,20 @@ extension EventManager {
                 completion(false, String(localized: "event_limit_reached"))
                 return
             }
+            // ===============================
+            // 🔒 4.5️⃣ CHECK TRÙNG GIỜ CỦA CREATOR (B)
+            // ===============================
+            let myConflict = self.events.contains {
+                $0.createdBy == currentUid &&
+                $0.startTime < end &&
+                $0.endTime > start
+            }
 
+            if myConflict {
+                DispatchQueue.main.async { self.isAdding = false }
+                completion(false, String(localized: "you_have_event_this_time"))
+                return
+            }
             // ===============================
             // 5️⃣ TẠO EVENT DATA
             // ===============================
