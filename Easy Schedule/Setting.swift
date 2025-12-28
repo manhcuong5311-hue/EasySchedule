@@ -183,32 +183,34 @@ struct SettingsView: View {
                     } label: {
                         Label(String(localized: "change_display_name"), systemImage: "pencil")
                     }
-
                     Button {
                         showUpgradeSheet = true
                     } label: {
                         HStack {
                             Label(
-                                premium.isPremium
-                                ? String(localized: "premium_active")
-                                : String(localized: "upgrade_account"),
-                                systemImage: "star.fill"
+                                premium.tier == .free
+                                ? String(localized: "upgrade_account")
+                                : premium.tier == .pro
+                                    ? String(localized: "pro_active")
+                                    : String(localized: "premium_active"),
+                                systemImage: premium.tier == .pro
+                                    ? "crown.fill"
+                                    : "star.fill"
                             )
 
                             Spacer()
 
                             Text(
-                                premium.isPremium
-                                ? String(localized: "premium")
-                                : String(localized: "free")
+                                premium.tier == .free
+                                ? String(localized: "free")
+                                : premium.tier == .pro
+                                    ? String(localized: "pro")
+                                    : String(localized: "premium")
                             )
                             .font(.caption)
                             .foregroundColor(.secondary)
                         }
                     }
-
-
-
 
                     NavigationLink {
                         SecuritySettingsView()

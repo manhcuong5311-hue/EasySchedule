@@ -50,9 +50,14 @@ struct Easy_scheduleApp: App {
             .environmentObject(session)        // ⭐ BẮT BUỘC
                    .environmentObject(premium)        // ⭐ BẮT BUỘC
                    .environmentObject(eventManager) 
-            .onAppear {
-                lockManager.startTimer()
-            }
+                   .onAppear {
+                       lockManager.startTimer()
+
+                       if UserDefaults.standard.bool(forKey: "useBiometricAuth") {
+                           lockManager.lock()   // ⭐ DÒNG QUAN TRỌNG NHẤT
+                       }
+                   }
+
             .onReceive(
                 NotificationCenter.default.publisher(
                     for: UIApplication.willResignActiveNotification

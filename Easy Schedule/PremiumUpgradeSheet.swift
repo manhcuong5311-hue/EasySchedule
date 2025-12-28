@@ -9,8 +9,8 @@ struct PremiumUpgradeSheet: View {
     @EnvironmentObject var premium: PremiumStoreViewModel
     @Environment(\.dismiss) var dismiss
     @State private var selectedPlan: PlanType = .premium
-    private var isSubscribed: Bool {
-        premium.isPremium
+    private var currentTier: PremiumTier {
+        premium.tier
     }
 
 
@@ -40,13 +40,18 @@ struct PremiumUpgradeSheet: View {
                             .foregroundColor(.secondary)
                             .multilineTextAlignment(.center)
 
-                        if premium.isPremium {
-                            Label(String(localized: "premium_activated"),
-                                  systemImage: "star.fill")
-                                .foregroundColor(.yellow)
-                                .font(.headline)
-                                .padding(.top, 4)
+                        if currentTier != .free {
+                            Label(
+                                currentTier == .pro
+                                ? String(localized: "pro_activated")
+                                : String(localized: "premium_activated"),
+                                systemImage: currentTier == .pro ? "crown.fill" : "star.fill"
+                            )
+                            .foregroundColor(currentTier == .pro ? .orange : .yellow)
+                            .font(.headline)
+                            .padding(.top, 4)
                         }
+
                     }
                     .padding(.top, 20)
                     // MARK: - Plan Selector (Premium / Pro)
@@ -66,8 +71,16 @@ struct PremiumUpgradeSheet: View {
                                     )
                                     .cornerRadius(12)
                             }
-                            .disabled(isSubscribed)          // ← THÊM
-                            .opacity(isSubscribed ? 0.5 : 1) // ← THÊM
+                            .disabled(
+                                currentTier == .pro ||
+                                (currentTier == .premium && plan == .premium)
+                            )
+                            .opacity(
+                                currentTier == .pro ||
+                                (currentTier == .premium && plan == .premium)
+                                ? 0.5 : 1
+                            )
+
                         }
                     }
                     .padding(.horizontal)
@@ -118,31 +131,28 @@ struct PremiumUpgradeSheet: View {
 
 
                     // MARK: - Product Cards
-                    if isSubscribed {
+                    if currentTier == .pro {
 
-                        VStack(spacing: 12) {
-                            Image(systemName: "checkmark.seal.fill")
-                                .font(.largeTitle)
-                                .foregroundColor(.green)
+                        // ✅ Pro: không mua thêm gì được
+                        subscribedView(title: "pro_active_note")
 
-                            Text(String(localized: "already_subscribed"))
-                                .font(.headline)
+                    }
+                    else if currentTier == .premium && selectedPlan == .premium {
 
-                            Text(String(localized: "subscription_active_note"))
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                                .multilineTextAlignment(.center)
-                        }
-                        .padding(.vertical, 40)
+                        // ✅ Premium đang xem Premium → đã kích hoạt
+                        subscribedView(title: "premium_active_note")
 
-                    } else if premium.products.isEmpty {
+                    }
+                    else if premium.products.isEmpty {
 
                         ProgressView(String(localized: "loading_packages"))
                             .padding(.vertical, 40)
                             .task { premium.start() }
 
-                    } else {
+                    }
+                    else {
 
+                        // ✅ Free, hoặc Premium đang xem Pro → cho mua
                         VStack(spacing: 18) {
                             ForEach(
                                 premium.products.filter { product in
@@ -160,6 +170,7 @@ struct PremiumUpgradeSheet: View {
                         }
                         .padding(.horizontal)
                     }
+
 
                     // MARK: - Restore Button
                     VStack(spacing: 8) {
@@ -227,6 +238,12 @@ struct PremiumUpgradeSheet: View {
                     Spacer().frame(height: 40)
                 }
             }
+            .onAppear {
+                // ⭐ UX IMPROVEMENT
+                if currentTier == .premium {
+                    selectedPlan = .pro
+                }
+            }
             .alert(
                 String(localized: "purchase_error"),
                 isPresented: Binding(
@@ -240,11 +257,31 @@ struct PremiumUpgradeSheet: View {
             }
         }
     }
+    @ViewBuilder
+    func subscribedView(title: String.LocalizationValue) -> some View {
+        VStack(spacing: 12) {
+            Image(systemName: "checkmark.seal.fill")
+                .font(.largeTitle)
+                .foregroundColor(.green)
+
+            Text(String(localized: title))
+                .font(.headline)
+
+            Text(String(localized: "subscription_active_note"))
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding(.vertical, 40)
+    }
+
 
     // MARK: - Premium Card UI
     private func premiumCard(for product: Product) -> some View {
 
         Button {
+            guard currentTier != .pro else { return }
+
             Task {
                 isLoading = true
                 let success = await premium.buy(product)
@@ -253,7 +290,6 @@ struct PremiumUpgradeSheet: View {
                 if success { dismiss() }
                 else { purchaseError = String(localized: "payment_failed") }
             }
-            
         } label: {
 
             VStack(alignment: .leading, spacing: 12) {
@@ -297,7 +333,7 @@ struct PremiumUpgradeSheet: View {
         }
         .buttonStyle(.plain)
         .opacity(isLoading ? 0.4 : 1)
-        .disabled(isLoading)
+        .disabled(isLoading || currentTier == .pro)
     }
     @ViewBuilder
     func featureValue(_ row: FeatureRow, plan: PlanType) -> some View {

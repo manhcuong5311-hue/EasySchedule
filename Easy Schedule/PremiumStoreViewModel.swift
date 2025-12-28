@@ -15,7 +15,16 @@ final class PremiumStoreViewModel: ObservableObject {
 
     @Published var products: [Product] = []
     @Published var tier: PremiumTier = .free
-    @Published var isPremium: Bool = false   // giữ lại cho backward compatibility
+
+    // Legacy – KHÔNG LƯU STATE
+    var isPremium: Bool {
+        tier >= .premium
+    }
+
+    var isPro: Bool {
+        tier == .pro
+    }
+
 
     @Published var loading: Bool = false
 
@@ -30,9 +39,7 @@ final class PremiumStoreViewModel: ObservableObject {
 
         Task { await refresh() }
     }
-    var isPro: Bool {
-        tier == .pro
-    }
+ 
     var limits: PremiumLimits {
         PremiumLimits.limits(for: tier)
     }
@@ -70,12 +77,12 @@ final class PremiumStoreViewModel: ObservableObject {
         let entitlements = await PremiumStore.shared.getPurchasedIDs()
 
         tier = resolveTier(from: entitlements)
-        isPremium = tier >= .premium   // giữ logic cũ
 
         if oldTier != tier {
             syncPremiumStatusToFirestore()
         }
     }
+
 
 
 

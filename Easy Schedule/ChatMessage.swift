@@ -511,13 +511,14 @@ class ChatViewModel: ObservableObject {
    
     // MARK: - Send text message
     func sendMessage(
+        isPremium: Bool,
         onLimitReached: @escaping () -> Void
     ) {
         let text = messageText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
 
-        // 🔒 Check limit (đã xử lý theo tier ở listenChatMeta)
-        if reachedFreeLimit {
+        // 🔒 Check limit
+        if reachedFreeLimit && !isPremium {
             onLimitReached()
             return
         }
@@ -532,15 +533,15 @@ class ChatViewModel: ObservableObject {
             "seenBy": [myId: true]
         ]
 
-        // 1️⃣ Gửi message
+        // 1️⃣ Send message
         chatRef.collection("messages").addDocument(data: messageData)
 
-        // 2️⃣ Tăng counter (đếm số tin đã gửi của user)
+        // 2️⃣ Increment counter (vẫn đếm, nhưng Premium không bị chặn)
         chatRef.updateData([
             "freeCount.\(myId)": FieldValue.increment(Int64(1))
         ])
 
-        // 3️⃣ Update meta chat
+        // 3️⃣ Update chat meta
         chatRef.setData([
             "lastMessage": text,
             "lastMessageTime": Timestamp(),
@@ -555,13 +556,16 @@ class ChatViewModel: ObservableObject {
 
 
 
+
     // MARK: - Send location message
     func sendCurrentLocation(
         lat: Double,
         lon: Double,
+        isPremium: Bool,
         onLimitReached: @escaping () -> Void
     ) {
-        if reachedFreeLimit {
+        // 🔒 Check limit (Premium được bypass)
+        if reachedFreeLimit && !isPremium {
             onLimitReached()
             return
         }
@@ -569,27 +573,25 @@ class ChatViewModel: ObservableObject {
         let chatRef = db.collection("chats").document(eventId)
 
         let messageData: [String: Any] = [
-            "text": String(localized: "location_sent"), // ⭐ BẮT BUỘC
+            "latitude": lat,
+            "longitude": lon,
             "senderId": myId,
             "senderName": myName,
             "timestamp": Timestamp(),
-            "seenBy": [myId: true],
-            "latitude": lat,
-            "longitude": lon
+            "seenBy": [myId: true]
         ]
 
-
-        // 1️⃣ Gửi message
+        // 1️⃣ Send location message
         chatRef.collection("messages").addDocument(data: messageData)
 
-        // 2️⃣ Tăng counter (CHUNG cho text + location)
+        // 2️⃣ Increment counter (vẫn đếm, nhưng Premium không bị chặn)
         chatRef.updateData([
             "freeCount.\(myId)": FieldValue.increment(Int64(1))
         ])
 
-        // 3️⃣ Update meta chat
+        // 3️⃣ Update chat meta
         chatRef.setData([
-            "lastMessage": String(localized: "location_message"),
+            "lastMessage": String(localized: "location_sent"),
             "lastMessageTime": Timestamp(),
             "unread": [
                 myId: false,
@@ -597,6 +599,7 @@ class ChatViewModel: ObservableObject {
             ]
         ], merge: true)
     }
+
 
 
     private func listenChatMeta() {
@@ -805,9 +808,10 @@ struct ChatView: View {
                         else { return }
 
                         sendCooldown = true
-                        vm.sendMessage {
+                        vm.sendMessage(isPremium: premium.isPremium) {
                             showLimitAlert = true
                         }
+
 
 
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
@@ -847,7 +851,8 @@ struct ChatView: View {
             MapPickerView(location: locationManager.location) { coord in
                 vm.sendCurrentLocation(
                     lat: coord.latitude,
-                    lon: coord.longitude
+                    lon: coord.longitude,
+                    isPremium: premium.isPremium
                 ) {
                     showLimitAlert = true
                 }
@@ -1043,8 +1048,9 @@ struct ChatView: View {
     }
 
     private var locked: Bool {
-        vm.reachedFreeLimit
+        !premium.isPremium && vm.reachedFreeLimit
     }
+
 
 
     // MARK: - Bubble
@@ -1133,7 +1139,7 @@ struct ChatView: View {
         .id(msg.id)
     }
     func sendMyGPS() {
-        guard !vm.reachedFreeLimit else {
+        guard !vm.reachedFreeLimit || premium.isPremium else {
             showLimitAlert = true
             return
         }
@@ -1145,11 +1151,13 @@ struct ChatView: View {
 
         vm.sendCurrentLocation(
             lat: loc.coordinate.latitude,
-            lon: loc.coordinate.longitude
+            lon: loc.coordinate.longitude,
+            isPremium: premium.isPremium
         ) {
             showLimitAlert = true
         }
     }
+
 
 
 

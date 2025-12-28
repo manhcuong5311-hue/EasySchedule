@@ -820,6 +820,7 @@
       }
     },
     "already_subscribed" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -9345,13 +9346,13 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "プレミアムが有効になりました"
+            "value" : "プレミアムプランが有効です"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "프리미엄이 활성화되었습니다"
+            "value" : "프리미엄 요금제가 활성화되었습니다"
           }
         },
         "vi" : {
@@ -9391,6 +9392,34 @@
         }
       }
     },
+    "premium_active_note" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You are currently using the Premium plan."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "現在、プレミアムプランをご利用中です。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "현재 프리미엄 요금제를 사용 중입니다."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bạn đang sử dụng gói Premium."
+          }
+        }
+      }
+    },
     "premium_booking_limit_90_days" : {
       "localizations" : {
         "en" : {
@@ -9415,35 +9444,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Bạn chỉ có thể lên lịch trước tối đa 90 ngày."
-          }
-        }
-      }
-    },
-    "premium_booking_limit_180_days" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Premium users can only book up to 270 days in advance."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "プレミアムユーザーは最大90日先まで予約できます。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "프리미엄 사용자는 최대 90일 후까지 예약할 수 있습니다."
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Người dùng Premium chỉ có thể đặt lịch tối đa trong 90 ngày tới."
           }
         }
       }
@@ -9531,64 +9531,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tạo tối đa 30 lịch mỗi ngày"
-          }
-        }
-      }
-    },
-    "premium_feature_180_days" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Book events up to 180 days ahead"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "最大180日先まで予定を作成"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "최대 180일 전까지 일정 생성"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Đặt lịch trước tối đa 180 ngày"
-          }
-        }
-      }
-    },
-    "premium_feature_advance_days" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Schedule up to 180 days in advance"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "最大180日先までスケジュール設定可能"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "최대 180일 후까지 일정 예약"
-          }
-        },
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Đặt lịch trước tối đa 180 ngày"
           }
         }
       }
@@ -10371,6 +10313,68 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "🧾 Chính sách quyền riêng tư & Thông tin ứng dụng"
+          }
+        }
+      }
+    },
+    "pro" : {
+
+    },
+    "pro_activated" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pro is active"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "プロプランが有効です"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "프로 요금제가 활성화되었습니다"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Pro đang được kích hoạt"
+          }
+        }
+      }
+    },
+    "pro_active" : {
+
+    },
+    "pro_active_note" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You are currently using the Pro plan."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "現在、プロプランをご利用中です。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "현재 프로 요금제를 사용 중입니다."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Bạn đang sử dụng gói Pro."
           }
         }
       }
