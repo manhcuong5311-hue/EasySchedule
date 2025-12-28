@@ -147,12 +147,12 @@ struct BusyHoursPickerView: View {
                     .font(.caption)
                     .foregroundColor(.red)
 
-            } else if busyHour || selected {
+            } else if selected {
                 Text(String(localized: "selected_busy_hours"))
                     .font(.caption)
                     .foregroundColor(.orange)
-
             }
+
         }
         .padding()
         .background(
@@ -180,10 +180,10 @@ struct BusyHoursPickerView: View {
     }
 
     private func isBusyHour(_ slot: ProSlot) -> Bool {
-        busyHourIntervals.contains {
-            $0.0 < slot.end && $0.1 > slot.start
-        }
+        selectedSlots.contains(slot)
     }
+
+
 
     private func isPast(_ slot: ProSlot) -> Bool {
         slot.end <= Date()

@@ -327,47 +327,34 @@ struct CustomizableCalendarView: View {
                     eventBusyIntervals: eventBusyIntervals,
                     busyHourIntervals: localBusyIntervals,
                     onSave: { addedSlots, removedSlots in
-                        guard eventManager.currentUserId != nil else { return }
+                        guard let uid = eventManager.currentUserId else { return }
 
-                        // ===============================
-                        // 1️⃣ UPDATE UI NGAY (LOCAL)
-                        // ===============================
+                        // ➕ Firebase
+                        if !addedSlots.isEmpty {
+                            eventManager.addBusyHoursForDay(
+                                userId: uid,
+                                slots: addedSlots
+                            )
+                        }
 
-                        // ➕ Add mới
-                        localBusyIntervals.append(
-                            contentsOf: addedSlots.map { ($0.start, $0.end) }
-                        )
+                        if !removedSlots.isEmpty {
+                            eventManager.removeManualBusySlots(
+                                userId: uid,
+                                slots: removedSlots
+                            )
+                        }
 
-                        // ➖ Remove (undo)
+                        // ✅ OPTIMISTIC UI UPDATE (QUAN TRỌNG)
+                        let addedIntervals = addedSlots.map { ($0.start, $0.end) }
+                        let removedIntervals = removedSlots.map { ($0.start, $0.end) }
+
+                        localBusyIntervals.append(contentsOf: addedIntervals)
                         localBusyIntervals.removeAll { interval in
-                            removedSlots.contains {
-                                $0.start == interval.0 && $0.end == interval.1
+                            removedIntervals.contains {
+                                $0.0 == interval.0 && $0.1 == interval.1
                             }
                         }
 
-                        // ===============================
-                        // 2️⃣ DEDUPLICATE (RẤT QUAN TRỌNG)
-                        // ===============================
-                        localBusyIntervals = Array(
-                            Set(
-                                localBusyIntervals.map {
-                                    BusyKey($0.0, $0.1)
-                                }
-                            )
-                        )
-                        .map { ($0.start, $0.end) }
-                        .sorted { $0.0 < $1.0 }
-
-                        // ===============================
-                        // 3️⃣ SYNC FIREBASE (GIỐNG OFF DAY)
-                        // ===============================
-                        eventManager.syncBusyHoursToFirebase(
-                            busyIntervals: localBusyIntervals
-                        )
-
-                        // ===============================
-                        // 4️⃣ ĐÓNG SHEET
-                        // ===============================
                         showBusyHoursSheet = false
                     }
                 )
@@ -382,16 +369,22 @@ struct CustomizableCalendarView: View {
 
     private func handleDateChange(_ newDate: Date?) {
         guard let date = newDate else { return }
+        guard let uid = eventManager.currentUserId else {
+            localBusyIntervals = []
+            return
+        }
 
-        // Busy do EVENT (read-only)
+        // 1️⃣ Busy do EVENT (read-only)
         eventBusyIntervals = eventManager.events(for: date)
             .map { ($0.startTime, $0.endTime) }
 
-        // Busy HOURS (firebase)
+        // 2️⃣ Busy HOURS — CHỈ MANUAL
         localBusyIntervals =
-            eventManager.partnerBusySlots[eventManager.currentUserId ?? ""]?
-            .map { ($0.startTime, $0.endTime) } ?? []
+            eventManager.partnerBusySlots[uid]?
+                .filter { $0.colorHex == "#FFA500" }   // manual only
+                .map { ($0.startTime, $0.endTime) } ?? []
     }
+
 
 
     
