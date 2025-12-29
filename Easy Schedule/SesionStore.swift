@@ -97,7 +97,7 @@ class SessionStore: ObservableObject {
             self.didSetupSession = true
 
             self.saveProfileIfNeeded(user: user)
-
+            self.syncTimezoneIfNeeded()
             if let cachedName = UserDefaults.standard.string(forKey: self.nameKey) {
                 self.currentUserName = cachedName
             }
@@ -218,11 +218,34 @@ class SessionStore: ObservableObject {
                 }
             }
         }
-
         func clearCache() {
             DispatchQueue.main.async {
                 self.names.removeAll()
             }
         }
     }
+    
+    func syncTimezoneIfNeeded() {
+        guard let uid = currentUserId else { return }
+
+        let tz = TimeZone.current
+        let cachedTzId = UserDefaults.standard.string(forKey: "lastTimezoneId")
+
+        // ❗ Không đổi timezone → không cần sync
+        guard cachedTzId != tz.identifier else { return }
+
+        db.collection("users").document(uid)
+          .setData([
+              "timezoneId": tz.identifier,
+              "timezoneOffsetMinutes": tz.secondsFromGMT() / 60,
+              "updatedAt": FieldValue.serverTimestamp()
+          ], merge: true)
+
+        // Cache lại
+        UserDefaults.standard.set(tz.identifier, forKey: "lastTimezoneId")
+    }
+
+
+    
+    
 }

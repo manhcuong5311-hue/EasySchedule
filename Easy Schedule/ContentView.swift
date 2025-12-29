@@ -1893,9 +1893,11 @@ struct EventListView: View {
         
         // Nhóm theo tháng (dựa trên năm + tháng)
         let groupedByMonth = Dictionary(grouping: filteredEvents) { event -> Date in
-            let comps = Calendar.current.dateComponents([.year, .month], from: event.date)
-            return Calendar.current.date(from: comps)!
+            let calendar = Calendar.current
+            let comps = calendar.dateComponents([.year, .month], from: event.startTime)
+            return calendar.date(from: comps)!
         }
+
         // Sắp xếp tháng mới nhất lên trên
         let sortedMonths = groupedByMonth.keys.sorted(by: >)
         
