@@ -29,6 +29,36 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		0D4F4F312F07A57B0049D114 /* Setting */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Setting;
+			sourceTree = "<group>";
+		};
+		0D4F4F342F07A5900049D114 /* EventManager */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = EventManager;
+			sourceTree = "<group>";
+		};
+		0D4F4F352F07A5A80049D114 /* Premium */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Premium;
+			sourceTree = "<group>";
+		};
+		0D4F4F362F07A5CB0049D114 /* Chat&Todo */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "Chat&Todo";
+			sourceTree = "<group>";
+		};
+		0D4F4F372F07A6230049D114 /* PartnerLogic */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = PartnerLogic;
+			sourceTree = "<group>";
+		};
+		0D4F4F382F07A64C0049D114 /* Login */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Login;
+			sourceTree = "<group>";
+		};
 		0DCA51342EC38C75008324B2 /* Easy Schedule */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = "Easy Schedule";
@@ -72,6 +102,12 @@
 		0DCA51292EC38C75008324B2 = {
 			isa = PBXGroup;
 			children = (
+				0D4F4F382F07A64C0049D114 /* Login */,
+				0D4F4F372F07A6230049D114 /* PartnerLogic */,
+				0D4F4F362F07A5CB0049D114 /* Chat&Todo */,
+				0D4F4F352F07A5A80049D114 /* Premium */,
+				0D4F4F342F07A5900049D114 /* EventManager */,
+				0D4F4F312F07A57B0049D114 /* Setting */,
 				0DCA51342EC38C75008324B2 /* Easy Schedule */,
 				0D6C2F702EE2CB0E00124A4F /* Frameworks */,
 				0DCA51332EC38C75008324B2 /* Products */,
@@ -102,6 +138,12 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
+				0D4F4F312F07A57B0049D114 /* Setting */,
+				0D4F4F342F07A5900049D114 /* EventManager */,
+				0D4F4F352F07A5A80049D114 /* Premium */,
+				0D4F4F362F07A5CB0049D114 /* Chat&Todo */,
+				0D4F4F372F07A6230049D114 /* PartnerLogic */,
+				0D4F4F382F07A64C0049D114 /* Login */,
 				0DCA51342EC38C75008324B2 /* Easy Schedule */,
 			);
 			name = "Easy Schedule";
