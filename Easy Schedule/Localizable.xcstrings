@@ -6019,9 +6019,6 @@
         }
       }
     },
-    "Key" : {
-      "extractionState" : "manual"
-    },
     "language" : {
       "extractionState" : "manual",
       "localizations" : {
