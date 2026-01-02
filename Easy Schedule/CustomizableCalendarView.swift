@@ -201,7 +201,26 @@ struct CustomizableCalendarView: View {
 
             Button(String(localized: "cancel"), role: .cancel) {
                 pendingOffDayDate = nil
+
+                // 🔁 RESTORE BUSY HOURS UI
+                if let uid = eventManager.currentUserId,
+                   let date = selectedDate {
+
+                    let dayStart = calendar.startOfDay(for: date)
+                    let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart)!
+
+                    localBusyIntervals =
+                        eventManager.partnerBusySlots[uid]?
+                            .filter { slot in
+                                slot.colorHex == "#FFA500" &&
+                                slot.startTime < dayEnd &&
+                                slot.endTime > dayStart
+                            }
+                            .map { ($0.startTime, $0.endTime) } ?? []
+                }
+
             }
+
         } message: {
             Text(String(localized: "off_day_warning_message"))
         }
@@ -212,6 +231,11 @@ struct CustomizableCalendarView: View {
         }
         .onChange(of: selectedDate, initial: false) { _, newValue in
             handleDateChange(newValue)
+        }
+        .onChange(of: showConfirmOffDayAlert) { _, isShown in
+            if !isShown {
+                handleDateChange(selectedDate)
+            }
         }
 
     }
