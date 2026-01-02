@@ -133,17 +133,10 @@ struct AppointmentProSheet: View {
                     Button(String(localized:"cancel")) { isPresented = false }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(String(localized: "book")) {
-
-                        if useCustomTime {
-                            selectedSlot = ProSlot(
-                                start: combine(selectedDate, customStart),
-                                end: combine(selectedDate, customEnd)
-                            )
-                        }
-
+                    Button("Book") {
                         handleCreate()
                     }
+
                     .disabled(
                         (!useCustomTime && selectedSlot == nil) ||
                         sharedUserId == nil ||
@@ -297,15 +290,20 @@ struct AppointmentProSheet: View {
     // MARK: Xử lý đặt lịch
     private func handleCreate() {
 
-        let now = Date()
-        _ = calendar.date(byAdding: .day, value: 7, to: now)!
-        if useCustomTime {
-            selectedSlot = ProSlot(
-                start: combine(selectedDate, customStart),
-                end: combine(selectedDate, customEnd)
-            )
-        }
-        
+        // ⭐ CUSTOM TIME VALIDATION — ĐẶT ĐẦU TIÊN
+           if useCustomTime {
+
+               guard customEnd > customStart else {
+                   errorMessage = String(localized: "invalid_time_range")
+                   return
+               }
+
+               selectedSlot = ProSlot(
+                   start: combine(selectedDate, customStart),
+                   end: combine(selectedDate, customEnd)
+               )
+           }
+      
         // ❌ CHẶN ĐẶT LỊCH QUÁ KHỨ
         let startOfSelectedDay = Calendar.current.startOfDay(for: selectedDate)
         let today = Calendar.current.startOfDay(for: Date())
