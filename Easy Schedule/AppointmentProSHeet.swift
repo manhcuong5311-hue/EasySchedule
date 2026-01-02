@@ -309,6 +309,7 @@ struct AppointmentProSheet: View {
                 end: combine(selectedDate, customEnd)
             )
         }
+        
         // ❌ CHẶN ĐẶT LỊCH QUÁ KHỨ
         let startOfSelectedDay = Calendar.current.startOfDay(for: selectedDate)
         let today = Calendar.current.startOfDay(for: Date())
@@ -383,6 +384,10 @@ struct AppointmentProSheet: View {
             errorMessage = String(localized: "login_required")
             return
         }
+        if checkMyOwnConflict(slot) {
+            errorMessage = String(localized: "you_have_event_this_time")
+            return
+        }
 
         eventManager.addAppointment(
             forSharedUser: uid,
@@ -407,6 +412,13 @@ struct AppointmentProSheet: View {
             }
         }
         
+    }
+
+    private func checkMyOwnConflict(_ slot: ProSlot) -> Bool {
+        eventManager.events.contains {
+            $0.startTime < slot.end &&
+            $0.endTime > slot.start
+        }
     }
 
     // MARK: Helper

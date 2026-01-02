@@ -327,47 +327,34 @@ struct CustomizableCalendarView: View {
                     eventBusyIntervals: eventBusyIntervals,
                     busyHourIntervals: localBusyIntervals,
                     onSave: { addedSlots, removedSlots in
-                        guard eventManager.currentUserId != nil else { return }
+                        guard let uid = eventManager.currentUserId else { return }
 
-                        // ===============================
-                        // 1️⃣ UPDATE UI NGAY (LOCAL)
-                        // ===============================
+                        // ➕ Firebase
+                        if !addedSlots.isEmpty {
+                            eventManager.addBusyHoursForDay(
+                                userId: uid,
+                                slots: addedSlots
+                            )
+                        }
 
-                        // ➕ Add mới
-                        localBusyIntervals.append(
-                            contentsOf: addedSlots.map { ($0.start, $0.end) }
-                        )
+                        if !removedSlots.isEmpty {
+                            eventManager.removeManualBusySlots(
+                                userId: uid,
+                                slots: removedSlots
+                            )
+                        }
 
-                        // ➖ Remove (undo)
+                        // ✅ OPTIMISTIC UI UPDATE (QUAN TRỌNG)
+                        let addedIntervals = addedSlots.map { ($0.start, $0.end) }
+                        let removedIntervals = removedSlots.map { ($0.start, $0.end) }
+
+                        localBusyIntervals.append(contentsOf: addedIntervals)
                         localBusyIntervals.removeAll { interval in
-                            removedSlots.contains {
-                                $0.start == interval.0 && $0.end == interval.1
+                            removedIntervals.contains {
+                                $0.0 == interval.0 && $0.1 == interval.1
                             }
                         }
 
-                        // ===============================
-                        // 2️⃣ DEDUPLICATE (RẤT QUAN TRỌNG)
-                        // ===============================
-                        localBusyIntervals = Array(
-                            Set(
-                                localBusyIntervals.map {
-                                    BusyKey($0.0, $0.1)
-                                }
-                            )
-                        )
-                        .map { ($0.start, $0.end) }
-                        .sorted { $0.0 < $1.0 }
-
-                        // ===============================
-                        // 3️⃣ SYNC FIREBASE (GIỐNG OFF DAY)
-                        // ===============================
-                        eventManager.syncBusyHoursToFirebase(
-                            busyIntervals: localBusyIntervals
-                        )
-
-                        // ===============================
-                        // 4️⃣ ĐÓNG SHEET
-                        // ===============================
                         showBusyHoursSheet = false
                     }
                 )
@@ -382,16 +369,22 @@ struct CustomizableCalendarView: View {
 
     private func handleDateChange(_ newDate: Date?) {
         guard let date = newDate else { return }
+        guard let uid = eventManager.currentUserId else {
+            localBusyIntervals = []
+            return
+        }
 
-        // Busy do EVENT (read-only)
+        // 1️⃣ Busy do EVENT (read-only)
         eventBusyIntervals = eventManager.events(for: date)
             .map { ($0.startTime, $0.endTime) }
 
-        // Busy HOURS (firebase)
+        // 2️⃣ Busy HOURS — CHỈ MANUAL
         localBusyIntervals =
-            eventManager.partnerBusySlots[eventManager.currentUserId ?? ""]?
-            .map { ($0.startTime, $0.endTime) } ?? []
+            eventManager.partnerBusySlots[uid]?
+                .filter { $0.colorHex == "#FFA500" }   // manual only
+                .map { ($0.startTime, $0.endTime) } ?? []
     }
+
 
 
     
@@ -566,6 +559,7 @@ struct AddEventView: View {
     @State private var showBusyInfo = false
     @State private var busyInfoEvent: CalendarEvent? = nil
     @State private var hasSelectedSlot = false
+    @State private var isSaving = false
 
     var body: some View {
         NavigationStack {
@@ -600,6 +594,13 @@ struct AddEventView: View {
 
                                 let slotStart = Calendar.current.date(bySettingHour: hour, minute: 0, second: 0, of: date)!
                                 let slotEnd   = slotStart.addingTimeInterval(3600)
+                                // ✅ CHECK SLOT ĐÃ QUA (CHỈ ÁP DỤNG CHO HÔM NAY)
+                                let isToday = Calendar.current.isDateInToday(date)
+                                let now = Date()
+
+                                let isPastSlot =
+                                    isToday &&
+                                    slotEnd <= now
 
                                 // Check giờ bận
                                 // 1️⃣ Busy do EVENT
@@ -613,19 +614,33 @@ struct AddEventView: View {
                                 }
 
                                 // 3️⃣ Tổng hợp
-                                let isBusy = (busyEvent != nil) || (busyHour != nil) || isOffDay
+                                let isBusy =
+                                    (busyEvent != nil) ||
+                                    (busyHour != nil) ||
+                                    isOffDay ||
+                                    isPastSlot
+
 
 
                                 // Check giờ được chọn
                                 let selectedHour = Calendar.current.component(.hour, from: startTime)
-                                let isSelected = hasSelectedSlot && (hour == selectedHour) && !isBusy
+                                let isSelected = hasSelectedSlot && (hour == selectedHour)
 
                                 // Màu nền
                                 let bgColor: Color = {
-                                    if isBusy { return .red.opacity(0.40) }
-                                    if isSelected { return .blue.opacity(0.7) }
+                                    if isSelected {
+                                        return .blue.opacity(0.7)
+                                    }
+                                    if isPastSlot {
+                                        return .gray.opacity(0.25)
+                                    }
+                                    if isBusy {
+                                        return .red.opacity(0.40)
+                                    }
                                     return .gray.opacity(0.15)
                                 }()
+
+
 
                                 Text(String(format: "%02d:00", hour))
                                     .frame(maxWidth: .infinity)
@@ -699,46 +714,40 @@ struct AddEventView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button(String(localized: "save")) {
 
-                        // 🔒 1) Chặn spam click
-                        if eventManager.isAdding {
-                            print("⛔ Đang xử lý, không cho bấm nữa")
-                            return
-                        }
-                        eventManager.isAdding = true
-                        
+                        guard !isSaving else { return }
+                        isSaving = true
+
                         let calendar = Calendar.current
                         let now = Date()
 
-                        // 1️⃣ Kiểm tra ngày nghỉ
+                        // 1️⃣ OFF DAY
                         if offDays.contains(where: { calendar.isDate($0, inSameDayAs: date) }) {
                             let template = String(localized: "off_day_full_message")
                             offDayMessage = template
                                 .replacingOccurrences(of: "{date}", with: formattedDate(date))
                             showOffDayAlert = true
-                            eventManager.isAdding = false
+                            isSaving = false
                             return
                         }
 
-                        // 2️⃣ Title trống
-                        guard !title.trimmingCharacters(in: .whitespaces).isEmpty else {
+                        // 2️⃣ EMPTY TITLE
+                        if title.trimmingCharacters(in: .whitespaces).isEmpty {
                             alertMessage = String(localized: "empty_title")
                             showAlert = true
-                            eventManager.isAdding = false
+                            isSaving = false
                             return
                         }
 
-                        // 3️⃣ start < end
+                        // 3️⃣ TIME
                         let s = combine(date: date, time: startTime)
                         var e = combine(date: date, time: endTime)
 
-                        // đảm bảo end > start
                         if e <= s {
                             e = s.addingTimeInterval(1800)
                         }
 
-                        // ⛔️ KHÔNG cho vượt qua ngày
-                        if !Calendar.current.isDate(e, inSameDayAs: s) {
-                            e = Calendar.current.date(
+                        if !calendar.isDate(e, inSameDayAs: s) {
+                            e = calendar.date(
                                 bySettingHour: 23,
                                 minute: 59,
                                 second: 0,
@@ -746,36 +755,27 @@ struct AddEventView: View {
                             )!
                         }
 
-                        // ===============================
-                        // 4️⃣ LIMIT THEO TIER (FREE / PREMIUM / PRO)
-                        // ===============================
+                        // 4️⃣ LIMIT
                         let tier = premium.tier
                         let limits = PremiumLimits.limits(for: tier)
 
-                        // 4️⃣a BOOKING RANGE (ngày được tạo event)
-                        if let maxDate = calendar.date(
-                            byAdding: .day,
-                            value: limits.maxBookingDaysAhead,
-                            to: now
-                        ),
-                        date > maxDate {
+                        if let maxDate = calendar.date(byAdding: .day,
+                                                       value: limits.maxBookingDaysAhead,
+                                                       to: now),
+                           date > maxDate {
 
                             alertMessage = {
                                 switch tier {
-                                case .free:
-                                    return String(localized: "limit_7_days")
-                                case .premium:
-                                    return String(localized: "limit_90_days")
-                                case .pro:
-                                    return String(localized: "limit_270_days")
+                                case .free: return String(localized: "limit_7_days")
+                                case .premium: return String(localized: "limit_90_days")
+                                case .pro: return String(localized: "limit_270_days")
                                 }
                             }()
 
                             showAlert = true
-                            eventManager.isAdding = false
+                            isSaving = false
                             return
                         }
-
                         // 4️⃣b LIMIT SỐ EVENT / NGÀY
                         let sameDayEvents = eventManager.events.filter {
                             calendar.isDate($0.date, inSameDayAs: date)
@@ -784,39 +784,11 @@ struct AddEventView: View {
                         if sameDayEvents.count >= limits.maxEventsPerDay {
                             alertMessage = String(localized: "event_limit_reached")
                             showAlert = true
-                            eventManager.isAdding = false
+                            isSaving = false
                             return
                         }
 
-
-                        // 5️⃣ Trùng giờ / trùng event
-                        let exactDup = eventManager.events.contains { ev in
-                            Calendar.current.isDate(ev.date, inSameDayAs: date) &&
-                            ev.startTime == s &&
-                            ev.endTime == e
-                        }
-                        if exactDup {
-                            alertMessage = String(localized: "event_already_exists")
-                            showAlert = true
-                            eventManager.isAdding = false
-                            return
-                        }
-
-                        if !eventManager.allowDuplicateEvents {
-                            let overlap = eventManager.events.contains { ev in
-                                Calendar.current.isDate(ev.date, inSameDayAs: date) &&
-                                ev.startTime < e &&
-                                s < ev.endTime
-                            }
-                            if overlap {
-                                alertMessage = String(localized: "time_slot_taken")
-                                showAlert = true
-                                eventManager.isAdding = false
-                                return
-                            }
-                        }
-
-                        // 6️⃣ Tạo event
+                        // 5️⃣ ADD EVENT
                         let success = eventManager.addEvent(
                             title: title,
                             ownerName: session.currentUserName,
@@ -826,17 +798,18 @@ struct AddEventView: View {
                             colorHex: selectedColor.toHex() ?? "#007AFF"
                         )
 
-                        if !success {
-                            eventManager.isAdding = false
-                            return
+                        if success {
+                            isSaving = false
+                            dismiss()          // ✔️ feedback thành công
+                        } else {
+                            alertMessage = String(localized: "cannot_create_event")
+                            showAlert = true  // ✔️ feedback thất bại
+                            isSaving = false
                         }
-
-                        // 🟢 Thành công → reset trạng thái và đóng view
-                        eventManager.isAdding = false
-                        dismiss()
                     }
-                  
+                    .disabled(isSaving)   // ⭐ CỰC KỲ QUAN TRỌNG CHO APPLE
                 }
+
                 ToolbarItem(placement: .cancellationAction) {
                     Button(String(localized: "cancel")) { dismiss() }
                 }

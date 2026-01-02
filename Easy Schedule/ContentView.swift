@@ -398,7 +398,11 @@ final class EventManager: ObservableObject {
             var slots = snap?.data()?["busySlots"] as? [[String: Any]] ?? []
 
             // Remove old slot nếu trùng ID
-            slots.removeAll { ($0["id"] as? String) == event.id }
+            slots.removeAll {
+                ($0["id"] as? String) == event.id &&
+                ($0["source"] as? String) == "event"
+            }
+
 
             let start = event.startTime.timeIntervalSince1970
             let end = event.endTime.timeIntervalSince1970
@@ -406,11 +410,13 @@ final class EventManager: ObservableObject {
             // ⭐ timestamp ALWAYS in seconds
             let newSlot: [String: Any] = [
                 "id": event.id,
+                "source": "event",          // ⭐ BẮT BUỘC
                 "title": event.title,
                 "owner": uid,
                 "start": Double(start),
                 "end": Double(end)
             ]
+
 
             slots.append(newSlot)
 
@@ -564,7 +570,8 @@ final class EventManager: ObservableObject {
 
             let newSlots: [[String: Any]] = slots.map { slot in
                 [
-                    "id": UUID().uuidString,
+                    "id": UUID().uuidString,      // ⭐ riêng cho manual
+                    "source": "manual",           // ⭐ phân biệt
                     "title": String(localized: "busy"),
                     "start": slot.start.timeIntervalSince1970,
                     "end": slot.end.timeIntervalSince1970
@@ -578,6 +585,35 @@ final class EventManager: ObservableObject {
             }
         }
     }
+    func removeManualBusySlots(
+        userId: String,
+        slots: [ProSlot],
+        completion: (() -> Void)? = nil
+    ) {
+        let doc = db.collection("publicCalendar").document(userId)
+
+        doc.getDocument { snap, _ in
+            var existing = snap?.data()?["busySlots"] as? [[String: Any]] ?? []
+
+            existing.removeAll { dict in
+                guard
+                    dict["source"] as? String == "manual",
+                    let start = dict["start"] as? Double,
+                    let end   = dict["end"]   as? Double
+                else { return false }
+
+                return slots.contains {
+                    $0.start.timeIntervalSince1970 == start &&
+                    $0.end.timeIntervalSince1970 == end
+                }
+            }
+
+            doc.setData(["busySlots": existing], merge: true) { _ in
+                completion?()
+            }
+        }
+    }
+
 
 
 }
@@ -831,7 +867,7 @@ extension EventManager {
                 }
 
                 // ===============================
-                // ✅ RESOLVE TIER (CORE FIX)
+                // 1️⃣ RESOLVE TIER
                 // ===============================
                 let tierString = data["tier"] as? String ?? "free"
                 let tier: PremiumTier
@@ -844,11 +880,8 @@ extension EventManager {
                     tier = .free
                 }
 
-                // (backward compatibility – không dùng cho logic)
-                let _ = data["isPremium"] as? Bool ?? (tier != .free)
-
                 // ===============================
-                // BUSY SLOTS
+                // 2️⃣ BUSY SLOTS
                 // ===============================
                 let rawSlots = data["busySlots"] as? [[String: Any]] ?? []
                 let now = Date()
@@ -862,8 +895,15 @@ extension EventManager {
                     let s = Date(timeIntervalSince1970: start)
                     let e = Date(timeIntervalSince1970: end)
 
-                    // ❌ Loại slot đã kết thúc
+                    // ❌ Bỏ slot đã kết thúc
                     if e < now { return nil }
+
+                    // ⭐ phân biệt event / manual qua source
+                    let source = dict["source"] as? String ?? "event"
+
+                    let colorHex: String = (source == "manual")
+                        ? "#FFA500"    // manual → cam
+                        : "#FF0000"    // event → đỏ
 
                     return CalendarEvent(
                         id: dict["id"] as? String ?? UUID().uuidString,
@@ -875,9 +915,9 @@ extension EventManager {
                         sharedUser: userId,
                         createdBy: userId,
                         participants: [userId],
-                        colorHex: "#FF0000",
+                        colorHex: colorHex,
                         pendingDelete: false,
-                        origin: .busySlot
+                        origin: .busySlot          // 🔒 GIỮ NGUYÊN
                     )
                 }
 
@@ -906,15 +946,22 @@ extension EventManager {
 
     // MARK: - Remove busy slot
     private func removeBusySlotFromPublicCalendar(event: CalendarEvent) {
-        let uid = event.owner   // SỬA ĐÚNG
+        let uid = event.owner
 
         let doc = db.collection("publicCalendar").document(uid)
-        doc.getDocument { snap, err in
+        doc.getDocument { snap, _ in
             var slots = snap?.data()?["busySlots"] as? [[String: Any]] ?? []
-            slots.removeAll { ($0["id"] as? String) == event.id }
+
+            // ✅ CHỈ XOÁ BUSY SLOT CỦA EVENT
+            slots.removeAll { dict in
+                (dict["id"] as? String) == event.id &&
+                (dict["source"] as? String) == "event"
+            }
+
             doc.setData(["busySlots": slots], merge: true)
         }
     }
+
 
     // MARK: - Add Appointment (khách đặt lịch cho người share UID)
     func addAppointment(
@@ -1062,7 +1109,20 @@ extension EventManager {
                 completion(false, String(localized: "event_limit_reached"))
                 return
             }
+            // ===============================
+            // 🔒 4.5️⃣ CHECK TRÙNG GIỜ CỦA CREATOR (B)
+            // ===============================
+            let myConflict = self.events.contains {
+                $0.createdBy == currentUid &&
+                $0.startTime < end &&
+                $0.endTime > start
+            }
 
+            if myConflict {
+                DispatchQueue.main.async { self.isAdding = false }
+                completion(false, String(localized: "you_have_event_this_time"))
+                return
+            }
             // ===============================
             // 5️⃣ TẠO EVENT DATA
             // ===============================
@@ -1127,15 +1187,27 @@ extension EventManager {
     }
 
 
-    func updatePublicCalendarBusySlot(for userId: String, start: Date, end: Date) {
+    func updatePublicCalendarBusySlot(
+        for userId: String,
+        start: Date,
+        end: Date,
+        eventId: String
+    ) {
         let doc = db.collection("publicCalendar").document(userId)
 
-        doc.getDocument { snap, err in
+        doc.getDocument { snap, _ in
             var existing = snap?.data()?["busySlots"] as? [[String: Any]] ?? []
 
+            // ❗ Xoá slot EVENT cũ cùng eventId (nếu có)
+            existing.removeAll {
+                ($0["id"] as? String) == eventId &&
+                ($0["source"] as? String) == "event"
+            }
+
             let newSlot: [String: Any] = [
-                "id": UUID().uuidString,
-                "title": String(localized: "busy"),
+                "id": eventId,                    // ⭐ eventId
+                "source": "event",                // ⭐ phân biệt
+                "title": "busy_event",
                 "start": start.timeIntervalSince1970,
                 "end": end.timeIntervalSince1970
             ]
@@ -1145,6 +1217,7 @@ extension EventManager {
             doc.setData(["busySlots": existing], merge: true)
         }
     }
+
     func listenToEvents() {
         guard let uid = currentUserId else { return }
 
@@ -1260,7 +1333,6 @@ extension EventManager {
 
 
     // MARK: - Listeners (prevent revival)
-  
     func listenToBusySlots(sharedUserId: String) {
         // Nếu đã có listener cho user này → bỏ listener cũ
         busySlotListeners[sharedUserId]?.remove()
@@ -1268,23 +1340,34 @@ extension EventManager {
         let listener = db.collection("publicCalendar")
             .document(sharedUserId)
             .addSnapshotListener { snap, err in
-                
+
                 guard let data = snap?.data() else { return }
 
                 let raw = data["busySlots"] as? [[String: Any]] ?? []
                 let nowSec = Date().timeIntervalSince1970
 
-                let slots = raw.compactMap { dict -> CalendarEvent? in
+                let slots: [CalendarEvent] = raw.compactMap { dict in
                     guard var start = dict["start"] as? Double,
-                          var end   = dict["end"]   as? Double else { return nil }
+                          var end   = dict["end"]   as? Double else {
+                        return nil
+                    }
 
+                    // Convert ms → s nếu cần
                     if start > 10_000_000_000 { start /= 1000 }
-                    if end   > 10_000_000_000 { end /= 1000 }
+                    if end   > 10_000_000_000 { end   /= 1000 }
 
+                    // ❌ Bỏ slot đã kết thúc
                     if end < nowSec { return nil }
 
                     let s = Date(timeIntervalSince1970: start)
                     let e = Date(timeIntervalSince1970: end)
+
+                    // ⭐ PHÂN BIỆT EVENT / MANUAL
+                    let source = dict["source"] as? String ?? "event"
+
+                    let colorHex: String = (source == "manual")
+                        ? "#FFA500"    // manual → cam
+                        : "#FF0000"    // event → đỏ
 
                     return CalendarEvent(
                         id: dict["id"] as? String ?? UUID().uuidString,
@@ -1296,9 +1379,9 @@ extension EventManager {
                         sharedUser: sharedUserId,
                         createdBy: sharedUserId,
                         participants: [sharedUserId],
-                        colorHex: "#FF0000",
+                        colorHex: colorHex,
                         pendingDelete: false,
-                        origin: .busySlot
+                        origin: .busySlot   // 🔒 GIỮ NGUYÊN, KHÔNG ĐỔI MODEL
                     )
                 }
 
@@ -1309,7 +1392,6 @@ extension EventManager {
 
         busySlotListeners[sharedUserId] = listener
     }
-
 
 
     // MARK: Sync offDays
@@ -1408,23 +1490,35 @@ extension EventManager {
             return
         }
 
-        let busySlots = busyIntervals.map { interval in
-            [
-                "start": interval.0.timeIntervalSince1970,
-                "end": interval.1.timeIntervalSince1970,
-                "title": String(localized: "busy")
-            ]
-        }
+        let doc = db.collection("publicCalendar").document(uid)
 
-        db.collection("publicCalendar")
-            .document(uid)
-            .setData(
-                ["busySlots": busySlots],
-                merge: true
-            ) { _ in
+        doc.getDocument { snap, _ in
+            let existing = snap?.data()?["busySlots"] as? [[String: Any]] ?? []
+
+            // ✅ GIỮ busySlot CỦA EVENT (có id trùng event.id)
+            let eventSlots = existing.filter {
+                $0["source"] as? String == "event"
+            }
+
+            // ✅ TẠO busySlot MANUAL MỚI
+            let manualSlots: [[String: Any]] = busyIntervals.map {
+                [
+                    "id": UUID().uuidString,
+                    "source": "manual",          // ⭐ BẮT BUỘC
+                    "title": String(localized: "busy"),
+                    "start": $0.0.timeIntervalSince1970,
+                    "end": $0.1.timeIntervalSince1970
+                ]
+            }
+
+            let merged = eventSlots + manualSlots
+
+            doc.setData(["busySlots": merged], merge: true) { _ in
                 completion?()
             }
+        }
     }
+
 
 }
 
@@ -1799,9 +1893,11 @@ struct EventListView: View {
         
         // Nhóm theo tháng (dựa trên năm + tháng)
         let groupedByMonth = Dictionary(grouping: filteredEvents) { event -> Date in
-            let comps = Calendar.current.dateComponents([.year, .month], from: event.date)
-            return Calendar.current.date(from: comps)!
+            let calendar = Calendar.current
+            let comps = calendar.dateComponents([.year, .month], from: event.startTime)
+            return calendar.date(from: comps)!
         }
+
         // Sắp xếp tháng mới nhất lên trên
         let sortedMonths = groupedByMonth.keys.sorted(by: >)
         
