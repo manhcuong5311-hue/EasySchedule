@@ -1,0 +1,73 @@
+//
+//  ChatMetaViewModel.swift
+//  Easy Schedule
+//
+//  Created by Sam Manh Cuong on 2/1/26.
+//
+
+import SwiftUI
+import Combine
+import Foundation
+import FirebaseFirestore
+import FirebaseAuth
+import CoreLocation
+import MapKit
+
+
+
+class ChatMetaViewModel: ObservableObject {
+    @Published var lastMessage: String = ""
+    @Published var unread: Bool = false
+    private var lastNotifiedMessage: String?
+    private let db = Firestore.firestore()
+    private let eventId: String
+    private let myId: String
+    private var listener: ListenerRegistration?
+    
+    init(eventId: String) {
+        self.eventId = eventId
+        self.myId = Auth.auth().currentUser?.uid ?? ""
+        listen()
+    }
+    
+    deinit { listener?.remove() }
+    
+    private func listen() {
+        listener = db.collection("chats")
+            .document(eventId)
+            .addSnapshotListener { snap, _ in
+                guard let data = snap?.data() else { return }
+
+                let lastMsg = data["lastMessage"] as? String ?? ""
+                let unreadDict = data["unread"] as? [String: Bool] ?? [:]
+                let isUnread = unreadDict[self.myId] ?? false
+
+                let shouldNotify =
+                    isUnread &&
+                    !lastMsg.isEmpty &&
+                    lastMsg != self.lastNotifiedMessage &&
+                    UIApplication.shared.applicationState != .active &&
+                    ChatForegroundTracker.shared.activeChatEventId != self.eventId
+
+                DispatchQueue.main.async {
+                    self.lastMessage = lastMsg
+                    self.unread = isUnread
+
+                    if shouldNotify {
+                        self.lastNotifiedMessage = lastMsg
+
+                        pushLocalChatNotification(
+                            title: String(localized: "notification_new_message_title"),
+                            body: lastMsg,
+                            identifier: "chat-\(self.eventId)"
+                        )
+                    }
+                }
+            }
+    }
+
+
+    
+}
+
+

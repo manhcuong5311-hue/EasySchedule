@@ -14,10 +14,10 @@
             filePath = "Easy Schedule/CustomizableCalendarView.swift"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "1159"
-            endingLineNumber = "1159"
-            landmarkName = "View"
-            landmarkType = "21">
+            startingLineNumber = "814"
+            endingLineNumber = "814"
+            landmarkName = "body(content:)"
+            landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
    </Breakpoints>
