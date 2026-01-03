@@ -124,9 +124,13 @@ struct RootView: View {
                 ContentView()
                     .onAppear {
                         Task { await premium.refresh() }
+                    }
+                    .onChange(of: premium.isLoaded) { _, loaded in
+                        guard loaded else { return }
 
-                        if !premium.isPremium,
+                        if premium.tier == .free,
                            PremiumIntroGate.shouldShowToday() {
+
                             showPremiumIntro = true
                             PremiumIntroGate.markShown()
                         }

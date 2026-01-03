@@ -15,6 +15,7 @@ final class PremiumStoreViewModel: ObservableObject {
 
     @Published var products: [Product] = []
     @Published var tier: PremiumTier = .free
+    @Published var isLoaded: Bool = false
 
     // Legacy – KHÔNG LƯU STATE
     var isPremium: Bool {
@@ -71,17 +72,24 @@ final class PremiumStoreViewModel: ObservableObject {
 
     // MARK: - REFRESH (nhận entitlement từ PremiumStore)
     func refresh() async {
-        products = await PremiumStore.shared.getProducts()
+        loading = true
 
-        let oldTier = tier
+        products = await PremiumStore.shared.getProducts()
         let entitlements = await PremiumStore.shared.getPurchasedIDs()
 
-        tier = resolveTier(from: entitlements)
+        let resolvedTier = resolveTier(from: entitlements)
+        let oldTier = tier
 
-        if oldTier != tier {
+        tier = resolvedTier
+        isLoaded = true          // ⭐ DÒNG QUAN TRỌNG NHẤT
+
+        if oldTier != resolvedTier {
             syncPremiumStatusToFirestore()
         }
+
+        loading = false
     }
+
 
 
 
