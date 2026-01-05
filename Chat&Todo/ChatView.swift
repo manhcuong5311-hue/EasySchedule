@@ -16,10 +16,13 @@ import MapKit
 
 struct ChatView: View {
     let eventId: String
-    let otherUserId: String
-    let otherName: String
-    let eventEndTime: Date
-    let eventInfo: CalendarEvent
+       let otherUserId: String
+       let otherName: String
+       let eventEndTime: Date
+       let eventInfo: CalendarEvent
+
+       let myId: String
+       let myName: String
 
     @EnvironmentObject var session: SessionStore
     @StateObject var vm: ChatViewModel
@@ -27,41 +30,57 @@ struct ChatView: View {
     @StateObject private var locationManager = LocationManager()
     @State private var addressCache: [String: String] = [:]
     @State private var sendCooldown = false
-    @State private var showLocationConfirm = false
+
     @State private var geocodeInProgress: Set<String> = []
     @State private var showTodoList = false
     @EnvironmentObject var premium: PremiumStoreViewModel
     @StateObject private var todoVM: TodoViewModel
-    @State private var showLocationNotReadyAlert = false
    
+    @State private var activeAlert: ChatAlert?
 
-    @State private var showLimitAlert = false
+
+   
     @State private var showPremiumSheet = false
 
     private let geocoder = CLGeocoder()
 
     
-    init(eventId: String, otherUserId: String, otherName: String, eventEndTime: Date,eventInfo: CalendarEvent ) {
+    init(
+        eventId: String,
+        otherUserId: String,
+        otherName: String,
+        eventEndTime: Date,
+        eventInfo: CalendarEvent,
+        myId: String,
+        myName: String
+    ) {
         self.eventId = eventId
         self.otherUserId = otherUserId
         self.otherName = otherName
         self.eventEndTime = eventEndTime
-        self.eventInfo = eventInfo     // ⭐ GÁN GIÁ TRỊ
-               
+        self.eventInfo = eventInfo
+        self.myId = myId
+        self.myName = myName
+
         _vm = StateObject(
             wrappedValue: ChatViewModel(
                 eventId: eventId,
                 otherUserId: otherUserId,
-                myName: SessionStore().currentUserName
+                myId: myId,
+                myName: myName
             )
         )
+
+        // ⭐ BẮT BUỘC
         _todoVM = StateObject(
-               wrappedValue: TodoViewModel(
-                   chatId: eventId,
-                   myId: SessionStore().currentUserId ?? ""
-               )
-           )
+            wrappedValue: TodoViewModel(
+                chatId: eventId,
+                myId: myId
+            )
+        )
     }
+
+
     
     var body: some View {
         VStack(spacing: 0) {
@@ -70,15 +89,16 @@ struct ChatView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(spacing: 12) {
-                        ForEach(vm.messages) { msg in
+                        ForEach(vm.messages, id: \.uiId) { msg in
                             bubble(msg)
+                                .id(msg.uiId)
                         }
                     }
                     .padding()
                 }
                 .onChange(of: vm.messages.count) { _, _ in
-                    if let last = vm.messages.last?.id {
-                        proxy.scrollTo(last, anchor: .bottom)
+                    if let last = vm.messages.last {
+                        proxy.scrollTo(last.uiId, anchor: .bottom)
                     }
                 }
             }
@@ -90,17 +110,17 @@ struct ChatView: View {
                 Menu {
                     Button {
                         if locked {
-                            showLimitAlert = true
+                            activeAlert = .limit
                             return
                         }
-                        showLocationConfirm = true
+                        activeAlert = .confirmSendLocation
                     } label: {
                         Label(String(localized: "send_current_location"), systemImage: "location.fill")
                     }
 
                     Button {
                         if locked {
-                            showLimitAlert = true
+                            activeAlert = .limit
                             return
                         }
                         showMapPicker = true
@@ -138,8 +158,9 @@ struct ChatView: View {
 
                         sendCooldown = true
                         vm.sendMessage(isPremium: premium.isPremium) {
-                            showLimitAlert = true
+                            activeAlert = .limit
                         }
+
 
 
 
@@ -183,7 +204,7 @@ struct ChatView: View {
                     lon: coord.longitude,
                     isPremium: premium.isPremium
                 ) {
-                    showLimitAlert = true
+                    activeAlert = .limit
                 }
             }
             .interactiveDismissDisabled(false)
@@ -215,34 +236,49 @@ struct ChatView: View {
                 }
             }
         }
-        .alert(
-            String(localized: "chat_limit_title"),
-            isPresented: $showLimitAlert
-        ) {
-            Button(String(localized: "upgrade_to_premium")) {
-                showLimitAlert = false
-                showPremiumSheet = true
+        .alert(item: $activeAlert) { alert in
+            switch alert {
+
+            case .limit:
+                return Alert(
+                    title: Text(String(localized: "chat_limit_title")),
+                    message: Text(String(localized: "chat_limit_message")),
+                    primaryButton: .default(
+                        Text(String(localized: "upgrade_to_premium")),
+                        action: {
+                            showPremiumSheet = true
+                        }
+                    ),
+                    secondaryButton: .cancel(
+                        Text(String(localized: "wait_ok"))
+                    )
+                )
+
+            case .locationNotReady:
+                return Alert(
+                    title: Text(String(localized: "location_not_ready_title")),
+                    message: Text(String(localized: "location_not_ready_message")),
+                    dismissButton: .cancel(
+                        Text(String(localized: "ok"))
+                    )
+                )
+
+            case .confirmSendLocation:
+                return Alert(
+                    title: Text(String(localized: "you_sure_sending_your_location")),
+                    primaryButton: .destructive(
+                        Text(String(localized: "send")),
+                        action: {
+                            sendMyGPS()
+                        }
+                    ),
+                    secondaryButton: .cancel(
+                        Text(String(localized: "cancel"))
+                    )
+                )
             }
-            Button(String(localized: "wait_ok"), role: .cancel) {}
-        } message: {
-            Text(String(localized: "chat_limit_message"))
-        }
-        .alert(
-            String(localized: "location_not_ready_title"),
-            isPresented: $showLocationNotReadyAlert
-        ) {
-            Button(String(localized: "ok"), role: .cancel) {}
-        } message: {
-            Text(String(localized: "location_not_ready_message"))
         }
 
-        .alert(String(localized:"you_sure_sending_your_location"),
-               isPresented: $showLocationConfirm) {
-            Button(String(localized:"cancel"), role: .cancel) {}
-            Button(String(localized:"send"), role: .destructive) {
-                sendMyGPS()
-            }
-        }
 
 
         .sheet(isPresented: $showPremiumSheet) {
@@ -253,21 +289,23 @@ struct ChatView: View {
         .sheet(isPresented: $showTodoList) {
             TodoListView(chatId: eventId, myId: session.currentUserId ?? "")
         }
+        
         .onAppear {
-            // ⭐ Local state (giữ nguyên)
+            // 1️⃣ Foreground tracker
             ChatForegroundTracker.shared.activeChatEventId = eventId
 
-            // ⭐ Backend state (THÊM)
+            // 2️⃣ Backend state
             if let uid = session.currentUserId {
                 Firestore.firestore()
                     .collection("users")
                     .document(uid)
-                    .setData([
-                        "activeChatEventId": eventId
-                    ], merge: true)
+                    .setData(
+                        ["activeChatEventId": eventId],
+                        merge: true
+                    )
             }
 
-            // ===== code cũ của bạn =====
+            // 3️⃣ Đảm bảo chat tồn tại → listen messages
             Task {
                 await vm.ensureChatExists(
                     participants: [
@@ -276,41 +314,55 @@ struct ChatView: View {
                     ],
                     eventEndTime: eventEndTime
                 )
+                try? await Task.sleep(nanoseconds: 300_000_000)
+                vm.listenMessages()
+
+                // ⭐ MARK SEEN sau khi listener attach
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    vm.markSeen()
+                }
             }
-            vm.markSeen()
-            vm.autoDeleteIfPast(eventEndTime)
+
+            // 4️⃣ Retry message gửi offline (⭐ DÒNG BẠN HỎI)
+            vm.retryPendingMessagesIfNeeded()
+
+            // 5️⃣ Listener phụ
             todoVM.listen()
+
+            // 6️⃣ Auto delete
+            vm.autoDeleteIfPast(eventEndTime)
         }
+
+
         .onDisappear {
-            // ⭐ Local state (giữ nguyên)
-            if ChatForegroundTracker.shared.activeChatEventId == eventId {
-                ChatForegroundTracker.shared.activeChatEventId = nil
-            }
+            handleDisappear()
+        }
 
-            // ⭐ Backend state (THÊM)
-            if let uid = session.currentUserId {
-                Firestore.firestore()
-                    .collection("users")
-                    .document(uid)
-                    .setData([
-                        "activeChatEventId": FieldValue.delete()
-                    ], merge: true)
-            }
 
-            todoVM.stop()
+
+        .onChange(of: vm.messages.count) { _, count in
+            if count > 0 {
+                vm.markSeen()
+            }
         }
         .onChange(of: vm.reachedFreeLimit) { _, reached in
             guard reached else { return }
 
             // Không spam alert nếu đã là Premium
             if !premium.isPremium {
-                showLimitAlert = true
+                activeAlert = .limit
             }
         }
 
         
     }
-    func fetchAddress(lat: Double, lon: Double, id: String, completion: @escaping (String) -> Void) {
+    func fetchAddress(
+        lat: Double,
+        lon: Double,
+        id: String,
+        completion: @escaping (String) -> Void
+    )
+ {
 
         // 1. Dùng cache
         if let cached = addressCache[id] {
@@ -402,14 +454,22 @@ struct ChatView: View {
                     VStack(alignment: isMe ? .trailing : .leading, spacing: 6) {
                         
                         // Hiển thị địa chỉ
-                        Text(addressCache[msg.id ?? ""] ?? String(localized: "fetching_address"))
+                        let key = msg.uiId
+
+                        Text(addressCache[key] ?? String(localized: "fetching_address"))
                             .font(.subheadline)
                             .foregroundColor(isMe ? .white : .primary)
                             .onAppear {
-                                if addressCache[msg.id ?? ""] == nil {
-                                    fetchAddress(lat: lat, lon: lon, id: msg.id ?? "") { _ in }
+                                if addressCache[key] == nil {
+                                    fetchAddress(
+                                        lat: lat,
+                                        lon: lon,
+                                        id: key
+                                    ) { _ in }
                                 }
                             }
+
+
                         
                         // Nút mở Apple Maps
                         Button {
@@ -465,16 +525,17 @@ struct ChatView: View {
             
             if !isMe { Spacer(minLength: 40) }
         }
-        .id(msg.id)
     }
+    
+    
     func sendMyGPS() {
         guard !vm.reachedFreeLimit || premium.isPremium else {
-            showLimitAlert = true
+            activeAlert = .limit
             return
         }
 
         guard let loc = locationManager.location else {
-            showLocationNotReadyAlert = true
+            activeAlert = .locationNotReady
             return
         }
 
@@ -483,10 +544,28 @@ struct ChatView: View {
             lon: loc.coordinate.longitude,
             isPremium: premium.isPremium
         ) {
-            showLimitAlert = true
+            activeAlert = .limit
         }
     }
 
+    private func handleDisappear() {
+        vm.stopListening()
+        todoVM.stop()
+
+        if ChatForegroundTracker.shared.activeChatEventId == eventId {
+            ChatForegroundTracker.shared.activeChatEventId = nil
+        }
+
+        if let uid = session.currentUserId {
+            Firestore.firestore()
+                .collection("users")
+                .document(uid)
+                .setData(
+                    ["activeChatEventId": FieldValue.delete()],
+                    merge: true
+                )
+        }
+    }
 
 
 
@@ -510,4 +589,17 @@ struct ChatView: View {
         return "\(date) · \(start)–\(end)"
     }
 
+}
+enum ChatAlert: Identifiable {
+    case limit
+    case locationNotReady
+    case confirmSendLocation
+
+    var id: String {
+        switch self {
+        case .limit: return "limit"
+        case .locationNotReady: return "locationNotReady"
+        case .confirmSendLocation: return "confirmSendLocation"
+        }
+    }
 }

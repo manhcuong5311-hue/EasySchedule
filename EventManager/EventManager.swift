@@ -51,7 +51,8 @@ struct CalendarEvent: Identifiable, Hashable, Codable {
 final class EventManager: ObservableObject {
     static let shared = EventManager()
     private var partnerTierCache: [String: PremiumTier] = [:]
-
+    private(set) var currentUserId: String?
+    private var configuredUid: String?
     // Firestore listeners
     @Published var busySlotCache: [String: [CalendarEvent]] = [:]
     @Published var busySlotPremiumCache: [String: Bool] = [:]
@@ -218,10 +219,20 @@ final class EventManager: ObservableObject {
         if let existing = chatMetaCache[eventId] {
             return existing
         }
-        let vm = ChatMetaViewModel(eventId: eventId)
+
+        guard let myId = currentUserId else {
+            fatalError("❌ EventManager not configured with currentUserId")
+        }
+
+        let vm = ChatMetaViewModel(
+            eventId: eventId,
+            myId: myId
+        )
+
         chatMetaCache[eventId] = vm
         return vm
     }
+
 
     func name(for uid: String, completion: @escaping (String) -> Void) {
         if let cached = userNames[uid] {
@@ -1244,7 +1255,7 @@ extension EventManager {
                     let oldIds = Set(self.events.map { $0.id })
 
                     // ❗ FIX: local = Firestore hoàn toàn
-                    self.events = firestoreUpcoming
+                    self.merge(firestoreUpcoming)
 
                     // 3) Update local + UI
                     self.saveEvents()
@@ -1410,10 +1421,20 @@ extension EventManager {
     }
 
     // MARK: Helpers
+    
 
-    var currentUserId: String? {
-        Auth.auth().currentUser?.uid
+    func configureForUser(uid: String) {
+        guard configuredUid != uid else { return }
+        configuredUid = uid
+
+        self.currentUserId = uid
+
+        // 🔥 BẮT BUỘC
+        listenToEvents()
     }
+
+
+  
     func markSharedLinkConnected(uid: String) {
 
         print("🟡 CALLED markSharedLinkConnected with uid =", uid)

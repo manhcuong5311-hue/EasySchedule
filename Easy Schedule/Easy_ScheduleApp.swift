@@ -123,8 +123,13 @@ struct RootView: View {
             } else {
                 ContentView()
                     .onAppear {
-                        Task { await premium.refresh() }
-                    }
+                              // ⭐⭐⭐ DÒNG QUAN TRỌNG NHẤT ⭐⭐⭐
+                              if let uid = session.currentUserId {
+                                  eventManager.configureForUser(uid: uid)
+                              }
+
+                              Task { await premium.refresh() }
+                          }
                     .onChange(of: premium.isLoaded) { _, loaded in
                         guard loaded else { return }
 

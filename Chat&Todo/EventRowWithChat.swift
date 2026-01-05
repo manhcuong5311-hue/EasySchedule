@@ -83,22 +83,23 @@ struct EventRowWithChat: View {
                     .foregroundColor(Color(hex: timeColorHex))
 
                 // ⭐ Chat preview
-                HStack(spacing: 6) {
+                if let chatMeta = metaVM {
+                    HStack(spacing: 6) {
+                        if !chatMeta.lastMessage.isEmpty {
+                            Text(chatMeta.lastMessage)
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                                .lineLimit(1)
+                        }
 
-                    if !chatMeta.lastMessage.isEmpty {
-                        Text(chatMeta.lastMessage)
-                            .font(.caption)
-                            .foregroundColor(.gray)
-                            .lineLimit(1)
-                    }
-
-                    if chatMeta.unread {
-                        Circle()
-                            .fill(Color.red)
-                            .frame(width: 8, height: 8)
+                        if chatMeta.unread {
+                            Circle()
+                                .fill(Color.red)
+                                .frame(width: 8, height: 8)
+                        }
                     }
                 }
-                .padding(.top, 2)
+
             }
 
             Spacer()

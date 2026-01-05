@@ -12,13 +12,17 @@ import SwiftUI
 struct ChatButtonWithBadge: View {
     let event: CalendarEvent
     let otherUserId: String
-
+   
     @EnvironmentObject var session: SessionStore
     @EnvironmentObject var eventManager: EventManager
 
     @State private var metaVM: ChatMetaViewModel?
     @State private var didBindMeta = false
 
+    private var resolvedOtherName: String {
+           event.participantNames?[otherUserId] ?? "User"
+       }
+    
     var body: some View {
         ZStack(alignment: .topTrailing) {
 
@@ -26,9 +30,11 @@ struct ChatButtonWithBadge: View {
                 ChatView(
                     eventId: event.id,
                     otherUserId: otherUserId,
-                    otherName: "",
+                    otherName: resolvedOtherName,
                     eventEndTime: event.endTime,
-                    eventInfo: event
+                    eventInfo: event,
+                    myId: session.currentUserId!,
+                    myName: session.currentUserName
                 )
             } label: {
                 Image(systemName: "bubble.right.fill")

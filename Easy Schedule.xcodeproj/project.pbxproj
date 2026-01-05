@@ -20,6 +20,7 @@
 		0D4E99842EC79E31006F2705 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = 0D4E99832EC79E31006F2705 /* FirebaseMessaging */; };
 		0D4E99862EC79E31006F2705 /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 0D4E99852EC79E31006F2705 /* FirebaseStorage */; };
 		0D5AF8252EED35DF002239FD /* FirebaseAppCheck in Frameworks */ = {isa = PBXBuildFile; productRef = 0D5AF8242EED35DF002239FD /* FirebaseAppCheck */; };
+		0D5B156E2F0BE12C00199B91 /* FirebaseFirestoreCombine-Community in Frameworks */ = {isa = PBXBuildFile; productRef = 0D5B156D2F0BE12C00199B91 /* FirebaseFirestoreCombine-Community */; };
 		0D6C2F722EE2CB0E00124A4F /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0D6C2F712EE2CB0E00124A4F /* StoreKit.framework */; };
 /* End PBXBuildFile section */
 
@@ -74,6 +75,7 @@
 				0D4E99842EC79E31006F2705 /* FirebaseMessaging in Frameworks */,
 				0D4E997E2EC79E31006F2705 /* FirebaseDatabase in Frameworks */,
 				0D4E99732EC79DB9006F2705 /* GoogleSignIn in Frameworks */,
+				0D5B156E2F0BE12C00199B91 /* FirebaseFirestoreCombine-Community in Frameworks */,
 				0D4E99862EC79E31006F2705 /* FirebaseStorage in Frameworks */,
 				0D5AF8252EED35DF002239FD /* FirebaseAppCheck in Frameworks */,
 				0D4E997C2EC79E31006F2705 /* FirebaseCore in Frameworks */,
@@ -161,6 +163,7 @@
 				0D3F9BEF2EC89DF9006826AA /* FacebookLogin */,
 				0D3F9BF12EC8AB3C006826AA /* FacebookCore */,
 				0D5AF8242EED35DF002239FD /* FirebaseAppCheck */,
+				0D5B156D2F0BE12C00199B91 /* FirebaseFirestoreCombine-Community */,
 			);
 			productName = "Easy Schedule";
 			productReference = 0DCA51322EC38C75008324B2 /* Easy Schedule.app */;
@@ -549,6 +552,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 0D4E99762EC79E31006F2705 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseAppCheck;
+		};
+		0D5B156D2F0BE12C00199B91 /* FirebaseFirestoreCombine-Community */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0D4E99762EC79E31006F2705 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = "FirebaseFirestoreCombine-Community";
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

@@ -12,6 +12,12 @@ import FirebaseAuth
 import CoreLocation
 import MapKit
 
+enum MessageSendStatus: String, Codable {
+    case sending   // đang chờ sync
+    case sent      // đã sync server
+    case failed    // gửi lỗi (hiếm)
+}
+
 class ChatViewModel: ObservableObject {
 
     // MARK: - Published
@@ -36,15 +42,25 @@ class ChatViewModel: ObservableObject {
     let myName: String
 
     // MARK: - Init
-    init(eventId: String, otherUserId: String, myName: String) {
+    init(
+        eventId: String,
+        otherUserId: String,
+        myId: String,
+        myName: String
+    ) {
         self.eventId = eventId
         self.otherUserId = otherUserId
-        self.myId = Auth.auth().currentUser?.uid ?? ""
+        self.myId = myId
         self.myName = myName
-
-        startListener()
+        loadOfflineMessages()
         listenChatMeta()
+        // ❌ BỎ listenMessages() Ở ĐÂY
     }
+
+    private var offlineKey: String {
+        "offline_messages_\(eventId)_\(myId)"
+    }
+
 
     deinit {
         listener?.remove()
@@ -74,25 +90,137 @@ class ChatViewModel: ObservableObject {
     }
 
     // MARK: - Realtime listener
-    func startListener() {
+    func listenMessages() {
         listener?.remove()
 
         listener = db.collection("chats")
             .document(eventId)
             .collection("messages")
             .order(by: "timestamp")
-            .limit(toLast: 20)
+            .limit(toLast: 30)
             .addSnapshotListener { snap, _ in
                 guard let snap else { return }
 
-                DispatchQueue.main.async {
-                    self.messages = snap.documents.compactMap {
-                        try? $0.data(as: ChatMessage.self)
+                let serverMessages: [ChatMessage] = snap.documents.compactMap { doc in
+                    let data = doc.data()
+
+                    guard
+                        let senderId = data["senderId"] as? String,
+                        let senderName = data["senderName"] as? String,
+                        let timestamp = (data["timestamp"] as? Timestamp)?.dateValue()
+                    else {
+                        return nil
                     }
-                 
+
+                    let text = data["text"] as? String ?? ""
+                    let seenBy = data["seenBy"] as? [String: Bool] ?? [:]
+                    let lat = data["latitude"] as? Double
+                    let lon = data["longitude"] as? Double
+
+                    return ChatMessage(
+                        id: doc.documentID,
+                        clientId: doc.documentID,
+                        text: text,
+                        senderId: senderId,
+                        senderName: senderName,
+                        timestamp: timestamp,
+                        seenBy: seenBy,
+                        latitude: lat,
+                        longitude: lon,
+                        sendStatus: .sent
+                    )
+                }
+
+
+                DispatchQueue.main.async {
+                    let pending = self.messages.filter {
+                        $0.sendStatus == .sending || $0.sendStatus == .failed
+                    }
+
+                    let merged = pending.filter { local in
+                        !serverMessages.contains(where: {
+                            $0.clientId == local.clientId
+                        })
+                    } + serverMessages
+
+                    self.messages = merged.sorted { $0.timestamp < $1.timestamp }
+
+                    let hasPending = self.messages.contains {
+                        $0.sendStatus == .sending || $0.sendStatus == .failed
+                    }
+
+                    if !hasPending {
+                        UserDefaults.standard.removeObject(forKey: self.offlineKey)
+                    }
+
                 }
             }
     }
+
+    private func saveOfflineMessages() {
+        guard let data = try? JSONEncoder().encode(messages) else { return }
+        UserDefaults.standard.set(data, forKey: offlineKey)
+    }
+    private func loadOfflineMessages() {
+        guard
+            let data = UserDefaults.standard.data(forKey: offlineKey),
+            let cached = try? JSONDecoder().decode([ChatMessage].self, from: data)
+        else { return }
+
+        self.messages = cached
+    }
+    
+    func retryPendingMessagesIfNeeded() {
+        guard NetworkMonitor.shared.isOnline else { return }
+
+        let pendingMessages = messages.filter {
+            $0.sendStatus == .sending || $0.sendStatus == .failed
+        }
+
+        guard !pendingMessages.isEmpty else { return }
+
+        let chatRef = db.collection("chats").document(eventId)
+
+        for msg in pendingMessages {
+
+            var messageData: [String: Any] = [
+                "senderId": msg.senderId,
+                "senderName": msg.senderName,
+                "timestamp": Timestamp(date: msg.timestamp),
+                "seenBy": msg.seenBy ?? [msg.senderId: true]
+            ]
+
+            if let lat = msg.latitude, let lon = msg.longitude {
+                messageData["latitude"] = lat
+                messageData["longitude"] = lon
+                messageData["text"] = String(localized: "location_sent")
+            } else {
+                messageData["text"] = msg.text
+            }
+
+            chatRef.collection("messages").addDocument(data: messageData) { error in
+                DispatchQueue.main.async {
+                    if let index = self.messages.firstIndex(where: {
+                        $0.clientId == msg.clientId
+                    }) {
+                        self.messages[index].sendStatus = error == nil ? .sent : .failed
+                    }
+
+                    // ⭐ update cache
+                    self.saveOfflineMessages()
+                }
+            }
+        }
+    }
+
+
+
+    @MainActor
+    func stopListening() {
+        listener?.remove()
+        listener = nil
+    }
+
 
     // MARK: - Update free limit (CLIENT SIDE)
    
@@ -110,25 +238,29 @@ class ChatViewModel: ObservableObject {
             return
         }
 
+        let isOnline = NetworkMonitor.shared.isOnline
         let chatRef = db.collection("chats").document(eventId)
 
-        let messageData: [String: Any] = [
-            "text": text,
-            "senderId": myId,
-            "senderName": myName,
-            "timestamp": Timestamp(),
-            "seenBy": [myId: true]
-        ]
+        // ⭐ 1. TẠO LOCAL MESSAGE (CHO UI)
+        let localMessage = ChatMessage(
+            clientId: UUID().uuidString,
+            text: text,
+            senderId: myId,
+            senderName: myName,
+            timestamp: Date(),
+            seenBy: [myId: true],
+            sendStatus: isOnline ? .sent : .sending
+        )
 
-        // 1️⃣ Send message
-        chatRef.collection("messages").addDocument(data: messageData)
-
-        // 2️⃣ Increment counter (vẫn đếm, nhưng Premium không bị chặn)
+        // ⭐ 2. APPEND NGAY → UI PHẢN HỒI LIỀN
+        messages.append(localMessage)
+        messageText = ""
+        saveOfflineMessages()
+        // ⭐ 3. UPDATE META + COUNT (KHÔNG PHỤ THUỘC ONLINE)
         chatRef.updateData([
             "freeCount.\(myId)": FieldValue.increment(Int64(1))
         ])
 
-        // 3️⃣ Update chat meta
         chatRef.setData([
             "lastMessage": text,
             "lastMessageTime": Timestamp(),
@@ -138,8 +270,32 @@ class ChatViewModel: ObservableObject {
             ]
         ], merge: true)
 
-        messageText = ""
+        // ⭐ 4. NẾU OFFLINE → DỪNG Ở sending
+        guard isOnline else { return }
+
+        // ⭐ 5. NẾU ONLINE → GỬI FIRESTORE
+        let messageData: [String: Any] = [
+            "text": text,
+            "senderId": myId,
+            "senderName": myName,
+            "timestamp": Timestamp(),
+            "seenBy": [myId: true]
+        ]
+
+        chatRef.collection("messages").addDocument(data: messageData) { error in
+            if let error {
+                print("❌ Send failed:", error)
+
+                // ⛔ Mark local message failed (optional)
+                DispatchQueue.main.async {
+                    if let index = self.messages.firstIndex(where: { $0.id == localMessage.id }) {
+                        self.messages[index].sendStatus = .failed
+                    }
+                }
+            }
+        }
     }
+
 
 
 
@@ -151,14 +307,48 @@ class ChatViewModel: ObservableObject {
         isPremium: Bool,
         onLimitReached: @escaping () -> Void
     ) {
-        // 🔒 Check limit (Premium được bypass)
+        // 🔒 Check limit
         if reachedFreeLimit && !isPremium {
             onLimitReached()
             return
         }
 
+        let isOnline = NetworkMonitor.shared.isOnline
         let chatRef = db.collection("chats").document(eventId)
 
+        // ⭐ 1. LOCAL MESSAGE (UI)
+        let localMessage = ChatMessage(
+            clientId: UUID().uuidString,
+            text: String(localized: "location_sent"),
+            senderId: myId,
+            senderName: myName,
+            timestamp: Date(),
+            seenBy: [myId: true],
+            latitude: lat,
+            longitude: lon,
+            sendStatus: isOnline ? .sent : .sending
+        )
+
+        messages.append(localMessage)
+
+        // ⭐ 2. META + COUNT (luôn chạy)
+        chatRef.updateData([
+            "freeCount.\(myId)": FieldValue.increment(Int64(1))
+        ])
+
+        chatRef.setData([
+            "lastMessage": String(localized: "location_sent"),
+            "lastMessageTime": Timestamp(),
+            "unread": [
+                myId: false,
+                otherUserId: true
+            ]
+        ], merge: true)
+
+        // ⭐ 3. OFFLINE → UI giữ sending
+        guard isOnline else { return }
+
+        // ⭐ 4. ONLINE → GỬI FIRESTORE
         let messageData: [String: Any] = [
             "latitude": lat,
             "longitude": lon,
@@ -168,23 +358,19 @@ class ChatViewModel: ObservableObject {
             "seenBy": [myId: true]
         ]
 
-        // 1️⃣ Send location message
-        chatRef.collection("messages").addDocument(data: messageData)
+        chatRef.collection("messages").addDocument(data: messageData) { error in
+            if let error {
+                print("❌ Send location failed:", error)
 
-        // 2️⃣ Increment counter (vẫn đếm, nhưng Premium không bị chặn)
-        chatRef.updateData([
-            "freeCount.\(myId)": FieldValue.increment(Int64(1))
-        ])
-
-        // 3️⃣ Update chat meta
-        chatRef.setData([
-            "lastMessage": String(localized: "location_sent"),
-            "lastMessageTime": Timestamp(),
-            "unread": [
-                myId: false,
-                otherUserId: true
-            ]
-        ], merge: true)
+                DispatchQueue.main.async {
+                    if let index = self.messages.firstIndex(where: {
+                        $0.clientId == localMessage.clientId
+                    }) {
+                        self.messages[index].sendStatus = .failed
+                    }
+                }
+            }
+        }
     }
 
 
@@ -226,12 +412,40 @@ class ChatViewModel: ObservableObject {
 
     // MARK: - Mark seen
     func markSeen() {
-        db.collection("chats")
-            .document(eventId)
-            .updateData([
-                "unread.\(myId)": false
-            ])
+        let chatRef = db.collection("chats").document(eventId)
+
+        chatRef.collection("messages")
+            .whereField("senderId", isNotEqualTo: myId) // 🔑 CHỈ MESSAGE CỦA NGƯỜI KIA
+            .getDocuments { snap, _ in
+                guard let docs = snap?.documents else { return }
+
+                let batch = self.db.batch()
+
+                for doc in docs {
+                    let seenBy = doc.data()["seenBy"] as? [String: Bool] ?? [:]
+
+                    // ⭐ CHƯA SEEN → mới update
+                    if seenBy[self.myId] != true {
+                        batch.updateData(
+                            ["seenBy.\(self.myId)": true],
+                            forDocument: doc.reference
+                        )
+                    }
+                }
+
+                // ⭐ CLEAR UNREAD
+                batch.updateData(
+                    ["unread.\(self.myId)": false],
+                    forDocument: chatRef
+                )
+
+                batch.commit()
+            }
     }
+
+
+
+
 
     // MARK: - Auto delete
     func autoDeleteIfPast(_ eventEndTime: Date) {
