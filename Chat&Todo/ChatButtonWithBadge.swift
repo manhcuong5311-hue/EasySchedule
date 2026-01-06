@@ -20,8 +20,10 @@ struct ChatButtonWithBadge: View {
     @State private var didBindMeta = false
 
     private var resolvedOtherName: String {
-           event.participantNames?[otherUserId] ?? "User"
-       }
+        event.participantNames?[otherUserId]
+        ?? String(localized: "generic_user")
+    }
+          
     
     var body: some View {
         ZStack(alignment: .topTrailing) {

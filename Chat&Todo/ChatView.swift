@@ -26,21 +26,21 @@ struct ChatView: View {
 
     @EnvironmentObject var session: SessionStore
     @StateObject var vm: ChatViewModel
-    @State private var showMapPicker = false
+    
     @StateObject private var locationManager = LocationManager()
     @State private var addressCache: [String: String] = [:]
+    
     @State private var sendCooldown = false
-
     @State private var geocodeInProgress: Set<String> = []
-    @State private var showTodoList = false
+    
     @EnvironmentObject var premium: PremiumStoreViewModel
     @StateObject private var todoVM: TodoViewModel
    
     @State private var activeAlert: ChatAlert?
+    @State private var activeSheet: ChatSheet?
 
+    @State private var showActionPopover = false
 
-   
-    @State private var showPremiumSheet = false
 
     private let geocoder = CLGeocoder()
 
@@ -107,36 +107,24 @@ struct ChatView: View {
             HStack(spacing: 8) {
 
                 // NÚT +
-                Menu {
-                    Button {
-                        if locked {
-                            activeAlert = .limit
-                            return
-                        }
-                        activeAlert = .confirmSendLocation
-                    } label: {
-                        Label(String(localized: "send_current_location"), systemImage: "location.fill")
+                Button {
+                    if locked {
+                        activeAlert = .limit
+                        return
                     }
-
-                    Button {
-                        if locked {
-                            activeAlert = .limit
-                            return
-                        }
-                        showMapPicker = true
-                    } label: {
-                        Label(String(localized: "pick_location_on_map"), systemImage: "map.fill")
-                    }
+                    showActionPopover = true
                 } label: {
                     Image(systemName: "plus")
                         .font(.system(size: 18, weight: .semibold))
                         .foregroundColor(locked ? .gray : .blue)
                         .frame(width: 36, height: 36)
-                        .background(
-                            (locked ? Color.gray : Color.blue).opacity(0.12)
-                        )
+                        .background((locked ? Color.gray : Color.blue).opacity(0.12))
                         .clipShape(Circle())
                 }
+                .popover(isPresented: $showActionPopover, arrowEdge: .bottom) {
+                    actionMenuContent
+                }
+
 
 
                 // INPUT + SEND (1 KHỐI)
@@ -197,19 +185,6 @@ struct ChatView: View {
             )
 
         }
-        .sheet(isPresented: $showMapPicker) {
-            MapPickerView(location: locationManager.location) { coord in
-                vm.sendCurrentLocation(
-                    lat: coord.latitude,
-                    lon: coord.longitude,
-                    isPremium: premium.isPremium
-                ) {
-                    activeAlert = .limit
-                }
-            }
-            .interactiveDismissDisabled(false)
-        }
-
         .navigationTitle(otherName)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
@@ -223,7 +198,7 @@ struct ChatView: View {
                     }
 
                     Button {
-                        showTodoList = true
+                        activeSheet = .todo
                     } label: {
                         Image(systemName: "checklist")
                             .font(.system(size: 20))
@@ -246,7 +221,7 @@ struct ChatView: View {
                     primaryButton: .default(
                         Text(String(localized: "upgrade_to_premium")),
                         action: {
-                            showPremiumSheet = true
+                            activeSheet = .premium
                         }
                     ),
                     secondaryButton: .cancel(
@@ -278,16 +253,28 @@ struct ChatView: View {
                 )
             }
         }
+        .sheet(item: $activeSheet) { sheet in
+            switch sheet {
+            case .mapPicker:
+                MapPickerView(location: locationManager.location) { coord in
+                    vm.sendCurrentLocation(
+                        lat: coord.latitude,
+                        lon: coord.longitude,
+                        isPremium: premium.isPremium
+                    ) {
+                        activeAlert = .limit
+                    }
+                }
 
+            case .premium:
+                PremiumUpgradeSheet()
 
-
-        .sheet(isPresented: $showPremiumSheet) {
-            PremiumUpgradeSheet()
-        }
-
-
-        .sheet(isPresented: $showTodoList) {
-            TodoListView(chatId: eventId, myId: session.currentUserId ?? "")
+            case .todo:
+                TodoListView(
+                    chatId: eventId,
+                    myId: session.currentUserId ?? ""
+                )
+            }
         }
         
         .onAppear {
@@ -432,6 +419,32 @@ struct ChatView: View {
         !premium.isPremium && vm.reachedFreeLimit
     }
 
+    private var actionMenuContent: some View {
+        VStack(spacing: 12) {
+
+            Button {
+                showActionPopover = false
+                activeAlert = .confirmSendLocation
+            } label: {
+                Label(String(localized: "send_current_location"),
+                      systemImage: "location.fill")
+            }
+
+            Divider()
+
+            Button {
+                showActionPopover = false
+                DispatchQueue.main.async {
+                    activeSheet = .mapPicker
+                }
+            } label: {
+                Label(String(localized: "pick_location_on_map"),
+                      systemImage: "map.fill")
+            }
+        }
+        .padding()
+        .frame(minWidth: 220)
+    }
 
 
     // MARK: - Bubble
@@ -602,4 +615,12 @@ enum ChatAlert: Identifiable {
         case .confirmSendLocation: return "confirmSendLocation"
         }
     }
+}
+
+enum ChatSheet: Identifiable {
+    case mapPicker
+    case premium
+    case todo
+
+    var id: Int { hashValue }
 }

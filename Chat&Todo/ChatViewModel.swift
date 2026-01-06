@@ -31,6 +31,8 @@ class ChatViewModel: ObservableObject {
     @Published var chatPremiumUnlocked: Bool = false
     @Published var freeSentCount: Int = 0
 
+    private var didRetryOnce = false
+
     // MARK: - Firestore
     private let db = Firestore.firestore()
     private var listener: ListenerRegistration?
@@ -179,6 +181,9 @@ class ChatViewModel: ObservableObject {
 
         guard !pendingMessages.isEmpty else { return }
 
+        guard !didRetryOnce else { return }
+        didRetryOnce = true
+
         let chatRef = db.collection("chats").document(eventId)
 
         for msg in pendingMessages {
@@ -198,20 +203,29 @@ class ChatViewModel: ObservableObject {
                 messageData["text"] = msg.text
             }
 
-            chatRef.collection("messages").addDocument(data: messageData) { error in
-                DispatchQueue.main.async {
-                    if let index = self.messages.firstIndex(where: {
-                        $0.clientId == msg.clientId
-                    }) {
-                        self.messages[index].sendStatus = error == nil ? .sent : .failed
-                    }
+            chatRef.collection("messages")
+                .document(msg.id)
+                .setData(messageData, merge: true) { error in
 
-                    // ⭐ update cache
-                    self.saveOfflineMessages()
+                    DispatchQueue.main.async {
+                        if let index = self.messages.firstIndex(where: {
+                            $0.id == msg.id
+                        }) {
+                            self.messages[index].sendStatus =
+                                error == nil ? .sent : .failed
+                        }
+
+                        // ⭐ nếu còn lỗi → cho phép retry lần sau
+                        if error != nil {
+                            self.didRetryOnce = false
+                        }
+
+                        self.saveOfflineMessages()
+                    }
                 }
-            }
         }
     }
+
 
 
 
@@ -282,18 +296,22 @@ class ChatViewModel: ObservableObject {
             "seenBy": [myId: true]
         ]
 
-        chatRef.collection("messages").addDocument(data: messageData) { error in
-            if let error {
-                print("❌ Send failed:", error)
+        chatRef.collection("messages")
+            .document(localMessage.id) // 🔑 QUAN TRỌNG
+            .setData(messageData, merge: true) { error in
+                if let error {
+                    print("❌ Send failed:", error)
 
-                // ⛔ Mark local message failed (optional)
-                DispatchQueue.main.async {
-                    if let index = self.messages.firstIndex(where: { $0.id == localMessage.id }) {
-                        self.messages[index].sendStatus = .failed
+                    DispatchQueue.main.async {
+                        if let index = self.messages.firstIndex(where: {
+                            $0.id == localMessage.id
+                        }) {
+                            self.messages[index].sendStatus = .failed
+                        }
                     }
                 }
             }
-        }
+
     }
 
 
@@ -358,19 +376,22 @@ class ChatViewModel: ObservableObject {
             "seenBy": [myId: true]
         ]
 
-        chatRef.collection("messages").addDocument(data: messageData) { error in
-            if let error {
-                print("❌ Send location failed:", error)
+        chatRef.collection("messages")
+            .document(localMessage.id)
+            .setData(messageData, merge: true) { error in
+                if let error {
+                    print("❌ Send location failed:", error)
 
-                DispatchQueue.main.async {
-                    if let index = self.messages.firstIndex(where: {
-                        $0.clientId == localMessage.clientId
-                    }) {
-                        self.messages[index].sendStatus = .failed
+                    DispatchQueue.main.async {
+                        if let index = self.messages.firstIndex(where: {
+                            $0.id == localMessage.id
+                        }) {
+                            self.messages[index].sendStatus = .failed
+                        }
                     }
                 }
             }
-        }
+
     }
 
 
