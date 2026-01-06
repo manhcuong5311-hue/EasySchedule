@@ -133,7 +133,7 @@ struct AppointmentProSheet: View {
                     Button(String(localized:"cancel")) { isPresented = false }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Book") {
+                    Button(String(localized:"book")) {
                         handleCreate()
                     }
 

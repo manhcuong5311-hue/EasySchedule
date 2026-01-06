@@ -43,6 +43,11 @@ struct ChatView: View {
     @EnvironmentObject var network: NetworkMonitor
 
     @EnvironmentObject var eventManager: EventManager
+    @AppStorage("chat_my_preset") private var myPresetRaw: String = ChatColorPreset.blue.rawValue
+    @AppStorage("chat_other_preset") private var otherPresetRaw: String = ChatColorPreset.graphite.rawValue
+
+
+
 
 
     private let geocoder = CLGeocoder()
@@ -456,32 +461,45 @@ struct ChatView: View {
         .frame(minWidth: 220)
     }
 
+    private func style(for isMe: Bool) -> ChatBubbleStyle {
+        let preset = isMe
+            ? ChatColorPreset(rawValue: myPresetRaw) ?? .blue
+            : ChatColorPreset(rawValue: otherPresetRaw) ?? .graphite
+
+        return ChatBubbleStyleFactory.make(
+            backgroundHex: preset.hex,
+            isMe: isMe,
+            isPremium: premium.isPremium
+        )
+    }
 
     // MARK: - Bubble
     private func bubble(_ msg: ChatMessage) -> some View {
         let isMe = msg.senderId == session.currentUserId
-        
+        let style = style(for: isMe)
+
         return HStack {
             if isMe { Spacer(minLength: 40) }
-            
-            VStack(alignment: isMe ? .trailing : .leading) {
-                
+
+            VStack(alignment: isMe ? .trailing : .leading, spacing: 4) {
+
+                // 👤 Tên người gửi (chỉ hiện bên kia)
                 if !isMe {
                     Text(eventManager.displayName(for: msg.senderId))
                         .font(.caption2)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(style.secondaryText)
                 }
-                // ⭐ Tin nhắn định vị
+
+                // 📍 MESSAGE: LOCATION
                 if let lat = msg.latitude, let lon = msg.longitude {
-                    
+
                     VStack(alignment: isMe ? .trailing : .leading, spacing: 6) {
-                        
-                        // Hiển thị địa chỉ
+
                         let key = msg.uiId
 
                         Text(addressCache[key] ?? String(localized: "fetching_address"))
                             .font(.subheadline)
-                            .foregroundColor(isMe ? .white : .primary)
+                            .foregroundColor(style.text)
                             .onAppear {
                                 if addressCache[key] == nil {
                                     fetchAddress(
@@ -492,9 +510,6 @@ struct ChatView: View {
                                 }
                             }
 
-
-                        
-                        // Nút mở Apple Maps
                         Button {
                             if let url = URL(string: "http://maps.apple.com/?ll=\(lat),\(lon)") {
                                 UIApplication.shared.open(url)
@@ -505,51 +520,48 @@ struct ChatView: View {
                                 Text(String(localized: "open_in_apple_maps"))
                             }
                             .font(.caption)
+                            .foregroundColor(style.text)
                         }
                         .padding(8)
-                        .background(isMe ? Color.white.opacity(0.25) : Color.blue.opacity(0.15))
+                        .background(style.innerButtonBackground)
                         .cornerRadius(10)
                     }
                     .padding(10)
-                    .background(isMe ? Color.blue.opacity(0.9) : Color.gray.opacity(0.2))
-                    .foregroundColor(isMe ? .white : .primary)
+                    .background(style.background)
                     .cornerRadius(12)
                 }
-                
-                // ⭐ Ngược lại là tin nhắn văn bản bình thường
+
+                // 💬 MESSAGE: TEXT
                 else {
                     Text(msg.text)
+                        .foregroundColor(style.text)
                         .padding(10)
                         .background(
                             RoundedRectangle(cornerRadius: 12)
-                                .fill(isMe ? Color.blue.opacity(0.9) : Color.gray.opacity(0.2))
+                                .fill(style.background)
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 12)
-                                        .stroke(
-                                            (isMe && premium.isPremium)
-                                            ? AppColors.premiumAccent.opacity(0.4)
-                                            : Color.clear,
-                                            lineWidth: 0.8
-                                        )
+                                        .stroke(style.border, lineWidth: 0.8)
                                 )
-
                         )
-                        .foregroundColor(isMe ? .white : .primary)
                 }
-                
-                
+
+                // 👁 Seen / Delivered
                 if isMe {
                     let seen = msg.seenBy?[otherUserId] == true
-                    Text(seen ? String(localized:"seen") : String(localized:"delivered"))
-                        .font(.caption2)
-                        .foregroundColor(.gray)
+                    Text(seen
+                         ? String(localized: "seen")
+                         : String(localized: "delivered")
+                    )
+                    .font(.caption2)
+                    .foregroundColor(style.secondaryText)
                 }
             }
-            
+
             if !isMe { Spacer(minLength: 40) }
         }
     }
-    
+
     
     func sendMyGPS() {
         guard !vm.reachedFreeLimit || premium.isPremium else {
