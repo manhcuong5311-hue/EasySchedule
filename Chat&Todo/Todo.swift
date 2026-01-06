@@ -166,16 +166,10 @@ struct TodoListView: View {
                 
                 // ===== OFFLINE BANNER =====
                 if !network.isOnline {
-                    HStack(spacing: 6) {
-                        Image(systemName: "wifi.slash")
-                        Text(String(localized: "offline_banner"))
-                            .font(.caption)
-                    }
-                    .foregroundColor(.white)
-                    .padding(8)
-                    .frame(maxWidth: .infinity)
-                    .background(Color.orange)
-                }
+                       OfflineBannerView()
+                           .listRowInsets(EdgeInsets())
+                           .listRowBackground(Color.clear)
+                   }
 
 
                   List {

@@ -34,8 +34,9 @@ struct HistoryLinksView: View {
         List {
             ForEach(filteredLinks) { link in
                 VStack(alignment: .leading) {
-                    Text(link.displayName ?? "")
+                    Text(eventManager.displayName(for: link.uid))
                         .font(.headline)
+
 
                     Text("\(String(localized: "uid_label")): \(link.uid)")
                         .font(.caption)

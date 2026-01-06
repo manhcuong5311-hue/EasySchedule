@@ -28,6 +28,7 @@ struct Easy_scheduleApp: App {
     @State private var showLaunch = true
     @AppStorage("hasSeenOnboarding")
     private var hasSeenOnboarding: Bool = false
+    @StateObject private var network = NetworkMonitor.shared
 
 
     @StateObject var premium = PremiumStoreViewModel.shared
@@ -49,7 +50,8 @@ struct Easy_scheduleApp: App {
             }
             .environmentObject(session)        // ⭐ BẮT BUỘC
                    .environmentObject(premium)        // ⭐ BẮT BUỘC
-                   .environmentObject(eventManager) 
+                   .environmentObject(eventManager)
+                   .environmentObject(network)
                    .onAppear {
                        lockManager.startTimer()
 
@@ -113,7 +115,8 @@ struct RootView: View {
 
     @State private var showPremiumIntro = false
     @State private var showPaywall = false
-    private let network = NetworkMonitor.shared
+    @EnvironmentObject var network: NetworkMonitor
+
 
 
     var body: some View {
@@ -126,6 +129,7 @@ struct RootView: View {
                               // ⭐⭐⭐ DÒNG QUAN TRỌNG NHẤT ⭐⭐⭐
                               if let uid = session.currentUserId {
                                   eventManager.configureForUser(uid: uid)
+                                  eventManager.preloadUsersIfNeeded() 
                               }
 
                               Task { await premium.refresh() }

@@ -233,6 +233,10 @@ final class EventManager: ObservableObject {
         return vm
     }
 
+    // MARK: - Name Resolver (SOURCE OF TRUTH)
+    func displayName(for uid: String) -> String {
+        userNames[uid] ?? uid
+    }
 
     func name(for uid: String, completion: @escaping (String) -> Void) {
         if let cached = userNames[uid] {

@@ -40,6 +40,9 @@ struct ChatView: View {
     @State private var activeSheet: ChatSheet?
 
     @State private var showActionPopover = false
+    @EnvironmentObject var network: NetworkMonitor
+
+    @EnvironmentObject var eventManager: EventManager
 
 
     private let geocoder = CLGeocoder()
@@ -85,6 +88,13 @@ struct ChatView: View {
     var body: some View {
         VStack(spacing: 0) {
             eventHeader
+            // ⭐ OFFLINE BANNER
+                if !network.isOnline {
+                    OfflineBannerView()
+                        .padding(.horizontal)
+                        .padding(.top, 4)
+                        .padding(.bottom, 6)
+                }
             Divider()
             ScrollViewReader { proxy in
                 ScrollView {
@@ -457,7 +467,7 @@ struct ChatView: View {
             VStack(alignment: isMe ? .trailing : .leading) {
                 
                 if !isMe {
-                    Text(msg.senderName)
+                    Text(eventManager.displayName(for: msg.senderId))
                         .font(.caption2)
                         .foregroundColor(.secondary)
                 }

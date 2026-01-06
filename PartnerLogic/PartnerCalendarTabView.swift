@@ -31,6 +31,7 @@ struct PartnerCalendarTabView: View {
     @State private var alertMessage: String = ""
     @State private var showHistorySheet: Bool = false
     @State private var showHelpSheet = false
+    @EnvironmentObject var network: NetworkMonitor
 
     // Group by day for UI
     private var groupedByDay: [Date: [CalendarEvent]] {
@@ -44,7 +45,10 @@ struct PartnerCalendarTabView: View {
 
             ScrollView {
                 VStack(spacing: 20) {
-
+                    if !network.isOnline {
+                               OfflineBannerView()
+                                   .padding(.horizontal)
+                           }
                     // ================================
                     // MARK: INPUT UID AREA
                     // ================================
@@ -334,7 +338,7 @@ struct PartnerCalendarTabView: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
                 let ownerPrefix = String(localized: "owner_prefix")
-                Text("\(ownerPrefix) \(ev.owner)")
+                Text("\(ownerPrefix) \(eventManager.displayName(for: ev.owner))")
                     .font(.caption2)
                     .foregroundColor(.secondary)
             }
