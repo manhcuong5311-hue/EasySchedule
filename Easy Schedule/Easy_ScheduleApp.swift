@@ -34,6 +34,7 @@ struct Easy_scheduleApp: App {
     @StateObject var premium = PremiumStoreViewModel.shared
     @StateObject private var eventManager = EventManager.shared
     @StateObject private var lockManager = LockManager.shared
+    @StateObject private var guideManager = GuideManager()
 
     var body: some Scene {
         WindowGroup {
@@ -52,6 +53,7 @@ struct Easy_scheduleApp: App {
                    .environmentObject(premium)        // ⭐ BẮT BUỘC
                    .environmentObject(eventManager)
                    .environmentObject(network)
+                   .environmentObject(guideManager)
                    .onAppear {
                        lockManager.startTimer()
 
@@ -116,6 +118,7 @@ struct RootView: View {
     @State private var showPremiumIntro = false
     @State private var showPaywall = false
     @EnvironmentObject var network: NetworkMonitor
+    @EnvironmentObject var guideManager: GuideManager
 
 
 
@@ -125,7 +128,9 @@ struct RootView: View {
                 LoginView()
             } else {
                 ContentView()
+                    
                     .onAppear {
+                        guideManager.startIfNeeded() 
                               // ⭐⭐⭐ DÒNG QUAN TRỌNG NHẤT ⭐⭐⭐
                               if let uid = session.currentUserId {
                                   eventManager.configureForUser(uid: uid)
@@ -133,6 +138,7 @@ struct RootView: View {
                               }
 
                               Task { await premium.refresh() }
+                            
                           }
                     .onChange(of: premium.isLoaded) { _, loaded in
                         guard loaded else { return }

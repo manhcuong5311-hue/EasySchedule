@@ -30,6 +30,11 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		0D49EBAA2F0E879600433C0A /* GuideTour */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = GuideTour;
+			sourceTree = "<group>";
+		};
 		0D4F4F312F07A57B0049D114 /* Setting */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = Setting;
@@ -104,6 +109,7 @@
 		0DCA51292EC38C75008324B2 = {
 			isa = PBXGroup;
 			children = (
+				0D49EBAA2F0E879600433C0A /* GuideTour */,
 				0D4F4F382F07A64C0049D114 /* Login */,
 				0D4F4F372F07A6230049D114 /* PartnerLogic */,
 				0D4F4F362F07A5CB0049D114 /* Chat&Todo */,
@@ -140,6 +146,7 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
+				0D49EBAA2F0E879600433C0A /* GuideTour */,
 				0D4F4F312F07A57B0049D114 /* Setting */,
 				0D4F4F342F07A5900049D114 /* EventManager */,
 				0D4F4F352F07A5A80049D114 /* Premium */,

@@ -33,6 +33,8 @@ struct PartnerCalendarTabView: View {
     @State private var showHelpSheet = false
     @EnvironmentObject var network: NetworkMonitor
 
+    @EnvironmentObject var guideManager: GuideManager
+
     // Group by day for UI
     private var groupedByDay: [Date: [CalendarEvent]] {
         Dictionary(grouping: fetchedEvents) { event in
@@ -42,193 +44,216 @@ struct PartnerCalendarTabView: View {
 
     var body: some View {
         NavigationStack {
+            ZStack {
+                mainContent
 
-            ScrollView {
-                VStack(spacing: 20) {
-                    if !network.isOnline {
-                               OfflineBannerView()
-                                   .padding(.horizontal)
-                           }
-                    // ================================
-                    // MARK: INPUT UID AREA
-                    // ================================
-                    inputArea
-                        .padding(.horizontal)
-
-
-                    // ================================
-                    // MARK: ACTION BUTTONS
-                    // ================================
-                    VStack(alignment: .leading, spacing: 12) {
-
-                        Text(String(localized: "manage_sharing"))
-                            .font(.headline)
-                            .padding(.leading, 4)
-
-                        VStack(spacing: 0) {
-
-                            manageRow(
-                                icon: "clock.arrow.circlepath",
-                                title: String(localized: "viewed_history")
-                            ) {
-                                showHistorySheet = true
-                            }
-
-                            Divider()
-
-                            manageRow(
-                                icon: "person.crop.circle.badge.plus",
-                                title: String(localized: "created_for_others")
-                            ) {
-                                showMyCreatedEvents = true
-                            }
-
-                            Divider()
-
-                            manageRow(
-                                icon: "person.2.fill",
-                                title: String(localized: "manage_access")
-                            ) {
-                                showAccessSheet = true
-                            }
-                        }
-                        .background(Color(.systemBackground))
-                        .cornerRadius(14)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 14)
-                                .stroke(Color.gray.opacity(0.15))
-                        )
-                    }
-                    .padding(.horizontal)
-
-
-
-                    // ================================
-                    // MARK: UID INFO
-                    // ================================
-                    VStack(alignment: .leading, spacing: 6) {
-                        if let uid = parsedUID {
-                            HStack {
-                                Text(String(localized: "uid_label") + ":")
-                                    .bold()
-
-
-                                Text(uid)
-                                    .foregroundColor(.secondary)
-
-                                Spacer()
-
-                                Text(String(localized: "account_active"))
-                                    .foregroundColor(.green)
-                                    .font(.caption)
-
-                            }
-                        }
-                    }
-                    .padding(.horizontal)
-
-
-                    // ================================
-                    // MARK: ERROR AREA
-                    // ================================
-                    if let error = errorMessage, !error.isEmpty {
-                        Text(error)
-                            .font(.system(size: 15, weight: .medium))
-                            .foregroundColor(.red)
-                            .padding(.horizontal)
-                    }
-
-
-                    // ================================
-                    // MARK: CONTENT AREA (DANH SÁCH LỊCH)
-                    // ================================
-                    contentArea
-                        .padding(.top, 8)
-
-                }
-                .padding(.top, 12)
-            }
-
-            // ================================
-            // MARK: TITLE + TOOLBAR
-            // ================================
-            .navigationTitle(String(localized: "partner_calendar"))
-            .toolbar {
-                // NÚT + BÊN PHẢI (đã có)
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        guard !isLoading else { return }
-                                addAppointmentPressed()
-                    } label: {
-                        Circle()
-                            .fill(Color.blue.opacity(0.2))
-                            .frame(width: 34, height: 34)
-                            .overlay(
-                                Image(systemName: "plus")
-                                    .foregroundColor(.blue)
-                            )
-                    }
-                }
-                
-            }
-            
-
-            // ================================
-            // MARK: SHEETS
-            // ================================
-            .sheet(isPresented: $showHistorySheet) {
-                NavigationStack {
-                    HistoryLinksView { uid in
-                        linkText = uid
-                        parsedUID = uid
-                        parseAndLoad()
-                        showHistorySheet = false
-                    }
-                    .environmentObject(eventManager)
+                if guideManager.isActive(.partnersIntro) {
+                    partnersIntroOverlay
                 }
             }
-
-            .sheet(isPresented: $showMyCreatedEvents) {
-                MyCreatedEventsView()
-                    .environmentObject(eventManager)
-            }
-
-            .sheet(isPresented: $showAccessSheet) {
-                NavigationStack {
-                    AccessManagementView()
-                        .environmentObject(eventManager)
-                        .environmentObject(session)
-                }
-            }
-
-            .sheet(isPresented: $showAddAppointmentSheet) {
-                AppointmentProSheet(
-                    isPresented: $showAddAppointmentSheet,
-                    sharedUserId: selectedSharedUserId,
-                    sharedUserName: eventManager.userNames[selectedSharedUserId ?? ""]
-                )
-                .environmentObject(eventManager)
-                .environmentObject(session)
-            }
-
-
-            // ================================
-            // MARK: ALERT
-            // ================================
-            .alert(
-                String(localized: "unable_to_proceed"),
-                isPresented: $showAlert
-            ) {
-                Button(String(localized: "close"), role: .cancel) {}
-            } message: {
-                Text(alertMessage)
-            }
-
         }
     }
 
 
+
     // MARK: - Subviews
+    private var mainContent: some View {
+        ScrollView {
+            VStack(spacing: 20) {
+                if !network.isOnline {
+                           OfflineBannerView()
+                               .padding(.horizontal)
+                       }
+                // ================================
+                // MARK: INPUT UID AREA
+                // ================================
+                inputArea
+                    .padding(.horizontal)
+
+
+                // ================================
+                // MARK: ACTION BUTTONS
+                // ================================
+                VStack(alignment: .leading, spacing: 12) {
+
+                    Text(String(localized: "manage_sharing"))
+                        .font(.headline)
+                        .padding(.leading, 4)
+
+                    VStack(spacing: 0) {
+
+                        manageRow(
+                            icon: "clock.arrow.circlepath",
+                            title: String(localized: "viewed_history")
+                        ) {
+                            showHistorySheet = true
+                        }
+
+                        Divider()
+
+                        manageRow(
+                            icon: "person.crop.circle.badge.plus",
+                            title: String(localized: "created_for_others")
+                        ) {
+                            showMyCreatedEvents = true
+                        }
+
+                        Divider()
+
+                        manageRow(
+                            icon: "person.2.fill",
+                            title: String(localized: "manage_access")
+                        ) {
+                            showAccessSheet = true
+                        }
+                    }
+                    .background(Color(.systemBackground))
+                    .cornerRadius(14)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14)
+                            .stroke(Color.gray.opacity(0.15))
+                    )
+                }
+                .padding(.horizontal)
+
+
+
+                // ================================
+                // MARK: UID INFO
+                // ================================
+                VStack(alignment: .leading, spacing: 6) {
+                    if let uid = parsedUID {
+                        HStack {
+                            Text(String(localized: "uid_label") + ":")
+                                .bold()
+
+
+                            Text(uid)
+                                .foregroundColor(.secondary)
+
+                            Spacer()
+
+                            Text(String(localized: "account_active"))
+                                .foregroundColor(.green)
+                                .font(.caption)
+
+                        }
+                    }
+                }
+                .padding(.horizontal)
+
+
+                // ================================
+                // MARK: ERROR AREA
+                // ================================
+                if let error = errorMessage, !error.isEmpty {
+                    Text(error)
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundColor(.red)
+                        .padding(.horizontal)
+                }
+
+
+                // ================================
+                // MARK: CONTENT AREA (DANH SÁCH LỊCH)
+                // ================================
+                contentArea
+                    .padding(.top, 8)
+
+            }
+            .padding(.top, 12)
+        }
+
+        // ================================
+        // MARK: TITLE + TOOLBAR
+        // ================================
+        .navigationTitle(String(localized: "partner_calendar"))
+        .toolbar {
+            partnerToolbar
+        }
+
+        // ================================
+        // MARK: SHEETS
+        // ================================
+        .sheet(isPresented: $showHistorySheet) {
+            NavigationStack {
+                HistoryLinksView { uid in
+                    linkText = uid
+                    parsedUID = uid
+                    parseAndLoad()
+                    showHistorySheet = false
+                }
+                .environmentObject(eventManager)
+            }
+        }
+
+        .sheet(isPresented: $showMyCreatedEvents) {
+            MyCreatedEventsView()
+                .environmentObject(eventManager)
+        }
+
+        .sheet(isPresented: $showAccessSheet) {
+            NavigationStack {
+                AccessManagementView()
+                    .environmentObject(eventManager)
+                    .environmentObject(session)
+            }
+        }
+
+        .sheet(isPresented: $showAddAppointmentSheet) {
+            AppointmentProSheet(
+                isPresented: $showAddAppointmentSheet,
+                sharedUserId: selectedSharedUserId,
+                sharedUserName: eventManager.userNames[selectedSharedUserId ?? ""]
+            )
+            .environmentObject(eventManager)
+            .environmentObject(session)
+        }
+
+
+        // ================================
+        // MARK: ALERT
+        // ================================
+        .alert(
+            String(localized: "unable_to_proceed"),
+            isPresented: $showAlert
+        ) {
+            Button(String(localized: "close"), role: .cancel) {}
+        } message: {
+            Text(alertMessage)
+        }
+    }
+
+    @ToolbarContentBuilder
+    private var partnerToolbar: some ToolbarContent {
+
+        // ❓ Help — bên trái
+        ToolbarItem(placement: .navigationBarLeading) {
+            Button {
+                guideManager.show(.partnersIntro)
+            } label: {
+                Image(systemName: "questionmark.circle")
+            }
+            .accessibilityLabel("Help")
+        }
+
+        // ➕ Add appointment — bên phải (GIỮ NGUYÊN)
+        ToolbarItem(placement: .navigationBarTrailing) {
+            Button {
+                guard !isLoading else { return }
+                addAppointmentPressed()
+            } label: {
+                Circle()
+                    .fill(Color.blue.opacity(0.2))
+                    .frame(width: 34, height: 34)
+                    .overlay(
+                        Image(systemName: "plus")
+                            .foregroundColor(.blue)
+                    )
+            }
+            .accessibilityLabel("Add appointment")
+        }
+    }
 
     private var inputArea: some View {
         VStack(spacing: 8) {
@@ -553,6 +578,32 @@ struct PartnerCalendarTabView: View {
 
     func formattedTime(_ date: Date) -> String {
         date.formatted(date: .omitted, time: .shortened)
+    }
+    private var partnersIntroOverlay: some View {
+        GeometryReader { geo in
+            ZStack {
+                Color.black.opacity(0.35)
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        guideManager.complete(.partnersIntro)
+                    }
+
+                VStack {
+                    GuideBubble(
+                        textKey: "partners_guide_intro",
+                        onNext: {
+                            guideManager.complete(.partnersIntro)
+                        },
+                        onDoNotShowAgain: {
+                            guideManager.disablePermanently(.partnersIntro)
+                        }
+                    )
+                    .frame(maxWidth: min(420, geo.size.width * 0.9))
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding(.top, 140)
+            }
+        }
     }
 
 }
