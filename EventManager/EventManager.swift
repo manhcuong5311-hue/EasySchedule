@@ -101,6 +101,8 @@ final class EventManager: ObservableObject {
     @State private var shareLink: String?
     @State private var showShareSheet = false
     @Published var isAdding = false
+    private var currentRequestId: UUID?
+
     @Published var alertMessage: String = ""
     @Published var showAlert = false
     @Published var sharedLinks: [SharedLink] = [] {
@@ -987,18 +989,24 @@ extension EventManager {
         createdBy: String,
         completion: @escaping (Bool, String?) -> Void
     ) {
-        self.isAdding = true
+        guard !isAdding else { return }
+        isAdding = true
+
+        let requestId = UUID()
+        currentRequestId = requestId
+
 
         guard let currentUid = Auth.auth().currentUser?.uid else {
-            self.isAdding = false
-            completion(false, String(localized: "you_need_to_log_in"))
+            fail(String(localized: "you_need_to_log_in"), completion: completion)
             return
         }
 
         // ⭐ 1) Nếu B đặt lịch cho A ➜ CHECK ALLOW trước
         if ownerUid != currentUid {
 
-            AccessService.shared.isAllowed(ownerUid: ownerUid, otherUid: currentUid) { allowed in
+            AccessService.shared.isAllowed(ownerUid: ownerUid, otherUid: currentUid) { [weak self] allowed in
+                guard let self = self else { return }
+                guard self.currentRequestId == requestId else { return }
 
                 if !allowed {
                     // ❗ Chưa được phép ➜ Tạo REQUEST
@@ -1011,10 +1019,11 @@ extension EventManager {
                     )
 
 
-                    DispatchQueue.main.async {
-                        self.isAdding = false
-                        completion(false,  String(localized: "request_not_allowed_sent"))
-                    }
+                    self.fail(
+                        String(localized: "request_not_allowed_sent"),
+                        completion: completion
+                    )
+
                     return
                 }
 
@@ -1025,8 +1034,10 @@ extension EventManager {
                     start: start,
                     end: end,
                     createdBy: createdBy,
+                    requestId: requestId,              // ⭐ PASS DOWN
                     completion: completion
                 )
+
             }
 
             return // ⛔ KHÔNG chạy xuống dưới nữa
@@ -1039,8 +1050,10 @@ extension EventManager {
             start: start,
             end: end,
             createdBy: createdBy,
+            requestId: requestId,              // ⭐ PASS DOWN
             completion: completion
         )
+
     }
     private func _actuallyCreateAppointmentEvent(
         ownerUid: String,
@@ -1048,26 +1061,33 @@ extension EventManager {
         start: Date,
         end: Date,
         createdBy: String,
+        requestId: UUID,
         completion: @escaping (Bool, String?) -> Void
     ) {
         // ❌ CHẶN ĐẶT LỊCH QUÁ KHỨ
         let now = Date()
         if start < now {
-            DispatchQueue.main.async { self.isAdding = false }
-            completion(false, String(localized: "cannot_book_past_time"))
+            fail(String(localized: "cannot_book_past_time"), completion: completion)
             return
         }
+
 
         // ===============================
         // 1️⃣ KIỂM TRA OVERLAP (OWNER A)
         // ===============================
-        fetchBusySlots(for: ownerUid) { busySlots, ownerTier in
+        fetchBusySlots(for: ownerUid) { [weak self] busySlots, ownerTier in
+            guard let self = self else { return }
+            guard self.currentRequestId == requestId else { return }
+            
             let overlap = busySlots.contains { $0.startTime < end && $0.endTime > start }
             if overlap {
-                DispatchQueue.main.async { self.isAdding = false }
-                completion(false, String(localized: "this_time_slot_is_already_booked"))
+                self.fail(
+                    String(localized: "this_time_slot_is_already_booked"),
+                    completion: completion
+                )
                 return
             }
+
 
             // ===============================
             // 2️⃣ BOOKING RANGE — THEO TIER CỦA OWNER (A)
@@ -1081,8 +1101,6 @@ extension EventManager {
             ),
             start > maxDate {
 
-                DispatchQueue.main.async { self.isAdding = false }
-
                 let msg = {
                     switch ownerTier {
                     case .free:
@@ -1094,18 +1112,22 @@ extension EventManager {
                     }
                 }()
 
-                completion(false, msg)
+                self.fail(msg, completion: completion)
                 return
+
             }
 
             // ===============================
             // 3️⃣ CHECK LOGIN
             // ===============================
             guard let currentUid = Auth.auth().currentUser?.uid else {
-                DispatchQueue.main.async { self.isAdding = false }
-                completion(false, String(localized: "you_need_to_log_in"))
+                self.fail(
+                    String(localized: "you_need_to_log_in"),
+                    completion: completion
+                )
                 return
             }
+
 
             // ===============================
             // 4️⃣ LIMIT EVENT / NGÀY — THEO CREATOR (B)
@@ -1120,9 +1142,12 @@ extension EventManager {
             }
 
             if eventsCreatedByMeToday.count >= creatorLimits.maxEventsPerDay {
-                DispatchQueue.main.async { self.isAdding = false }
-                completion(false, String(localized: "event_limit_reached"))
+                self.fail(
+                    String(localized: "event_limit_reached"),
+                    completion: completion
+                )
                 return
+
             }
             // ===============================
             // 🔒 4.5️⃣ CHECK TRÙNG GIỜ CỦA CREATOR (B)
@@ -1134,9 +1159,12 @@ extension EventManager {
             }
 
             if myConflict {
-                DispatchQueue.main.async { self.isAdding = false }
-                completion(false, String(localized: "you_have_event_this_time"))
+                self.fail(
+                    String(localized: "you_have_event_this_time"),
+                    completion: completion
+                )
                 return
+
             }
             // ===============================
             // 5️⃣ TẠO EVENT DATA
@@ -1157,31 +1185,40 @@ extension EventManager {
             // 6️⃣ GHI FIRESTORE
             // ===============================
             var ref: DocumentReference?
-            ref = self.db.collection("events").addDocument(data: eventData) { err in
-                DispatchQueue.main.async { self.isAdding = false }
+            ref = self.db.collection("events").addDocument(data: eventData) { [weak self] err in
+                guard let self = self else { return }
+                guard self.currentRequestId == requestId else { return }
 
                 if let err = err {
-                    completion(
-                        false,
-                        String(localized: "failed_to_create_event") + ": " + err.localizedDescription
+                    self.fail(
+                        String(localized: "failed_to_create_event") + ": " + err.localizedDescription,
+                        completion: completion
                     )
                     return
                 }
 
                 guard let id = ref?.documentID else {
-                    completion(false, String(localized: "missing_document_id"))
+                    self.fail(
+                        String(localized: "missing_document_id"),
+                        completion: completion
+                    )
                     return
                 }
-
                 // ===============================
                 // 7️⃣ LOAD LẠI EVENT + SYNC BUSY
                 // ===============================
-                self.db.collection("events").document(id).getDocument { snap, _ in
+                self.db.collection("events").document(id).getDocument { [weak self] snap, _ in
+                    guard let self = self else { return }
+                    guard self.currentRequestId == requestId else { return }
                     guard let snap = snap,
                           let newEvent = CalendarEvent.from(snap) else {
-                        completion(false, String(localized: "failed_to_load_created_event"))
+                        self.fail(
+                            String(localized: "failed_to_load_created_event"),
+                            completion: completion
+                        )
                         return
                     }
+
 
                     // cập nhật busySlots cho A & B
                     self.syncBusySlots(for: newEvent)
@@ -1193,11 +1230,25 @@ extension EventManager {
                     completion(true, nil)
 
                     DispatchQueue.main.async {
+                        self.currentRequestId = nil         // ⭐ RESET TOKEN
+                        self.isAdding = false
                         self.alertMessage = String(localized: "booking_created_successfully")
                         self.showAlert = true
                     }
+
+
                 }
             }
+        }
+    }
+    private func fail(
+        _ message: String,
+        completion: @escaping (Bool, String?) -> Void
+    ) {
+        DispatchQueue.main.async {
+            self.currentRequestId = nil      // ⭐ RESET TOKEN
+            self.isAdding = false
+            completion(false, message)
         }
     }
 
@@ -1320,31 +1371,31 @@ extension EventManager {
 
     /// Gom event mới vào danh sách local, tránh trùng ID và tránh revive pendingDelete
     func merge(_ incoming: [CalendarEvent]) {
-        var updated = self.events
 
+        let incomingIds = Set(incoming.map { $0.id })
+
+        // 1️⃣ REMOVE local events KHÔNG còn trên Firestore
+        var updated = self.events.filter { ev in
+            // Giữ event đang pendingDelete để retry
+            if ev.pendingDelete { return true }
+
+            // Firestore còn → giữ
+            return incomingIds.contains(ev.id)
+        }
+
+        // 2️⃣ ADD / UPDATE từ Firestore
         for ev in incoming {
-
-            // ❌ Nếu event này đang pendingDelete → không revive
-            if let exist = updated.first(where: { $0.id == ev.id }),
-               exist.pendingDelete {
-                continue
-            }
-
             if let idx = updated.firstIndex(where: { $0.id == ev.id }) {
-                // ✔ Update event đã tồn tại
                 updated[idx] = ev
             } else {
-                // ✔ Thêm event mới
                 updated.append(ev)
             }
         }
 
-        // ✔ Lưu và regroup
         self.events = updated
         self.saveEvents()
         self.updateGroupedEvents()
     }
-
 
 
     // MARK: - Listeners (prevent revival)
