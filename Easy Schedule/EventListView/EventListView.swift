@@ -88,7 +88,10 @@ struct EventListView: View {
                 } label: {
                     Image(systemName: "questionmark.circle")
                 }
-                .accessibilityLabel("Help")
+                .accessibilityLabel(
+                    String(localized: "help")
+                )
+
             }
 
             // ⚙️ Customize — bên phải
@@ -98,7 +101,10 @@ struct EventListView: View {
                 } label: {
                     Image(systemName: "slider.horizontal.3")
                 }
-                .accessibilityLabel("Customize events")
+                .accessibilityLabel(
+                    String(localized: "customize_events")
+                )
+
             }
         }
 

@@ -234,7 +234,10 @@ struct PartnerCalendarTabView: View {
             } label: {
                 Image(systemName: "questionmark.circle")
             }
-            .accessibilityLabel("Help")
+            .accessibilityLabel(
+                String(localized: "help")
+            )
+
         }
 
         // ➕ Add appointment — bên phải (GIỮ NGUYÊN)
@@ -251,7 +254,10 @@ struct PartnerCalendarTabView: View {
                             .foregroundColor(.blue)
                     )
             }
-            .accessibilityLabel("Add appointment")
+            .accessibilityLabel(
+                String(localized: "add_appointment")
+            )
+
         }
     }
 
