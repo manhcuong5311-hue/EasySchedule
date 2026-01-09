@@ -210,12 +210,9 @@ final class EventManager: ObservableObject {
         clearLocalEvents()
         guard let uid = currentUserId else { return }
         print("🔄 Reloading events for user:", uid)
-        listenToEvents()
-       
-        listenToBusySlots(sharedUserId: uid)
-        cleanUpPastEvents()
-        
+        listenToEvents()        // 🔥 CHỈ CẦN DÒNG NÀY
     }
+
     
     func chatMeta(for eventId: String) -> ChatMetaViewModel {
         if let existing = chatMetaCache[eventId] {
@@ -356,6 +353,23 @@ final class EventManager: ObservableObject {
     }
 
     
+    private func enrichEventNames(_ event: CalendarEvent) -> CalendarEvent {
+        var ev = event
+
+        // creator name
+        ev.creatorName = userNames[event.createdBy]
+
+        // participant names
+        var map: [String: String] = [:]
+        for uid in event.participants {
+            if let name = userNames[uid] {
+                map[uid] = name
+            }
+        }
+        ev.participantNames = map.isEmpty ? nil : map
+
+        return ev
+    }
 
 
     // MARK: - OFF DAYS
@@ -572,9 +586,17 @@ final class EventManager: ObservableObject {
             .collection("users")
             .document(uid)
             .getDocument { snap, _ in
-                completion(snap?.exists == true)
+                let exists = snap?.exists == true
+
+                // ⭐ Preload name nếu user tồn tại
+                if exists {
+                    self.fetchUserNameIfNeeded(uid: uid)
+                }
+
+                completion(exists)
             }
     }
+
     func addBusyHoursForDay(
         userId: String,
         slots: [ProSlot],
@@ -858,7 +880,7 @@ extension EventManager {
         forceRefresh: Bool = false,
         completion: @escaping ([CalendarEvent], PremiumTier) -> Void
     ) {
-
+        fetchUserNameIfNeeded(uid: userId)
         // 1️⃣ Cache (nếu có và không force)
         if !forceRefresh,
            let cachedSlots = partnerBusySlotCache[userId],
@@ -922,7 +944,7 @@ extension EventManager {
                         ? "#FFA500"    // manual → cam
                         : "#FF0000"    // event → đỏ
 
-                    return CalendarEvent(
+                    var ev = CalendarEvent(
                         id: dict["id"] as? String ?? UUID().uuidString,
                         title: dict["title"] as? String ?? String(localized: "busy"),
                         date: Calendar.current.startOfDay(for: s),
@@ -936,7 +958,18 @@ extension EventManager {
                         pendingDelete: false,
                         origin: .busySlot          // 🔒 GIỮ NGUYÊN
                     )
+
+                    // ===============================
+                    // ⭐ INJECT NAME (NON-BLOCKING)
+                    // ===============================
+                    if let name = self.userNames[userId] {
+                        ev.creatorName = name
+                        ev.participantNames = [userId: name]
+                    }
+
+                    return ev
                 }
+
 
                 // ===============================
                 // 3️⃣ CACHE
@@ -948,6 +981,19 @@ extension EventManager {
                 }
 
                 completion(slots, tier)
+            }
+    }
+    func fetchUserNameIfNeeded(uid: String) {
+        guard userNames[uid] == nil else { return }
+
+        Firestore.firestore()
+            .collection("users")
+            .document(uid)
+            .getDocument { snap, _ in
+                guard let name = snap?.data()?["displayName"] as? String else { return }
+                DispatchQueue.main.async {
+                    self.userNames[uid] = name
+                }
             }
     }
 
@@ -1299,7 +1345,10 @@ extension EventManager {
                     let now = Date()
 
                     // 1) Parse Firestore
-                    let incoming = snapshot.documents.compactMap { CalendarEvent.from($0) }
+                    let incoming = snapshot.documents
+                        .compactMap { CalendarEvent.from($0) }
+                        .map { self.enrichEventNames($0) }
+
 
                     // Giữ event chưa hết hạn
                     let firestoreUpcoming = incoming
@@ -1403,6 +1452,9 @@ extension EventManager {
         // Nếu đã có listener cho user này → bỏ listener cũ
         busySlotListeners[sharedUserId]?.remove()
 
+        // ⭐ preload name (non-blocking)
+        fetchUserNameIfNeeded(uid: sharedUserId)
+
         let listener = db.collection("publicCalendar")
             .document(sharedUserId)
             .addSnapshotListener { snap, err in
@@ -1435,7 +1487,7 @@ extension EventManager {
                         ? "#FFA500"    // manual → cam
                         : "#FF0000"    // event → đỏ
 
-                    return CalendarEvent(
+                    var ev = CalendarEvent(
                         id: dict["id"] as? String ?? UUID().uuidString,
                         title: dict["title"] as? String ?? String(localized: "busy"),
                         date: Calendar.current.startOfDay(for: s),
@@ -1447,8 +1499,18 @@ extension EventManager {
                         participants: [sharedUserId],
                         colorHex: colorHex,
                         pendingDelete: false,
-                        origin: .busySlot   // 🔒 GIỮ NGUYÊN, KHÔNG ĐỔI MODEL
+                        origin: .busySlot   // 🔒 GIỮ NGUYÊN
                     )
+
+                    // ===============================
+                    // ⭐ INJECT NAME (TỪ CACHE)
+                    // ===============================
+                    if let name = self.userNames[sharedUserId] {
+                        ev.creatorName = name
+                        ev.participantNames = [sharedUserId: name]
+                    }
+
+                    return ev
                 }
 
                 DispatchQueue.main.async {

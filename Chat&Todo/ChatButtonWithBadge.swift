@@ -28,28 +28,31 @@ struct ChatButtonWithBadge: View {
     var body: some View {
         ZStack(alignment: .topTrailing) {
 
-            NavigationLink {
-                ChatView(
-                    eventId: event.id,
-                    otherUserId: otherUserId,
-                    otherName: resolvedOtherName,
-                    eventEndTime: event.endTime,
-                    eventInfo: event,
-                    myId: session.currentUserId!,
-                    myName: session.currentUserName
-                )
-            } label: {
-                Image(systemName: "bubble.right.fill")
-                    .symbolRenderingMode(.monochrome)
-                    .foregroundColor((metaVM?.unread ?? false) ? .red : .blue)
-                    .font(.system(size: 20))
-            }
+            if let myId = session.currentUserId {
 
-            if metaVM?.unread == true {
-                Circle()
-                    .fill(Color.red)
-                    .frame(width: 10, height: 10)
-                    .offset(x: 6, y: -4)
+                NavigationLink {
+                    ChatView(
+                        eventId: event.id,
+                        otherUserId: otherUserId,
+                        otherName: resolvedOtherName,
+                        eventEndTime: event.endTime,
+                        eventInfo: event,
+                        myId: myId,
+                        myName: session.currentUserName   // ✅ String thường
+                    )
+                } label: {
+                    Image(systemName: "bubble.right.fill")
+                        .symbolRenderingMode(.monochrome)
+                        .foregroundColor((metaVM?.unread ?? false) ? .red : .blue)
+                        .font(.system(size: 20))
+                }
+
+                if metaVM?.unread == true {
+                    Circle()
+                        .fill(Color.red)
+                        .frame(width: 10, height: 10)
+                        .offset(x: 6, y: -4)
+                }
             }
         }
         .onAppear {
@@ -58,6 +61,7 @@ struct ChatButtonWithBadge: View {
             metaVM = eventManager.chatMeta(for: event.id)
         }
     }
+
 }
 
 

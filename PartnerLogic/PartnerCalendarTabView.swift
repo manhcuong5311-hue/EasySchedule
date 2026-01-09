@@ -123,22 +123,27 @@ struct PartnerCalendarTabView: View {
                 // ================================
                 VStack(alignment: .leading, spacing: 6) {
                     if let uid = parsedUID {
-                        HStack {
-                            Text(String(localized: "uid_label") + ":")
-                                .bold()
+                        HStack(spacing: 8) {
+                            Image(systemName: "person.crop.circle")
+                                .foregroundColor(.blue)
 
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(eventManager.userNames[uid] ?? String(localized: "unknown_user"))
+                                    .font(.headline)
 
-                            Text(uid)
-                                .foregroundColor(.secondary)
+                                Text(shortUID(uid))
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
 
                             Spacer()
 
                             Text(String(localized: "account_active"))
                                 .foregroundColor(.green)
                                 .font(.caption)
-
                         }
                     }
+
                 }
                 .padding(.horizontal)
 
@@ -610,6 +615,10 @@ struct PartnerCalendarTabView: View {
                 .padding(.top, 140)
             }
         }
+    }
+    private func shortUID(_ uid: String) -> String {
+        guard uid.count > 8 else { return uid }
+        return uid.prefix(4) + "…" + uid.suffix(4)
     }
 
 }
