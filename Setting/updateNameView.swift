@@ -14,6 +14,7 @@ struct UpdateUserNameView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var network: NetworkMonitor
     @State private var showOfflineAlert = false
+    @State private var showEmptyNameAlert = false
 
     
     var body: some View {
@@ -32,10 +33,16 @@ struct UpdateUserNameView: View {
 
             Button(String(localized: "save")) {
                 let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !trimmed.isEmpty else { return }
+
+                guard !trimmed.isEmpty else {
+                    showEmptyNameAlert = true
+                    return
+                }
+
                 session.updateUserName(trimmed) { ok in
                     if ok { showSaved = true }
                 }
+
             }
             .buttonStyle(.borderedProminent)
             .disabled(!network.isOnline)
@@ -43,8 +50,10 @@ struct UpdateUserNameView: View {
 
         .navigationTitle(String(localized: "change_display_name"))
         .onAppear {
-            newName = session.currentUserName
+            let name = session.currentUserName
+            newName = (name == String(localized: "no_name")) ? "" : name
         }
+
         .alert( String(localized: "saved"), isPresented: $showSaved) {
             Button(String(localized:"ok")) {
                 dismiss()
@@ -56,6 +65,14 @@ struct UpdateUserNameView: View {
             Button(String(localized: "ok"), role: .cancel) {}
         } message: {
             Text(String(localized: "check_connection"))
+        }
+        .alert(
+            String(localized: "invalid_name"),
+            isPresented: $showEmptyNameAlert
+        ) {
+            Button(String(localized: "ok"), role: .cancel) {}
+        } message: {
+            Text(String(localized: "name_cannot_be_empty"))
         }
 
     }

@@ -49,6 +49,16 @@ struct LoginView: View {
                     .padding()
                     .background(Color(.systemGray6))
                     .cornerRadius(14)
+        HStack {
+                        Button(action: resetPassword) {
+                            Text(String(localized: "forgot_password"))
+                                .font(.footnote)
+                                .foregroundColor(.blue)
+                        }
+
+                        Spacer()
+                    }
+                    .padding(.horizontal, 4)
 
                     // ERROR
                     if let error = errorMessage {
@@ -61,27 +71,23 @@ struct LoginView: View {
                     Button(action: login) {
                         if isLoading {
                             ProgressView()
-                                .tint(.white)
                                 .frame(maxWidth: .infinity)
                                 .padding()
                         } else {
                             Text(String(localized: "login"))
-                                .foregroundColor(.white)
+                                .font(.system(size: 16, weight: .semibold))
                                 .frame(maxWidth: .infinity)
                                 .padding()
                         }
                     }
-                    .background(Color.blue)
+                    .foregroundColor(.primary)
+                    .background(Color(.systemBackground))
                     .cornerRadius(16)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(Color.blue.opacity(0.6), lineWidth: 1.5)
+                    )
                     .disabled(isLoading)
-
-
-                    // FORGOT PASSWORD
-                    Button(action: resetPassword) {
-                        Text(String(localized: "forgot_password"))
-                            .foregroundColor(.blue)
-                            .font(.footnote)
-                    }
 
                     // SIGN UP
                     NavigationLink(destination: SignUpView()) {
@@ -123,10 +129,9 @@ struct LoginView: View {
                         onRequest: configureAppleRequest,
                         onCompletion: handleAppleCompletion
                     )
-                    .signInWithAppleButtonStyle(.whiteOutline)
+                    .signInWithAppleButtonStyle(.black)
                     .frame(height: 52)
                     .cornerRadius(16)
-
 
                     Spacer(minLength: 40)
                 }
@@ -171,9 +176,24 @@ struct LoginView: View {
     // MARK: - EMAIL LOGIN
     private func login() {
         errorMessage = nil
+
+        let trimmedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedPassword = password.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // ✅ Validate trước khi gọi Firebase
+        guard !trimmedEmail.isEmpty else {
+            errorMessage = String(localized: "email_required")
+            return
+        }
+
+        guard !trimmedPassword.isEmpty else {
+            errorMessage = String(localized: "password_required")
+            return
+        }
+
         isLoading = true
 
-        Auth.auth().signIn(withEmail: email, password: password) { _, error in
+        Auth.auth().signIn(withEmail: trimmedEmail, password: trimmedPassword) { _, error in
             if let error = error {
                 DispatchQueue.main.async {
                     self.errorMessage = authErrorMessage(error)
@@ -204,6 +224,7 @@ struct LoginView: View {
             }
         }
     }
+
 
     private func resetPassword() {
         if email.isEmpty {

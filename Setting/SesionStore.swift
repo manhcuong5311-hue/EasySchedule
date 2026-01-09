@@ -110,20 +110,24 @@ class SessionStore: ObservableObject {
 
     // MARK: - Fetch Firestore 1 lần
     func fetchProfile(uid: String) {
-        db.collection("users").document(uid).getDocument { snap, err in
+        db.collection("users").document(uid).getDocument { snap, _ in
             if let data = snap?.data(),
-               let name = data["name"] as? String {
+               let rawName = data["name"] as? String {
+
+                let trimmed = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
+                let finalName = trimmed.isEmpty
+                    ? String(localized: "no_name")
+                    : trimmed
 
                 DispatchQueue.main.async {
-                    self.currentUserName = name
-
-                    // Cache
-                    UserDefaults.standard.set(name, forKey: self.nameKey)
-                    UserNameCache.shared.names[uid] = name
+                    self.currentUserName = finalName
+                    UserDefaults.standard.set(finalName, forKey: self.nameKey)
+                    UserNameCache.shared.names[uid] = finalName
                 }
             }
         }
     }
+
 
     // MARK: - Save Profile Once
     func saveProfileIfNeeded(user: User) {
@@ -131,14 +135,23 @@ class SessionStore: ObservableObject {
 
         ref.getDocument { snap, _ in
             if snap?.exists == false {
+
+                let providerName = user.displayName?
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+
+                let finalName = (providerName?.isEmpty == false)
+                    ? providerName!
+                    : String(localized: "no_name")
+
                 ref.setData([
-                    "name": user.displayName ?? String(localized: "no_name"),
+                    "name": finalName,
                     "email": user.email ?? "",
                     "createdAt": FieldValue.serverTimestamp()
                 ], merge: true)
             }
         }
     }
+
 
     // MARK: - Update name
     func updateUserName(_ newName: String, completion: @escaping (Bool) -> Void) {
@@ -147,10 +160,16 @@ class SessionStore: ObservableObject {
             return
         }
 
+        let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let finalName = trimmed.isEmpty
+            ? String(localized: "no_name")
+            : trimmed
+
         db.collection("users").document(uid)
-            .setData(["name": newName,
-                      "updatedAt": Timestamp(date: Date())],
-                     merge: true) { err in
+            .setData([
+                "name": finalName,
+                "updatedAt": Timestamp(date: Date())
+            ], merge: true) { err in
 
                 if let err = err {
                     print("❌ updateUserName error:", err.localizedDescription)
@@ -159,16 +178,15 @@ class SessionStore: ObservableObject {
                 }
 
                 DispatchQueue.main.async {
-                    self.currentUserName = newName
-
-                    // Cache
-                    UserDefaults.standard.set(newName, forKey: self.nameKey)
-                    UserNameCache.shared.names[uid] = newName
+                    self.currentUserName = finalName
+                    UserDefaults.standard.set(finalName, forKey: self.nameKey)
+                    UserNameCache.shared.names[uid] = finalName
                 }
 
                 completion(true)
             }
     }
+
 
     // MARK: - Sign Out
     func signOut() {
@@ -209,15 +227,21 @@ class SessionStore: ObservableObject {
                 return
             }
 
-            db.collection("users").document(uid).getDocument { snap, err in
-                let name = snap?.data()?["name"] as? String ?? uid
+            db.collection("users").document(uid).getDocument { snap, _ in
+                let raw = snap?.data()?["name"] as? String
+                let trimmed = raw?.trimmingCharacters(in: .whitespacesAndNewlines)
+
+                let finalName = (trimmed?.isEmpty == false)
+                    ? trimmed!
+                    : String(localized: "no_name")
 
                 DispatchQueue.main.async {
-                    self.names[uid] = name
-                    completion(name)
+                    self.names[uid] = finalName
+                    completion(finalName)
                 }
             }
         }
+
         func clearCache() {
             DispatchQueue.main.async {
                 self.names.removeAll()

@@ -3558,6 +3558,35 @@
         }
       }
     },
+    "email_required" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Please enter your email."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "メールアドレスを入力してください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이메일을 입력해 주세요."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vui lòng nhập email."
+          }
+        }
+      }
+    },
     "empty_title" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -6400,6 +6429,35 @@
         }
       }
     },
+    "invalid_name" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invalid name"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無効な名前"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "유효하지 않은 이름"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tên không hợp lệ"
+          }
+        }
+      }
+    },
     "invalid_time" : {
       "localizations" : {
         "en" : {
@@ -7906,6 +7964,35 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Lịch tôi tạo"
+          }
+        }
+      }
+    },
+    "name_cannot_be_empty" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Name cannot be empty."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "名前を空欄にすることはできません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "이름은 비워둘 수 없습니다."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Tên không được để trống."
           }
         }
       }
@@ -9564,6 +9651,35 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Mật khẩu"
+          }
+        }
+      }
+    },
+    "password_required" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Please enter your password."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "パスワードを入力してください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "비밀번호를 입력해 주세요."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Vui lòng nhập mật khẩu."
           }
         }
       }

@@ -121,6 +121,11 @@ struct PartnerCalendarTabView: View {
                 // ================================
                 // MARK: UID INFO
                 // ================================
+                // userNames[uid]:
+                // - nil        → unknown_user (UID không tồn tại)
+                // - "No name"  → user chưa đặt tên
+                // - "ABC"      → user có tên
+
                 VStack(alignment: .leading, spacing: 6) {
                     if let uid = parsedUID {
                         HStack(spacing: 8) {
