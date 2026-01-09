@@ -97,16 +97,25 @@ struct LoginView: View {
 
                     // GOOGLE
                     Button(action: signInWithGoogle) {
-                        HStack(spacing: 8) {
-                            Image(systemName: "globe")
+                        HStack(spacing: 12) {
+                            Image("google_icon")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 20, height: 20)
+
                             Text(String(localized: "login_google"))
+                                .font(.system(size: 16, weight: .semibold))
                         }
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.red)
+                        .foregroundColor(.primary)
+                        .frame(maxWidth: .infinity, minHeight: 52)
+                        .background(Color(.systemBackground))
                         .cornerRadius(16)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16)
+                                .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                        )
                     }
+
 
                     // APPLE
                     SignInWithAppleButton(
@@ -114,8 +123,10 @@ struct LoginView: View {
                         onRequest: configureAppleRequest,
                         onCompletion: handleAppleCompletion
                     )
+                    .signInWithAppleButtonStyle(.whiteOutline)
                     .frame(height: 52)
                     .cornerRadius(16)
+
 
                     Spacer(minLength: 40)
                 }
@@ -124,8 +135,9 @@ struct LoginView: View {
             .background(Color(.systemGroupedBackground))
             .navigationBarHidden(true)
             .fullScreenCover(isPresented: $isLoggedIn) {
-                MainView()
+                MainView(isLoggedIn: $isLoggedIn)
             }
+
             .alert(
                 String(localized: "email_not_verified_title"),
                 isPresented: $showVerifyAlert
@@ -146,6 +158,12 @@ struct LoginView: View {
             }
         }
         .navigationViewStyle(.stack)
+        .onAppear {
+            if Auth.auth().currentUser != nil {
+                isLoggedIn = true
+            }
+        }
+
     }
 
 
@@ -343,18 +361,20 @@ struct LoginView: View {
 
 
 struct MainView: View {
+    @Binding var isLoggedIn: Bool
+
     var body: some View {
         VStack(spacing: 20) {
             Text(String(localized: "welcome"))
                 .font(.largeTitle)
                 .bold()
 
-            Button(String(localized:"logout")) {
+            Button(String(localized: "logout")) {
                 do {
                     try Auth.auth().signOut()
-                }
-                catch {
-                    print(String(localized: "log_logout_error"), error.localizedDescription)
+                    isLoggedIn = false   // ⭐ QUAN TRỌNG
+                } catch {
+                    print("Logout error:", error.localizedDescription)
                 }
             }
             .foregroundColor(.red)

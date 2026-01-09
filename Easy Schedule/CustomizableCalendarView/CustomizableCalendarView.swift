@@ -22,6 +22,8 @@ private struct BusyKey: Hashable {
 
 struct CustomizableCalendarView: View {
     @EnvironmentObject var eventManager: EventManager
+    @EnvironmentObject var guideManager: GuideManager
+
     @State private var selectedDate: Date? = nil
     @State private var showAddSheet: Bool = false
     @State private var showDeleteAlert = false
@@ -42,6 +44,7 @@ struct CustomizableCalendarView: View {
     @State private var eventBusyIntervals: [(Date, Date)] = []   // event
     @State private var showConfirmOffDayAlert = false
     @State private var pendingOffDayDate: Date? = nil
+    @State private var showCalendarGuide = false
 
    
 
@@ -126,9 +129,10 @@ struct CustomizableCalendarView: View {
     }
     var body: some View {
         NavigationStack {
-            mainContent
+            calendarContentWithGuide
         }
     }
+
 
     private var mainContent: some View {
         ZStack {
@@ -229,6 +233,16 @@ struct CustomizableCalendarView: View {
 
     }
 
+    private var calendarContentWithGuide: some View {
+        ZStack {
+            mainContent
+
+            if guideManager.isActive(.calendarIntro) {
+                calendarIntroOverlay
+            }
+        }
+    }
+
     private var allowConflictToggle: some View {
         Toggle(
             String(localized: "allow_conflict"),
@@ -307,7 +321,27 @@ struct CustomizableCalendarView: View {
             }
         }
     }
+   
+    private var addEventSheet: some View {
+        AddEventView(
+            prefillDate: selectedDate,
+            offDays: offDays,
+            busyHours: localBusyIntervals   // 👈 TRUYỀN VÀO
+        )
+        .environmentObject(eventManager)
+    }
+    
+    @ToolbarContentBuilder
     private var addToolbar: some ToolbarContent {
+
+        ToolbarItem(placement: .navigationBarLeading) {
+            Button {
+                guideManager.show(.calendarIntro)
+            } label: {
+                Image(systemName: "questionmark.circle")
+            }
+        }
+
         ToolbarItem(placement: .navigationBarTrailing) {
             Button {
                 showAddSheet = true
@@ -316,13 +350,34 @@ struct CustomizableCalendarView: View {
             }
         }
     }
-    private var addEventSheet: some View {
-        AddEventView(
-            prefillDate: selectedDate,
-            offDays: offDays,
-            busyHours: localBusyIntervals   // 👈 TRUYỀN VÀO
-        )
-        .environmentObject(eventManager)
+
+
+    private var calendarIntroOverlay: some View {
+        GeometryReader { geo in
+            ZStack {
+                Color.black.opacity(0.35)
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        guideManager.complete(.calendarIntro)
+                    }
+
+                VStack {
+                    GuideBubble(
+                        textKey: "calendar_intro_text",
+                        onNext: {
+                            guideManager.complete(.calendarIntro)
+                        },
+                        onDoNotShowAgain: {
+                            guideManager.disablePermanently(.calendarIntro)
+                        }
+                    )
+
+                    .frame(maxWidth: min(420, geo.size.width * 0.9))
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding(.top, 140)
+            }
+        }
     }
 
 

@@ -146,7 +146,7 @@ struct TodoListView: View {
     enum TodoLimitAlertType: Identifiable {
         case freeLimit        // Free user vượt 5
         case chatMaxReached   // Chat premium vượt 20
-
+        case emptyTodo
         var id: Int { hashValue }
     }
 
@@ -166,16 +166,10 @@ struct TodoListView: View {
                 
                 // ===== OFFLINE BANNER =====
                 if !network.isOnline {
-                    HStack(spacing: 6) {
-                        Image(systemName: "wifi.slash")
-                        Text(String(localized: "offline_banner"))
-                            .font(.caption)
-                    }
-                    .foregroundColor(.white)
-                    .padding(8)
-                    .frame(maxWidth: .infinity)
-                    .background(Color.orange)
-                }
+                       OfflineBannerView()
+                           .listRowInsets(EdgeInsets())
+                           .listRowBackground(Color.clear)
+                   }
 
 
                   List {
@@ -212,25 +206,25 @@ struct TodoListView: View {
                         guard !isSending else { return }
 
                         let text = newTodo.trimmingCharacters(in: .whitespaces)
-                        guard !text.isEmpty else { return }
+
+                        // ⭐ PHẢN HỒI KHI RỖNG
+                        guard !text.isEmpty else {
+                            limitAlert = .emptyTodo   // thêm case mới
+                            return
+                        }
 
                         let limits = PremiumLimits.limits(for: premium.tier)
                         let limit = limits.maxTodosPerEvent
 
-                        // Pro: không giới hạn
                         if limit != .max && vm.todos.count >= limit {
-
                             switch premium.tier {
                             case .free:
                                 limitAlert = .freeLimit
-
                             case .premium:
                                 limitAlert = .chatMaxReached
-
                             case .pro:
-                                break // Pro không bao giờ vào đây
+                                break
                             }
-
                             return
                         }
 
@@ -238,24 +232,17 @@ struct TodoListView: View {
                         vm.addTodo(text: text)
                         newTodo = ""
 
-                        // 🔑 chống spam (offline & online)
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                             isSending = false
                         }
-                    }
-
-
-
-                    label: {
+                    } label: {
                         Image(systemName: isSending ? "hourglass" : "plus")
                             .foregroundColor(.white)
                             .frame(width: 40, height: 40)
                             .background(isSending ? Color.gray : Color.blue)
                             .clipShape(Circle())
                     }
-                    .disabled(isSending || newTodo.trimmingCharacters(in: .whitespaces).isEmpty)
-
-
+                    .disabled(isSending)
                 }
                 .padding(.horizontal)
                 .padding(.vertical, 10)
@@ -314,6 +301,15 @@ struct TodoListView: View {
                             limitAlert = nil
                         }
                     )
+                case .emptyTodo:
+                    return Alert(
+                        title: Text(String(localized: "todo_empty_title")),
+                        message: Text(String(localized: "todo_empty_message")),
+                        dismissButton: .default(Text(String(localized: "ok"))) {
+                            limitAlert = nil
+                        }
+                    )
+
                 }
             }
 

@@ -94,11 +94,10 @@ struct BusyHoursPickerView: View {
                 }
 
                 if !network.isOnline {
-                    Text(String(localized: "no_internet_connection"))
-                        .font(.caption)
-                        .foregroundColor(.red)
-                        .padding(.vertical, 8)
-                }
+                       OfflineBannerView()
+                           .listRowInsets(EdgeInsets())
+                           .listRowBackground(Color.clear)
+                   }
             }
             .navigationTitle(String(localized: "set_busy_hours"))
             .toolbar {

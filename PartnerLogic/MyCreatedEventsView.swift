@@ -175,7 +175,7 @@ struct MyCreatedEventsView: View {
             HStack {
                 Image(systemName: "person.fill")
                 let ownerPrefix = String(localized: "owner_prefix")
-                Text("\(ownerPrefix) \(ev.owner)")
+                Text("\(ownerPrefix) \(eventManager.displayName(for: ev.owner))")
             }
             .font(.caption)
             .foregroundColor(.secondary)

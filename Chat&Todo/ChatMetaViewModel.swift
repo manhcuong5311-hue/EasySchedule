@@ -18,20 +18,35 @@ import MapKit
 class ChatMetaViewModel: ObservableObject {
     @Published var lastMessage: String = ""
     @Published var unread: Bool = false
-    private var lastNotifiedMessage: String?
+
+    private var lastNotifiedMessage: String? {
+        didSet {
+            UserDefaults.standard.set(
+                lastNotifiedMessage,
+                forKey: "lastNotified_\(eventId)"
+            )
+        }
+    }
+
     private let db = Firestore.firestore()
     private let eventId: String
     private let myId: String
     private var listener: ListenerRegistration?
-    
-    init(eventId: String) {
+
+    init(eventId: String, myId: String) {
         self.eventId = eventId
-        self.myId = Auth.auth().currentUser?.uid ?? ""
+        self.myId = myId
+
+        self.lastNotifiedMessage =
+            UserDefaults.standard.string(forKey: "lastNotified_\(eventId)")
+
         listen()
     }
-    
-    deinit { listener?.remove() }
-    
+
+    deinit {
+        listener?.remove()
+    }
+
     private func listen() {
         listener = db.collection("chats")
             .document(eventId)
@@ -55,7 +70,6 @@ class ChatMetaViewModel: ObservableObject {
 
                     if shouldNotify {
                         self.lastNotifiedMessage = lastMsg
-
                         pushLocalChatNotification(
                             title: String(localized: "notification_new_message_title"),
                             body: lastMsg,
@@ -65,9 +79,8 @@ class ChatMetaViewModel: ObservableObject {
                 }
             }
     }
-
-
-    
 }
+
+
 
 

@@ -411,15 +411,38 @@ struct AccessManagementView: View {
                 ForEach(vm.filteredAllowedUsers) { user in
                     HStack {
                         Text(vm.showName ? (user.name ?? user.uid) : user.uid)
-                        Spacer()
+                            .lineLimit(1)
 
-                        Button(String(localized: "remove_access_button")) {
+                        Spacer()
+                    }
+                    .contentShape(Rectangle()) // ⭐ cho swipe + long press toàn row
+
+                    // 👉 HOLD (long press) → COPY UID
+                    .contextMenu {
+                        Button {
+                            UIPasteboard.general.string = user.uid
+                        } label: {
+                            Label(
+                                String(localized: "copy_uid"),
+                                systemImage: "doc.on.doc"
+                            )
+                        }
+                    }
+
+                    // 👉 SWIPE LEFT → REMOVE
+                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                        Button(role: .destructive) {
                             userToBlock = user
                             showBlockConfirm = true
+                        } label: {
+                            Label(
+                                String(localized: "remove_access_button"),
+                                systemImage: "trash"
+                            )
                         }
-                        .foregroundColor(.red)
                     }
                 }
+
             }
         }
     }

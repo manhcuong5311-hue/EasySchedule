@@ -22,7 +22,8 @@ struct EventListView: View {
     @EnvironmentObject var session: SessionStore
     @State private var collapsedDays: Set<Date> = []
     @State private var unreadCountForDay: Int = 0
-  
+    @EnvironmentObject var guideManager: GuideManager
+
 
     // Lưu cấu hình hiển thị (AppStorage để giữ xuyên các lần chạy app)
     @AppStorage("showOwnerLabel") private var showOwnerLabel: Bool = true
@@ -30,6 +31,20 @@ struct EventListView: View {
     @AppStorage("timeColorHex") private var timeColorHex: String = "#007AFF"
 
     var body: some View {
+        ZStack {
+            mainContent
+
+            if guideManager.isActive(.eventsIntro) {
+                eventsIntroOverlay
+            }
+        }
+    }
+
+    private func formattedMonth(_ date: Date) -> String {
+        date.formatted(.dateTime.month(.wide).year())
+    }
+
+    private var mainContent: some View {
         VStack {
             // Nút chuyển giữa 2 chế độ
             Picker("", selection: $showPastEvents) {
@@ -66,25 +81,36 @@ struct EventListView: View {
         )
         .toolbar {
 
-            // NÚT TÙY CHỈNH Ở BÊN PHẢI
-             ToolbarItem(placement: .navigationBarTrailing) {
-                 Button { showCustomizeSheet = true } label: {
-                     Image(systemName: "slider.horizontal.3")
-                 }
-             }
-            
+            // ❓ Help — bên trái
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button {
+                    guideManager.show(.eventsIntro)
+                } label: {
+                    Image(systemName: "questionmark.circle")
+                }
+                .accessibilityLabel(
+                    String(localized: "help")
+                )
+
+            }
+
+            // ⚙️ Customize — bên phải
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button {
+                    showCustomizeSheet = true
+                } label: {
+                    Image(systemName: "slider.horizontal.3")
+                }
+                .accessibilityLabel(
+                    String(localized: "customize_events")
+                )
+
+            }
         }
 
         .onAppear {
             eventManager.cleanUpPastEvents()
-                 // ⭐ thêm dòng này
         }
-
-        // Sheet mở danh sách sự kiện trong ngày
-        // Thay đoạn này:
-        
-        
-        // ➜ Bằng đoạn này:
         .sheet(isPresented: Binding(
             get: { selectedWeek != nil },
             set: { if !$0 { selectedWeek = nil } }
@@ -98,8 +124,6 @@ struct EventListView: View {
             CustomizeCalendarSettingsView()
         }
         .alert(String(localized: "delete_event_title"), isPresented: $showDeleteAlert) {
-            
-            // NÚT DELETE
             Button(String(localized: "delete"), role: .destructive) {
                 if let event = eventToDelete {
                     eventManager.deleteEvent(event)
@@ -107,24 +131,47 @@ struct EventListView: View {
                 eventToDelete = nil
             }
 
-            // NÚT CANCEL
             Button(String(localized: "cancel"), role: .cancel) {
                 eventToDelete = nil
             }
-
         } message: {
             let eventTitle = eventToDelete?.title ?? ""
             let prefix = String(localized: "delete_event_confirm_prefix")
-
             Text("\(prefix) “\(eventTitle)”?")
         }
     }
-    private func formattedMonth(_ date: Date) -> String {
-        date.formatted(.dateTime.month(.wide).year())
+
+    private var eventsIntroOverlay: some View {
+        GeometryReader { geo in
+            ZStack {
+                Color.black.opacity(0.35)
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        guideManager.complete(.eventsIntro)
+                    }
+
+                VStack {
+                    GuideBubble(
+                        textKey: "events_guide_intro",
+                        onNext: {
+                            guideManager.complete(.eventsIntro)
+                        },
+                        onDoNotShowAgain: {
+                            guideManager.disablePermanently(.eventsIntro)
+                        }
+                    )
+                    .frame(
+                        maxWidth: min(420, geo.size.width * 0.9)
+                    )
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding(.top, 140)
+            }
+        }
     }
 
-    
-    
+
+
     // MARK: - Lịch hiện tại (gộp theo Tháng → Tuần → Ngày)
     private var upcomingEventsList: some View {
 

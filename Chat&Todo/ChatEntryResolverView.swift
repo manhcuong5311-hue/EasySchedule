@@ -11,22 +11,28 @@ import FirebaseAuth
 struct ChatEntryResolverView: View {
     let eventId: String
     @EnvironmentObject var eventManager: EventManager
-
+    @EnvironmentObject var session: SessionStore
+    
+    
     var body: some View {
         if let event = eventManager.event(by: eventId),
-           let myId = Auth.auth().currentUser?.uid {
+                let myId = session.currentUserId {
 
-            ChatView(
-                eventId: eventId,
-                otherUserId: event.otherUserId(currentUserId: myId),
-                otherName: event.otherUserName(
-                    currentUserId: myId,
-                    userNames: eventManager.userNames
-                ),
-                eventEndTime: event.endTime,
-                eventInfo: event
-            )
+                 let otherId = event.otherUserId(currentUserId: myId)
+                 let otherName = event.otherUserName(
+                     currentUserId: myId,
+                     userNames: eventManager.userNames
+                 )
 
+                 ChatView(
+                     eventId: eventId,
+                     otherUserId: otherId,
+                     otherName: otherName,
+                     eventEndTime: event.endTime,
+                     eventInfo: event,
+                     myId: myId,                          // ✅ THÊM
+                     myName: session.currentUserName      // ✅ THÊM
+                 )
         } else {
             ProgressView()
                 .onAppear {

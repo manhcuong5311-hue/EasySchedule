@@ -133,18 +133,24 @@ struct AppointmentProSheet: View {
                     Button(String(localized:"cancel")) { isPresented = false }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Book") {
+                    Button {
                         handleCreate()
+                    } label: {
+                        if eventManager.isAdding {
+                            ProgressView()
+                        } else {
+                            Text(String(localized: "book"))
+                        }
                     }
-
                     .disabled(
+                        eventManager.isAdding ||
                         (!useCustomTime && selectedSlot == nil) ||
                         sharedUserId == nil ||
-                        !NetworkMonitor.shared.isOnline ||   // ⛔ OFFLINE thì khóa nút
-                        loading                              // đang load lịch thì KHÔNG cho tạo
+                        !NetworkMonitor.shared.isOnline ||
+                        loading
                     )
-
                 }
+
             }
             .onAppear {
                 if busySlots.isEmpty {
