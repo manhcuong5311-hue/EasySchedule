@@ -4348,25 +4348,25 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Events you create, events created for you, and events you create for others appear here.\n\nTap an event to chat and manage todos.\n\nUse the top-right button to customize events and chat."
+            "value" : "Events you create, events created for you, and events you create for others appear here.\n\nTap an event to chat and manage todos.\n\nUse the top-right button to customize events and chat.\n\nYour busy hours and off days are always synced, so others only see available time and never double-book.\n"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "自分が作成したイベント、他の人が自分のために作成したイベント、そして他の人のために作成したイベントがここに表示されます。\n\nイベントをタップして、チャットやToDoを管理できます。\n\n右上のボタンを使って、イベントやチャットをカスタマイズできます。"
+            "value" : "あなたが作成したイベント、あなたのために作成されたイベント、そして他の人のために作成したイベントがここに表示されます。\n\nイベントをタップして、チャットやToDoを管理できます。\n\n右上のボタンから、イベントやチャットをカスタマイズできます。\n\nあなたの忙しい時間や休暇日は常に同期され、他の人は空いている時間だけを見るため、予定が重複することはありません。\n"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "내가 만든 이벤트, 다른 사람이 나를 위해 만든 이벤트, 그리고 내가 다른 사람을 위해 만든 이벤트가 여기에 표시됩니다.\n\n이벤트를 탭하여 채팅하고 할 일을 관리할 수 있습니다.\n\n오른쪽 상단의 버튼을 사용하여 이벤트와 채팅을 설정할 수 있습니다."
+            "value" : "내가 만든 이벤트, 나를 위해 생성된 이벤트, 그리고 다른 사람을 위해 만든 이벤트가 여기에 표시됩니다.\n\n이벤트를 탭하여 채팅하고 할 일을 관리할 수 있습니다.\n\n오른쪽 상단 버튼을 사용해 이벤트와 채팅을 사용자화할 수 있습니다.\n\n내 바쁜 시간과 휴무일은 항상 동기화되어, 다른 사람이 가능한 시간만 보고 중복 예약을 방지할 수 있습니다.\n"
           }
         },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Các sự kiện bạn tạo, sự kiện người khác tạo cho bạn và sự kiện bạn tạo cho người khác sẽ hiển thị tại đây.\n\nNhấn vào một sự kiện để trò chuyện và quản lý công việc cần làm.\n\nSử dụng nút ở góc trên bên phải để tuỳ chỉnh sự kiện và chat."
+            "value" : "Các sự kiện bạn tạo, sự kiện được tạo cho bạn và sự kiện bạn tạo cho người khác sẽ hiển thị tại đây.\n\nChạm vào một sự kiện để trò chuyện và quản lý công việc cần làm.\n\nSử dụng nút ở góc trên bên phải để tùy chỉnh sự kiện và trò chuyện.\n\nGiờ bận và ngày nghỉ của bạn luôn được đồng bộ, giúp người khác chỉ thấy thời gian trống và tránh trùng lịch.\n"
           }
         }
       }
@@ -5004,25 +5004,25 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Premium lets you create up to 20 events per day and schedule appointments up to 90 days in advance.\nEnjoy extended messaging, manage up to 20 tasks per event, and keep your data synced across devices. Pro is designed for power users. Create up to 50 events per day and schedule appointments up to 270 days in advance.\nEnjoy unlimited messaging, advanced scheduling, and higher task limits."
+            "value" : "Premium\nLets you create up to 20 events per day\nand schedule appointments up to 90 days in advance.\n\nEnjoy extended messaging,\nmanage up to 20 tasks per event,\nand keep your data synced across devices.\n\nPro\nDesigned for power users.\n\nCreate up to 50 events per day\nand schedule appointments up to 270 days in advance.\n\nEnjoy unlimited messaging,\nadvanced scheduling,\nand higher task limits.\n"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Premiumでは、1日に最大20件の予定を作成でき、最大90日先まで予約できます。\nメッセージ機能の拡張、イベントごとに最大20件のTo-do管理、デバイス間のデータ同期が可能です。 Proは上級ユーザー向けです。1日に最大50件の予定を作成でき、最大270日先まで予約できます。\n無制限のメッセージ機能と高度なスケジューリングを利用できます。"
+            "value" : "プレミアム\n1日に最大20件のイベントを作成でき、\n最大90日先まで予定を登録できます。\n\n拡張メッセージ機能を利用でき、\nイベントごとに最大20件のタスクを管理でき、\nデバイス間でデータを同期できます。\n\nプロ\nパワーユーザー向けプランです。\n\n1日に最大50件のイベントを作成でき、\n最大270日先まで予定を登録できます。\n\nメッセージ無制限、\n高度なスケジューリング、\nより多いタスク上限を利用できます。\n"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Premium을 사용하면 하루 최대 20개의 일정을 생성하고 최대 90일 후까지 예약할 수 있습니다.\n더 많은 메시지를 주고받을 수 있으며, 이벤트당 최대 20개의 할 일을 관리하고 기기 간 데이터를 동기화할 수 있습니다. Pro는 전문가용 플랜입니다. 하루 최대 50개의 일정을 생성하고 최대 270일 후까지 예약할 수 있습니다.\n무제한 메시지, 고급 일정 관리 기능을 제공합니다."
+            "value" : "프리미엄\n하루 최대 20개의 이벤트를 생성하고\n최대 90일 전까지 일정을 예약할 수 있습니다.\n\n확장된 메시징 기능을 사용하고,\n이벤트당 최대 20개의 작업을 관리하며,\n기기 간 데이터 동기화를 지원합니다.\n\n프로\n고급 사용자를 위한 요금제입니다.\n\n하루 최대 50개의 이벤트를 생성하고\n최대 270일 전까지 일정을 예약할 수 있습니다.\n\n무제한 메시징,\n고급 일정 관리,\n더 높은 작업 제한을 제공합니다.\n"
           }
         },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Premium cho phép bạn tạo tối đa 20 sự kiện mỗi ngày và đặt lịch trước đến 90 ngày.\nBạn có thể nhắn tin nhiều hơn, quản lý tối đa 20 công việc cho mỗi sự kiện và đồng bộ dữ liệu giữa các thiết bị. Pro dành cho người dùng nâng cao. Bạn có thể tạo tối đa 50 sự kiện mỗi ngày và đặt lịch trước đến 270 ngày.\nTrải nghiệm nhắn tin không giới hạn, lập lịch nâng cao và giới hạn công việc cao hơn."
+            "value" : "Premium\nCho phép bạn tạo tối đa 20 sự kiện mỗi ngày\nvà lên lịch trước tối đa 90 ngày.\n\nTrải nghiệm nhắn tin mở rộng,\nquản lý tối đa 20 công việc cho mỗi sự kiện,\nvà đồng bộ dữ liệu trên nhiều thiết bị.\n\nPro\nDành cho người dùng nâng cao.\n\nTạo tối đa 50 sự kiện mỗi ngày\nvà lên lịch trước tối đa 270 ngày.\n\nTrải nghiệm nhắn tin không giới hạn,\nlập lịch nâng cao,\nvà giới hạn công việc cao hơn.\n"
           }
         }
       }
@@ -8609,6 +8609,64 @@
         }
       }
     },
+    "notifications_disabled_message" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "To receive reminders and updates, please enable notifications in iOS Settings."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "リマインダーや更新を受け取るには、iOSの設定で通知を有効にしてください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "알림과 업데이트를 받으려면 iOS 설정에서 알림을 활성화해 주세요."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Để nhận nhắc nhở và cập nhật, vui lòng bật thông báo trong Cài đặt của iOS."
+          }
+        }
+      }
+    },
+    "notifications_disabled_title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notifications are turned off"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通知がオフになっています"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "알림이 꺼져 있습니다"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thông báo đang bị tắt"
+          }
+        }
+      }
+    },
     "notify_before_event" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -9301,6 +9359,35 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Mở trong Apple Maps"
+          }
+        }
+      }
+    },
+    "open_settings" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Settings"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "設定を開く"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "설정 열기"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mở Cài đặt"
           }
         }
       }
@@ -13931,7 +14018,32 @@
       }
     },
     "unknown_user" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unknown user"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不明なユーザー"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "알 수 없는 사용자"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Người dùng không xác định"
+          }
+        }
+      }
     },
     "unlimited" : {
       "extractionState" : "manual",

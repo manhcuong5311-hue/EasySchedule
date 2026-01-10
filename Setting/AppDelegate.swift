@@ -73,15 +73,20 @@ class AppDelegate: NSObject,
     // Nhận FCM token
     func messaging(_ messaging: Messaging,
                    didReceiveRegistrationToken fcmToken: String?) {
+
         guard let token = fcmToken else { return }
 
+        // ✅ CHỈ LOG / cache nếu cần
         print("🔥 FCM TOKEN:", token)
 
-        // chỉ lưu nếu user đang bật push
-        if UserDefaults.standard.bool(forKey: "pushNotificationsEnabled") {
-            PushPreferenceManager.enablePush()
-        }
+        // ❌ TUYỆT ĐỐI KHÔNG:
+        // - set UserDefaults
+        // - enablePush()
+        // - disablePush()
+        // - mutate state UI
     }
+
+
 
 
     // Show banner in foreground

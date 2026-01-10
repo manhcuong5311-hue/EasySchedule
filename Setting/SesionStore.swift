@@ -7,6 +7,7 @@ import SwiftUI
 import Combine
 import FirebaseAuth
 import FirebaseFirestore
+import FirebaseMessaging
 
 
 class SessionStore: ObservableObject {
@@ -191,8 +192,10 @@ class SessionStore: ObservableObject {
     // MARK: - Sign Out
     func signOut() {
         do {
-            didSetupSession = false   // ⭐ RESET Ở ĐÂY
+            // ⭐ CLEAN PUSH TOKEN TRƯỚC
+            removeCurrentPushToken()
 
+            didSetupSession = false
             UserNameCache.shared.clearCache()
             EventManager.shared.clearLocalEvents()
             EventManager.shared.reset()
@@ -201,11 +204,11 @@ class SessionStore: ObservableObject {
 
             self.currentUser = nil
             self.currentUserName = ""
-
         } catch {
             print("❌ Logout error:", error.localizedDescription)
         }
     }
+
 
 
     deinit {
@@ -269,6 +272,32 @@ class SessionStore: ObservableObject {
         UserDefaults.standard.set(tz.identifier, forKey: "lastTimezoneId")
     }
 
+    // MARK: - Push Token Cleanup
+    func removeCurrentPushToken() {
+        guard let uid = currentUserId else { return }
+
+        Messaging.messaging().token { token, error in
+            if let error = error {
+                print("❌ Get FCM token error:", error.localizedDescription)
+                return
+            }
+
+            guard let token = token else { return }
+
+            Firestore.firestore()
+                .collection("users")
+                .document(uid)
+                .updateData([
+                    "notificationTokens": FieldValue.arrayRemove([token])
+                ]) { error in
+                    if let error = error {
+                        print("❌ Remove push token error:", error.localizedDescription)
+                    } else {
+                        print("🧹 Push token removed on logout")
+                    }
+                }
+        }
+    }
 
     
     

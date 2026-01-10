@@ -303,23 +303,36 @@ final class EventManager: ObservableObject {
 
     private func deleteRemoteOnly(_ ev: CalendarEvent) {
         guard !ev.id.isEmpty else { return }
+        guard let uid = Auth.auth().currentUser?.uid else { return }
 
-        db.collection("events").document(ev.id).delete { error in
-            if let error = error {
-                print("⚠ Pending delete FAILED:", error.localizedDescription)
-                return
+        let ref = db.collection("events").document(ev.id)
+
+        // 1️⃣ Ghi người xoá TRƯỚC
+        ref.updateData([
+            "deletedBy": uid,
+            "deletedAt": Timestamp(date: Date())
+        ]) { _ in
+
+            // 2️⃣ Sau đó mới delete
+            ref.delete { error in
+                if let error = error {
+                    print("⚠ Pending delete FAILED:", error.localizedDescription)
+                    return
+                }
+
+                self.removeBusySlotFromPublicCalendar(event: ev)
+
+                DispatchQueue.main.async {
+                    self.events.removeAll { $0.id == ev.id }
+                    self.saveEvents()
+                    self.updateGroupedEvents()
+                }
+
+                print("✅ Pending delete SUCCESS:", ev.id)
             }
-
-            self.removeBusySlotFromPublicCalendar(event: ev)
-
-            DispatchQueue.main.async {
-                self.events.removeAll { $0.id == ev.id }
-                self.saveEvents()
-                self.updateGroupedEvents()
-            }
-            print("✅ Pending delete SUCCESS:", ev.id)
         }
     }
+
 
     func cleanUpPastEvents() {
         let now = Date()
