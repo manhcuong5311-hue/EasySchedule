@@ -16,6 +16,7 @@ struct LoginView: View {
     @State private var showVerifyAlert = false
     @State private var isLoading = false
     @State private var showErrorAlert = false
+    @Environment(\.colorScheme) var colorScheme
 
     var body: some View {
         NavigationView {
@@ -143,8 +144,14 @@ struct LoginView: View {
                         onRequest: configureAppleRequest,
                         onCompletion: handleAppleCompletion
                     )
-                    .signInWithAppleButtonStyle(.black)
+                    .signInWithAppleButtonStyle(
+                        colorScheme == .dark ? .white : .black
+                    )
                     .frame(height: 52)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(Color.primary.opacity(0.2), lineWidth: 1)
+                    )
                     .cornerRadius(16)
 
                     Spacer(minLength: 40)
