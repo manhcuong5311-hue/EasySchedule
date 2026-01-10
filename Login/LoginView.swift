@@ -38,7 +38,10 @@ struct LoginView: View {
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled(true)
                     .padding(14)
-                    .background(Color(.systemBackground))
+                    .background(
+                        RoundedRectangle(cornerRadius: 14)
+                            .fill(Color(.systemBackground))
+                    )
                     .overlay(
                         RoundedRectangle(cornerRadius: 14)
                             .stroke(Color.secondary.opacity(0.35), lineWidth: 1)
@@ -50,11 +53,15 @@ struct LoginView: View {
                         text: $password
                     )
                     .padding(14)
-                    .background(Color(.systemBackground))
+                    .background(
+                        RoundedRectangle(cornerRadius: 14)
+                            .fill(Color(.systemBackground))
+                    )
                     .overlay(
                         RoundedRectangle(cornerRadius: 14)
                             .stroke(Color.secondary.opacity(0.35), lineWidth: 1)
                     )
+
 
                 HStack {
                         Button(action: resetPassword) {
