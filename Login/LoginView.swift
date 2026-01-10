@@ -35,21 +35,28 @@ struct LoginView: View {
                         text: $email
                     )
                     .keyboardType(.emailAddress)
-                    .autocapitalization(.none)
                     .textInputAutocapitalization(.never)
-                    .padding()
-                    .background(Color(.systemGray6))
-                    .cornerRadius(14)
+                    .autocorrectionDisabled(true)
+                    .padding(14)
+                    .background(Color(.systemBackground))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14)
+                            .stroke(Color.secondary.opacity(0.35), lineWidth: 1)
+                    )
 
                     // PASSWORD
                     SecureField(
                         String(localized: "password_placeholder"),
                         text: $password
                     )
-                    .padding()
-                    .background(Color(.systemGray6))
-                    .cornerRadius(14)
-        HStack {
+                    .padding(14)
+                    .background(Color(.systemBackground))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14)
+                            .stroke(Color.secondary.opacity(0.35), lineWidth: 1)
+                    )
+
+                HStack {
                         Button(action: resetPassword) {
                             Text(String(localized: "forgot_password"))
                                 .font(.footnote)
