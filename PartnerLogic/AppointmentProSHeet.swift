@@ -209,19 +209,26 @@ struct AppointmentProSheet: View {
         ScrollView {
             LazyVStack(spacing: 8) {
                 ForEach(slotsForSelectedDate, id: \.self) { slot in
+                    let pastSlot = isPastSlot(slot)
+                    let busy = checkBusy(slot)
+
                     SlotRowPro(
                         slot: slot,
-                        isBusy: checkBusy(slot),
+                        isBusy: busy || pastSlot,   // 👈 coi slot quá giờ là busy
                         isSelected: selectedSlot == slot,
                         action: {
-                            if !isDayBlocked && !useCustomTime && !checkBusy(slot) {
-                                selectedSlot = slot
-                            }
+                            guard !isDayBlocked,
+                                  !useCustomTime,
+                                  !busy,
+                                  !pastSlot else { return }
+
+                            selectedSlot = slot
                         }
                     )
-                    .opacity(isDayBlocked ? 0.35 : 1.0)
-                    .allowsHitTesting(!isDayBlocked)
+                    .opacity((isDayBlocked || pastSlot) ? 0.35 : 1.0)
+                    .allowsHitTesting(!isDayBlocked && !pastSlot)
                 }
+
             }
             .padding(.vertical, 6)
         }
@@ -309,7 +316,16 @@ struct AppointmentProSheet: View {
                    end: combine(selectedDate, customEnd)
                )
            }
-      
+        if useCustomTime {
+            let now = Date()
+            let start = combine(selectedDate, customStart)
+
+            if calendar.isDateInToday(start) && start < now {
+                errorMessage = String(localized: "cannot_book_past_time")
+                return
+            }
+        }
+
         // ❌ CHẶN ĐẶT LỊCH QUÁ KHỨ
         let startOfSelectedDay = Calendar.current.startOfDay(for: selectedDate)
         let today = Calendar.current.startOfDay(for: Date())
@@ -468,6 +484,17 @@ struct AppointmentProSheet: View {
         let today = Calendar.current.startOfDay(for: Date())
         let target = Calendar.current.startOfDay(for: date)
         return target < today
+    }
+    private func isPastSlot(_ slot: ProSlot) -> Bool {
+        let calendar = Calendar.current
+
+        // Chỉ áp dụng cho hôm nay
+        guard calendar.isDateInToday(slot.start) else {
+            return false
+        }
+
+        // Slot đã qua thời điểm hiện tại
+        return slot.start < Date().addingTimeInterval(-60)
     }
 
 

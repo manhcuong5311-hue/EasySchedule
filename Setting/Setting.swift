@@ -54,18 +54,22 @@ final class NotificationManager: ObservableObject {
     @Published var notificationsEnabled = false
     @Published var leadTime: Int = 15 // phút trước khi nhắc
  
-    func requestPermission() {
-        UserNotifications.UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
-            DispatchQueue.main.async {
-                self.notificationsEnabled = granted
-                UserDefaults.standard.set(granted, forKey: "notificationsEnabled")
-            }
+    func requestPermission(completion: @escaping (Bool) -> Void) {
+        UNUserNotificationCenter.current()
+            .requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
 
-            if let error = error {
-                print("❌ Lỗi xin quyền thông báo: \(error.localizedDescription)")
+                DispatchQueue.main.async {
+                    self.notificationsEnabled = granted
+                    UserDefaults.standard.set(granted, forKey: "notificationsEnabled")
+                    completion(granted)
+                }
+
+                if let error = error {
+                    print("❌ Lỗi xin quyền thông báo: \(error.localizedDescription)")
+                }
             }
-        }
     }
+
     
     func scheduleNotification(for event: CalendarEvent, leadTime: Int = 15) {
         guard notificationsEnabled else { return }
@@ -100,7 +104,8 @@ struct SettingsView: View {
     @AppStorage("notificationsEnabled") private var notificationsEnabled = false
     @AppStorage("leadTime") private var leadTime = 15
     @AppStorage("selectedLanguage") private var selectedLanguage = "vi"
-    @AppStorage("pushNotificationsEnabled") private var pushNotificationsEnabled = true
+    @AppStorage("pushNotificationsEnabled")
+    private var pushNotificationsEnabled = false
     @AppStorage("appTheme") private var appTheme: String = "system"
     @State private var isDeletingAccount = false
     @State private var isDeleting = false
@@ -113,6 +118,8 @@ struct SettingsView: View {
     // MARK: - Environment Objects
     @EnvironmentObject var session: SessionStore
     @EnvironmentObject var premium: PremiumStoreViewModel
+    @State private var didFinishInitialLoad = false
+    @State private var showNotificationSettingsAlert = false
 
     // MARK: - Constants
     let leadTimeOptions = [5, 10, 15, 30, 60]
@@ -128,13 +135,46 @@ struct SettingsView: View {
                         Label(String(localized: "notify_before_event"), systemImage: "bell.fill")
                     }
                     .onChange(of: pushNotificationsEnabled) { _, enabled in
+                        guard didFinishInitialLoad else { return }
+
                         if enabled {
-                            NotificationManager.shared.requestPermission()
-                            PushPreferenceManager.enablePush()
+                            UNUserNotificationCenter.current().getNotificationSettings { settings in
+                                DispatchQueue.main.async {
+                                    switch settings.authorizationStatus {
+
+                                    case .authorized:
+                                        UIApplication.shared.registerForRemoteNotifications()
+                                        PushPreferenceManager.enablePush()
+
+                                    case .notDetermined:
+                                        NotificationManager.shared.requestPermission { granted in
+                                            DispatchQueue.main.async {
+                                                if granted {
+                                                    UIApplication.shared.registerForRemoteNotifications()
+                                                    PushPreferenceManager.enablePush()
+                                                } else {
+                                                    pushNotificationsEnabled = false
+                                                }
+                                            }
+                                        }
+
+                                    case .denied:
+                                        // 🚨 CASE USER ĐÃ TỪ CHỐI TRƯỚC ĐÓ
+                                        pushNotificationsEnabled = false
+                                        showNotificationSettingsAlert = true
+
+                                    default:
+                                        pushNotificationsEnabled = false
+                                    }
+                                }
+                            }
                         } else {
                             PushPreferenceManager.disablePush()
                         }
                     }
+
+
+
 
                     Picker(selection: $leadTime) {
                         ForEach(leadTimeOptions, id: \.self) { value in
@@ -295,6 +335,24 @@ struct SettingsView: View {
 
             }
             .navigationTitle(String(localized: "settings"))
+            .onAppear {
+                DispatchQueue.main.async {
+                    didFinishInitialLoad = true
+                }
+            }
+            .alert(
+                String(localized: "notifications_disabled_title"),
+                isPresented: $showNotificationSettingsAlert
+            ) {
+                Button(String(localized: "open_settings")) {
+                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                        UIApplication.shared.open(url)
+                    }
+                }
+                Button(String(localized: "cancel"), role: .cancel) {}
+            } message: {
+                Text(String(localized: "notifications_disabled_message"))
+            }
 
             // ALERTS & SHEETS
             .alert(
@@ -332,14 +390,37 @@ struct SettingsView: View {
     }
 
     private func performLogout() {
+        // 1️⃣ Reset UI / AppStorage state trước (tránh auto-trigger)
+        UserDefaults.standard.removeObject(forKey: "pushNotificationsEnabled")
+        UserDefaults.standard.removeObject(forKey: "notificationsEnabled")
+
+        // 2️⃣ Clean push token cho user hiện tại
+        Messaging.messaging().token { token, _ in
+            if let token,
+               let uid = Auth.auth().currentUser?.uid {
+
+                Firestore.firestore()
+                    .collection("users")
+                    .document(uid)
+                    .updateData([
+                        "notificationTokens": FieldValue.arrayRemove([token])
+                    ])
+            }
+        }
+
+        // 3️⃣ Sign out Firebase
         do {
             try Auth.auth().signOut()
+
+            // 4️⃣ Reset session local
             session.currentUser = nil
+
             print("✅ Đăng xuất Firebase thành công (SettingsView).")
         } catch let error {
             print("❌ Lỗi khi đăng xuất: \(error.localizedDescription)")
         }
     }
+
 }
 
 
