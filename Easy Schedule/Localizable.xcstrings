@@ -994,6 +994,209 @@
         }
       }
     },
+    "availability_after_time" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "After 4:00 PM"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "16:00以降"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "오후 4시 이후"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Sau 16:00"
+          }
+        }
+      }
+    },
+    "availability_available" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Available"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "空きあり"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "가능"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Rảnh"
+          }
+        }
+      }
+    },
+    "availability_busy" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Busy"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "予定あり"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "일정 있음"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bận"
+          }
+        }
+      }
+    },
+    "availability_busy_time" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "2:00 – 4:00 PM"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "14:00 – 16:00"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "오후 2:00–4:00"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "14:00 – 16:00"
+          }
+        }
+      }
+    },
+    "availability_glance_subtitle" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Busy hours and off days update in real time. No back-and-forth messages."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "予定ありの時間や休みはリアルタイムで更新。やり取りは不要です。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "바쁜 시간과 휴무일이 실시간으로 업데이트됩니다. 불필요한 메시지는 필요 없습니다."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Giờ bận và ngày nghỉ được cập nhật theo thời gian thực. Không cần nhắn tin qua lại."
+          }
+        }
+      }
+    },
+    "availability_glance_title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "See availability at a glance"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ひと目で分かる 空き時間"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "한눈에 보는 가능한 시간"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Xem thời gian rảnh chỉ trong nháy mắt"
+          }
+        }
+      }
+    },
+    "availability_today" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Today"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今日"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "오늘"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hôm nay"
+          }
+        }
+      }
+    },
     "best_value_save" : {
       "comment" : "A label displayed as a badge next to a premium product that offers the best value.",
       "isCommentAutoGenerated" : true,
@@ -1257,13 +1460,6 @@
         }
       }
     },
-    "Busy 2:00 – 4:00 PM" : {
-
-    },
-    "Busy hours and off days update in real time.\nNo back-and-forth messages." : {
-      "comment" : "A description of how busy hours and off days are synchronized in the app.",
-      "isCommentAutoGenerated" : true
-    },
     "busy_event" : {
       "comment" : "A label indicating that a time slot is occupied by an event.",
       "isCommentAutoGenerated" : true,
@@ -1411,14 +1607,6 @@
         }
       }
     },
-    "By continuing, you agree to our Terms & Privacy Policy." : {
-      "comment" : "The legal text at the bottom of the onboarding flow, explaining the terms and privacy policy.",
-      "isCommentAutoGenerated" : true
-    },
-    "By starting you accept our Terms of Use and Privacy Policy." : {
-      "comment" : "A footer text that informs the user about the app's terms of use and privacy policy.",
-      "isCommentAutoGenerated" : true
-    },
     "calendar_intro_text" : {
       "comment" : "Text for the introductory bubble that appears on the first launch of the app, explaining the calendar feature.",
       "isCommentAutoGenerated" : true,
@@ -1448,10 +1636,6 @@
           }
         }
       }
-    },
-    "Can we schedule a call this afternoon?" : {
-      "comment" : "A message displayed in a context card, asking the user to schedule a call.",
-      "isCommentAutoGenerated" : true
     },
     "cancel" : {
       "extractionState" : "manual",
@@ -1889,6 +2073,64 @@
         }
       }
     },
+    "chat_message_confirm" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Meeting at 3:00 PM"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "15:00 のミーティング"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "오후 3:00 미팅"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Họp lúc 3:00"
+          }
+        }
+      }
+    },
+    "chat_message_question" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Can we meet at 3?"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "3時に会えますか？"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "3시에 만날 수 있을까요?"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Chúng ta gặp lúc 3 giờ được không?"
+          }
+        }
+      }
+    },
     "chat_my_message_color" : {
       "comment" : "A color picker label for the user's chat bubble color.",
       "isCommentAutoGenerated" : true,
@@ -1945,6 +2187,151 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Màu tin nhắn của người khác"
+          }
+        }
+      }
+    },
+    "chat_tag_user" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "User"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ユーザー"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "사용자"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Người dùng"
+          }
+        }
+      }
+    },
+    "chat_time_3pm" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "3:00"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "15:00"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "오후 3:00"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "15:00"
+          }
+        }
+      }
+    },
+    "chat_to_plan_subtitle" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Messages become tasks. Everything stays linked to time."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "メッセージがタスクになり、時間と紐づきます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "메시지가 작업이 되고 시간과 연결됩니다."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Tin nhắn trở thành công việc. Mọi thứ luôn gắn với thời gian."
+          }
+        }
+      }
+    },
+    "chat_to_plan_title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn chats into clear plans"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "チャットを分かりやすい予定に変換"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "채팅을 명확한 일정으로"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Biến tin nhắn thành kế hoạch rõ ràng"
+          }
+        }
+      }
+    },
+    "chat_todo_prepare" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prepare agenda – 3:00 PM"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "議題を準備 – 15:00"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "안건 준비 – 오후 3:00"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chuẩn bị nội dung họp – 3:00"
           }
         }
       }
@@ -2123,6 +2510,35 @@
         }
       }
     },
+    "common_next" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Next"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "次へ"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "다음"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Tiếp tục"
+          }
+        }
+      }
+    },
     "confirm" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2265,6 +2681,64 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "📞 Liên hệ hỗ trợ"
+          }
+        }
+      }
+    },
+    "context_meeting_subtitle" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Can we schedule a call this afternoon?"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "今日の午後に通話を設定できますか？"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "오늘 오후에 통화를 예약할 수 있을까요?"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Chúng ta có thể sắp xếp một cuộc gọi chiều nay không?"
+          }
+        }
+      }
+    },
+    "context_meeting_title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Meeting Request"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ミーティング依頼"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "미팅 요청"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yêu cầu họp"
           }
         }
       }
@@ -5633,6 +6107,64 @@
         }
       }
     },
+    "feature_busy_hours_subtitle" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save time ranges instantly"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "時間帯をすぐ保存"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "시간대를 빠르게 저장"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Lưu nhanh các khung giờ"
+          }
+        }
+      }
+    },
+    "feature_busy_hours_title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Busy Hours"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "予定ありの時間"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "바쁜 시간"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Giờ bận"
+          }
+        }
+      }
+    },
     "feature_chat" : {
       "comment" : "The title for the \"Chat\" upgrade option.",
       "isCommentAutoGenerated" : true,
@@ -5659,6 +6191,180 @@
           "stringUnit" : {
             "state" : "needs_review",
             "value" : "Chat mỗi sự kiện"
+          }
+        }
+      }
+    },
+    "feature_chat_subtitle" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Discuss inside each event"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "各予定内で会話"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "각 일정 안에서 대화"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Thảo luận ngay trong từng sự kiện"
+          }
+        }
+      }
+    },
+    "feature_chat_title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chat"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "チャット"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "채팅"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trò chuyện"
+          }
+        }
+      }
+    },
+    "feature_colors_subtitle" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Custom colors for events"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "予定ごとに色を設定"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "일정별 색상 설정"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Tuỳ chỉnh màu cho sự kiện"
+          }
+        }
+      }
+    },
+    "feature_colors_title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Colors"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "カラー"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "색상"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Màu sắc"
+          }
+        }
+      }
+    },
+    "feature_day_off_subtitle" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mark a full day unavailable"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "終日利用不可に設定"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "하루 전체를 사용 불가로 설정"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Đánh dấu cả ngày không khả dụng"
+          }
+        }
+      }
+    },
+    "feature_day_off_title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Day Off"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "休日"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "휴무"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ngày nghỉ"
           }
         }
       }
@@ -5812,6 +6518,151 @@
         }
       }
     },
+    "final_cta_invite" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invite someone"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "招待する"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "초대하기"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mời người khác"
+          }
+        }
+      }
+    },
+    "final_cta_legal" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "By continuing, you agree to our Terms & Privacy Policy."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "続行すると、利用規約およびプライバシーポリシーに同意したものとみなされます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "계속 진행하면 이용약관 및 개인정보처리방침에 동의하게 됩니다."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Bằng việc tiếp tục, bạn đồng ý với Điều khoản và Chính sách quyền riêng tư."
+          }
+        }
+      }
+    },
+    "final_cta_see_plans" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "See plans"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "プランを見る"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "요금제 보기"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Xem các gói"
+          }
+        }
+      }
+    },
+    "final_cta_subtitle" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No ads. No tracking. Your schedule stays private."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "広告なし。トラッキングなし。予定は常にプライベート。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "광고 없음. 추적 없음. 일정은 항상 비공개로 유지됩니다."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Không quảng cáo. Không theo dõi. Lịch của bạn luôn riêng tư."
+          }
+        }
+      }
+    },
+    "final_cta_title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Simple. Instant. Shared."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "シンプル。すぐに。共有。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "간단하게. 즉시. 공유."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đơn giản. Nhanh chóng. Chia sẻ."
+          }
+        }
+      }
+    },
     "forgot_password" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5898,14 +6749,6 @@
           }
         }
       }
-    },
-    "Get started" : {
-      "comment" : "A call-to-action button text that appears at the bottom of the onboarding screen, instructing the user to get started with the app.",
-      "isCommentAutoGenerated" : true
-    },
-    "Get Started" : {
-      "comment" : "A button label that says \"Get Started\".",
-      "isCommentAutoGenerated" : true
     },
     "get_started" : {
       "extractionState" : "manual",
@@ -6635,10 +7478,6 @@
           }
         }
       }
-    },
-    "Invite someone" : {
-      "comment" : "A button label that invites another user to use the app.",
-      "isCommentAutoGenerated" : true
     },
     "invite_someone" : {
       "extractionState" : "manual",
@@ -7480,10 +8319,6 @@
         }
       }
     },
-    "Manage your time\nyour way" : {
-      "comment" : "A headline displayed in slide 4, describing the main feature of the app.",
-      "isCommentAutoGenerated" : true
-    },
     "manage_access" : {
       "comment" : "A button label that directs the user to the screen to manage access to their calendar.",
       "isCommentAutoGenerated" : true,
@@ -7631,13 +8466,6 @@
         }
       }
     },
-    "Meeting Request" : {
-      "comment" : "The title of a context card indicating a meeting request.",
-      "isCommentAutoGenerated" : true
-    },
-    "Messages become tasks.\nEverything stays linked to time." : {
-
-    },
     "minutes_before" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -7720,6 +8548,64 @@
           "stringUnit" : {
             "state" : "needs_review",
             "value" : "Thiếu thông tin"
+          }
+        }
+      }
+    },
+    "mock_busy_time" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Busy 2:00 – 4:00 PM"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "14:00〜16:00 は予定あり"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "오후 2:00–4:00 일정 있음"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bận 14:00 – 16:00"
+          }
+        }
+      }
+    },
+    "mock_updated_now" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Updated just now"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "たった今更新"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "방금 업데이트됨"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Vừa cập nhật"
           }
         }
       }
@@ -7968,20 +8854,20 @@
         },
         "ja" : {
           "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "カレンダーを共有"
+            "state" : "translated",
+            "value" : "予定を予約してもらう"
           }
         },
         "ko" : {
           "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "캘린더 공유"
+            "state" : "translated",
+            "value" : "다른 사람이 일정 예약을 할 수 있게 하기"
           }
         },
         "vi" : {
           "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Chia sẻ lịch của bạn"
+            "state" : "translated",
+            "value" : "Cho phép người khác đặt lịch với bạn"
           }
         }
       }
@@ -8160,14 +9046,6 @@
           }
         }
       }
-    },
-    "Next" : {
-      "comment" : "A button label that says \"Next\".",
-      "isCommentAutoGenerated" : true
-    },
-    "No ads. No tracking.\nYour schedule stays private." : {
-      "comment" : "A description of the privacy features of the app.",
-      "isCommentAutoGenerated" : true
     },
     "no_allowed_users" : {
       "extractionState" : "manual",
@@ -9298,6 +10176,122 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Bật thông báo để cả hai luôn nắm rõ cuộc hẹn và không bỏ lỡ công việc quan trọng."
+          }
+        }
+      }
+    },
+    "onboarding_get_started" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Get Started"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "はじめる"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "시작하기"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bắt đầu"
+          }
+        }
+      }
+    },
+    "onboarding_legal" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "By starting you accept our Terms of Use and Privacy Policy."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "開始することで、利用規約およびプライバシーポリシーに同意したものとみなされます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "시작하면 이용약관 및 개인정보처리방침에 동의하게 됩니다."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Bằng việc bắt đầu, bạn đồng ý với Điều khoản sử dụng và Chính sách quyền riêng tư."
+          }
+        }
+      }
+    },
+    "onboarding_realtime_sync" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Real-time sync"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "リアルタイム同期"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "실시간 동기화"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đồng bộ theo thời gian thực"
+          }
+        }
+      }
+    },
+    "onboarding_shared_availability_title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shared Availability"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "空き時間の共有"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "가능한 시간 공유"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chia sẻ thời gian rảnh"
           }
         }
       }
@@ -11683,10 +12677,6 @@
         }
       }
     },
-    "Real-time sync" : {
-      "comment" : "A description of a feature that allows users to see each other's availability in real-time.",
-      "isCommentAutoGenerated" : true
-    },
     "reauth_failed" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -12387,10 +13377,6 @@
         }
       }
     },
-    "See availability\nat a glance" : {
-      "comment" : "A heading that suggests users see the availability of a service at a glance.",
-      "isCommentAutoGenerated" : true
-    },
     "seen" : {
       "comment" : "A label describing that a message has been read by the other user.",
       "isCommentAutoGenerated" : true,
@@ -12656,10 +13642,6 @@
         }
       }
     },
-    "Set day off, busy hours and\nkeep conversations linked to time." : {
-      "comment" : "A description of how to use the \"Day Off\" and \"Busy Hours\" features in the Smart Planning AI.",
-      "isCommentAutoGenerated" : true
-    },
     "set_busy_hours" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -12783,18 +13765,18 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Share your calendar"
+            "value" : "Let others book time with you"
           }
         },
         "ja" : {
           "stringUnit" : {
-            "state" : "translated",
+            "state" : "needs_review",
             "value" : "カレンダーを共有"
           }
         },
         "ko" : {
           "stringUnit" : {
-            "state" : "translated",
+            "state" : "needs_review",
             "value" : "캘린더 공유"
           }
         },
@@ -12805,10 +13787,6 @@
           }
         }
       }
-    },
-    "Shared Availability" : {
-      "comment" : "A title describing the feature of the app that allows users to see each other's availability.",
-      "isCommentAutoGenerated" : true
     },
     "show_names" : {
       "extractionState" : "manual",
@@ -12955,10 +13933,6 @@
         }
       }
     },
-    "Simple.\nInstant.\nShared." : {
-      "comment" : "A tagline describing the simplicity, instantness, and shared aspect of the app.",
-      "isCommentAutoGenerated" : true
-    },
     "size_label" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -12984,6 +13958,64 @@
           "stringUnit" : {
             "state" : "needs_review",
             "value" : "Kích thước"
+          }
+        }
+      }
+    },
+    "smart_planning_subtitle" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set day off, busy hours and keep conversations linked to time."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "休日や忙しい時間を設定し、会話を時間と紐づけます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "휴무일과 바쁜 시간을 설정하고 대화를 시간과 연결합니다."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Đặt ngày nghỉ, giờ bận và giữ mọi cuộc trò chuyện gắn với thời gian."
+          }
+        }
+      }
+    },
+    "smart_planning_title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Manage your time your way"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自分のやり方で時間管理"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "나만의 방식으로 시간 관리"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quản lý thời gian theo cách của bạn"
           }
         }
       }
@@ -13656,10 +14688,6 @@
         }
       }
     },
-    "Today" : {
-      "comment" : "A label displayed above a section of a view showing a user's appointments.",
-      "isCommentAutoGenerated" : true
-    },
     "todo_done_by" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -13921,9 +14949,63 @@
         }
       }
     },
-    "Turn chats into\nclear plans" : {
-      "comment" : "A heading that describes the main benefit of the feature.",
-      "isCommentAutoGenerated" : true
+    "trial_days_format" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%d-day free trial"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%d日間の無料トライアル"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%d일 무료 체험"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dùng thử miễn phí %d ngày"
+          }
+        }
+      }
+    },
+    "trial_months_format" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%d-month free trial"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%dか月間の無料トライアル"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%d개월 무료 체험"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Dùng thử miễn phí %d tháng"
+          }
+        }
+      }
     },
     "uid_label" : {
       "extractionState" : "manual",
@@ -14333,10 +15415,6 @@
           }
         }
       }
-    },
-    "Updated just now" : {
-      "comment" : "A text indicating when a busy time was last updated.",
-      "isCommentAutoGenerated" : true
     },
     "upgrade_account" : {
       "extractionState" : "manual",

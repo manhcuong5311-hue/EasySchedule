@@ -45,7 +45,7 @@ struct OnboardingHeroSlide: View {
                     Button {
                         onNext() 
                     } label: {
-                        Text("Get Started")
+                        Text(String(localized: "onboarding_get_started"))
                             .font(.system(size: 17, weight: .semibold))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
@@ -54,7 +54,7 @@ struct OnboardingHeroSlide: View {
                             .cornerRadius(18)
                     }
 
-                    Text("By starting you accept our Terms of Use and Privacy Policy.")
+                    Text(String(localized: "onboarding_legal"))
                         .font(.system(size: 12))
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
@@ -91,12 +91,11 @@ struct CurvedHeader: View {
                 }
 
                 // Big title
-                Text("Shared Availability")
-                    .font(.system(size: 34, weight: .bold))
+                Text(String(localized: "onboarding_shared_availability_title"))                    .font(.system(size: 34, weight: .bold))
                     .tracking(-0.8)
 
                 // Pill badge
-                Text("Real-time sync")
+                Text(String(localized: "onboarding_realtime_sync"))
                     .font(.system(size: 14, weight: .semibold))
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
@@ -137,14 +136,15 @@ struct AvailabilityPhoneMock1: View {
             VStack(spacing: 12) {
                 Spacer()
 
-                Text("Busy 2:00 – 4:00 PM")
+                Text(String(localized: "mock_busy_time"))
+
                     .font(.system(size: 15, weight: .medium))
                     .padding(.horizontal, 14)
                     .padding(.vertical, 8)
                     .background(Color.accentColor.opacity(0.15))
                     .cornerRadius(12)
 
-                Text("Updated just now")
+                Text(String(localized: "mock_updated_now"))
                     .font(.system(size: 12))
                     .foregroundColor(.secondary)
 

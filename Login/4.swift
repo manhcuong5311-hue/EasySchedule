@@ -26,16 +26,16 @@ struct SmartPlanningAISlide: View {
 
             VStack(spacing: 18) {
 
-                // MARK: - Headline (centered, giống slide 2 & 3)
-                Text("Manage your time\nyour way")
+                Text(String(localized: "smart_planning_title"))
                     .font(.system(size: 36, weight: .bold))
                     .tracking(-0.8)
                     .multilineTextAlignment(.center)
 
-                Text("Set day off, busy hours and\nkeep conversations linked to time.")
+                Text(String(localized: "smart_planning_subtitle"))
                     .font(.system(size: 15))
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
+
 
                 Spacer()
 
@@ -44,8 +44,8 @@ struct SmartPlanningAISlide: View {
 
                     TimeFeatureCard(
                         icon: "calendar.badge.minus",
-                        title: "Day Off",
-                        subtitle: "Mark a full day unavailable",
+                        title: String(localized: "feature_day_off_title"),
+                        subtitle: String(localized: "feature_day_off_subtitle"),
                         color: .orange,
                         x: -60,
                         y: -60
@@ -53,8 +53,8 @@ struct SmartPlanningAISlide: View {
 
                     TimeFeatureCard(
                         icon: "clock.badge.checkmark",
-                        title: "Busy Hours",
-                        subtitle: "Save time ranges instantly",
+                        title: String(localized: "feature_busy_hours_title"),
+                        subtitle: String(localized: "feature_busy_hours_subtitle"),
                         color: .accentColor,
                         x: 60,
                         y: -40
@@ -62,8 +62,8 @@ struct SmartPlanningAISlide: View {
 
                     TimeFeatureCard(
                         icon: "bubble.left.and.bubble.right.fill",
-                        title: "Chat",
-                        subtitle: "Discuss inside each event",
+                        title: String(localized: "feature_chat_title"),
+                        subtitle: String(localized: "feature_chat_subtitle"),
                         color: .green,
                         x: -40,
                         y: 60
@@ -71,12 +71,13 @@ struct SmartPlanningAISlide: View {
 
                     TimeFeatureCard(
                         icon: "paintpalette.fill",
-                        title: "Colors",
-                        subtitle: "Custom colors for events",
+                        title: String(localized: "feature_colors_title"),
+                        subtitle: String(localized: "feature_colors_subtitle"),
                         color: .purple,
                         x: 40,
                         y: 90
                     )
+
                 }
                 .frame(height: 340)
 
@@ -86,7 +87,7 @@ struct SmartPlanningAISlide: View {
                 Button {
                     onNext()
                 } label: {
-                    Text("Next")
+                    Text(String(localized: "common_next"))
                         .font(.system(size: 17, weight: .semibold))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
@@ -112,10 +113,10 @@ struct ContextCard: View {
                 .foregroundColor(.accentColor)
 
             VStack(alignment: .leading, spacing: 6) {
-                Text("Meeting Request")
+                Text(String(localized: "context_meeting_title"))
                     .font(.system(size: 15, weight: .semibold))
 
-                Text("Can we schedule a call this afternoon?")
+                Text(String(localized: "context_meeting_subtitle"))
                     .font(.system(size: 14))
                     .foregroundColor(.secondary)
             }

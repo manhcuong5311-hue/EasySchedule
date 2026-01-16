@@ -11,29 +11,30 @@ import FirebaseFirestore
 
 struct PartnerCalendarTabView: View {
     @EnvironmentObject var eventManager: EventManager
-    @State private var showMyCreatedEvents = false
+    
     @EnvironmentObject var session: SessionStore
     // Link input
     @State private var linkText: String = ""
     @State private var parsedUID: String? = nil
-    @State private var showAccessSheet = false
+    
     // Fetching state
     @State private var isLoading: Bool = false
     @State private var errorMessage: String? = nil
     @State private var fetchedEvents: [CalendarEvent] = []
 
     // Sheet for creating appointment
-    @State private var showAddAppointmentSheet: Bool = false
     @State private var selectedSharedUserId: String?
+    @State private var activeSheet: ActiveSheet? = nil
 
     // Alert
     @State private var showAlert: Bool = false
     @State private var alertMessage: String = ""
-    @State private var showHistorySheet: Bool = false
+  
     @State private var showHelpSheet = false
     @EnvironmentObject var network: NetworkMonitor
 
     @EnvironmentObject var guideManager: GuideManager
+    @StateObject private var accessBadgeVM = AccessBadgeViewModel()
 
     // Group by day for UI
     private var groupedByDay: [Date: [CalendarEvent]] {
@@ -52,7 +53,13 @@ struct PartnerCalendarTabView: View {
                 }
             }
         }
+        // ✅ LOAD BADGE KHI VIEW XUẤT HIỆN
+        .onAppear {
+            guard let uid = Auth.auth().currentUser?.uid else { return }
+            accessBadgeVM.load(ownerUid: uid)
+        }
     }
+
 
 
 
@@ -86,7 +93,7 @@ struct PartnerCalendarTabView: View {
                             icon: "clock.arrow.circlepath",
                             title: String(localized: "viewed_history")
                         ) {
-                            showHistorySheet = true
+                            activeSheet = .history
                         }
 
                         Divider()
@@ -95,17 +102,19 @@ struct PartnerCalendarTabView: View {
                             icon: "person.crop.circle.badge.plus",
                             title: String(localized: "created_for_others")
                         ) {
-                            showMyCreatedEvents = true
+                            activeSheet = .createdEvents
                         }
 
                         Divider()
 
                         manageRow(
                             icon: "person.2.fill",
-                            title: String(localized: "manage_access")
+                            title: String(localized: "manage_access"),
+                            badgeCount: accessBadgeVM.pendingCount
                         ) {
-                            showAccessSheet = true
+                            activeSheet = .manageAccess
                         }
+
                     }
                     .background(Color(.systemBackground))
                     .cornerRadius(14)
@@ -185,40 +194,51 @@ struct PartnerCalendarTabView: View {
         // ================================
         // MARK: SHEETS
         // ================================
-        .sheet(isPresented: $showHistorySheet) {
-            NavigationStack {
-                HistoryLinksView { uid in
-                    linkText = uid
-                    parsedUID = uid
-                    parseAndLoad()
-                    showHistorySheet = false
-                }
-                .environmentObject(eventManager)
+        .sheet(item: $activeSheet, onDismiss: {
+            // 🔁 reload badge sau khi đóng Manage Access
+            if let uid = Auth.auth().currentUser?.uid {
+                accessBadgeVM.load(ownerUid: uid)
             }
-        }
+        }) { sheet in
 
-        .sheet(isPresented: $showMyCreatedEvents) {
-            MyCreatedEventsView()
-                .environmentObject(eventManager)
-        }
+            switch sheet {
 
-        .sheet(isPresented: $showAccessSheet) {
-            NavigationStack {
-                AccessManagementView()
+            case .history:
+                NavigationStack {
+                    HistoryLinksView { uid in
+                        linkText = uid
+                        parsedUID = uid
+                        parseAndLoad()
+                        activeSheet = nil
+                    }
                     .environmentObject(eventManager)
-                    .environmentObject(session)
+                }
+
+            case .createdEvents:
+                MyCreatedEventsView()
+                    .environmentObject(eventManager)
+
+            case .manageAccess:
+                NavigationStack {
+                    AccessManagementView()
+                        .environmentObject(eventManager)
+                        .environmentObject(session)
+                }
+
+            case .addAppointment:
+                AppointmentProSheet(
+                    isPresented: Binding(
+                        get: { activeSheet == .addAppointment },
+                        set: { if !$0 { activeSheet = nil } }
+                    ),
+                    sharedUserId: selectedSharedUserId,
+                    sharedUserName: eventManager.userNames[selectedSharedUserId ?? ""]
+                )
+                .environmentObject(eventManager)
+                .environmentObject(session)
             }
         }
 
-        .sheet(isPresented: $showAddAppointmentSheet) {
-            AppointmentProSheet(
-                isPresented: $showAddAppointmentSheet,
-                sharedUserId: selectedSharedUserId,
-                sharedUserName: eventManager.userNames[selectedSharedUserId ?? ""]
-            )
-            .environmentObject(eventManager)
-            .environmentObject(session)
-        }
 
 
         // ================================
@@ -395,7 +415,8 @@ struct PartnerCalendarTabView: View {
                     if let uid = parsedUID {
                         selectedSharedUserId = uid
                         // open pro sheet (your AppointmentProSheet should read sharedUserId)
-                        showAddAppointmentSheet = true
+                        self.activeSheet = .addAppointment
+
                     } else {
                         alertMessage = String(localized: "uid_required")
                         showAlert = true
@@ -459,7 +480,7 @@ struct PartnerCalendarTabView: View {
                 // ✅ OK → mới cho mở sheet
                 self.parsedUID = parsed
                 self.selectedSharedUserId = parsed
-                self.showAddAppointmentSheet = true
+                self.activeSheet = .addAppointment
             }
         }
     }
@@ -565,6 +586,7 @@ struct PartnerCalendarTabView: View {
     private func manageRow(
         icon: String,
         title: String,
+        badgeCount: Int = 0,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
@@ -577,7 +599,7 @@ struct PartnerCalendarTabView: View {
                     .font(.system(size: 16, weight: .medium))
 
                 Spacer()
-
+                AccessRequestBadge(count: badgeCount)
                 Image(systemName: "chevron.right")
                     .foregroundColor(.secondary)
             }

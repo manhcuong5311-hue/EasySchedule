@@ -13,6 +13,7 @@ struct FinalOnboardingCTASlide: View {
 
     @Binding var hasSeenOnboarding: Bool
     @State private var showShare = false
+    @State private var showPaywall = false
 
     var body: some View {
         ZStack {
@@ -33,13 +34,14 @@ struct FinalOnboardingCTASlide: View {
                 Spacer()
 
                 // MARK: - Headline
-                Text("Simple.\nInstant.\nShared.")
+                Text(String(localized: "final_cta_title"))
                     .font(.system(size: 40, weight: .bold))
                     .tracking(-0.8)
                     .multilineTextAlignment(.center)
 
+
                 // MARK: - Subheadline
-                Text("No ads. No tracking.\nYour schedule stays private.")
+                Text(String(localized: "final_cta_subtitle"))
                     .font(.system(size: 15))
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
@@ -50,7 +52,7 @@ struct FinalOnboardingCTASlide: View {
                 Button {
                     showShare = true
                 } label: {
-                    Text("Invite someone")
+                    Text(String(localized: "final_cta_invite"))
                         .font(.system(size: 17, weight: .semibold))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 18)
@@ -61,16 +63,17 @@ struct FinalOnboardingCTASlide: View {
 
                 // MARK: - Secondary CTA
                 Button {
-                    hasSeenOnboarding = true
+                    showPaywall = true
                 } label: {
-                    Text("Get started")
+                    Text(String(localized: "final_cta_see_plans"))
                         .font(.system(size: 15))
                         .foregroundColor(.secondary)
                         .padding(.top, 4)
                 }
 
+
                 // MARK: - Legal (TypeAI style)
-                Text("By continuing, you agree to our Terms & Privacy Policy.")
+                Text(String(localized: "final_cta_legal"))
                     .font(.system(size: 12))
                     .foregroundColor(.secondary.opacity(0.7))
                     .padding(.top, 6)
@@ -79,6 +82,15 @@ struct FinalOnboardingCTASlide: View {
             }
             .padding(.horizontal, 28)
         }
+        .fullScreenCover(isPresented: $showPaywall) {
+            PremiumUpgradeSheet()
+                .environmentObject(PremiumStoreViewModel.shared)
+                .onDisappear {
+                    hasSeenOnboarding = true
+                }
+        }
+
+
         .sheet(isPresented: $showShare) {
             ShareLink(
                 item: URL(string: "https://apps.apple.com/app/id6756092474")!

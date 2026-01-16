@@ -27,12 +27,12 @@ struct AvailabilityFeatureSlide: View {
 
             VStack(spacing: 16) {
 
-                Text("See availability\nat a glance")
+                Text(String(localized: "availability_glance_title"))
                     .font(.system(size: 36, weight: .bold))
                     .tracking(-0.8)
                     .multilineTextAlignment(.center)
 
-                Text("Busy hours and off days update in real time.\nNo back-and-forth messages.")
+                Text(String(localized: "availability_glance_subtitle"))
                     .font(.system(size: 15))
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
@@ -45,23 +45,22 @@ struct AvailabilityFeatureSlide: View {
 
                     AvailabilityPhoneMock2()
 
-                    // Floating bubble 1
                     FloatingAvailabilityBubble(
-                        title: "Busy",
-                        subtitle: "2:00 – 4:00 PM",
+                        title: String(localized: "availability_busy"),
+                        subtitle: String(localized: "availability_busy_time"),
                         color: Color.accentColor,
                         x: -80,
                         y: -60
                     )
 
-                    // Floating bubble 2
                     FloatingAvailabilityBubble(
-                        title: "Available",
-                        subtitle: "After 4:00 PM",
+                        title: String(localized: "availability_available"),
+                        subtitle: String(localized: "availability_after_time"),
                         color: .green,
                         x: 70,
                         y: 40
                     )
+
                 }
                 .frame(height: 420)
 
@@ -71,7 +70,7 @@ struct AvailabilityFeatureSlide: View {
                 Button {
                     onNext()
                 } label: {
-                    Text("Next")
+                    Text(String(localized: "common_next"))
                         .font(.system(size: 17, weight: .semibold))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
@@ -102,16 +101,17 @@ struct AvailabilityPhoneMock2: View {
             VStack(spacing: 12) {
                 Spacer()
 
-                Text("Today")
+                Text(String(localized: "availability_today"))
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(.secondary)
 
-                Text("Busy 2:00 – 4:00 PM")
+                Text(String(localized: "mock_busy_time"))
                     .font(.system(size: 16, weight: .medium))
                     .padding(.horizontal, 14)
                     .padding(.vertical, 8)
                     .background(Color.accentColor.opacity(0.15))
                     .cornerRadius(12)
+
 
                 Spacer()
             }

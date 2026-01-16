@@ -23,8 +23,6 @@ actor PremiumStore {
         // PRO
         "com.SamCorp.EasySchedule.pro.monthly",
         "com.SamCorp.EasySchedule.pro.yearly"
-        // hoặc:
-        // "com.SamCorp.EasySchedule.pro.lifetime"
     ]
 
     // MARK: - Stored properties

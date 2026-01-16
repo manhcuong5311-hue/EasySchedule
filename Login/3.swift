@@ -27,44 +27,45 @@ struct ChatToPlanAISlide: View {
 
             VStack(spacing: 18) {
 
-                Text("Turn chats into\nclear plans")
+                Text(String(localized: "chat_to_plan_title"))
                     .font(.system(size: 36, weight: .bold))
                     .tracking(-0.8)
                     .multilineTextAlignment(.center)
 
-                Text("Messages become tasks.\nEverything stays linked to time.")
+                Text(String(localized: "chat_to_plan_subtitle"))
                     .font(.system(size: 15))
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
+
 
                 Spacer()
 
                 ZStack {
 
-                    // User chat
                     ChatUserBubble(
-                        tag: "User",
-                        text: "Can we meet at 3?",
+                        tag: String(localized: "chat_tag_user"),
+                        text: String(localized: "chat_message_question"),
                         highlight: nil,
                         x: -40,
                         y: -80
                     )
 
-                    // Other user response
                     ChatUserBubble(
-                        tag: "User",
-                        text: "Meeting at 3:00 PM",
-                        highlight: "3:00 PM",
+                        tag: String(localized: "chat_tag_user"),
+                        text: String(localized: "chat_message_confirm"),
+                        highlight: String(localized: "chat_time_3pm"),
                         x: 40,
                         y: 0
                     )
 
+
                     // Todo
                     TodoUserBubble(
-                        text: "Prepare agenda – 3:00 PM",
+                        text: String(localized: "chat_todo_prepare"),
                         x: -10,
                         y: 90
                     )
+
                 }
                 .frame(height: 340)
 
@@ -73,7 +74,8 @@ struct ChatToPlanAISlide: View {
                 Button {
                     onNext()
                 } label: {
-                    Text("Next")
+                    Text(String(localized: "common_next"))
+
                         .font(.system(size: 17, weight: .semibold))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
