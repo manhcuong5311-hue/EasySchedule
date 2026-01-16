@@ -10,6 +10,7 @@ import SwiftUI
 import Combine
 
 struct FinalOnboardingCTASlide: View {
+    @Environment(\.colorScheme) private var scheme
 
     @Binding var hasSeenOnboarding: Bool
     @State private var showShare = false
@@ -20,14 +21,20 @@ struct FinalOnboardingCTASlide: View {
 
             // MARK: - TypeAI green background
             LinearGradient(
-                colors: [
-                    Color(red: 0.92, green: 0.98, blue: 0.95),
-                    Color.white
-                ],
+                colors: scheme == .light
+                    ? [
+                        Color(red: 0.92, green: 0.98, blue: 0.95),
+                        Color.white
+                      ]
+                    : [
+                        Color(red: 14/255, green: 22/255, blue: 18/255),
+                        Color(red: 10/255, green: 18/255, blue: 15/255)
+                      ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
             .ignoresSafeArea()
+
 
             VStack(spacing: 18) {
 
@@ -43,7 +50,11 @@ struct FinalOnboardingCTASlide: View {
                 // MARK: - Subheadline
                 Text(String(localized: "final_cta_subtitle"))
                     .font(.system(size: 15))
-                    .foregroundColor(.secondary)
+                    .foregroundColor(
+                        scheme == .light
+                        ? .secondary
+                        : .white.opacity(0.75)
+                    )
                     .multilineTextAlignment(.center)
 
                 Spacer()
@@ -59,6 +70,12 @@ struct FinalOnboardingCTASlide: View {
                         .background(Color.accentColor)
                         .foregroundColor(.white)
                         .cornerRadius(18)
+                        .shadow(
+                            color: Color.black.opacity(scheme == .light ? 0.15 : 0.45),
+                            radius: 12,
+                            y: 8
+                        )
+
                 }
 
                 // MARK: - Secondary CTA
@@ -67,7 +84,11 @@ struct FinalOnboardingCTASlide: View {
                 } label: {
                     Text(String(localized: "final_cta_see_plans"))
                         .font(.system(size: 15))
-                        .foregroundColor(.secondary)
+                        .foregroundColor(
+                            scheme == .light
+                            ? .secondary
+                            : .white.opacity(0.85)
+                        )
                         .padding(.top, 4)
                 }
 

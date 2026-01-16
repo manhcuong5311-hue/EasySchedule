@@ -11,19 +11,26 @@ import Combine
 
 struct ChatToPlanAISlide: View {
     let onNext: () -> Void
+    @Environment(\.colorScheme) private var scheme
 
     var body: some View {
         ZStack {
 
             LinearGradient(
-                colors: [
-                    Color.white,
-                    Color.accentColor.opacity(0.08)
-                ],
+                colors: scheme == .light
+                    ? [
+                        Color(.systemBackground),
+                        Color.accentColor.opacity(0.08)
+                      ]
+                    : [
+                        Color.onboardingDarkBackground,
+                        Color.onboardingDarkBackground.opacity(0.85)
+                      ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
             .ignoresSafeArea()
+
 
             VStack(spacing: 18) {
 
@@ -82,6 +89,12 @@ struct ChatToPlanAISlide: View {
                         .background(Color.accentColor)
                         .foregroundColor(.white)
                         .cornerRadius(18)
+                        .shadow(
+                            color: Color.black.opacity(scheme == .light ? 0.15 : 0.4),
+                            radius: 10,
+                            y: 6
+                        )
+
                 }
             }
             .padding(.horizontal, 24)
@@ -94,6 +107,7 @@ struct ChatToPlanAISlide: View {
 
 
 struct TodoUserBubble: View {
+    @Environment(\.colorScheme) private var scheme
 
     let text: String
     let x: CGFloat
@@ -112,15 +126,22 @@ struct TodoUserBubble: View {
         .padding(.vertical, 12)
         .background(
             RoundedRectangle(cornerRadius: 18)
-                .fill(Color.accentColor.opacity(0.12))
-        )
-        .shadow(color: .accentColor.opacity(0.25), radius: 12, y: 6)
+                .fill(
+                    Color.accentColor.opacity(scheme == .light ? 0.12 : 0.22)
+                )
+                .shadow(
+                    color: Color.accentColor.opacity(scheme == .light ? 0.25 : 0.45),
+                    radius: 12,
+                    y: 6
+                )
+)
         .offset(x: x, y: y)
     }
 }
 
 
 struct ChatUserBubble: View {
+    @Environment(\.colorScheme) private var scheme
 
     let tag: String
     let text: String
@@ -135,7 +156,14 @@ struct ChatUserBubble: View {
                 .font(.system(size: 12, weight: .semibold))
                 .padding(.horizontal, 10)
                 .padding(.vertical, 4)
-                .background(Color(.systemGray5))
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(
+                            scheme == .light
+                            ? Color(.systemGray5)
+                            : Color.onboardingDarkCard.opacity(0.8)
+                        )
+                )
                 .foregroundColor(.secondary)
                 .cornerRadius(8)
 
@@ -146,13 +174,27 @@ struct ChatUserBubble: View {
         .padding(14)
         .background(
             RoundedRectangle(cornerRadius: 18)
-                .fill(Color.white)
+                .fill(
+                    scheme == .light
+                    ? Color.white
+                    : Color.onboardingDarkCard
+                )
                 .overlay(
                     RoundedRectangle(cornerRadius: 18)
-                        .stroke(Color(.systemGray4))
+                        .stroke(
+                            scheme == .light
+                            ? Color(.systemGray4)
+                            : Color.white.opacity(0.06)
+                        )
                 )
+
         )
-        .shadow(color: .black.opacity(0.06), radius: 12, y: 6)
+        .shadow(
+            color: Color.black.opacity(scheme == .light ? 0.06 : 0.35),
+            radius: 12,
+            y: 6
+        )
+
         .offset(x: x, y: y)
     }
 

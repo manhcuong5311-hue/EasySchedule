@@ -205,5 +205,6 @@ struct OnboardingContainerView: View {
             .tag(OnboardingStep.cta)
         }
         .tabViewStyle(.page)
+        .ignoresSafeArea() // ← 🔴 BẮT BUỘC
     }
 }

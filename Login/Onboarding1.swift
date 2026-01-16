@@ -9,18 +9,31 @@ enum OnboardingStep: Int {
     case planning
     case cta
 }
+extension Color {
+    static let onboardingDarkBackground = Color(red: 14/255, green: 17/255, blue: 22/255)
+    static let onboardingDarkCard = Color(red: 28/255, green: 31/255, blue: 38/255)
+}
 
 struct OnboardingHeroSlide: View {
+    
     let onNext: () -> Void
+    
+    @Environment(\.colorScheme) private var scheme
+    
     var body: some View {
         ZStack {
 
             // MARK: - Background
             LinearGradient(
-                colors: [
-                    Color.white,
-                    Color.accentColor.opacity(0.08)
-                ],
+                colors: scheme == .light
+                    ? [
+                        Color(.systemBackground),
+                        Color.accentColor.opacity(0.08)
+                      ]
+                    : [
+                        Color.onboardingDarkBackground,
+                        Color.onboardingDarkBackground.opacity(0.85)
+                      ],
                 startPoint: .top,
                 endPoint: .bottom
             )
@@ -67,13 +80,18 @@ struct OnboardingHeroSlide: View {
 }
 
 struct CurvedHeader: View {
-
+    @Environment(\.colorScheme) private var scheme
     var body: some View {
         ZStack {
 
             // Curved background
             RoundedRectangle(cornerRadius: 40)
-                .fill(Color.white)
+                .fill(
+                    scheme == .light
+                    ? Color(.secondarySystemBackground)
+                    : Color.onboardingDarkCard
+                )
+
                 .frame(height: 260)
                 .offset(y: -80)
 
@@ -101,35 +119,57 @@ struct CurvedHeader: View {
                     .padding(.vertical, 8)
                     .background(
                         Capsule()
-                            .stroke(Color.accentColor, lineWidth: 1.5)
+                            .fill(
+                                scheme == .light
+                                ? Color(.secondarySystemBackground)
+                                : Color.onboardingDarkCard.opacity(0.85)
+                            )
+
+
+                    )
+                    .overlay(
+                        Capsule()
+                            .stroke(Color.accentColor.opacity(0.8), lineWidth: 1.5)
                     )
                     .foregroundColor(Color.accentColor)
+
             }
             .padding(.top, 40)
+            .offset(y: -40)
         }
     }
 }
 
 struct AvailabilityPhoneMock1: View {
-
+    @Environment(\.colorScheme) private var scheme
     var body: some View {
         ZStack {
 
             // Shadow
             RoundedRectangle(cornerRadius: 38)
-                .fill(Color.black.opacity(0.08))
+                .fill(Color.black.opacity(scheme == .light ? 0.08 : 0.3))
                 .blur(radius: 30)
                 .frame(width: 260, height: 520)
                 .offset(y: 20)
 
             // Phone body
             RoundedRectangle(cornerRadius: 38)
-                .fill(Color.black)
+                .fill(
+                    scheme == .light
+                    ? Color(.tertiarySystemFill)
+                    : Color(red: 22/255, green: 26/255, blue: 32/255)
+                )
+
                 .frame(width: 260, height: 520)
 
             // Screen
             RoundedRectangle(cornerRadius: 32)
-                .fill(Color(.systemBackground))
+                .fill(
+                    scheme == .light
+                    ? Color(.systemBackground)
+                    : Color(red: 18/255, green: 22/255, blue: 28/255)
+                )
+
                 .frame(width: 246, height: 506)
 
             // Fake UI content
@@ -141,7 +181,9 @@ struct AvailabilityPhoneMock1: View {
                     .font(.system(size: 15, weight: .medium))
                     .padding(.horizontal, 14)
                     .padding(.vertical, 8)
-                    .background(Color.accentColor.opacity(0.15))
+                    .background(
+                        Color.accentColor.opacity(scheme == .light ? 0.15 : 0.25)
+                    )
                     .cornerRadius(12)
 
                 Text(String(localized: "mock_updated_now"))

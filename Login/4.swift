@@ -10,19 +10,26 @@ import SwiftUI
 import Combine
 struct SmartPlanningAISlide: View {
     let onNext: () -> Void
+    @Environment(\.colorScheme) private var scheme
 
     var body: some View {
         ZStack {
 
             LinearGradient(
-                colors: [
-                    Color.white,
-                    Color.accentColor.opacity(0.08)
-                ],
+                colors: scheme == .light
+                    ? [
+                        Color(.systemBackground),
+                        Color.accentColor.opacity(0.08)
+                      ]
+                    : [
+                        Color.onboardingDarkBackground,
+                        Color.onboardingDarkBackground.opacity(0.85)
+                      ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
             .ignoresSafeArea()
+
 
             VStack(spacing: 18) {
 
@@ -57,7 +64,7 @@ struct SmartPlanningAISlide: View {
                         subtitle: String(localized: "feature_busy_hours_subtitle"),
                         color: .accentColor,
                         x: 60,
-                        y: -40
+                        y: 00
                     )
 
                     TimeFeatureCard(
@@ -75,7 +82,7 @@ struct SmartPlanningAISlide: View {
                         subtitle: String(localized: "feature_colors_subtitle"),
                         color: .purple,
                         x: 40,
-                        y: 90
+                        y: 120
                     )
 
                 }
@@ -94,6 +101,12 @@ struct SmartPlanningAISlide: View {
                         .background(Color.accentColor)
                         .foregroundColor(.white)
                         .cornerRadius(18)
+                        .shadow(
+                            color: Color.black.opacity(scheme == .light ? 0.15 : 0.4),
+                            radius: 10,
+                            y: 6
+                        )
+
                 }
             }
             .padding(.horizontal, 24)
@@ -104,6 +117,7 @@ struct SmartPlanningAISlide: View {
 
 
 struct ContextCard: View {
+    @Environment(\.colorScheme) private var scheme
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -124,14 +138,24 @@ struct ContextCard: View {
         .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 20)
-                .fill(Color.white)
-                .shadow(color: .black.opacity(0.06), radius: 16, y: 8)
+                .fill(
+                    scheme == .light
+                    ? Color.white
+                    : Color.onboardingDarkCard
+                )
+                .shadow(
+                    color: Color.black.opacity(scheme == .light ? 0.06 : 0.35),
+                    radius: 12,
+                    y: 6
+                )
+
         )
         .padding(.horizontal, 6)
     }
 }
 
 struct TimeFeatureCard: View {
+    @Environment(\.colorScheme) private var scheme
 
     let icon: String
     let title: String
@@ -145,7 +169,11 @@ struct TimeFeatureCard: View {
 
             Image(systemName: icon)
                 .font(.system(size: 22))
-                .foregroundColor(color)
+                .foregroundColor(
+                    scheme == .light
+                    ? color
+                    : color.opacity(0.85)
+                )
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
@@ -159,8 +187,17 @@ struct TimeFeatureCard: View {
         .padding(14)
         .background(
             RoundedRectangle(cornerRadius: 18)
-                .fill(Color.white)
-                .shadow(color: .black.opacity(0.06), radius: 12, y: 6)
+                .fill(
+                    scheme == .light
+                    ? Color.white
+                    : Color.onboardingDarkCard
+                )
+                .shadow(
+                    color: Color.black.opacity(scheme == .light ? 0.06 : 0.35),
+                    radius: 12,
+                    y: 6
+                )
+
         )
         .offset(x: x, y: y)
     }
@@ -168,6 +205,7 @@ struct TimeFeatureCard: View {
 
 
 struct OptionRow: View {
+    @Environment(\.colorScheme) private var scheme
 
     let title: String
     let options: [String]
@@ -199,9 +237,14 @@ struct OptionRow: View {
                         Capsule()
                             .fill(
                                 option == selected
-                                ? Color.accentColor.opacity(0.15)
-                                : Color(.systemGray6)
+                                ? Color.accentColor.opacity(scheme == .light ? 0.15 : 0.25)
+                                : (
+                                    scheme == .light
+                                    ? Color(.systemGray6)
+                                    : Color.onboardingDarkCard.opacity(0.8)
+                                  )
                             )
+
                     )
                     .overlay(
                         Capsule()

@@ -10,20 +10,29 @@ import SwiftUI
 import Combine
 
 struct AvailabilityFeatureSlide: View {
+    
     let onNext: () -> Void
+    @Environment(\.colorScheme) private var scheme
+
     var body: some View {
         ZStack {
 
             // Background giống TypeAI
             LinearGradient(
-                colors: [
-                    Color.white,
-                    Color.accentColor.opacity(0.06)
-                ],
+                colors: scheme == .light
+                    ? [
+                        Color(.systemBackground),
+                        Color.accentColor.opacity(0.08)
+                      ]
+                    : [
+                        Color.onboardingDarkBackground,
+                        Color.onboardingDarkBackground.opacity(0.85)
+                      ],
                 startPoint: .top,
                 endPoint: .bottom
             )
             .ignoresSafeArea()
+
 
             VStack(spacing: 16) {
 
@@ -58,8 +67,9 @@ struct AvailabilityFeatureSlide: View {
                         subtitle: String(localized: "availability_after_time"),
                         color: .green,
                         x: 70,
-                        y: 40
+                        y: 80   // ⬅️ trước là 40
                     )
+
 
                 }
                 .frame(height: 420)
@@ -77,6 +87,12 @@ struct AvailabilityFeatureSlide: View {
                         .background(Color.accentColor)
                         .foregroundColor(.white)
                         .cornerRadius(18)
+                        .shadow(
+                            color: Color.black.opacity(scheme == .light ? 0.15 : 0.4),
+                            radius: 10,
+                            y: 6
+                        )
+
                 }
 
             }
@@ -87,15 +103,24 @@ struct AvailabilityFeatureSlide: View {
 }
 
 struct AvailabilityPhoneMock2: View {
+    @Environment(\.colorScheme) private var scheme
 
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 38)
-                .fill(Color.black)
+                .fill(
+                    scheme == .light
+                    ? Color(.tertiarySystemFill)
+                    : Color(red: 22/255, green: 26/255, blue: 32/255)
+                )
                 .frame(width: 260, height: 520)
 
             RoundedRectangle(cornerRadius: 32)
-                .fill(Color(.systemBackground))
+                .fill(
+                    scheme == .light
+                    ? Color(.systemBackground)
+                    : Color(red: 18/255, green: 22/255, blue: 28/255)
+                )
                 .frame(width: 246, height: 506)
 
             VStack(spacing: 12) {
@@ -109,7 +134,9 @@ struct AvailabilityPhoneMock2: View {
                     .font(.system(size: 16, weight: .medium))
                     .padding(.horizontal, 14)
                     .padding(.vertical, 8)
-                    .background(Color.accentColor.opacity(0.15))
+                    .background(
+                        Color.accentColor.opacity(scheme == .light ? 0.15 : 0.25)
+                    )
                     .cornerRadius(12)
 
 
@@ -121,6 +148,7 @@ struct AvailabilityPhoneMock2: View {
 }
 
 struct FloatingAvailabilityBubble: View {
+    @Environment(\.colorScheme) private var scheme
 
     let title: String
     let subtitle: String
@@ -143,9 +171,19 @@ struct FloatingAvailabilityBubble: View {
         .padding(.vertical, 10)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(color)
+                .fill(
+                    scheme == .light
+                    ? color
+                    : color.opacity(0.85)
+                )
         )
-        .shadow(color: color.opacity(0.35), radius: 14, y: 8)
+
+        .shadow(
+            color: color.opacity(scheme == .light ? 0.35 : 0.55),
+            radius: 14,
+            y: 8
+        )
+
         .offset(x: x, y: y)
     }
 }
