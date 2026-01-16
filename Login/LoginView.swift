@@ -16,6 +16,7 @@ struct LoginView: View {
     @State private var showVerifyAlert = false
     @State private var isLoading = false
     @State private var showErrorAlert = false
+    @Environment(\.colorScheme) var colorScheme
 
     var body: some View {
         NavigationView {
@@ -35,21 +36,35 @@ struct LoginView: View {
                         text: $email
                     )
                     .keyboardType(.emailAddress)
-                    .autocapitalization(.none)
                     .textInputAutocapitalization(.never)
-                    .padding()
-                    .background(Color(.systemGray6))
-                    .cornerRadius(14)
+                    .autocorrectionDisabled(true)
+                    .padding(14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14)
+                            .fill(Color(.systemBackground))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14)
+                            .stroke(Color.secondary.opacity(0.35), lineWidth: 1)
+                    )
 
                     // PASSWORD
                     SecureField(
                         String(localized: "password_placeholder"),
                         text: $password
                     )
-                    .padding()
-                    .background(Color(.systemGray6))
-                    .cornerRadius(14)
-        HStack {
+                    .padding(14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14)
+                            .fill(Color(.systemBackground))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14)
+                            .stroke(Color.secondary.opacity(0.35), lineWidth: 1)
+                    )
+
+
+                HStack {
                         Button(action: resetPassword) {
                             Text(String(localized: "forgot_password"))
                                 .font(.footnote)
@@ -129,8 +144,14 @@ struct LoginView: View {
                         onRequest: configureAppleRequest,
                         onCompletion: handleAppleCompletion
                     )
-                    .signInWithAppleButtonStyle(.black)
+                    .signInWithAppleButtonStyle(
+                        colorScheme == .dark ? .white : .black
+                    )
                     .frame(height: 52)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(Color.primary.opacity(0.2), lineWidth: 1)
+                    )
                     .cornerRadius(16)
 
                     Spacer(minLength: 40)

@@ -509,6 +509,19 @@ struct ChatView: View {
                                     ) { _ in }
                                 }
                             }
+                            .contextMenu {
+                                if let address = addressCache[key] {
+                                    Button {
+                                        UIPasteboard.general.string = address
+                                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                    } label: {
+                                        Label(String(localized: "copy_address"),
+                                              systemImage: "doc.on.doc")
+                                    }
+                                }
+                            }
+
+
 
                         Button {
                             if let url = URL(string: "http://maps.apple.com/?ll=\(lat),\(lon)") {
@@ -544,6 +557,16 @@ struct ChatView: View {
                                         .stroke(style.border, lineWidth: 0.8)
                                 )
                         )
+                        .contextMenu {
+                            Button {
+                                UIPasteboard.general.string = msg.text
+                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            } label: {
+                                Label(String(localized: "copy"), systemImage: "doc.on.doc")
+                            }
+                        }
+
+
                 }
 
                 // 👁 Seen / Delivered

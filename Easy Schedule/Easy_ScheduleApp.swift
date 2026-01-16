@@ -90,11 +90,8 @@ extension Easy_scheduleApp {
                 }
 
         } else if !hasSeenOnboarding {
-            EnhancedOnboardingView()
+            OnboardingContainerView()
                 .preferredColorScheme(colorScheme)
-                .environmentObject(eventManager)
-
-
         } else {
             RootView()
                 .preferredColorScheme(colorScheme)
@@ -172,3 +169,42 @@ struct RootView: View {
     }
 }
 
+struct OnboardingContainerView: View {
+
+    @AppStorage("hasSeenOnboarding")
+    private var hasSeenOnboarding = false
+
+    @State private var step: OnboardingStep = .hero
+
+    var body: some View {
+        TabView(selection: $step) {
+
+            OnboardingHeroSlide(
+                onNext: { step = .availability }
+            )
+            .tag(OnboardingStep.hero)
+
+            AvailabilityFeatureSlide(
+                onNext: { step = .chat }
+            )
+            .tag(OnboardingStep.availability)
+
+            ChatToPlanAISlide(
+                onNext: { step = .planning }
+            )
+            .tag(OnboardingStep.chat)
+
+            SmartPlanningAISlide(
+                onNext: { step = .cta }
+            )
+            .tag(OnboardingStep.planning)
+
+            FinalOnboardingCTASlide(
+                hasSeenOnboarding: $hasSeenOnboarding
+            )
+            .tag(OnboardingStep.cta)
+        }
+        .tabViewStyle(.page)
+        .ignoresSafeArea() // ← 🔴 BẮT BUỘC
+    }
+}

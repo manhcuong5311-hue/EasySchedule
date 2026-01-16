@@ -295,7 +295,21 @@ struct PremiumUpgradeSheet: View {
             VStack(alignment: .leading, spacing: 12) {
 
                 // BEST VALUE badge for yearly
-                if product.id.contains("yearly") {
+                // MARK: - Trial / Best Value Badge (Apple-safe)
+                if let trial = trialText(for: product) {
+
+                    // ✅ Chỉ hiện khi Apple xác nhận có Free Trial
+                    Text(trial)
+                        .font(.caption2.bold())
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.green.opacity(0.2))
+                        .foregroundColor(.green)
+                        .cornerRadius(6)
+
+                } else if product.id.contains("yearly") {
+
+                    // Fallback: Best value (không nhắc trial)
                     Text(String(localized: "best_value_save"))
                         .font(.caption2.bold())
                         .padding(.horizontal, 8)
@@ -304,6 +318,7 @@ struct PremiumUpgradeSheet: View {
                         .foregroundColor(.green)
                         .cornerRadius(6)
                 }
+
 
                 HStack {
 
@@ -335,6 +350,47 @@ struct PremiumUpgradeSheet: View {
         .opacity(isLoading ? 0.4 : 1)
         .disabled(isLoading || currentTier == .pro)
     }
+    
+    // MARK: - Trial Helper (Apple-safe)
+    private func trialText(for product: Product) -> String? {
+
+        guard
+            let subscription = product.subscription,
+            let intro = subscription.introductoryOffer,
+            intro.paymentMode == .freeTrial
+        else {
+            return nil
+        }
+
+        let value = intro.period.value
+        let unit = intro.period.unit
+
+        switch unit {
+        case .day:
+            return String(
+                format: String(localized: "trial_days_format"),
+                value
+            )
+
+        case .week:
+            return String(
+                format: String(localized: "trial_days_format"),
+                value * 7
+            )
+
+        case .month:
+            return String(
+                format: String(localized: "trial_months_format"),
+                value
+            )
+
+        default:
+            return nil
+        }
+    }
+
+
+    
     @ViewBuilder
     func featureValue(_ row: FeatureRow, plan: PlanType) -> some View {
 
