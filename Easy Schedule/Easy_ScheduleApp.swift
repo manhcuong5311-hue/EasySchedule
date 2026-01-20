@@ -195,9 +195,15 @@ struct OnboardingContainerView: View {
             .tag(OnboardingStep.chat)
 
             SmartPlanningAISlide(
-                onNext: { step = .cta }
+                onNext: { step = .webBooking }   // ✅ FIX 1
             )
             .tag(OnboardingStep.planning)
+
+            // 🆕 WEB BOOKING SLIDE
+            OnboardingWebBookingSlide(
+                onNext: { step = .cta }           // ✅ FIX 2
+            )
+            .tag(OnboardingStep.webBooking)
 
             FinalOnboardingCTASlide(
                 hasSeenOnboarding: $hasSeenOnboarding
@@ -205,6 +211,6 @@ struct OnboardingContainerView: View {
             .tag(OnboardingStep.cta)
         }
         .tabViewStyle(.page)
-        .ignoresSafeArea() // ← 🔴 BẮT BUỘC
+        .ignoresSafeArea()
     }
 }
