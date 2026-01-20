@@ -107,7 +107,16 @@ struct EventListView: View {
 
             }
         }
-
+        .task {
+            await eventManager.loadUpcomingEvents()
+        }
+        .onChange(of: showPastEvents) {
+            if !showPastEvents {
+                Task {
+                    await eventManager.loadUpcomingEvents()
+                }
+            }
+        }
         .onAppear {
             eventManager.cleanUpPastEvents()
         }
@@ -249,6 +258,10 @@ struct EventListView: View {
             }
         }
         .listStyle(.insetGrouped)
+        .refreshable {
+            await eventManager.loadUpcomingEvents(force: true)
+        }
+
     }
 
     

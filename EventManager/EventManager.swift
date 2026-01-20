@@ -74,6 +74,11 @@ final class EventManager: ObservableObject {
     // --- Persisted user name cache key
     private let kUserNamesKey = "es_userNames_cache_v1"
     private var lastEventCreateTime: Date?
+    
+    private var lastUpcomingFetch: Date?
+    private let upcomingTTL: TimeInterval = 300 // 5 phút
+
+    
     @Published var selectedChatEventId: String?
     @Published var selectedEventId: String?
 
@@ -130,7 +135,6 @@ final class EventManager: ObservableObject {
         loadSharedLinks()
         loadPersistedUserNames()
         updateGroupedEvents()
-        listenToEvents()
         retryPendingDeletes()
       
     }
@@ -211,6 +215,37 @@ final class EventManager: ObservableObject {
         guard let uid = currentUserId else { return }
         print("🔄 Reloading events for user:", uid)
         listenToEvents()        // 🔥 CHỈ CẦN DÒNG NÀY
+    }
+    @MainActor
+    func loadUpcomingEvents(force: Bool = false) async {
+        guard let uid = currentUserId else { return }
+
+        if !force,
+           let last = lastUpcomingFetch,
+           Date().timeIntervalSince(last) < upcomingTTL {
+            return // dùng cache
+        }
+
+        do {
+            let snapshot = try await db.collection("events")
+                .whereField("participants", arrayContains: uid)
+                .getDocuments()
+
+            let now = Date()
+
+            let fetched = snapshot.documents
+                .compactMap { CalendarEvent.from($0) }
+                .filter { $0.endTime >= now }
+                .sorted { $0.startTime < $1.startTime }
+
+            self.events = fetched
+            self.saveEvents()
+            self.updateGroupedEvents()
+            self.lastUpcomingFetch = Date()
+
+        } catch {
+            print("❌ loadUpcomingEvents failed:", error)
+        }
     }
 
     
@@ -1559,8 +1594,6 @@ extension EventManager {
 
         self.currentUserId = uid
 
-        // 🔥 BẮT BUỘC
-        listenToEvents()
     }
 
 
