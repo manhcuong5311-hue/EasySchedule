@@ -23,6 +23,7 @@ struct EventListView: View {
     @State private var collapsedDays: Set<Date> = []
     @State private var unreadCountForDay: Int = 0
     @EnvironmentObject var guideManager: GuideManager
+    @State private var userPinnedDays: Set<Date> = []
 
 
     // Lưu cấu hình hiển thị (AppStorage để giữ xuyên các lần chạy app)
@@ -183,19 +184,6 @@ struct EventListView: View {
 
     // MARK: - Lịch hiện tại (gộp theo Tháng → Tuần → Ngày)
     private var upcomingEventsList: some View {
-
-        func formattedMonth(_ date: Date) -> String {
-            date.formatted(.dateTime.month(.wide).year())
-        }
-
-        func formattedMediumDate(_ date: Date) -> String {
-            date.formatted(date: .numeric, time: .omitted)
-        }
-
-        func formattedTime(_ date: Date) -> String {
-            date.formatted(date: .omitted, time: .shortened)
-        }
-
         let groupedByMonth = EventGrouping.byMonth(eventManager.events)
         let sortedMonths = groupedByMonth.keys.sorted()
 
@@ -204,56 +192,11 @@ struct EventListView: View {
                 Text(String(localized: "no_upcoming_events"))
                     .foregroundColor(.secondary)
             } else {
-
                 ForEach(sortedMonths, id: \.self) { monthDate in
-                    let monthEvents = groupedByMonth[monthDate] ?? []
-
-                    Section(header:
-                        HStack {
-                            Text(formattedMonth(monthDate))
-                                .font(.headline)
-                            Spacer()
-                            let template = String(localized: "number_of_events_month")
-                            Text(template.replacingOccurrences(of: "{count}", with: "\(monthEvents.count)"))
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                        }
-                    ) {
-
-                        let groupedByWeek = EventGrouping.byWeek(monthEvents)
-                        let sortedWeeks = groupedByWeek.keys.sorted()
-
-                        ForEach(sortedWeeks, id: \.self) { week in
-                            let weekEvents = groupedByWeek[week] ?? []
-                            let weekPrefix = String(localized: "week_prefix")
-
-                            Section(header:
-                                Text("\(weekPrefix) \(week)")
-                                    .font(.subheadline.bold())
-                                    .foregroundColor(.secondary)
-                            ) {
-
-                                let groupedByDay = EventGrouping.byDay(weekEvents)
-                                let sortedDays = groupedByDay.keys.sorted()
-
-                                ForEach(sortedDays, id: \.self) { day in
-                                    DaySectionView(
-                                        day: day,
-                                        dayEvents: groupedByDay[day] ?? [],
-                                        collapsedDays: $collapsedDays,
-                                        showOwnerLabel: showOwnerLabel,
-                                        timeFontSize: timeFontSize,
-                                        timeColorHex: timeColorHex,
-                                        session: session,
-                                        eventManager: eventManager,
-                                        onDelete: deleteUpcomingEvent,
-                                        showDeleteConfirmation: showDeleteConfirmation
-                                    )
-                                }
-
-                            }
-                        }
-                    }
+                    monthSection(
+                        monthDate: monthDate,
+                        events: groupedByMonth[monthDate] ?? []
+                    )
                 }
             }
         }
@@ -261,10 +204,105 @@ struct EventListView: View {
         .refreshable {
             await eventManager.loadUpcomingEvents(force: true)
         }
-
+        .onPreferenceChange(DayPositionKey.self) { positions in
+            handleAutoCollapse(positions: positions)
+        }
     }
 
-    
+
+    private func events(for day: Date) -> [CalendarEvent] {
+        let calendar = Calendar.current
+        return eventManager.events.filter {
+            calendar.isDate($0.startTime, inSameDayAs: day)
+        }
+    }
+    private func monthSection(
+        monthDate: Date,
+        events: [CalendarEvent]
+    ) -> some View {
+        let groupedByWeek = EventGrouping.byWeek(events)
+        let sortedWeeks = groupedByWeek.keys.sorted()
+
+        return Section(header: monthHeader(monthDate, count: events.count)) {
+            ForEach(sortedWeeks, id: \.self) { week in
+                weekSection(
+                    week: week,
+                    events: groupedByWeek[week] ?? []
+                )
+            }
+        }
+    }
+
+    private func weekSection(
+        week: Int,
+        events: [CalendarEvent]
+    ) -> some View {
+        let groupedByDay = EventGrouping.byDay(events)
+        let sortedDays = groupedByDay.keys.sorted()
+
+        return Section(header: weekHeader(week)) {
+            ForEach(sortedDays, id: \.self) { day in
+                DaySectionView(
+                    day: day,
+                    dayEvents: groupedByDay[day] ?? [],
+                    collapsedDays: $collapsedDays,
+                    showOwnerLabel: showOwnerLabel,
+                    timeFontSize: timeFontSize,
+                    timeColorHex: timeColorHex,
+                    session: session,
+                    eventManager: eventManager,
+                    onDelete: deleteUpcomingEvent,
+                    showDeleteConfirmation: showDeleteConfirmation,
+                    userPinnedDays: $userPinnedDays
+                )
+
+            }
+        }
+    }
+
+    private func monthHeader(_ date: Date, count: Int) -> some View {
+        HStack {
+            Text(date.formatted(.dateTime.month(.wide).year()))
+                .font(.headline)
+            Spacer()
+            let template = String(localized: "number_of_events_month")
+            Text(template.replacingOccurrences(of: "{count}", with: "\(count)"))
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+        }
+    }
+
+    private func weekHeader(_ week: Int) -> some View {
+        let prefix = String(localized: "week_prefix")
+        return Text("\(prefix) \(week)")
+            .font(.subheadline.bold())
+            .foregroundColor(.secondary)
+    }
+
+    private func handleAutoCollapse(positions: [Date: CGFloat]) {
+        let threshold: CGFloat = 80
+
+        for (day, y) in positions {
+            guard y < threshold else { continue }
+            guard !Calendar.current.isDateInToday(day) else { continue }
+            guard !userPinnedDays.contains(day) else { continue }
+            guard !unreadDays.contains(day) else { continue }
+
+            collapsedDays.insert(day)
+        }
+    }
+
+
+    private var unreadDays: Set<Date> {
+        let calendar = Calendar.current
+        return Set(
+            eventManager.events
+                .filter { eventManager.chatMeta(for: $0.id).unread }
+                .map { calendar.startOfDay(for: $0.startTime) }
+        )
+    }
+
+
     private func formattedDayHeader(_ date: Date) -> String {
         date.formatted(.dateTime.weekday(.wide).day())
     }
@@ -366,47 +404,58 @@ struct EventListView: View {
     }
    
     // MARK: - Hàng hiển thị sự kiện
-    private func eventRow(_ event: CalendarEvent) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+  
+    
+    private func safeDisplayName(for event: CalendarEvent, uid: String) -> String {
+        let name = displayName(
+            for: event,
+            uid: uid,
+            eventManager: eventManager
+        )
 
-            // ⭐ Tiêu đề
-            Text(event.title)
-                .font(.headline)
+        if name == uid || name.isEmpty {
+            return String(localized: "someone")
+        }
 
-            // ⭐ Hàng thông tin người tạo + ngày
-            HStack(spacing: 4) {
+        return name
+    }
+    
+    private func metadataAttributedText(for event: CalendarEvent) -> AttributedString {
+        var result = AttributedString("")
 
-                if showOwnerLabel {
-                    if event.origin == .iCreatedForOther {
-                        HStack(spacing: 4) {
-                            UserNameView(uid: event.createdBy)
-                            Text("→")
-                            UserNameView(uid: event.owner)
-                        }
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                    } else {
-                        Text(displayName(for: event, uid: event.createdBy, eventManager: eventManager))
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                    }
-                }
+        // ⏰ TIME
+        var time = AttributedString(
+            "\(formattedTime(event.startTime))–\(formattedTime(event.endTime))"
+        )
+        time.font = .system(size: CGFloat(timeFontSize))
+        time.foregroundColor = Color(hex: timeColorHex)
 
-                Text(String(localized: "bullet_separator"))
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
+        result += time
 
-                Text(formattedDate(event.date))
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
+        // 👤 OWNER
+        if showOwnerLabel {
+            var ownerText = AttributedString(" · ")
+
+            if event.origin == .iCreatedForOther {
+                let ownerName = safeDisplayName(for: event, uid: event.owner)
+                ownerText += AttributedString(
+                    String(
+                        format: String(localized: "created_for_format"),
+                        ownerName
+                    )
+                )
+            } else {
+                let name = safeDisplayName(for: event, uid: event.createdBy)
+                ownerText += AttributedString(name)
             }
 
-            // ⭐ Thời gian
-            Text("\(formattedTime(event.startTime)) - \(formattedTime(event.endTime))")
-                .font(.system(size: CGFloat(timeFontSize), weight: .regular))
-                .foregroundColor(Color(hex: timeColorHex))
+            ownerText.font = .system(size: max(12, CGFloat(timeFontSize)))
+            ownerText.foregroundColor = .secondary
+
+            result += ownerText
         }
-        .padding(.vertical, 4)
+
+        return result
     }
 
     // MARK: - Xoá sự kiện hiện tại
@@ -431,6 +480,7 @@ private struct DaySectionView: View {
     let day: Date
     let dayEvents: [CalendarEvent]
     @State private var unreadCountForDay: Int = 0
+    @State private var unreadMap: [String: Bool] = [:]
 
     @Binding var collapsedDays: Set<Date>
 
@@ -444,10 +494,25 @@ private struct DaySectionView: View {
     let onDelete: (IndexSet) -> Void
     let showDeleteConfirmation: (CalendarEvent) -> Void
 
+    @State private var userInteracted = false
+    @Binding var userPinnedDays: Set<Date>
+
+
     private var isCollapsed: Bool {
         collapsedDays.contains(day)
     }
+    private var timeRailWidth: CGFloat {
+        // base 44, tăng dần theo font size
+        let base: CGFloat = 44
+        let extra = max(0, CGFloat(timeFontSize) - 13) * 1.2
+        return base + extra
+    }
 
+    private var isAfterToday: Bool {
+        let calendar = Calendar.current
+        return calendar.startOfDay(for: day) >
+               calendar.startOfDay(for: Date())
+    }
 
 
     var body: some View {
@@ -457,14 +522,21 @@ private struct DaySectionView: View {
                     eventRow(event)
                 }
                 .onDelete(perform: onDelete)
+
             }
         }
         .onAppear {
-            updateUnreadCount()   // ⭐ BƯỚC 3.1
+            autoCollapseIfNeeded()
+            updateUnreadCount()
         }
+
         .onChange(of: dayEvents) {
             updateUnreadCount()
         }
+        .onChange(of: unreadCountForDay) { _, newValue in
+            autoExpandIfNeeded(unreadCount: newValue)
+        }
+
 
     }
 
@@ -472,22 +544,46 @@ private struct DaySectionView: View {
 private extension DaySectionView {
 
     func updateUnreadCount() {
-        let count = dayEvents.filter { event in
-            eventManager.chatMeta(for: event.id).unread
-        }.count
+        var count = 0
+        var map: [String: Bool] = [:]
 
-        // ⚠️ BẮT BUỘC dùng async để tránh update trong render
-        DispatchQueue.main.async {
+        for event in dayEvents {
+            let unread = eventManager.chatMeta(for: event.id).unread
+            map[event.id] = unread
+            if unread { count += 1 }
+        }
+
+        if unreadCountForDay != count || unreadMap != map {
             unreadCountForDay = count
+            unreadMap = map
+        }
+
+    }
+    private func autoCollapseIfNeeded() {
+        guard !collapsedDays.contains(day) else { return }
+        guard !userPinnedDays.contains(day) else { return }   // ⭐ THÊM DÒNG NÀY
+
+        if isAfterToday {
+            collapsedDays.insert(day)
         }
     }
+
+    private func autoExpandIfNeeded(unreadCount: Int) {
+        guard unreadCount > 0 else { return }
+        guard isCollapsed else { return }
+        guard !userInteracted else { return }
+
+        _ = withAnimation(.easeInOut(duration: 0.25)) {
+            collapsedDays.remove(day)
+        }
+    }
+
 }
 
 private extension DaySectionView {
 
     var headerView: some View {
         HStack(spacing: 8) {
-
             Text(day.formatted(.dateTime.weekday(.wide).day()))
                 .font(.headline)
 
@@ -513,85 +609,162 @@ private extension DaySectionView {
             }
             .buttonStyle(.plain)
         }
-        .contentShape(Rectangle())
+        .background(
+            GeometryReader { geo in
+                Color.clear
+                    .preference(
+                        key: DayPositionKey.self,
+                        value: [day: geo.frame(in: .global).minY]
+                    )
+            }
+        )
     }
 
+
     func toggle() {
-        if isCollapsed {
+        userInteracted = true
+
+        if collapsedDays.contains(day) {
             collapsedDays.remove(day)
+            userPinnedDays.insert(day)     // ⭐ user mở → pin
         } else {
             collapsedDays.insert(day)
+            userPinnedDays.remove(day)     // ⭐ user đóng → bỏ pin
         }
     }
+
+
 }
 private extension DaySectionView {
 
     func eventRow(_ event: CalendarEvent) -> some View {
-        HStack(alignment: .top, spacing: 8) {
+        let isMyEvent = event.createdBy == event.owner
+        let showChat = !isMyEvent
+        let hasUnread = unreadMap[event.id] ?? false
 
+        return HStack(alignment: .top, spacing: 12) {
+
+            // 1️⃣ TIME RAIL
+            Text(event.startTime.formatted(date: .omitted, time: .shortened))
+                .font(.system(size: CGFloat(timeFontSize), design: .monospaced))
+                .foregroundColor(.secondary)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
+                .frame(width: timeRailWidth, alignment: .trailing)
+                .padding(.top, 4)
+
+
+
+            // 2️⃣ DOT
             Circle()
                 .fill(Color(hex: event.colorHex.isEmpty ? "#FF0000" : event.colorHex))
-                .frame(width: 12, height: 12)
+                .frame(width: 10, height: 10)
+                .padding(.top, 8)
 
+            // 3️⃣ CONTENT
             VStack(alignment: .leading, spacing: 4) {
                 Text(event.title)
                     .font(.headline)
 
-                if showOwnerLabel {
-                    Text(event.originLabel)
-                        .font(.caption)
-                        .foregroundColor(.blue)
-                }
+                timeText(for: event)
 
-                if showOwnerLabel {
-                    if event.origin == .iCreatedForOther {
-                        HStack(spacing: 4) {
-                            UserNameView(uid: event.createdBy)
-                            Text("→")
-                            UserNameView(uid: event.owner)
-                        }
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                    } else {
-                        Text(displayName(
-                            for: event,
-                            uid: event.createdBy,
-                            eventManager: eventManager
-                        ))
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
+                if showOwnerLabel && !isMyEvent {
+                    HStack(spacing: 6) {
+                        Text("You")
+                        Image(systemName: "arrow.right")
+                            .font(.caption)
+                        Text(
+                            displayName(
+                                for: event,
+                                uid: event.owner,
+                                eventManager: eventManager
+                            )
+                        )
                     }
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .padding(.top, 2)
                 }
-
-                Text(
-                    "\(event.startTime.formatted(date: .omitted, time: .shortened)) - " +
-                    "\(event.endTime.formatted(date: .omitted, time: .shortened))"
-                )
-                .font(.system(size: CGFloat(timeFontSize)))
-                .foregroundColor(Color(hex: timeColorHex))
             }
 
-            Spacer()
+            Spacer(minLength: 8)
 
-            if event.createdBy != event.owner {
+            // 4️⃣ CHAT BADGE (BÊN PHẢI)
+            if showChat {
                 ChatButtonWithBadge(
                     event: event,
                     otherUserId: event.createdBy == session.currentUserId
                         ? event.owner
                         : event.createdBy
                 )
+                .opacity(hasUnread ? 1.0 : 0.35)
+                .animation(.easeInOut(duration: 0.2), value: hasUnread)
+                .padding(.top, 6)
             }
         }
-        .padding(.vertical, 4)
-        .contentShape(Rectangle())
-        .swipeActions {
-            Button(role: .destructive) {
-                showDeleteConfirmation(event)
-            } label: {
-                Label(String(localized: "delete"), systemImage: "trash")
-            }
-        }
+        .padding(.vertical, 6)
     }
+
+
+   
+
+
+    func timeText(for event: CalendarEvent) -> some View {
+        Text(
+            "\(event.startTime.formatted(date: .omitted, time: .shortened))" +
+            "–" +
+            "\(event.endTime.formatted(date: .omitted, time: .shortened))"
+        )
+        .font(.system(size: CGFloat(timeFontSize)))
+        .foregroundColor(Color(hex: timeColorHex))
+    }
+
+    func metadataAttributedText(for event: CalendarEvent) -> AttributedString {
+        var result = AttributedString("")
+
+        // ⏰ TIME
+        var time = AttributedString(
+            "\(event.startTime.formatted(date: .omitted, time: .shortened))" +
+            "–" +
+            "\(event.endTime.formatted(date: .omitted, time: .shortened))"
+        )
+        time.font = .system(size: CGFloat(timeFontSize))
+        time.foregroundColor = Color(hex: timeColorHex)
+
+        result += time
+
+        // 👤 OWNER
+        if showOwnerLabel {
+            var ownerText = AttributedString(" · ")
+
+            if event.origin == .iCreatedForOther {
+                let ownerName = displayName(
+                    for: event,
+                    uid: event.owner,
+                    eventManager: eventManager
+                )
+                ownerText += AttributedString("You → \(ownerName)")
+            } else {
+                let name = displayName(
+                    for: event,
+                    uid: event.createdBy,
+                    eventManager: eventManager
+                )
+                ownerText += AttributedString(name)
+            }
+
+            ownerText.font = .caption
+            ownerText.foregroundColor = .secondary
+
+            result += ownerText
+        }
+
+        return result
+    }
+
+    
+    
+    
 }
 
 
@@ -610,3 +783,13 @@ struct UserNameView: View {
     }
 }
 
+struct DayPositionKey: PreferenceKey {
+    static var defaultValue: [Date: CGFloat] = [:]
+
+    static func reduce(
+        value: inout [Date: CGFloat],
+        nextValue: () -> [Date: CGFloat]
+    ) {
+        value.merge(nextValue(), uniquingKeysWith: { $1 })
+    }
+}

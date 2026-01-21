@@ -179,32 +179,37 @@ struct OnboardingContainerView: View {
     var body: some View {
         TabView(selection: $step) {
 
+            // 1️⃣ HERO
             OnboardingHeroSlide(
-                onNext: { step = .availability }
+                onNext: { step = .webBooking }   // 👉 đi thẳng sang Web Booking
             )
             .tag(OnboardingStep.hero)
 
+            // 2️⃣ WEB BOOKING (đưa lên đây)
+            OnboardingWebBookingSlide(
+                onNext: { step = .availability }
+            )
+            .tag(OnboardingStep.webBooking)
+
+            // 3️⃣ AVAILABILITY
             AvailabilityFeatureSlide(
                 onNext: { step = .chat }
             )
             .tag(OnboardingStep.availability)
 
+            // 4️⃣ CHAT AI
             ChatToPlanAISlide(
                 onNext: { step = .planning }
             )
             .tag(OnboardingStep.chat)
 
+            // 5️⃣ SMART PLANNING AI
             SmartPlanningAISlide(
-                onNext: { step = .webBooking }   // ✅ FIX 1
+                onNext: { step = .cta }
             )
             .tag(OnboardingStep.planning)
 
-            // 🆕 WEB BOOKING SLIDE
-            OnboardingWebBookingSlide(
-                onNext: { step = .cta }           // ✅ FIX 2
-            )
-            .tag(OnboardingStep.webBooking)
-
+            // 6️⃣ CTA
             FinalOnboardingCTASlide(
                 hasSeenOnboarding: $hasSeenOnboarding
             )

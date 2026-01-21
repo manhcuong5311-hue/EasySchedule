@@ -437,21 +437,21 @@ struct CustomizableCalendarView: View {
 
     private func handleDateChange(_ newDate: Date?) {
         guard let date = newDate else { return }
-        guard let uid = eventManager.currentUserId else {
-            localBusyIntervals = []
-            return
-        }
 
-        // 1️⃣ Busy do EVENT (read-only)
+        // 1️⃣ Event busy
         eventBusyIntervals = eventManager.events(for: date)
             .map { ($0.startTime, $0.endTime) }
 
-        // 2️⃣ Busy HOURS — CHỈ MANUAL
+        // 2️⃣ Manual busy – OWNER (NGUỒN CHUẨN)
         localBusyIntervals =
-            eventManager.partnerBusySlots[uid]?
-                .filter { $0.colorHex == "#FFA500" }   // manual only
-                .map { ($0.startTime, $0.endTime) } ?? []
+            eventManager.myManualBusySlots
+                .filter {
+                    Calendar.current.isDate($0.startTime, inSameDayAs: date)
+                }
+                .map { ($0.startTime, $0.endTime) }
     }
+
+
 
 
 

@@ -81,6 +81,7 @@ final class EventManager: ObservableObject {
     
     @Published var selectedChatEventId: String?
     @Published var selectedEventId: String?
+    @Published var myManualBusySlots: [CalendarEvent] = []
 
     // persisted + in-memory cache
     @Published var userNames: [String: String] = [:] {
@@ -800,25 +801,33 @@ extension EventManager {
 
         let ref = db.collection("events").document(newEvent.id)
 
-    do {
-            try ref.setData(from: newEvent) { err in
+        do {
+               try ref.setData(from: newEvent) { err in
+                   if let err = err {
+                       print("❌ Firestore error:", err.localizedDescription)
+                       self.alertMessage = String(localized: "network_error_try_again.")
+                       self.showAlert = true
+                       return
+                   }
 
-                if let err = err {
-                    print("❌ Firestore error:", err.localizedDescription)
-                    self.alertMessage = String(localized:"network_error_try_again.")
-                    self.showAlert = true
-                    return
-                }
-                NotificationManager.shared.scheduleNotification(for: newEvent)
-                self.syncBusySlots(for: newEvent)
-            }
-        } catch {
-            print("❌ Encode error:", error)
-            return false
-        }
+                   // ✅✅✅ OPTIMISTIC LOCAL UPDATE (CỐT LÕI FIX)
+                   DispatchQueue.main.async {
+                       self.events.append(newEvent)
+                       self.saveEvents()
+                       self.updateGroupedEvents()
+                   }
 
-        return true
-    }
+                   // Side effects
+                   NotificationManager.shared.scheduleNotification(for: newEvent)
+                   self.syncBusySlots(for: newEvent)
+               }
+           } catch {
+               print("❌ Encode error:", error)
+               return false
+           }
+
+           return true
+       }
 
 
 
@@ -1436,6 +1445,50 @@ extension EventManager {
                 }
             }
     }
+    func loadMyManualBusySlots() {
+        guard let uid = currentUserId else { return }
+
+        db.collection("publicCalendar")
+            .document(uid)
+            .getDocument { snap, _ in
+                guard let data = snap?.data() else { return }
+
+                let raw = data["busySlots"] as? [[String: Any]] ?? []
+                let now = Date()
+
+                let slots: [CalendarEvent] = raw.compactMap { dict in
+                    guard
+                        dict["source"] as? String == "manual",
+                        let start = dict["start"] as? TimeInterval,
+                        let end   = dict["end"]   as? TimeInterval
+                    else { return nil }
+
+                    let s = Date(timeIntervalSince1970: start)
+                    let e = Date(timeIntervalSince1970: end)
+
+                    guard e > now else { return nil }
+
+                    return CalendarEvent(
+                        id: dict["id"] as? String ?? UUID().uuidString,
+                        title: String(localized: "busy"),
+                        date: Calendar.current.startOfDay(for: s),
+                        startTime: s,
+                        endTime: e,
+                        owner: uid,
+                        sharedUser: uid,
+                        createdBy: uid,
+                        participants: [uid],
+                        colorHex: "#FFA500",
+                        pendingDelete: false,
+                        origin: .busySlot
+                    )
+                }
+
+                DispatchQueue.main.async {
+                    self.myManualBusySlots = slots
+                }
+            }
+    }
 
     func clearLocalEvents() {
         // 1️⃣ Remove ALL event listeners
@@ -1590,11 +1643,17 @@ extension EventManager {
 
     func configureForUser(uid: String) {
         guard configuredUid != uid else { return }
-        configuredUid = uid
 
+        configuredUid = uid
         self.currentUserId = uid
 
+        // 🔥 LOAD MANUAL BUSY HOURS CỦA OWNER
+        loadMyManualBusySlots()
+
+        // (tuỳ chọn nhưng nên có)
+        listenToEvents()
     }
+
 
 
   
