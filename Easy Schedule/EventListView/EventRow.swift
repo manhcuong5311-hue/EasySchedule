@@ -5,7 +5,7 @@ struct EventRowView: View {
     let event: CalendarEvent
     let showOwnerLabel: Bool
     let timeFontSize: Double
-    let timeColorHex: String
+   
 
     @Binding var expandedEvents: Set<String>
 
@@ -23,7 +23,38 @@ struct EventRowView: View {
     private var isExpanded: Bool {
         expandedEvents.contains(event.id)
     }
+//NEWWW
+    
+    @EnvironmentObject var uiAccent: UIAccentStore
 
+    
+    
+    
+    
+    
+    let timeDisplayMode: EventTimeDisplayMode
+
+    
+    private var timeLabel: String {
+        let duration = Int(event.endTime.timeIntervalSince(event.startTime) / 60)
+
+        switch timeDisplayMode {
+        case .startTime:
+            return event.startTime.formatted(date: .omitted, time: .shortened)
+
+        case .timeRange:
+            let s = event.startTime.formatted(date: .omitted, time: .shortened)
+            let e = event.endTime.formatted(date: .omitted, time: .shortened)
+            return "\(s)–\(e)"
+
+        case .duration:
+            return duration >= 60
+                ? "\(duration / 60)h \(duration % 60)m"
+                : "\(duration) min"
+        }
+    }
+
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
 
@@ -42,10 +73,20 @@ struct EventRowView: View {
                         .font(.headline)
 
                     if showOwnerLabel && !isMyEvent {
-                        Text(eventManager.displayName(for: event.owner))
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
+                        HStack(spacing: 6) {
+
+                            Text(ownerLabelText)
+                                .font(.subheadline)              // ⬅️ tăng size
+                                .foregroundColor(.secondary)
+
+                            Text(eventManager.displayName(for: ownerDisplayUID))
+                                .font(.subheadline)              // ⬅️ đồng cấp
+                                .fontWeight(.medium)             // ⬅️ nhấn nhẹ
+                                .foregroundColor(.secondary)
+                        }
                     }
+
+
                 }
 
                 Spacer()
@@ -140,24 +181,34 @@ struct EventRowView: View {
     }
 
     private var timeText: some View {
-        let minutes = Int(event.endTime.timeIntervalSince(event.startTime) / 60)
+        let duration = Int(event.endTime.timeIntervalSince(event.startTime) / 60)
 
         return VStack(alignment: .leading, spacing: 2) {
-            Text(event.startTime.formatted(date: .omitted, time: .shortened))
-                .font(.system(size: CGFloat(timeFontSize), weight: .semibold, design: .monospaced))
-                .foregroundColor(Color(hex: timeColorHex))
 
-            Text("\(minutes) min")
-                .font(.caption2)
-                .foregroundColor(.secondary)
+            Text(timeLabel)   // ⭐ DÙNG KẾT QUẢ SWITCH
+                .font(
+                    .system(
+                        size: CGFloat(timeFontSize),
+                        weight: .semibold,
+                        design: .monospaced
+                    )
+                )
+                .foregroundColor(uiAccent.color)
+            // 👉 Chỉ show phụ khi KHÔNG phải duration
+            if timeDisplayMode != .duration {
+                Text("\(duration) min")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
         }
         .padding(.leading, 8)
         .overlay(alignment: .leading) {
             Rectangle()
-                .fill(Color(hex: timeColorHex))
+                .fill(uiAccent.color)
                 .frame(width: 2)
         }
     }
+
     
     
     private var cardBackground: Color {
@@ -182,23 +233,30 @@ struct EventRowView: View {
     }
 
 
-    private var cardShadow: (color: Color, radius: CGFloat, y: CGFloat) {
-        if colorScheme == .dark {
-            return (Color.white.opacity(0.08), 12, 6)
-        } else {
-            return (Color.black.opacity(0.08), 8, 4)
+    
+    
+    
+    
+    
+    private var ownerLabelText: String {
+        switch event.origin {
+        case .iCreatedForOther:
+            return "Assigned to:"
+        default:
+            return "Created by:"
         }
     }
 
-    
-    
-    
-    
-    
-    
-    
-    
-    
+    private var ownerDisplayUID: String {
+        switch event.origin {
+        case .iCreatedForOther:
+            return event.owner          // người được assign
+        default:
+            return event.createdBy      // người tạo event
+        }
+    }
+
+
     
     
     

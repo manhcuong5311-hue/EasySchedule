@@ -14,7 +14,13 @@ struct MonthHeaderPositionKey: PreferenceKey {
 struct BigDateHeaderView: View {
     let date: Date
     @Environment(\.colorScheme) private var colorScheme
-
+    @EnvironmentObject var uiAccent: UIAccentStore
+    
+    
+    
+    
+    
+    
     private var dayFormatter: DateFormatter {
         let f = DateFormatter()
         f.dateFormat = "d MMMM"
@@ -33,40 +39,80 @@ struct BigDateHeaderView: View {
             Text(dayFormatter.string(from: date))
                 .font(.system(size: 34, weight: .bold))
                 .foregroundColor(.primary)
+                .adaptiveTextOutline(
+                    isDark: colorScheme == .dark,
+                    lightOpacity: 0.25,
+                    darkOpacity: 0.35
+                )
                 .shadow(
-                    color: Color.primary.opacity(
-                        colorScheme == .dark ? 0.25 : 0.12
-                    ),
+                    color: colorScheme == .dark
+                        ? Color.white.opacity(0.15)
+                        : Color.black.opacity(0.12),
                     radius: 1.5,
                     y: 1
                 )
+
 
             Text(yearFormatter.string(from: date))
                 .font(.system(size: 34, weight: .bold))
-                .foregroundColor(.orange)
+                .foregroundColor(uiAccent.color)
+
+                .adaptiveTextOutline(
+                    isDark: colorScheme == .dark,
+                    lightOpacity: 0.18,
+                    darkOpacity: 0.3
+                )
                 .shadow(
-                    color: Color.primary.opacity(
-                        colorScheme == .dark ? 0.18 : 0.1
-                    ),
+                    color: colorScheme == .dark
+                        ? Color.white.opacity(0.12)
+                        : Color.black.opacity(0.1),
                     radius: 1.5,
                     y: 1
                 )
 
+
+
             Image(systemName: "chevron.right")
                 .font(.system(size: 22, weight: .semibold))
-                .foregroundColor(.orange)
+                .foregroundColor(uiAccent.color)
+                .adaptiveTextOutline(
+                    isDark: colorScheme == .dark,
+                    lightOpacity: 0.15,
+                    darkOpacity: 0.25
+                )
                 .shadow(
-                    color: Color.primary.opacity(
-                        colorScheme == .dark ? 0.15 : 0.08
-                    ),
+                    color: colorScheme == .dark
+                        ? Color.white.opacity(0.1)
+                        : Color.black.opacity(0.08),
                     radius: 1,
                     y: 1
                 )
+
+
 
             Spacer()
         }
         .padding(.horizontal, 20)
         .padding(.top, 12)
         .padding(.bottom, 8)
+    }
+}
+
+extension View {
+    func adaptiveTextOutline(
+        isDark: Bool,
+        lightOpacity: Double,
+        darkOpacity: Double
+    ) -> some View {
+        self
+            .overlay(
+                self
+                    .foregroundColor(
+                        isDark
+                            ? Color.white.opacity(darkOpacity)
+                            : Color.black.opacity(lightOpacity)
+                    )
+                    .blur(radius: 0.6)
+            )
     }
 }

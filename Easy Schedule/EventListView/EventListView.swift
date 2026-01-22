@@ -17,15 +17,22 @@ struct EventListView: View {
 
     @AppStorage("showOwnerLabel") private var showOwnerLabel = true
     @AppStorage("timeFontSize") private var timeFontSize: Double = 13
-    @AppStorage("timeColorHex") private var timeColorHex: String = "#007AFF"
 //NEW
     @State private var currentMonth: Date?
     
     @State private var selectedDate: Date = Date()
 
+    @State private var showDisplaySettings = false
+
+    @AppStorage("event_time_display_mode")
+    private var timeDisplayModeRaw: String = EventTimeDisplayMode.startTime.rawValue
+
+    private var timeDisplayMode: EventTimeDisplayMode {
+        EventTimeDisplayMode(rawValue: timeDisplayModeRaw) ?? .startTime
+    }
     
-    
-    
+    @EnvironmentObject var uiAccent: UIAccentStore
+
     
     var body: some View {
         ZStack {
@@ -36,7 +43,6 @@ struct EventListView: View {
                     events: eventManager.events,
                     showOwnerLabel: showOwnerLabel,
                     timeFontSize: timeFontSize,
-                    timeColorHex: timeColorHex,
                     currentMonth: $currentMonth,
                     selectedDate: $selectedDate
                 )
@@ -45,6 +51,19 @@ struct EventListView: View {
             if guideManager.isActive(.eventsIntro) {
                 EventsIntroOverlay()
             }
+        }
+        // ⭐ NÚT EDIT Ở GÓC PHẢI
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button {
+                    showDisplaySettings = true
+                } label: {
+                    Image(systemName: "paintpalette")
+                }
+            }
+        }
+        .sheet(isPresented: $showDisplaySettings) {
+            DisplaySettingsSheet()
         }
     }
 }
@@ -62,7 +81,6 @@ struct EventScrollContent: View {
 
     let showOwnerLabel: Bool
     let timeFontSize: Double
-    let timeColorHex: String
 
     private var groupedByMonth: [Date: [CalendarEvent]] {
         EventGrouping.byMonth(events)
@@ -100,7 +118,6 @@ struct EventScrollContent: View {
                         events: groupedByMonth[month] ?? [],
                         showOwnerLabel: showOwnerLabel,
                         timeFontSize: timeFontSize,
-                        timeColorHex: timeColorHex,
                         currentMonth: currentMonth,
                         selectedDate: selectedDate
                     )
@@ -138,7 +155,7 @@ struct MonthSectionView: View {
 
     let showOwnerLabel: Bool
     let timeFontSize: Double
-    let timeColorHex: String
+
 
     private var groupedByWeek: [Int: [CalendarEvent]] {
         EventGrouping.byWeek(events)
@@ -173,7 +190,6 @@ struct MonthSectionView: View {
                     events: groupedByWeek[week] ?? [],
                     showOwnerLabel: showOwnerLabel,
                     timeFontSize: timeFontSize,
-                    timeColorHex: timeColorHex,
                     selectedDate: selectedDate
                 )
             }
@@ -187,7 +203,6 @@ struct WeekSectionView: View {
 
     let showOwnerLabel: Bool
     let timeFontSize: Double
-    let timeColorHex: String
     let selectedDate: Date   // ✅ thêm
 
     private var groupedByDay: [Date: [CalendarEvent]] {
@@ -210,8 +225,7 @@ struct WeekSectionView: View {
                     day: day,
                     dayEvents: groupedByDay[day] ?? [],
                     showOwnerLabel: showOwnerLabel,
-                    timeFontSize: timeFontSize,
-                    timeColorHex: timeColorHex
+                    timeFontSize: timeFontSize
                  
                 )
             }
@@ -227,7 +241,7 @@ private struct DaySectionView: View {
   
     let showOwnerLabel: Bool
     let timeFontSize: Double
-    let timeColorHex: String
+
     @EnvironmentObject var session: SessionStore
     @EnvironmentObject var eventManager: EventManager
 
@@ -239,8 +253,14 @@ private struct DaySectionView: View {
         expandedEvents.contains(event.id)
     }
 
- 
+    @AppStorage("event_time_display_mode")
+     private var timeDisplayModeRaw: String = EventTimeDisplayMode.startTime.rawValue
 
+    private var timeDisplayMode: EventTimeDisplayMode {
+        EventTimeDisplayMode(rawValue: timeDisplayModeRaw) ?? .startTime
+    }
+
+    @EnvironmentObject var uiAccent: UIAccentStore
 
     
     
@@ -259,10 +279,11 @@ private struct DaySectionView: View {
                             event: event,
                             showOwnerLabel: showOwnerLabel,
                             timeFontSize: timeFontSize,
-                            timeColorHex: timeColorHex,
                             expandedEvents: $expandedEvents,
-                            chatMeta: eventManager.chatMeta(for: event.id)
+                            chatMeta: eventManager.chatMeta(for: event.id),
+                            timeDisplayMode: timeDisplayMode
                         )
+
                     }
 
                 }
@@ -314,90 +335,6 @@ private extension DaySectionView {
 }
 
 
-
-
-
-
-
-
-
-
-
-private extension DaySectionView {
-
-
-    func timeText(for event: CalendarEvent) -> some View {
-        let duration = event.endTime.timeIntervalSince(event.startTime)
-        let minutes = Int(duration / 60)
-
-        return VStack(alignment: .leading, spacing: 2) {
-
-            Text(event.startTime.formatted(date: .omitted, time: .shortened))
-                .font(.system(size: CGFloat(timeFontSize), weight: .semibold, design: .monospaced))
-                .foregroundColor(Color(hex: timeColorHex))
-
-            Text("\(minutes) min")
-                .font(.caption2)
-                .foregroundColor(.secondary)
-        }
-        .padding(.leading, 8)
-        .overlay(alignment: .leading) {
-            Rectangle()
-                .fill(Color(hex: timeColorHex))
-                .frame(width: 2)
-        }
-    }
-
-
-    func metadataAttributedText(for event: CalendarEvent) -> AttributedString {
-        var result = AttributedString("")
-
-        // ⏰ TIME
-        var time = AttributedString(
-            "\(event.startTime.formatted(date: .omitted, time: .shortened))" +
-            "–" +
-            "\(event.endTime.formatted(date: .omitted, time: .shortened))"
-        )
-        time.font = .system(size: CGFloat(timeFontSize))
-        time.foregroundColor = Color(hex: timeColorHex)
-
-        result += time
-
-        // 👤 OWNER
-        if showOwnerLabel {
-            var ownerText = AttributedString(" · ")
-
-            if event.origin == .iCreatedForOther {
-                let ownerName = displayName(
-                    for: event,
-                    uid: event.owner,
-                    eventManager: eventManager
-                )
-                ownerText += AttributedString("You → \(ownerName)")
-            } else {
-                let name = displayName(
-                    for: event,
-                    uid: event.createdBy,
-                    eventManager: eventManager
-                )
-                ownerText += AttributedString(name)
-            }
-
-            ownerText.font = .caption
-            ownerText.foregroundColor = .secondary
-
-            result += ownerText
-        }
-
-        return result
-    }
-
-    
-    
-    
-}
-
-
 struct UserNameView: View {
     @EnvironmentObject var eventManager: EventManager
     let uid: String
@@ -441,3 +378,4 @@ struct PastEventsView: View {
             .background(Color(.systemGroupedBackground))
     }
 }
+

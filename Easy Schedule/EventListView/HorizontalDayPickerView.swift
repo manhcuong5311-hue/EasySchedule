@@ -86,6 +86,9 @@ struct DayCell: View {
       let hasNew: Bool
       let width: CGFloat
 
+    @Environment(\.colorScheme) private var colorScheme
+    @EnvironmentObject var uiAccent: UIAccentStore
+    
     var body: some View {
         VStack(spacing: 8) {
 
@@ -101,23 +104,58 @@ struct DayCell: View {
                     ZStack {
                         if isSelected {
                             Circle()
-                                .fill(Color.orange)
+                                .fill(uiAccent.color)
+                                .overlay(
+                                    // ⭐ VIỀN SÁNG CHO DARK MODE
+                                    Circle()
+                                        .stroke(
+                                            colorScheme == .dark
+                                                ? Color.white.opacity(0.35)
+                                                : Color.clear,
+                                            lineWidth: 1
+                                        )
+                                )
                                 .shadow(
-                                    color: Color.black.opacity(0.25),
+                                    // ⭐ SHADOW CHÍNH
+                                    color: colorScheme == .dark
+                                        ? Color.white.opacity(0.12)
+                                        : Color.black.opacity(0.25),
                                     radius: 6,
                                     y: 4
                                 )
                                 .shadow(
-                                    color: Color.black.opacity(0.08),
+                                    // ⭐ SHADOW PHỤ (depth)
+                                    color: colorScheme == .dark
+                                        ? Color.white.opacity(0.06)
+                                        : Color.black.opacity(0.08),
                                     radius: 2,
                                     y: 1
                                 )
                         } else {
-                            Circle()
-                                .fill(Color.clear)
+                            Circle().fill(Color.clear)
                         }
                     }
                 )
+                .overlay(
+                    Group {
+                        if isSelected && colorScheme == .dark {
+                            Circle()
+                                .stroke(
+                                    LinearGradient(
+                                        colors: [
+                                            Color.white.opacity(0.35),
+                                            Color.white.opacity(0.05)
+                                        ],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    ),
+                                    lineWidth: 0.8
+                                )
+                        }
+                    }
+                )
+
+
 
 
             if unreadCount > 0 {
@@ -129,7 +167,7 @@ struct DayCell: View {
                     .clipShape(Circle())
             } else if hasNew {
                 Circle()
-                    .fill(Color.orange)
+                    .fill(uiAccent.color)
                     .frame(width: 6, height: 6)
             }
 
@@ -143,7 +181,9 @@ struct DayStatusBadgeView: View {
 
     let unreadCount: Int
     let hasNew: Bool
-
+    @EnvironmentObject var uiAccent: UIAccentStore
+    
+    
     private var text: String {
         if unreadCount > 0 && hasNew {
             return "NEW · \(unreadCount)"
@@ -155,8 +195,9 @@ struct DayStatusBadgeView: View {
     }
 
     private var backgroundColor: Color {
-        unreadCount > 0 ? .red : .orange
+        unreadCount > 0 ? .red : uiAccent.color
     }
+
 
     var body: some View {
         Text(text)

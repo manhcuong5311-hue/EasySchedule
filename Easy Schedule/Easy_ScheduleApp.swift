@@ -117,6 +117,7 @@ struct RootView: View {
     @EnvironmentObject var network: NetworkMonitor
     @EnvironmentObject var guideManager: GuideManager
 
+    @StateObject private var uiAccent = UIAccentStore()
 
 
     var body: some View {
@@ -153,7 +154,7 @@ struct RootView: View {
         .environmentObject(session)
         .environmentObject(eventManager)
         .environmentObject(network)
-
+        .environmentObject(uiAccent)
         .sheet(isPresented: $showPremiumIntro) {
             PremiumIntroView(
                 isPresented: $showPremiumIntro,
