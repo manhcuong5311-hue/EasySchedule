@@ -57,16 +57,12 @@ struct ContentView: View {
                     .navigationDestination(item: $openChatEventId) { id in
                         ChatEntryResolverView(eventId: id)
                     }
-                    .onAppear {
-
-                        // 🔔 CHAT
-                        if let chatId = pendingChatEventId,
-                           openChatEventId == nil {
-
-                            openChatEventId = chatId
-                            pendingChatEventId = nil
-                        }
+                    .onChange(of: pendingChatEventId) { _, chatId in
+                        guard let chatId else { return }
+                        openChatEventId = chatId
+                        pendingChatEventId = nil
                     }
+
 
             }
             .tabItem {

@@ -91,7 +91,7 @@ final class EventManager: ObservableObject {
             }
         }
     }
-    @Published var chatMetaCache: [String: ChatMetaViewModel] = [:]
+    private var chatMetaCache: [String: ChatMetaViewModel] = [:]
 
     // ⭐ PREMIUM FLAG
     private var isPremiumUser: Bool {
@@ -815,6 +815,7 @@ extension EventManager {
                        self.events.append(newEvent)
                        self.saveEvents()
                        self.updateGroupedEvents()
+                       EventSeenStore.shared.markSeen(eventId: newEvent.id)
                    }
 
                    // Side effects
@@ -1763,4 +1764,26 @@ extension EventManager {
     }
 
 
+}
+
+
+extension EventManager {
+
+    func unreadCount(for day: Date) -> Int {
+        let d = Calendar.current.startOfDay(for: day)
+
+        return events.filter {
+            Calendar.current.startOfDay(for: $0.date) == d &&
+            chatMeta(for: $0.id).unread
+        }.count
+    }
+
+    func hasNewEvent(for day: Date) -> Bool {
+        let d = Calendar.current.startOfDay(for: day)
+
+        return events.contains {
+            Calendar.current.startOfDay(for: $0.date) == d &&
+            !EventSeenStore.shared.isSeen(eventId: $0.id)
+        }
+    }
 }

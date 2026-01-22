@@ -162,6 +162,7 @@ struct RootView: View {
                 }
             )
         }
+        
         .sheet(isPresented: $showPaywall) {
             PremiumUpgradeSheet()
                 .environmentObject(premium)
