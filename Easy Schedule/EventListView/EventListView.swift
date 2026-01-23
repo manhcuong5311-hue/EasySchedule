@@ -33,6 +33,26 @@ struct EventListView: View {
     
     @EnvironmentObject var uiAccent: UIAccentStore
 
+//NEWWWWWW
+    @State private var selectedPastWeek: WeekKey?
+
+
+    
+    
+    
+    
+    private func week(from date: Date) -> WeekKey {
+        let cal = Calendar.current
+        return WeekKey(
+            year: cal.component(.yearForWeekOfYear, from: date),
+            week: cal.component(.weekOfYear, from: date)
+        )
+    }
+
+
+    
+    
+    
     
     var body: some View {
         ZStack {
@@ -52,6 +72,8 @@ struct EventListView: View {
                 EventsIntroOverlay()
             }
         }
+       
+
         // ⭐ NÚT EDIT Ở GÓC PHẢI
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
@@ -65,6 +87,24 @@ struct EventListView: View {
         .sheet(isPresented: $showDisplaySettings) {
             DisplaySettingsSheet()
         }
+    .onChange(of: selectedDate) { _, newDate in
+            let cal = Calendar.current
+            let today = cal.startOfDay(for: Date())
+            let selected = cal.startOfDay(for: newDate)
+
+            if selected < today {
+                selectedPastWeek = week(from: newDate)
+            }
+
+        }
+
+    .sheet(item: $selectedPastWeek) { week in
+            PastWeeklySummaryView(week: (year: week.year, week: week.week))
+                .environmentObject(eventManager)
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+        }
+
     }
 }
 
