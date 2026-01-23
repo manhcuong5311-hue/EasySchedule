@@ -321,8 +321,9 @@ struct ChatView: View {
 
                 // ⭐ MARK SEEN sau khi listener attach
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                    vm.markSeen()
+                    eventManager.markEventSeen(eventId)
                 }
+
             }
 
             // 4️⃣ Retry message gửi offline (⭐ DÒNG BẠN HỎI)

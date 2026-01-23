@@ -11,35 +11,30 @@ struct HorizontalDayPickerView: View {
     @Binding var selectedDate: Date
     @EnvironmentObject var eventManager: EventManager
 
-    
     var body: some View {
         GeometryReader { geo in
             let config = LayoutConfig(availableWidth: geo.size.width)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: config.spacing) {
+
                     ForEach(config.days(around: selectedDate), id: \.self) { day in
+                        let key = Calendar.current.startOfDay(for: day)
+
                         DayCell(
                             day: day,
                             isSelected: Calendar.current.isDate(day, inSameDayAs: selectedDate),
-                            unreadCount: eventManager.unreadCount(for: day),
-                            hasNew: eventManager.hasNewEvent(for: day),
+                            unreadCount: eventManager.unreadCountByDay[key] ?? 0,
+                            hasNew: eventManager.hasNewByDay[key] ?? false,
                             width: config.cellWidth
                         )
-
                         .onTapGesture {
                             withAnimation(.easeInOut) {
                                 selectedDate = day
                             }
-
-                            if eventManager.hasNewEvent(for: day) {
-                                let ids = eventManager.events(for: day).map { $0.id }
-                                EventSeenStore.shared.markSeen(eventIds: ids)
-                            }
                         }
-
-
                     }
+
                 }
                 .padding(.horizontal, config.horizontalPadding)
             }
@@ -48,6 +43,7 @@ struct HorizontalDayPickerView: View {
     }
 
 }
+
 
 private struct LayoutConfig {
 

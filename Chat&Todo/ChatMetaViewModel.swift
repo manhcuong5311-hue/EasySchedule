@@ -40,6 +40,10 @@ class ChatMetaViewModel: ObservableObject {
         self.lastNotifiedMessage =
             UserDefaults.standard.string(forKey: "lastNotified_\(eventId)")
     }
+    static func placeholder(eventId: String) -> ChatMetaViewModel {
+        let vm = ChatMetaViewModel(eventId: eventId, myId: "")
+        return vm
+    }
 
     func startListening() {
         guard listener == nil else { return }

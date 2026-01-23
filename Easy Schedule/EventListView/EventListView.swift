@@ -268,45 +268,38 @@ private struct DaySectionView: View {
     
 
     var body: some View {
+
+        let unreadCount = eventManager.unreadCount(for: day)
+        let hasNew = eventManager.hasNewEvent(for: day)
+
         VStack(alignment: .leading, spacing: 8) {
 
-            headerView
+            headerView(
+                unreadCount: unreadCount,
+                hasNew: hasNew
+            )
 
-          
-                VStack(alignment: .leading, spacing: 6) {
-                    ForEach(dayEvents.sorted { $0.startTime < $1.startTime }) { event in
-                        EventRowView(
-                            event: event,
-                            showOwnerLabel: showOwnerLabel,
-                            timeFontSize: timeFontSize,
-                            expandedEvents: $expandedEvents,
-                            chatMeta: eventManager.chatMeta(for: event.id),
-                            timeDisplayMode: timeDisplayMode
-                        )
-
-                    }
-
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(dayEvents.sorted { $0.startTime < $1.startTime }) { event in
+                    EventRowView(
+                        event: event,
+                        showOwnerLabel: showOwnerLabel,
+                        timeFontSize: timeFontSize,
+                        expandedEvents: $expandedEvents,
+                        chatMeta: eventManager.chatMeta(for: event.id),
+                        timeDisplayMode: timeDisplayMode
+                    )
                 }
-                .padding(.leading, 16)
-            
-            
+            }
+            .padding(.leading, 16)
         }
         .padding(.vertical, 8)
-
     }
+
 
 
 }
-private extension DaySectionView {
 
-    var unreadCountForDay: Int {
-        eventManager.unreadCount(for: day)
-    }
-
-    var hasNewEventForDay: Bool {
-        eventManager.hasNewEvent(for: day)
-    }
-}
 
 
 
@@ -318,14 +311,18 @@ private extension DaySectionView {
 
 private extension DaySectionView {
 
-    var headerView: some View {
+    func headerView(
+        unreadCount: Int,
+        hasNew: Bool
+    ) -> some View {
+
         HStack {
             Spacer()
 
-            if unreadCountForDay > 0 || hasNewEventForDay {
+            if unreadCount > 0 || hasNew {
                 DayStatusBadgeView(
-                    unreadCount: unreadCountForDay,
-                    hasNew: hasNewEventForDay
+                    unreadCount: unreadCount,
+                    hasNew: hasNew
                 )
             }
         }
@@ -333,7 +330,6 @@ private extension DaySectionView {
         .padding(.vertical, 6)
     }
 }
-
 
 struct UserNameView: View {
     @EnvironmentObject var eventManager: EventManager

@@ -83,6 +83,24 @@ final class EventManager: ObservableObject {
     @Published var selectedEventId: String?
     @Published var myManualBusySlots: [CalendarEvent] = []
 
+   
+    
+    @Published var unreadCountByDay: [Date: Int] = [:]
+    @Published var hasNewByDay: [Date: Bool] = [:]
+
+
+    private var chatUnreadCancellables: [String: AnyCancellable] = [:]
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     // persisted + in-memory cache
     @Published var userNames: [String: String] = [:] {
         didSet {
@@ -104,9 +122,15 @@ final class EventManager: ObservableObject {
         set { UserDefaults.standard.set(newValue, forKey: "allowDuplicateEvents") }
     }
     private var isProcessing = false
-    @State private var shareLink: String?
-    @State private var showShareSheet = false
+    
+    @Published var shareLink: String?
+    @Published var showShareSheet = false
+
+    
+    
+    
     @Published var isAdding = false
+    
     private var currentRequestId: UUID?
 
     @Published var alertMessage: String = ""
@@ -119,6 +143,7 @@ final class EventManager: ObservableObject {
         didSet {
            
             updateGroupedEvents()
+            recomputeDayBadges()
         }
     }
 
@@ -250,23 +275,8 @@ final class EventManager: ObservableObject {
     }
 
     
-    func chatMeta(for eventId: String) -> ChatMetaViewModel {
-        if let existing = chatMetaCache[eventId] {
-            return existing
-        }
+    
 
-        guard let myId = currentUserId else {
-            fatalError("❌ EventManager not configured with currentUserId")
-        }
-
-        let vm = ChatMetaViewModel(
-            eventId: eventId,
-            myId: myId
-        )
-
-        chatMetaCache[eventId] = vm
-        return vm
-    }
 
     // MARK: - Name Resolver (SOURCE OF TRUTH)
     func displayName(for uid: String) -> String {
@@ -1056,15 +1066,6 @@ extension EventManager {
     }
 
 
-    func openChat(eventId: String) {
-          selectedChatEventId = eventId
-      }
-
-      func openEvent(eventId: String) {
-          selectedEventId = eventId
-      }
-
-
     // MARK: - Remove busy slot
     private func removeBusySlotFromPublicCalendar(event: CalendarEvent) {
         let uid = event.owner
@@ -1766,24 +1767,99 @@ extension EventManager {
 
 }
 
+//New Badge eventListView
+
+
 
 extension EventManager {
 
-    func unreadCount(for day: Date) -> Int {
-        let d = Calendar.current.startOfDay(for: day)
 
-        return events.filter {
-            Calendar.current.startOfDay(for: $0.date) == d &&
-            chatMeta(for: $0.id).unread
-        }.count
+    private func dayKey(_ date: Date) -> Date {
+        Calendar.current.startOfDay(for: date)
     }
 
-    func hasNewEvent(for day: Date) -> Bool {
-        let d = Calendar.current.startOfDay(for: day)
+    func recomputeDayBadges() {
+        var unread: [Date: Int] = [:]
+        var hasNew: [Date: Bool] = [:]
 
-        return events.contains {
-            Calendar.current.startOfDay(for: $0.date) == d &&
-            !EventSeenStore.shared.isSeen(eventId: $0.id)
+        for ev in events {
+            let day = dayKey(ev.date)
+
+            // unread
+            if chatMeta(for: ev.id).unread {
+                unread[day, default: 0] += 1
+            }
+
+            // new event (seen logic)
+            if !EventSeenStore.shared.isSeen(eventId: ev.id) {
+                hasNew[day] = true
+            }
+        }
+
+        DispatchQueue.main.async {
+            self.unreadCountByDay = unread
+            self.hasNewByDay = hasNew
         }
     }
+
+    func chatMeta(for eventId: String) -> ChatMetaViewModel {
+
+        if let existing = chatMetaCache[eventId] {
+            return existing
+        }
+
+        guard let myId = currentUserId else {
+            // 🔕 chưa ready → trả placeholder
+            return ChatMetaViewModel.placeholder(eventId: eventId)
+        }
+
+        let vm = ChatMetaViewModel(
+            eventId: eventId,
+            myId: myId
+        )
+
+        vm.startListening()
+
+        chatUnreadCancellables[eventId] =
+            vm.$unread
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] _ in
+                    self?.recomputeDayBadges()
+                }
+
+        chatMetaCache[eventId] = vm
+        return vm
+    }
+
+    
+    func openChat(eventId: String) {
+        selectedChatEventId = eventId
+    }
+
+
+    func markEventSeen(_ eventId: String) {
+        // local seen
+        EventSeenStore.shared.markSeen(eventId: eventId)
+
+        // remote seen (chat)
+        chatMeta(for: eventId).markSeen()
+
+        // update badge theo ngày
+        recomputeDayBadges()
+    }
+
+ 
+
+    func unreadCount(for day: Date) -> Int {
+          let key = Calendar.current.startOfDay(for: day)
+          return unreadCountByDay[key] ?? 0
+      }
+
+      func hasNewEvent(for day: Date) -> Bool {
+          let key = Calendar.current.startOfDay(for: day)
+          return hasNewByDay[key] ?? false
+      }
+    func openEvent(eventId: String) {
+           selectedEventId = eventId
+       }
 }
