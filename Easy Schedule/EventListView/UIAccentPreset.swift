@@ -16,13 +16,19 @@ enum UIAccentPreset: String, CaseIterable {
 
     var title: String {
         switch self {
-        case .orange:   return "Orange"
-        case .blue:     return "Blue"
-        case .mint:     return "Mint"
-        case .purple:   return "Purple"
-        case .graphite: return "Graphite"
+        case .orange:
+            return String(localized: "accent.color.orange")
+        case .blue:
+            return String(localized: "accent.color.blue")
+        case .mint:
+            return String(localized: "accent.color.mint")
+        case .purple:
+            return String(localized: "accent.color.purple")
+        case .graphite:
+            return String(localized: "accent.color.graphite")
         }
     }
+
 
     var hex: String {
         switch self {

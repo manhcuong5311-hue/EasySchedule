@@ -20,34 +20,20 @@ struct PastWeeklySummaryView: View {
     @State private var isLoading = true
     @State private var mode: SummaryMode = .week
 
-    
+    @State private var cachedEvents: [CalendarEvent] = []
+   
+    @State private var cachedComparison: WeeklyComparison?
+
     
     private var events: [CalendarEvent] {
-        switch mode {
-        case .week:
-            return eventsByWeek["\(week.year)-\(week.week)"]?
-                .sorted { $0.startTime < $1.startTime } ?? []
-
-        case .month:
-            guard
-                let weekStart = Calendar.current.date(
-                    from: DateComponents(
-                        weekOfYear: week.week,
-                        yearForWeekOfYear: week.year
-                    )
-                )
-            else { return [] }
-
-            let key = monthKey(from: weekStart)
-            return eventsByMonth[key]?.sorted { $0.startTime < $1.startTime } ?? []
-        }
+        cachedEvents
     }
-
 
 
     private var stats: WeeklyStats {
-        cachedStats ?? WeeklyStatsBuilder.build(events: events)
+        cachedStats ?? .empty
     }
+
 //MONTH CACHEEE
     
     private var eventsByMonth: [String: [CalendarEvent]] {
@@ -73,8 +59,64 @@ struct PastWeeklySummaryView: View {
            return formatter.string(from: weekStart)
     }
     private func rebuildStats() {
-        guard !isLoading else { return }
-        cachedStats = WeeklyStatsBuilder.build(events: events)
+        cachedStats = WeeklyStatsBuilder.build(events: cachedEvents)
+    }
+
+    private func previousWeekSafe() -> (year: Int, week: Int)? {
+        let calendar = Calendar.current
+
+        guard let currentWeekDate = calendar.date(
+            from: DateComponents(
+                weekOfYear: week.week,
+                yearForWeekOfYear: week.year
+            )
+        ) else { return nil }
+
+        guard let previousDate =
+            calendar.date(byAdding: .weekOfYear, value: -1, to: currentWeekDate)
+        else { return nil }
+
+        return (
+            year: calendar.component(.yearForWeekOfYear, from: previousDate),
+            week: calendar.component(.weekOfYear, from: previousDate)
+        )
+    }
+    private func rebuildComparison() {
+        guard mode == .week else {
+            cachedComparison = nil
+            return
+        }
+
+        guard
+            let stats = cachedStats,
+            !cachedEvents.isEmpty,
+            let prev = previousWeekSafe(),
+            let prevEvents = cachedEventsByWeek["\(prev.year)-\(prev.week)"],
+            !prevEvents.isEmpty
+        else {
+            cachedComparison = nil
+            return
+        }
+
+        let prevStats = WeeklyStatsBuilder.build(events: prevEvents)
+
+        let currentWithOthers =
+            (stats.byOrigin[.createdForMe] ?? 0) +
+            (stats.byOrigin[.iCreatedForOther] ?? 0)
+
+        let prevWithOthers =
+            (prevStats.byOrigin[.createdForMe] ?? 0) +
+            (prevStats.byOrigin[.iCreatedForOther] ?? 0)
+
+        cachedComparison = WeeklyComparison(
+            deltaTotal: stats.totalEvents - prevStats.totalEvents,
+            deltaWithOthers: currentWithOthers - prevWithOthers
+        )
+    }
+    private func rebuildAll() {
+        rebuildEvents()
+        rebuildStats()
+        rebuildComparison()
     }
 
 
@@ -122,42 +164,40 @@ struct PastWeeklySummaryView: View {
 
         }
         .task(id: "\(week.year)-\(week.week)") {
-
             isLoading = true
             defer { isLoading = false }
 
             let cal = Calendar.current
             let allEvents = eventManager.pastEvents
 
-            // 1️⃣ Cache theo WEEK
             cachedEventsByWeek = Dictionary(grouping: allEvents) {
                 "\(cal.component(.yearForWeekOfYear, from: $0.date))-\(cal.component(.weekOfYear, from: $0.date))"
             }
 
-            // 2️⃣ Cache theo MONTH
             cachedEventsByMonth = Dictionary(grouping: allEvents) {
                 "\(cal.component(.year, from: $0.date))-\(cal.component(.month, from: $0.date))"
             }
 
-            // 3️⃣ Build stats đúng 1 lần
-            rebuildStats()
+            rebuildAll()
         }
-
 
         .onChange(of: mode) { _, _ in
-
-            rebuildStats()
+            guard !isLoading else { return }
+            rebuildAll()
         }
-
-    
-
 
 
     }
     
     
     
-    
+    private static let monthFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = .current
+        f.dateFormat = "LLLL yyyy"
+        return f
+    }()
+
     
     private var summarySection: some View {
         Section {
@@ -200,7 +240,8 @@ struct PastWeeklySummaryView: View {
                         value: "\(peak.lowerBound):00 – \(peak.upperBound):00"
                     )
                 }
-                if mode == .week, let comparison {
+                if mode == .week, let comparison = cachedComparison {
+
                     Divider()
               
                     HStack {
@@ -247,7 +288,37 @@ struct PastWeeklySummaryView: View {
     }
 
 
-    
+    private func rebuildEvents() {
+        let cal = Calendar.current
+
+        switch mode {
+
+        case .week:
+            let key = "\(week.year)-\(week.week)"
+            cachedEvents =
+                cachedEventsByWeek[key]?
+                    .sorted { $0.startTime < $1.startTime } ?? []
+
+        case .month:
+            guard
+                let weekStart = cal.date(
+                    from: DateComponents(
+                        weekOfYear: week.week,
+                        yearForWeekOfYear: week.year
+                    )
+                )
+            else {
+                cachedEvents = []
+                return
+            }
+
+            let key = monthKey(from: weekStart)
+            cachedEvents =
+                cachedEventsByMonth[key]?
+                    .sorted { $0.startTime < $1.startTime } ?? []
+        }
+    }
+
     
     
     private func summaryRow(title: String, value: String) -> some View {
@@ -318,57 +389,12 @@ struct PastWeeklySummaryView: View {
         )
     }
 
-    private func previousWeek(from week: (year: Int, week: Int)) -> (year: Int, week: Int) {
-        let calendar = Calendar.current
+   
 
-        let currentWeekDate = calendar.date(
-            from: DateComponents(
-                weekOfYear: week.week,
-                yearForWeekOfYear: week.year
-            )
-        )!
-
-        let previousDate = calendar.date(byAdding: .weekOfYear, value: -1, to: currentWeekDate)!
-
-        return (
-            year: calendar.component(.yearForWeekOfYear, from: previousDate),
-            week: calendar.component(.weekOfYear, from: previousDate)
-        )
-    }
-
-    private var previousWeekEvents: [CalendarEvent] {
-        let prev = previousWeek(from: week)
-        return eventsByWeek["\(prev.year)-\(prev.week)"] ?? []
-    }
+  
 
 
-    private var comparison: WeeklyComparison? {
-        guard mode == .week else { return nil }
-        // 1️⃣ Không so sánh nếu tuần hiện tại rỗng
-        guard !events.isEmpty else { return nil }
-
-        // 2️⃣ Không so sánh nếu tuần trước rỗng
-        let prevEvents = previousWeekEvents
-        guard !prevEvents.isEmpty else { return nil }
-
-        // 3️⃣ Build stats tuần trước
-        let prevStats = WeeklyStatsBuilder.build(events: prevEvents)
-
-        // 4️⃣ Tính "with others" cho 2 tuần
-        let currentWithOthers =
-            (stats.byOrigin[.createdForMe] ?? 0) +
-            (stats.byOrigin[.iCreatedForOther] ?? 0)
-
-        let prevWithOthers =
-            (prevStats.byOrigin[.createdForMe] ?? 0) +
-            (prevStats.byOrigin[.iCreatedForOther] ?? 0)
-
-        // 5️⃣ Trả về delta
-        return WeeklyComparison(
-            deltaTotal: stats.totalEvents - prevStats.totalEvents,
-            deltaWithOthers: currentWithOthers - prevWithOthers
-        )
-    }
+  
 
 
     private func deltaText(_ value: Int) -> String {

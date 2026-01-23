@@ -94,4 +94,13 @@ struct WeeklyStatsBuilder {
     }
 }
 
+extension WeeklyStats {
+    static let empty = WeeklyStats(
+        totalEvents: 0,
+        byOrigin: [:],
+        byWeekday: [:],
+        busiestWeekday: nil,
+        peakHourRange: nil
+    )
+}
 

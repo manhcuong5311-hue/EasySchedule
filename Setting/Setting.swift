@@ -128,6 +128,15 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
+                // 🔥 PREMIUM / PRO BANNER (TOP)
+                if premium.isLoaded && premium.tier != .pro {
+                    Section {
+                        SettingsPremiumBanner()
+                            .environmentObject(premium)
+                            .listRowInsets(EdgeInsets())          // FULL WIDTH
+                            .listRowBackground(Color.clear)       // BỎ BACKGROUND CELL
+                    }
+                }
 
                 // MARK: - 🔔 Notifications
                 Section {
@@ -340,6 +349,10 @@ struct SettingsView: View {
                     didFinishInitialLoad = true
                 }
             }
+            .onReceive(NotificationCenter.default.publisher(for: .OpenPaywall)) { _ in
+                showUpgradeSheet = true
+            }
+
             .alert(
                 String(localized: "notifications_disabled_title"),
                 isPresented: $showNotificationSettingsAlert

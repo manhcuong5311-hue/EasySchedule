@@ -27,33 +27,18 @@ struct EventRowView: View {
     
     @EnvironmentObject var uiAccent: UIAccentStore
 
-    
-    
+    private var canDelete: Bool {
+        true
+    }
+
+    @State private var showDeleteConfirm = false
+
     
     
     
     let timeDisplayMode: EventTimeDisplayMode
 
     
-    private var timeLabel: String {
-        let duration = Int(event.endTime.timeIntervalSince(event.startTime) / 60)
-
-        switch timeDisplayMode {
-        case .startTime:
-            return event.startTime.formatted(date: .omitted, time: .shortened)
-
-        case .timeRange:
-            let s = event.startTime.formatted(date: .omitted, time: .shortened)
-            let e = event.endTime.formatted(date: .omitted, time: .shortened)
-            return "\(s)–\(e)"
-
-        case .duration:
-            return duration >= 60
-                ? "\(duration / 60)h \(duration % 60)m"
-                : "\(duration) min"
-        }
-    }
-
     
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -148,13 +133,45 @@ struct EventRowView: View {
                     .padding(.horizontal, 12)
             }
         }
+        .contextMenu {
+            if canDelete {
+                Button(role: .destructive) {
+                    showDeleteConfirm = true
+                } label: {
+                    Label(
+                        String(localized: "delete"),
+                        systemImage: "trash"
+                    )
+                }
+            }
+        }
+        .onLongPressGesture(minimumDuration: 0.3) {
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        }
+
         .onAppear {
             chatMeta.startListening()
+        }
+        .alert(
+            String(localized: "delete_event"),
+            isPresented: $showDeleteConfirm
+        ) {
+            Button(String(localized: "delete"), role: .destructive) {
+                deleteEvent()
+            }
+            Button(String(localized: "cancel"), role: .cancel) { }
+        } message: {
+            Text(String(localized: "delete_event_confirm"))
         }
 
     }
     
-    
+    private func deleteEvent() {
+        withAnimation {
+            eventManager.deleteEvent(event)
+        }
+    }
+
     
     private func openChatIfNeeded() {
         guard !isMyEvent else { return }
@@ -181,11 +198,9 @@ struct EventRowView: View {
     }
 
     private var timeText: some View {
-        let duration = Int(event.endTime.timeIntervalSince(event.startTime) / 60)
+        VStack(alignment: .leading, spacing: 2) {
 
-        return VStack(alignment: .leading, spacing: 2) {
-
-            Text(timeLabel)   // ⭐ DÙNG KẾT QUẢ SWITCH
+            Text(timeDisplayMode.primaryText(for: event))
                 .font(
                     .system(
                         size: CGFloat(timeFontSize),
@@ -194,9 +209,9 @@ struct EventRowView: View {
                     )
                 )
                 .foregroundColor(uiAccent.color)
-            // 👉 Chỉ show phụ khi KHÔNG phải duration
-            if timeDisplayMode != .duration {
-                Text("\(duration) min")
+
+            if let secondary = timeDisplayMode.secondaryText(for: event) {
+                Text(secondary)
                     .font(.caption2)
                     .foregroundColor(.secondary)
             }
@@ -234,18 +249,15 @@ struct EventRowView: View {
 
 
     
-    
-    
-    
-    
     private var ownerLabelText: String {
         switch event.origin {
         case .iCreatedForOther:
-            return "Assigned to:"
+            return String(localized: "event_owner_assigned_to")
         default:
-            return "Created by:"
+            return String(localized: "event_owner_created_by")
         }
     }
+
 
     private var ownerDisplayUID: String {
         switch event.origin {

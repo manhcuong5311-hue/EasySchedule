@@ -19,12 +19,14 @@
 		0D4E99822EC79E31006F2705 /* FirebaseFunctions in Frameworks */ = {isa = PBXBuildFile; productRef = 0D4E99812EC79E31006F2705 /* FirebaseFunctions */; };
 		0D4E99842EC79E31006F2705 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = 0D4E99832EC79E31006F2705 /* FirebaseMessaging */; };
 		0D4E99862EC79E31006F2705 /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 0D4E99852EC79E31006F2705 /* FirebaseStorage */; };
+		0D56F4C52F237AFE00708F98 /* TitleShadow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D56F4C42F237AF900708F98 /* TitleShadow.swift */; };
 		0D5AF8252EED35DF002239FD /* FirebaseAppCheck in Frameworks */ = {isa = PBXBuildFile; productRef = 0D5AF8242EED35DF002239FD /* FirebaseAppCheck */; };
 		0D5B156E2F0BE12C00199B91 /* FirebaseFirestoreCombine-Community in Frameworks */ = {isa = PBXBuildFile; productRef = 0D5B156D2F0BE12C00199B91 /* FirebaseFirestoreCombine-Community */; };
 		0D6C2F722EE2CB0E00124A4F /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0D6C2F712EE2CB0E00124A4F /* StoreKit.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		0D56F4C42F237AF900708F98 /* TitleShadow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TitleShadow.swift; sourceTree = "<group>"; };
 		0D6C2F712EE2CB0E00124A4F /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
 		0DCA51322EC38C75008324B2 /* Easy Schedule.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Easy Schedule.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -109,6 +111,7 @@
 		0DCA51292EC38C75008324B2 = {
 			isa = PBXGroup;
 			children = (
+				0D56F4C42F237AF900708F98 /* TitleShadow.swift */,
 				0D49EBAA2F0E879600433C0A /* GuideTour */,
 				0D4F4F382F07A64C0049D114 /* Login */,
 				0D4F4F372F07A6230049D114 /* PartnerLogic */,
@@ -233,6 +236,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0D56F4C52F237AFE00708F98 /* TitleShadow.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

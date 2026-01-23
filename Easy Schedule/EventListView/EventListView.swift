@@ -13,32 +13,35 @@ struct EventListView: View {
     @EnvironmentObject var session: SessionStore
     @EnvironmentObject var guideManager: GuideManager
 
-    @Binding var showPastEvents: Bool
-
     @AppStorage("showOwnerLabel") private var showOwnerLabel = true
     @AppStorage("timeFontSize") private var timeFontSize: Double = 13
 //NEW
-    @State private var currentMonth: Date?
+
     
     @State private var selectedDate: Date = Date()
 
     @State private var showDisplaySettings = false
 
     @AppStorage("event_time_display_mode")
-    private var timeDisplayModeRaw: String = EventTimeDisplayMode.startTime.rawValue
+    private var timeDisplayModeRaw: String = EventTimeDisplayMode.timeRange.rawValue
+
 
     private var timeDisplayMode: EventTimeDisplayMode {
-        EventTimeDisplayMode(rawValue: timeDisplayModeRaw) ?? .startTime
+        EventTimeDisplayMode(rawValue: timeDisplayModeRaw) ?? .timeRange
     }
+
     
     @EnvironmentObject var uiAccent: UIAccentStore
 
 //NEWWWWWW
     @State private var selectedPastWeek: WeekKey?
 
+    @State private var showAddSheet = false
+    @State private var shareItem: ShareItem?
+    let onBookPartner: () -> Void
+    
+    @State private var forceShowEventsGuide = false
 
-    
-    
     
     
     private func week(from date: Date) -> WeekKey {
@@ -50,30 +53,93 @@ struct EventListView: View {
     }
 
 
-    
+    private var eventsIntroOverlay: some View {
+        GeometryReader { geo in
+            ZStack {
+                Color.black.opacity(0.35)
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        guideManager.complete(.eventsIntro)
+                    }
+
+                VStack {
+                    GuideBubble(
+                        textKey: "events_guide_intro",
+                        onNext: {
+                            // 1️⃣ TẮT KÍCH HOẠT CỤC BỘ
+                            forceShowEventsGuide = false
+
+                            // 2️⃣ NẾU GUIDE ĐANG ACTIVE THẬT → COMPLETE
+                            if guideManager.isActive(.eventsIntro) {
+                                guideManager.complete(.eventsIntro)
+                            }
+                        },
+                        onDoNotShowAgain: {
+                            // 1️⃣ TẮT KÍCH HOẠT CỤC BỘ
+                            forceShowEventsGuide = false
+
+                            // 2️⃣ DISABLE PERMANENT
+                            guideManager.disablePermanently(.eventsIntro)
+                        }
+                    )
+                    .frame(maxWidth: min(420, geo.size.width * 0.9))
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding(.top, 140)
+            }
+        }
+    }
+
+
     
     
     
     var body: some View {
         ZStack {
-            if showPastEvents {
-                PastEventsView()
-            } else {
+           
                 EventScrollContent(
                     events: eventManager.events,
                     showOwnerLabel: showOwnerLabel,
                     timeFontSize: timeFontSize,
-                    currentMonth: $currentMonth,
-                    selectedDate: $selectedDate
+                    selectedDate: $selectedDate,
+
+                    // ⭐ ADD EVENT
+                    onAddEvent: {
+                        showAddSheet = true
+                    },
+
+                    // ⭐ SHARE CALENDAR
+                    onShareCalendar: {
+                        if let uid = session.currentUserId,
+                           let url = URL(
+                               string: "https://easyschedule-ce98a.web.app/calendar/\(uid)"
+                           ) {
+                            shareItem = ShareItem(url: url)
+                        }
+                    },   // 👈 👈 👈 DẤU PHẨY BỊ THIẾU
+
+                    // ⭐ BOOK PARTNER
+                    onBookPartner: onBookPartner  ,
+                    timeDisplayMode: timeDisplayMode
                 )
+
+
+            
+
+            if guideManager.isActive(.eventsIntro) || forceShowEventsGuide {
+                eventsIntroOverlay
             }
 
-            if guideManager.isActive(.eventsIntro) {
-                EventsIntroOverlay()
+        }
+        .onChange(of: guideManager.activeGuide) { _, newGuide in
+            if newGuide == .calendarIntro {
+                forceShowEventsGuide = true
             }
         }
-       
 
+        .onAppear {
+            guideManager.startIfNeeded()   // ⭐ DÒNG QUAN TRỌNG
+        }
         // ⭐ NÚT EDIT Ở GÓC PHẢI
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
@@ -84,10 +150,29 @@ struct EventListView: View {
                 }
             }
         }
+        .sheet(item: $shareItem) { item in
+            ActivityView(activityItems: [item.url])
+        }
+
+        .sheet(isPresented: $showAddSheet) {
+            AddEventView(
+                prefillDate: selectedDate,
+                offDays: [],          // EventListView KHÔNG QUẢN → để rỗng
+                busyHours: []         // EventListView KHÔNG QUẢN → để rỗng
+            )
+            .environmentObject(eventManager)
+            .environmentObject(session)
+        }
+
         .sheet(isPresented: $showDisplaySettings) {
             DisplaySettingsSheet()
         }
-    .onChange(of: selectedDate) { _, newDate in
+        .onChange(of: selectedDate) { _, newDate in
+
+            // ⭐ 1️⃣ ĐÁNH DẤU ĐÃ XEM EVENT TRONG NGÀY (XOÁ DOT NEW)
+            eventManager.markDayEventsAsSeen(newDate)
+
+            // ⭐ 2️⃣ LOGIC CŨ CỦA BẠN – GIỮ NGUYÊN
             let cal = Calendar.current
             let today = cal.startOfDay(for: Date())
             let selected = cal.startOfDay(for: newDate)
@@ -95,7 +180,6 @@ struct EventListView: View {
             if selected < today {
                 selectedPastWeek = week(from: newDate)
             }
-
         }
 
     .sheet(item: $selectedPastWeek) { week in
@@ -106,6 +190,15 @@ struct EventListView: View {
         }
 
     }
+    
+    
+    
+    
+    
+    
+    
+    
+    
 }
 
 
@@ -127,12 +220,18 @@ struct EventScrollContent: View {
     }
 //NEW
     
-    @Binding var currentMonth: Date?
     @Binding var selectedDate: Date 
     
-    
-    
-    
+    let onAddEvent: () -> Void
+    let onShareCalendar: () -> Void
+    let onBookPartner: () -> Void
+    let timeDisplayMode: EventTimeDisplayMode
+
+    private var eventsForSelectedDay: [CalendarEvent] {
+        events.filter {
+            Calendar.current.isDate($0.startTime, inSameDayAs: selectedDate)
+        }
+    }
     
     
     
@@ -150,39 +249,48 @@ struct EventScrollContent: View {
             )
             .padding(.bottom, 8)
 
-            LazyVStack(alignment: .leading, spacing: 24) {
+            if eventsForSelectedDay.isEmpty {
 
-                ForEach(groupedByMonth.keys.sorted(), id: \.self) { month in
-                    MonthSectionView(
-                        month: month,
-                        events: groupedByMonth[month] ?? [],
-                        showOwnerLabel: showOwnerLabel,
-                        timeFontSize: timeFontSize,
-                        currentMonth: currentMonth,
-                        selectedDate: selectedDate
-                    )
+                EmptyEventsStateView(
+                       onAdd: onAddEvent,
+                       onShare: onShareCalendar,
+                       onBookPartner: onBookPartner
+                   )
+
+            } else {
+
+                LazyVStack(alignment: .leading, spacing: 24) {
+
+                    ForEach(groupedByMonth.keys.sorted(), id: \.self) { month in
+                        MonthSectionView(
+                            month: month,
+                            events: groupedByMonth[month] ?? [],
+                            showOwnerLabel: showOwnerLabel,
+                            timeFontSize: timeFontSize,
+                            selectedDate: selectedDate,
+                            timeDisplayMode: timeDisplayMode
+                        )
+                    }
                 }
-            }
-            .padding(.horizontal, 0)
-            .padding(.bottom, 80)
-            .onPreferenceChange(MonthHeaderPositionKey.self) { values in
-                let sorted = values
-                    .filter { $0.value > 0 }
-                    .sorted { $0.value < $1.value }
+                .padding(.horizontal, 0)
+                .padding(.bottom, 80)
+                .onPreferenceChange(MonthHeaderPositionKey.self) { values in
+                    let sorted = values
+                        .filter { $0.value > 0 }
+                        .sorted { $0.value < $1.value }
 
-                if let first = sorted.first {
-                    if !Calendar.current.isDate(first.key, equalTo: selectedDate, toGranularity: .month) {
-                        selectedDate = first.key
+                    if let first = sorted.first {
+                        if !Calendar.current.isDate(first.key, equalTo: selectedDate, toGranularity: .month) {
+                            selectedDate = first.key
+                        }
                     }
                 }
             }
+
         }
+       
     }
 
-
-    private var horizontalPadding: CGFloat {
-        UIDevice.current.userInterfaceIdiom == .pad ? 48 : 16
-    }
 }
 
 
@@ -201,9 +309,9 @@ struct MonthSectionView: View {
         EventGrouping.byWeek(events)
     }
 //NEW
-    let currentMonth: Date?
     let selectedDate: Date   // ✅ thêm
-    
+    let timeDisplayMode: EventTimeDisplayMode
+
     
     
     var body: some View {
@@ -230,7 +338,8 @@ struct MonthSectionView: View {
                     events: groupedByWeek[week] ?? [],
                     showOwnerLabel: showOwnerLabel,
                     timeFontSize: timeFontSize,
-                    selectedDate: selectedDate
+                    selectedDate: selectedDate,
+                    timeDisplayMode: timeDisplayMode
                 )
             }
         }
@@ -244,6 +353,7 @@ struct WeekSectionView: View {
     let showOwnerLabel: Bool
     let timeFontSize: Double
     let selectedDate: Date   // ✅ thêm
+    let timeDisplayMode: EventTimeDisplayMode
 
     private var groupedByDay: [Date: [CalendarEvent]] {
         EventGrouping.byDay(events)
@@ -265,9 +375,10 @@ struct WeekSectionView: View {
                     day: day,
                     dayEvents: groupedByDay[day] ?? [],
                     showOwnerLabel: showOwnerLabel,
-                    timeFontSize: timeFontSize
-                 
+                    timeFontSize: timeFontSize,
+                    timeDisplayMode: timeDisplayMode   // ⭐ THÊM
                 )
+
             }
         }
     }
@@ -281,7 +392,7 @@ private struct DaySectionView: View {
   
     let showOwnerLabel: Bool
     let timeFontSize: Double
-
+    let timeDisplayMode: EventTimeDisplayMode
     @EnvironmentObject var session: SessionStore
     @EnvironmentObject var eventManager: EventManager
 
@@ -293,12 +404,6 @@ private struct DaySectionView: View {
         expandedEvents.contains(event.id)
     }
 
-    @AppStorage("event_time_display_mode")
-     private var timeDisplayModeRaw: String = EventTimeDisplayMode.startTime.rawValue
-
-    private var timeDisplayMode: EventTimeDisplayMode {
-        EventTimeDisplayMode(rawValue: timeDisplayModeRaw) ?? .startTime
-    }
 
     @EnvironmentObject var uiAccent: UIAccentStore
 
@@ -327,8 +432,9 @@ private struct DaySectionView: View {
                         timeFontSize: timeFontSize,
                         expandedEvents: $expandedEvents,
                         chatMeta: eventManager.chatMeta(for: event.id),
-                        timeDisplayMode: timeDisplayMode
+                        timeDisplayMode: timeDisplayMode   // ✅ DÙNG MODE MỚI
                     )
+
                 }
             }
             .padding(.leading, 16)
@@ -396,22 +502,3 @@ struct DayPositionKey: PreferenceKey {
         value.merge(nextValue(), uniquingKeysWith: { $1 })
     }
 }
-struct EventsIntroOverlay: View {
-    var body: some View {
-        Color.black.opacity(0.35)
-            .ignoresSafeArea()
-            .overlay(
-                Text("Events intro")
-                    .foregroundColor(.white)
-            )
-    }
-}
-struct PastEventsView: View {
-    var body: some View {
-        Text("Past events")
-            .foregroundColor(.secondary)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color(.systemGroupedBackground))
-    }
-}
-

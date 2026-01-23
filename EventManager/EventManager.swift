@@ -90,6 +90,7 @@ final class EventManager: ObservableObject {
 
 
     private var chatUnreadCancellables: [String: AnyCancellable] = [:]
+    private var myBusySlotsListener: ListenerRegistration?
 
     
     
@@ -353,31 +354,43 @@ final class EventManager: ObservableObject {
 
         let ref = db.collection("events").document(ev.id)
 
-        // 1️⃣ Ghi người xoá TRƯỚC
-        ref.updateData([
+        // ⭐ BẮT BUỘC ghi ĐỦ FIELD cho Cloud Function
+        let payload: [String: Any] = [
             "deletedBy": uid,
-            "deletedAt": Timestamp(date: Date())
-        ]) { _ in
+            "deletedAt": Timestamp(date: Date()),
+            "participants": ev.participants,
+            "title": ev.title
+        ]
 
-            // 2️⃣ Sau đó mới delete
+        // 1️⃣ Ghi metadata xoá TRƯỚC (merge để không mất field khác)
+        ref.setData(payload, merge: true) { error in
+            if let error = error {
+                print("❌ Failed to set delete metadata:", error.localizedDescription)
+                return
+            }
+
+            // 2️⃣ Sau đó mới delete document
             ref.delete { error in
                 if let error = error {
                     print("⚠ Pending delete FAILED:", error.localizedDescription)
                     return
                 }
 
+                // 3️⃣ Cleanup busy slot
                 self.removeBusySlotFromPublicCalendar(event: ev)
 
+                // 4️⃣ Cleanup local
                 DispatchQueue.main.async {
                     self.events.removeAll { $0.id == ev.id }
                     self.saveEvents()
                     self.updateGroupedEvents()
                 }
 
-                print("✅ Pending delete SUCCESS:", ev.id)
+                print("🗑️ Event deleted with full metadata:", ev.id)
             }
         }
     }
+
 
 
     func cleanUpPastEvents() {
@@ -937,6 +950,53 @@ extension EventManager {
                     completion(value)
                 } else {
                     completion(false)
+                }
+            }
+    }
+    
+    func listenToMyManualBusySlots() {
+        guard let uid = currentUserId else { return }
+
+        myBusySlotsListener?.remove()
+
+        myBusySlotsListener = db
+            .collection("publicCalendar")
+            .document(uid)
+            .addSnapshotListener { snap, _ in
+                guard let data = snap?.data() else { return }
+
+                let raw = data["busySlots"] as? [[String: Any]] ?? []
+                let now = Date()
+
+                let slots: [CalendarEvent] = raw.compactMap { dict in
+                    guard
+                        dict["source"] as? String == "manual",
+                        let start = dict["start"] as? TimeInterval,
+                        let end   = dict["end"]   as? TimeInterval
+                    else { return nil }
+
+                    let s = Date(timeIntervalSince1970: start)
+                    let e = Date(timeIntervalSince1970: end)
+                    guard e > now else { return nil }
+
+                    return CalendarEvent(
+                        id: dict["id"] as? String ?? UUID().uuidString,
+                        title: String(localized: "busy"),
+                        date: Calendar.current.startOfDay(for: s),
+                        startTime: s,
+                        endTime: e,
+                        owner: uid,
+                        sharedUser: uid,
+                        createdBy: uid,
+                        participants: [uid],
+                        colorHex: "#FFA500",
+                        pendingDelete: false,
+                        origin: .busySlot
+                    )
+                }
+
+                DispatchQueue.main.async {
+                    self.myManualBusySlots = slots
                 }
             }
     }
@@ -1650,8 +1710,8 @@ extension EventManager {
         self.currentUserId = uid
 
         // 🔥 LOAD MANUAL BUSY HOURS CỦA OWNER
-        loadMyManualBusySlots()
-
+        
+        listenToMyManualBusySlots()
         // (tuỳ chọn nhưng nên có)
         listenToEvents()
     }
@@ -1848,7 +1908,24 @@ extension EventManager {
         recomputeDayBadges()
     }
 
- 
+    func markDayEventsAsSeen(_ date: Date) {
+        let key = Calendar.current.startOfDay(for: date)
+
+        let dayEvents = events.filter {
+            Calendar.current.isDate($0.date, inSameDayAs: key)
+        }
+
+        guard !dayEvents.isEmpty else { return }
+
+        for ev in dayEvents {
+            // ✅ CHỈ MARK SEEN EVENT
+            EventSeenStore.shared.markSeen(eventId: ev.id)
+            // ❌ KHÔNG ĐỤNG chatMeta
+        }
+
+        recomputeDayBadges()
+    }
+
 
     func unreadCount(for day: Date) -> Int {
           let key = Calendar.current.startOfDay(for: day)

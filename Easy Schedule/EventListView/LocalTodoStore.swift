@@ -171,9 +171,12 @@ struct LocalTodoListView: View {
                             store.toggle(todoId: todo.id, eventId: eventId)
                         } label: {
                             Label(
-                                todo.isDone ? "Mark as Undone" : "Mark as Done",
+                                String(localized: todo.isDone
+                                    ? "todo_mark_undone"
+                                    : "todo_mark_done"),
                                 systemImage: todo.isDone ? "arrow.uturn.left" : "checkmark"
                             )
+
                         }
 
                         // PIN / UNPIN
@@ -181,9 +184,12 @@ struct LocalTodoListView: View {
                             store.togglePin(todoId: todo.id, eventId: eventId)
                         } label: {
                             Label(
-                                todo.isPinned ? "Unpin" : "Pin",
+                                String(localized: todo.isPinned
+                                    ? "todo_unpin"
+                                    : "todo_pin"),
                                 systemImage: todo.isPinned ? "pin.slash" : "pin"
                             )
+
                         }
 
                         Divider()
@@ -192,7 +198,11 @@ struct LocalTodoListView: View {
                         Button(role: .destructive) {
                             store.delete(todoId: todo.id, eventId: eventId)
                         } label: {
-                            Label("Delete", systemImage: "trash")
+                            Label(
+                                String(localized: "todo_delete"),
+                                systemImage: "trash"
+                            )
+
                         }
                     }
 
@@ -215,7 +225,10 @@ struct LocalTodoListView: View {
                     .foregroundStyle(.secondary)
                     .font(.system(size: 18))
 
-                TextField("Add personal todo", text: $newTodo)
+                TextField(
+                    String(localized: "todo_add_placeholder"),
+                    text: $newTodo
+                )
                     .font(.system(size: 15))
                     .textFieldStyle(.plain)
 

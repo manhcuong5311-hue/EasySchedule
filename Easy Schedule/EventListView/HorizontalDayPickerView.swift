@@ -85,6 +85,14 @@ struct DayCell: View {
     @Environment(\.colorScheme) private var colorScheme
     @EnvironmentObject var uiAccent: UIAccentStore
     
+    private var isPastDay: Bool {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let thisDay = calendar.startOfDay(for: day)
+        return thisDay < today
+    }
+
+    
     var body: some View {
         VStack(spacing: 8) {
 
@@ -111,24 +119,14 @@ struct DayCell: View {
                                             lineWidth: 1
                                         )
                                 )
-                                .shadow(
-                                    // ⭐ SHADOW CHÍNH
-                                    color: colorScheme == .dark
-                                        ? Color.white.opacity(0.12)
-                                        : Color.black.opacity(0.25),
-                                    radius: 6,
-                                    y: 4
-                                )
-                                .shadow(
-                                    // ⭐ SHADOW PHỤ (depth)
-                                    color: colorScheme == .dark
-                                        ? Color.white.opacity(0.06)
-                                        : Color.black.opacity(0.08),
-                                    radius: 2,
-                                    y: 1
-                                )
+                             
                         } else {
-                            Circle().fill(Color.clear)
+                            Circle()
+                                .fill(
+                                    isPastDay
+                                        ? Color.primary.opacity(colorScheme == .dark ? 0.12 : 0.06)
+                                        : Color.clear
+                                )
                         }
                     }
                 )
@@ -150,6 +148,10 @@ struct DayCell: View {
                         }
                     }
                 )
+                .dayCellShadow(
+                    scheme: colorScheme,
+                    isSelected: isSelected
+                )
 
 
 
@@ -170,7 +172,19 @@ struct DayCell: View {
         }
         .frame(width: width + 12)   // ⭐ tạo không gian thoáng trên iPad
         .padding(.vertical, 6)
+        .opacity(isPastDay && !isSelected ? 0.45 : 1)
+        .saturation(isPastDay && !isSelected ? 0.3 : 1)
     }
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
 }
 
 struct DayStatusBadgeView: View {
@@ -182,13 +196,17 @@ struct DayStatusBadgeView: View {
     
     private var text: String {
         if unreadCount > 0 && hasNew {
-            return "NEW · \(unreadCount)"
+            return String(
+                format: String(localized: "day_badge_new_with_count"),
+                unreadCount
+            )
         }
         if unreadCount > 0 {
             return "\(unreadCount)"
         }
-        return "NEW"
+        return String(localized: "day_badge_new")
     }
+
 
     private var backgroundColor: Color {
         unreadCount > 0 ? .red : uiAccent.color

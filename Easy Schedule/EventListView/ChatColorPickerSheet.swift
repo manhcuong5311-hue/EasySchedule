@@ -17,53 +17,56 @@ struct ChatColorPickerSheet: View {
     var body: some View {
         NavigationStack {
             List {
-                Section("Your messages") {
+
+                Section("chat_color_section_my_messages") {
                     ForEach(ChatColorPreset.allCases, id: \.rawValue) { preset in
-                        HStack {
-                            Circle()
-                                .fill(Color(hex: preset.hex))
-                                .frame(width: 20, height: 20)
-
-                            Text(preset.title)
-
-                            Spacer()
-
-                            if myPresetRaw == preset.rawValue {
-                                Image(systemName: "checkmark")
-                            }
-                        }
-                        .contentShape(Rectangle())
-                        .onTapGesture {
+                        colorRow(
+                            preset: preset,
+                            selected: myPresetRaw == preset.rawValue
+                        ) {
                             myPresetRaw = preset.rawValue
                         }
                     }
                 }
 
-                Section("Other messages") {
+                Section("chat_color_section_other_messages") {
                     ForEach(ChatColorPreset.allCases, id: \.rawValue) { preset in
-                        HStack {
-                            Circle()
-                                .fill(Color(hex: preset.hex))
-                                .frame(width: 20, height: 20)
-
-                            Text(preset.title)
-
-                            Spacer()
-
-                            if otherPresetRaw == preset.rawValue {
-                                Image(systemName: "checkmark")
-                            }
-                        }
-                        .contentShape(Rectangle())
-                        .onTapGesture {
+                        colorRow(
+                            preset: preset,
+                            selected: otherPresetRaw == preset.rawValue
+                        ) {
                             otherPresetRaw = preset.rawValue
                         }
                     }
                 }
             }
-            .navigationTitle("Chat colors")
+            .navigationTitle("chat_color_navigation_title")
             .navigationBarTitleDisplayMode(.inline)
         }
     }
-}
 
+    // MARK: - Row
+    @ViewBuilder
+    private func colorRow(
+        preset: ChatColorPreset,
+        selected: Bool,
+        onSelect: @escaping () -> Void
+    ) -> some View {
+
+        HStack {
+            Circle()
+                .fill(Color(hex: preset.hex))
+                .frame(width: 20, height: 20)
+
+            Text(preset.title) // ⚠️ preset.title cần chuẩn hoá riêng (ghi chú bên dưới)
+
+            Spacer()
+
+            if selected {
+                Image(systemName: "checkmark")
+            }
+        }
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onSelect)
+    }
+}

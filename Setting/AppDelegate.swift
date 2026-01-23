@@ -76,16 +76,32 @@ class AppDelegate: NSObject,
 
         guard let token = fcmToken else { return }
 
-        // ✅ CHỈ LOG / cache nếu cần
         print("🔥 FCM TOKEN:", token)
 
-        // ❌ TUYỆT ĐỐI KHÔNG:
-        // - set UserDefaults
-        // - enablePush()
-        // - disablePush()
-        // - mutate state UI
+        saveTokenToFirestore(token)
     }
 
+
+    private func saveTokenToFirestore(_ token: String) {
+        guard let uid = Auth.auth().currentUser?.uid else {
+            // ❗ user chưa login → token sẽ được lưu sau
+            return
+        }
+
+        Firestore.firestore()
+            .collection("users")
+            .document(uid)
+            .updateData([
+                "notificationTokens": FieldValue.arrayUnion([token]),
+                "updatedAt": FieldValue.serverTimestamp()
+            ]) { error in
+                if let error = error {
+                    print("❌ Save FCM token error:", error.localizedDescription)
+                } else {
+                    print("✅ FCM token saved to Firestore")
+                }
+            }
+    }
 
 
 
@@ -116,12 +132,18 @@ class AppDelegate: NSObject,
                     NotificationRouter.shared.handle(type: type, eventId: eventId)
                 }
 
+            case "event_removed":
+                if let eventId = userInfo["eventId"] as? String {
+                    NotificationRouter.shared.handle(type: "event_removed", eventId: eventId)
+                }
+
             case "calendar_access_request":
                 NotificationRouter.shared.handleAccessRequest()
 
             default:
                 break
             }
+
         }
 
         completionHandler()

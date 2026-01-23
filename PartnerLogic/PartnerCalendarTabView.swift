@@ -48,7 +48,7 @@ struct PartnerCalendarTabView: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
-    
+    let onBookPartner: () -> Void
     
     
     
@@ -80,85 +80,72 @@ struct PartnerCalendarTabView: View {
                 
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 8) {
-                        Text("Partner")
+                        Text(String(localized: "title_partner1"))
                             .foregroundColor(uiAccent.color)
 
-                        Text("Calendar")
+                        Text(String(localized: "title_calendar1"))
                             .foregroundColor(.primary)
                     }
-                    .font(.system(size: 34, weight: .bold, design: .rounded))
-                    .shadow(
-                        color: colorScheme == .dark
-                            ? Color.white.opacity(0.25)
-                            : Color.black.opacity(0.25),
-                        radius: 3,
-                        y: 2
-                    )
-                    .shadow(
-                        // shadow phụ tạo depth
-                        color: colorScheme == .dark
-                            ? Color.white.opacity(0.12)
-                            : Color.black.opacity(0.12),
-                        radius: 1,
-                        y: 1
-                    )
 
-                    Text("View and manage shared calendars")
+                    .font(.system(size: 34, weight: .bold, design: .rounded))
+                    .modifier(TitleShadow.primary(colorScheme))   // ⭐ CHUẨN HOÁ
+                    
+                    Text(String(localized: "partner_calendar_description"))
                         .font(.system(size: 15, weight: .medium))
                         .foregroundColor(.secondary)
                         .shadow(
                             color: colorScheme == .dark
-                                ? Color.white.opacity(0.12)
-                                : Color.black.opacity(0.08),
+                            ? Color.white.opacity(0.15)
+                            : Color.black.opacity(0.10),
                             radius: 1,
                             y: 1
                         )
                 }
                 .padding(.horizontal)
                 .padding(.top, 16)
-
+                
                 
                 
                 if !network.isOnline {
-                           OfflineBannerView()
-                               .padding(.horizontal)
-                       }
+                    OfflineBannerView()
+                        .padding(.horizontal)
+                }
                 // ================================
                 // MARK: INPUT UID AREA
                 // ================================
                 inputArea
                     .padding(.horizontal)
-
-
+                
+                
                 // ================================
                 // MARK: ACTION BUTTONS
                 // ================================
                 VStack(alignment: .leading, spacing: 12) {
-
+                    
                     Text(String(localized: "manage_sharing"))
                         .font(.headline)
                         .padding(.leading, 4)
-
+                    
                     VStack(spacing: 0) {
-
+                        
                         manageRow(
                             icon: "clock.arrow.circlepath",
                             title: String(localized: "viewed_history")
                         ) {
                             activeSheet = .history
                         }
-
+                        
                         Divider()
-
+                        
                         manageRow(
                             icon: "person.crop.circle.badge.plus",
                             title: String(localized: "created_for_others")
                         ) {
                             activeSheet = .createdEvents
                         }
-
+                        
                         Divider()
-
+                        
                         manageRow(
                             icon: "person.2.fill",
                             title: String(localized: "manage_access"),
@@ -166,7 +153,7 @@ struct PartnerCalendarTabView: View {
                         ) {
                             activeSheet = .manageAccess
                         }
-
+                        
                     }
                     .background(Color(.systemBackground))
                     .cornerRadius(14)
@@ -176,23 +163,23 @@ struct PartnerCalendarTabView: View {
                     )
                     .shadow(
                         color: colorScheme == .dark
-                            ? Color.white.opacity(0.12)
-                            : Color.black.opacity(0.18),
+                        ? Color.white.opacity(0.12)
+                        : Color.black.opacity(0.18),
                         radius: 8,
                         y: 4
                     )
                     .shadow(
                         color: colorScheme == .dark
-                            ? Color.white.opacity(0.06)
-                            : Color.black.opacity(0.08),
+                        ? Color.white.opacity(0.06)
+                        : Color.black.opacity(0.08),
                         radius: 3,
                         y: 1
                     )
                 }
                 .padding(.horizontal)
-
-
-
+                
+                
+                
                 // ================================
                 // MARK: UID INFO
                 // ================================
@@ -200,34 +187,34 @@ struct PartnerCalendarTabView: View {
                 // - nil        → unknown_user (UID không tồn tại)
                 // - "No name"  → user chưa đặt tên
                 // - "ABC"      → user có tên
-
+                
                 VStack(alignment: .leading, spacing: 6) {
                     if let uid = parsedUID {
                         HStack(spacing: 8) {
                             Image(systemName: "person.crop.circle")
                                 .foregroundColor(uiAccent.color)
-
+                            
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(eventManager.userNames[uid] ?? String(localized: "unknown_user"))
                                     .font(.headline)
-
+                                
                                 Text(shortUID(uid))
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }
-
+                            
                             Spacer()
-
+                            
                             Text(String(localized: "account_active"))
                                 .foregroundColor(.green)
                                 .font(.caption)
                         }
                     }
-
+                    
                 }
                 .padding(.horizontal)
-
-
+                
+                
                 // ================================
                 // MARK: ERROR AREA
                 // ================================
@@ -237,14 +224,15 @@ struct PartnerCalendarTabView: View {
                         .foregroundColor(.red)
                         .padding(.horizontal)
                 }
-
-
+                
+                
                 // ================================
                 // MARK: CONTENT AREA (DANH SÁCH LỊCH)
                 // ================================
                 contentArea
                     .padding(.top, 8)
-
+                
+            
             }
             .padding(.top, 12)
         }
@@ -332,29 +320,16 @@ struct PartnerCalendarTabView: View {
                 guard !isLoading else { return }
                 addAppointmentPressed()
             } label: {
-                Circle()
-                    .fill(uiAccent.color.opacity(0.2))
-                    .frame(width: 36, height: 36)
-                    .overlay(
-                        Image(systemName: "plus")
-                            .foregroundColor(uiAccent.color)
-                            .font(.system(size: 17, weight: .bold))
-                    )
-                    .shadow(
-                        color: colorScheme == .dark
-                            ? Color.white.opacity(0.18)
-                            : Color.black.opacity(0.25),
-                        radius: 6,
-                        y: 3
-                    )
-                    .shadow(
-                        color: colorScheme == .dark
-                            ? Color.white.opacity(0.08)
-                            : Color.black.opacity(0.12),
-                        radius: 2,
-                        y: 1
-                    )
-
+                Image(systemName: "plus")
+                           .font(.system(size: 20, weight: .semibold))
+                           .foregroundColor(uiAccent.color)
+                           .shadow(
+                               color: colorScheme == .dark
+                                   ? Color.white.opacity(0.18)
+                                   : Color.black.opacity(0.25),
+                               radius: 3,
+                               y: 2
+                           )
             }
             .accessibilityLabel(
                 String(localized: "add_appointment")
@@ -465,7 +440,9 @@ struct PartnerCalendarTabView: View {
                     ? String(localized: "no_uid_yet")
                     : String(localized: "no_busy_events")
                 )
-                    .foregroundColor(.secondary)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity)
                 Spacer()
             } else {
                 EmptyView()
@@ -739,14 +716,3 @@ struct PartnerCalendarTabView: View {
 }
 
 
-
-
-// MARK: - Preview
-struct PartnerCalendarTabView_Previews: PreviewProvider {
-    static var previews: some View {
-        NavigationStack {
-            PartnerCalendarTabView()
-                .environmentObject(EventManager.shared)
-        }
-    }
-}

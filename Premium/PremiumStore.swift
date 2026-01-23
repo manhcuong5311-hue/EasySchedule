@@ -200,6 +200,30 @@ actor PremiumStore {
         }
     }
 
+    @available(iOS 15.0, *)
+    func startFreeTrial() async -> Bool {
+
+        // Ensure products loaded
+        if products.isEmpty {
+            await start()
+        }
+
+        // 1️⃣ Chọn Premium product có free trial
+        guard let trialProduct = products.first(where: {
+            $0.id.contains(".premium.") &&
+            $0.subscription?.introductoryOffer?.paymentMode == .freeTrial
+        }) else {
+            print("❌ No Premium product with free trial found")
+            return false
+        }
+
+        // 2️⃣ Purchase trực tiếp → Apple tự cấp trial
+        return await purchase(trialProduct)
+    }
+
+    
+    
+    
     // MARK: - Error Types
     enum PremiumError: LocalizedError {
         case unverified
@@ -215,4 +239,13 @@ actor PremiumStore {
         }
     }
 
+}
+extension Product {
+    var isPremium: Bool {
+        id.contains(".premium.")
+    }
+
+    var hasFreeTrial: Bool {
+        subscription?.introductoryOffer?.paymentMode == .freeTrial
+    }
 }

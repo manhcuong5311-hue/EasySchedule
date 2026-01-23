@@ -37,64 +37,22 @@ struct BigDateHeaderView: View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
 
             Text(dayFormatter.string(from: date))
-                .font(.system(size: 34, weight: .bold))
                 .foregroundColor(.primary)
-                .adaptiveTextOutline(
-                    isDark: colorScheme == .dark,
-                    lightOpacity: 0.25,
-                    darkOpacity: 0.35
-                )
-                .shadow(
-                    color: colorScheme == .dark
-                        ? Color.white.opacity(0.15)
-                        : Color.black.opacity(0.12),
-                    radius: 1.5,
-                    y: 1
-                )
-
 
             Text(yearFormatter.string(from: date))
-                .font(.system(size: 34, weight: .bold))
                 .foregroundColor(uiAccent.color)
-
-                .adaptiveTextOutline(
-                    isDark: colorScheme == .dark,
-                    lightOpacity: 0.18,
-                    darkOpacity: 0.3
-                )
-                .shadow(
-                    color: colorScheme == .dark
-                        ? Color.white.opacity(0.12)
-                        : Color.black.opacity(0.1),
-                    radius: 1.5,
-                    y: 1
-                )
-
-
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 22, weight: .semibold))
-                .foregroundColor(uiAccent.color)
-                .adaptiveTextOutline(
-                    isDark: colorScheme == .dark,
-                    lightOpacity: 0.15,
-                    darkOpacity: 0.25
-                )
-                .shadow(
-                    color: colorScheme == .dark
-                        ? Color.white.opacity(0.1)
-                        : Color.black.opacity(0.08),
-                    radius: 1,
-                    y: 1
-                )
-
-
+                .foregroundColor(uiAccent.color.opacity(0.85))
 
             Spacer()
         }
+        .font(.system(size: 36, weight: .bold, design: .rounded))
+        .modifier(TitleShadow.primary(colorScheme))   // ⭐ GẮN Ở ĐÂY
         .padding(.horizontal, 20)
         .padding(.top, 12)
         .padding(.bottom, 8)
+
     }
 }
 

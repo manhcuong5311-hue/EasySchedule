@@ -158,7 +158,7 @@ struct WebBookingPhoneMock: View {
             VStack(spacing: 14) {
                 Spacer()
 
-                Text("easyschedule.app/yourname")
+                Text("https://easyschedule-ce98a.web.app")
                     .font(.system(size: 13, weight: .medium))
                     .foregroundColor(.secondary)
 

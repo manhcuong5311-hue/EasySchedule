@@ -6,12 +6,10 @@
 //
 import SwiftUI
 
-
 struct DisplaySettingsSheet: View {
 
     // EVENT TIME
     @AppStorage("timeFontSize") private var timeFontSize: Double = 13
-    @AppStorage("timeColorHex") private var timeColorHex: String = "#007AFF"
 
     // CHAT COLOR
     @AppStorage("chat_my_preset")
@@ -20,28 +18,64 @@ struct DisplaySettingsSheet: View {
     @AppStorage("chat_other_preset")
     private var otherPresetRaw: String = ChatColorPreset.graphite.rawValue
 
+    // ⭐ TIME DISPLAY MODE (REFactored)
     @AppStorage("event_time_display_mode")
-    private var timeDisplayModeRaw: String = EventTimeDisplayMode.startTime.rawValue
+    private var timeDisplayModeRaw: String = EventTimeDisplayMode.timeRange.rawValue
 
     private var timeDisplayMode: EventTimeDisplayMode {
-        EventTimeDisplayMode(rawValue: timeDisplayModeRaw) ?? .startTime
+        EventTimeDisplayMode(rawValue: timeDisplayModeRaw) ?? .timeRange
     }
 
     @EnvironmentObject var uiAccent: UIAccentStore
 
-
     var body: some View {
         NavigationStack {
             List {
+                // =====================
+                // UI ACCENT COLOR
+                // =====================
+                Section(
+                    String(localized: "display_settings_ui_accent")
+                ) {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 12) {
+                            ForEach(UIAccentPreset.allCases, id: \.rawValue) { preset in
+                                Circle()
+                                    .fill(Color(hex: preset.hex))
+                                    .frame(width: 28, height: 28)
+                                    .overlay(
+                                        Circle()
+                                            .stroke(
+                                                uiAccent.hex == preset.hex
+                                                ? Color.primary
+                                                : Color.clear,
+                                                lineWidth: 2
+                                            )
+                                    )
+                                    .onTapGesture {
+                                        uiAccent.set(hex: preset.hex)
+                                    }
+                            }
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
 
                 // =====================
                 // EVENT DISPLAY
                 // =====================
-                Section("Event time") {
-
+                Section(
+                    String(localized: "display_settings_event_time")
+                ) {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Time font size: \(Int(timeFontSize))")
-                            .font(.caption)
+
+                        Text(
+                            String(
+                                format: String(localized: "display_settings_time_font_size"),
+                                arguments: [Int(timeFontSize)]
+                            )
+                        )
+                        .font(.caption)
 
                         Slider(
                             value: $timeFontSize,
@@ -50,62 +84,19 @@ struct DisplaySettingsSheet: View {
                         )
                     }
                     .padding(.vertical, 4)
-
                 }
 
                 // =====================
-                // UI THEME
+                // EVENT TIME FORMAT
                 // =====================
-                Section("App theme") {
-
-                    VStack(alignment: .leading, spacing: 8) {
-
-                        Text("Accent color")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 14) {
-                                ForEach(UIAccentPreset.allCases, id: \.rawValue) { preset in
-                                    Circle()
-                                        .fill(Color(hex: preset.hex))
-                                        .frame(width: 30, height: 30)
-                                        .overlay(
-                                            Circle()
-                                                .stroke(
-                                                    uiAccent.hex == preset.hex
-                                                    ? Color.primary
-                                                    : Color.clear,
-                                                    lineWidth: 2
-                                                )
-                                        )
-                                        .overlay(
-                                            // subtle inner highlight for dark mode
-                                            Circle()
-                                                .stroke(
-                                                    Color.white.opacity(0.15),
-                                                    lineWidth: 0.5
-                                                )
-                                        )
-                                        .onTapGesture {
-                                            uiAccent.set(hex: preset.hex)
-                                        }
-
-                                        .accessibilityLabel(preset.title)
-                                }
-                            }
-                            .padding(.vertical, 4)
-                        }
-                    }
-                }
-
-                
-                Section("Event time format") {
-                    ForEach(EventTimeDisplayMode.allCases, id: \.rawValue) { mode in
+                Section(
+                    String(localized: "display_settings_event_time_format")
+                ) {
+                    ForEach(EventTimeDisplayMode.allCases) { mode in
                         HStack {
                             Text(mode.title)
                             Spacer()
-                            if timeDisplayModeRaw == mode.rawValue {
+                            if timeDisplayMode == mode {
                                 Image(systemName: "checkmark")
                             }
                         }
@@ -119,25 +110,28 @@ struct DisplaySettingsSheet: View {
                 // =====================
                 // CHAT COLORS
                 // =====================
-                Section("Chat colors") {
+                Section(
+                    String(localized: "display_settings_chat_colors")
+                ) {
 
                     ChatColorPresetPicker(
-                        title: "Your messages",
+                        title: String(localized: "chat_color_my_messages"),
                         selectedRaw: $myPresetRaw
                     )
 
                     ChatColorPresetPicker(
-                        title: "Other messages",
+                        title: String(localized: "chat_color_other_messages"),
                         selectedRaw: $otherPresetRaw
                     )
                 }
             }
-            .navigationTitle("Display settings")
+            .navigationTitle(
+                String(localized: "display_settings_navigation_title")
+            )
             .navigationBarTitleDisplayMode(.inline)
         }
     }
 }
-
 
 struct ColorPickerRow: View {
 
