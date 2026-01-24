@@ -835,9 +835,6 @@ extension EventManager {
 
                    // ✅✅✅ OPTIMISTIC LOCAL UPDATE (CỐT LÕI FIX)
                    DispatchQueue.main.async {
-                       self.events.append(newEvent)
-                       self.saveEvents()
-                       self.updateGroupedEvents()
                        EventSeenStore.shared.markSeen(eventId: newEvent.id)
                    }
 
@@ -1584,30 +1581,25 @@ extension EventManager {
     /// Gom event mới vào danh sách local, tránh trùng ID và tránh revive pendingDelete
     func merge(_ incoming: [CalendarEvent]) {
 
-        let incomingIds = Set(incoming.map { $0.id })
+        var map: [String: CalendarEvent] = [:]
 
-        // 1️⃣ REMOVE local events KHÔNG còn trên Firestore
-        var updated = self.events.filter { ev in
-            // Giữ event đang pendingDelete để retry
-            if ev.pendingDelete { return true }
-
-            // Firestore còn → giữ
-            return incomingIds.contains(ev.id)
-        }
-
-        // 2️⃣ ADD / UPDATE từ Firestore
+        // 1️⃣ Lấy incoming làm source of truth
         for ev in incoming {
-            if let idx = updated.firstIndex(where: { $0.id == ev.id }) {
-                updated[idx] = ev
-            } else {
-                updated.append(ev)
-            }
+            map[ev.id] = ev
         }
 
-        self.events = updated
+        // 2️⃣ Giữ pendingDelete local (không revive)
+        for ev in events where ev.pendingDelete {
+            map[ev.id] = ev
+        }
+
+        let merged = Array(map.values)
+
+        self.events = merged.sorted { $0.startTime < $1.startTime }
         self.saveEvents()
         self.updateGroupedEvents()
     }
+
 
 
     // MARK: - Listeners (prevent revival)

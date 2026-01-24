@@ -37,6 +37,12 @@ struct EventRowView: View {
     
     
     let timeDisplayMode: EventTimeDisplayMode
+    
+    
+    @ObservedObject private var todoStore = LocalTodoStore.shared
+    private var unfinishedTodoCount: Int {
+        todoStore.unfinishedCount(for: event.id)
+    }
 
     
     
@@ -77,23 +83,43 @@ struct EventRowView: View {
                 Spacer()
 
                 // ===== TRAILING =====
-                if chatMeta.unread {
-                    Circle()
-                        .fill(Color.red)
-                        .frame(width: 8, height: 8)
-                } else if isMyEvent {
-                    Button {
-                        toggleExpand()
-                    } label: {
-                        Image(systemName: "chevron.down")
-                            .rotationEffect(.degrees(isExpanded ? 180 : 0))
-                            .foregroundStyle(.secondary)
+                // ===== TRAILING =====
+                HStack(spacing: 8) {
+
+                    // 🔴 UNREAD CHAT
+                    if chatMeta.unread {
+                        Circle()
+                            .fill(Color.red)
+                            .frame(width: 8, height: 8)
                     }
-                    .buttonStyle(.plain)
-                } else {
-                    Image(systemName: "chevron.right")
-                        .foregroundStyle(.tertiary)
+
+                    // 🔵 TODO COUNT (MY EVENT)
+                    if isMyEvent && unfinishedTodoCount > 0 {
+                        Text("\(unfinishedTodoCount)")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(.white)
+                            .padding(6)
+                            .background(
+                                Circle().fill(Color.red)
+                            )
+                    }
+
+                    // ▶️ CHEVRON
+                    if isMyEvent {
+                        Button {
+                            toggleExpand()
+                        } label: {
+                            Image(systemName: "chevron.down")
+                                .rotationEffect(.degrees(isExpanded ? 180 : 0))
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                    } else {
+                        Image(systemName: "chevron.right")
+                            .foregroundStyle(.tertiary)
+                    }
                 }
+
             }
             .contentShape(Rectangle())
             .onTapGesture {

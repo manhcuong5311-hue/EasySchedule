@@ -208,91 +208,83 @@ struct EventListView: View {
 
 
 struct EventScrollContent: View {
+
     let events: [CalendarEvent]
-
-
-
     let showOwnerLabel: Bool
     let timeFontSize: Double
 
-    private var groupedByMonth: [Date: [CalendarEvent]] {
-        EventGrouping.byMonth(events)
-    }
-//NEW
-    
-    @Binding var selectedDate: Date 
-    
+    @Binding var selectedDate: Date
+
     let onAddEvent: () -> Void
     let onShareCalendar: () -> Void
     let onBookPartner: () -> Void
     let timeDisplayMode: EventTimeDisplayMode
 
-    private var eventsForSelectedDay: [CalendarEvent] {
-        events.filter {
-            Calendar.current.isDate($0.startTime, inSameDayAs: selectedDate)
-        }
+    private var eventsOfSelectedDay: [CalendarEvent] {
+        events
+            .filter {
+                Calendar.current.isDate($0.startTime, inSameDayAs: selectedDate)
+            }
+            .sorted { $0.startTime < $1.startTime }
     }
-    
-    
-    
-    
-    
+
     var body: some View {
         ScrollView {
 
-            BigDateHeaderView(
-                date: selectedDate
-            )
+            // ===== DAY HEADER =====
+            BigDateHeaderView(date: selectedDate)
 
             HorizontalDayPickerView(
                 selectedDate: $selectedDate
             )
             .padding(.bottom, 8)
 
-            if eventsForSelectedDay.isEmpty {
+            // ===== CONTEXT (MONTH / WEEK) =====
+            MonthContextView(date: selectedDate)
+            WeekContextView(date: selectedDate)
 
+            // ===== CONTENT =====
+            if eventsOfSelectedDay.isEmpty {
                 EmptyEventsStateView(
-                       onAdd: onAddEvent,
-                       onShare: onShareCalendar,
-                       onBookPartner: onBookPartner
-                   )
-
+                    onAdd: onAddEvent,
+                    onShare: onShareCalendar,
+                    onBookPartner: onBookPartner
+                )
             } else {
-
-                LazyVStack(alignment: .leading, spacing: 24) {
-
-                    ForEach(groupedByMonth.keys.sorted(), id: \.self) { month in
-                        MonthSectionView(
-                            month: month,
-                            events: groupedByMonth[month] ?? [],
-                            showOwnerLabel: showOwnerLabel,
-                            timeFontSize: timeFontSize,
-                            selectedDate: selectedDate,
-                            timeDisplayMode: timeDisplayMode
-                        )
-                    }
-                }
-                .padding(.horizontal, 0)
+                DaySectionView(
+                    day: selectedDate,
+                    dayEvents: eventsOfSelectedDay,
+                    showOwnerLabel: showOwnerLabel,
+                    timeFontSize: timeFontSize,
+                    timeDisplayMode: timeDisplayMode
+                )
                 .padding(.bottom, 80)
-                .onPreferenceChange(MonthHeaderPositionKey.self) { values in
-                    let sorted = values
-                        .filter { $0.value > 0 }
-                        .sorted { $0.value < $1.value }
-
-                    if let first = sorted.first {
-                        if !Calendar.current.isDate(first.key, equalTo: selectedDate, toGranularity: .month) {
-                            selectedDate = first.key
-                        }
-                    }
-                }
             }
-
         }
-       
     }
-
 }
 
+struct MonthContextView: View {
+    let date: Date
+
+    var body: some View {
+        Text(date.formatted(.dateTime.year().month()))
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .padding(.horizontal)
+    }
+}
+
+struct WeekContextView: View {
+    let date: Date
+
+    var body: some View {
+        Text("Week \(Calendar.current.component(.weekOfYear, from: date))")
+            .font(.caption2)
+            .foregroundStyle(.tertiary)
+            .padding(.horizontal)
+    }
+}
 
 
 struct MonthSectionView: View {
@@ -329,9 +321,6 @@ struct MonthSectionView: View {
                         }
                     )
             
-
-
-
             ForEach(groupedByWeek.keys.sorted(), id: \.self) { week in
                 WeekSectionView(
                     week: week,
@@ -425,7 +414,7 @@ private struct DaySectionView: View {
             )
 
             VStack(alignment: .leading, spacing: 6) {
-                ForEach(dayEvents.sorted { $0.startTime < $1.startTime }) { event in
+                ForEach(dayEvents) { event in
                     EventRowView(
                         event: event,
                         showOwnerLabel: showOwnerLabel,
@@ -439,6 +428,7 @@ private struct DaySectionView: View {
             }
             .padding(.leading, 16)
         }
+        
         .padding(.vertical, 8)
     }
 
