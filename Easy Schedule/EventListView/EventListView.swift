@@ -7,6 +7,24 @@
 import SwiftUI
 import Combine
 
+enum ActiveSheet1: Identifiable {
+    case monthPicker
+    case addEvent
+    case share(ShareItem)
+    case displaySettings
+    case pastWeek(WeekKey)
+
+    var id: String {
+        switch self {
+        case .monthPicker: return "month"
+        case .addEvent: return "add"
+        case .share: return "share"
+        case .displaySettings: return "display"
+        case .pastWeek(let w): return "week-\(w.year)-\(w.week)"
+        }
+    }
+}
+
 
 struct EventListView: View {
     @EnvironmentObject var eventManager: EventManager
@@ -20,7 +38,7 @@ struct EventListView: View {
     
     @State private var selectedDate: Date = Date()
 
-    @State private var showDisplaySettings = false
+ 
 
     @AppStorage("event_time_display_mode")
     private var timeDisplayModeRaw: String = EventTimeDisplayMode.timeRange.rawValue
@@ -30,19 +48,26 @@ struct EventListView: View {
         EventTimeDisplayMode(rawValue: timeDisplayModeRaw) ?? .timeRange
     }
 
-    
+
     @EnvironmentObject var uiAccent: UIAccentStore
 
 //NEWWWWWW
-    @State private var selectedPastWeek: WeekKey?
 
-    @State private var showAddSheet = false
-    @State private var shareItem: ShareItem?
     let onBookPartner: () -> Void
     
     @State private var forceShowEventsGuide = false
 
-    
+    private var maxSelectableDate: Date {
+        let cal = Calendar.current
+        let days =
+            PremiumLimits
+                .limits(for: PremiumStoreViewModel.shared.tier)
+                .maxBookingDaysAhead
+
+        let raw = cal.date(byAdding: .day, value: days, to: Date())!
+        return cal.startOfDay(for: raw)
+    }
+
     
     private func week(from date: Date) -> WeekKey {
         let cal = Calendar.current
@@ -51,6 +76,8 @@ struct EventListView: View {
             week: cal.component(.weekOfYear, from: date)
         )
     }
+    @State private var activeSheet: ActiveSheet1?
+    @State private var monthCursor: Date = Date()
 
 
     private var eventsIntroOverlay: some View {
@@ -97,31 +124,37 @@ struct EventListView: View {
     var body: some View {
         ZStack {
            
-                EventScrollContent(
-                    events: eventManager.events,
-                    showOwnerLabel: showOwnerLabel,
-                    timeFontSize: timeFontSize,
-                    selectedDate: $selectedDate,
+            EventScrollContent(
+                events: eventManager.events,
+                showOwnerLabel: showOwnerLabel,
+                timeFontSize: timeFontSize,
+                selectedDate: $selectedDate,
 
-                    // ⭐ ADD EVENT
-                    onAddEvent: {
-                        showAddSheet = true
-                    },
+                onAddEvent: {
+                    activeSheet = .addEvent
+                },
 
-                    // ⭐ SHARE CALENDAR
-                    onShareCalendar: {
-                        if let uid = session.currentUserId,
-                           let url = URL(
-                               string: "https://easyschedule-ce98a.web.app/calendar/\(uid)"
-                           ) {
-                            shareItem = ShareItem(url: url)
-                        }
-                    },   // 👈 👈 👈 DẤU PHẨY BỊ THIẾU
+                onShareCalendar: {
+                    if let uid = session.currentUserId,
+                       let url = URL(
+                           string: "https://easyschedule-ce98a.web.app/calendar/\(uid)"
+                       ) {
+                        activeSheet = .share(ShareItem(url: url))
+                    }
+                },
 
-                    // ⭐ BOOK PARTNER
-                    onBookPartner: onBookPartner  ,
-                    timeDisplayMode: timeDisplayMode
-                )
+                onBookPartner: onBookPartner,
+
+                maxSelectableDate: maxSelectableDate,   // ✅ ĐƯA LÊN TRƯỚC
+
+                timeDisplayMode: timeDisplayMode,
+
+                onOpenMonthPicker: {
+                    activeSheet = .monthPicker
+                }
+            )
+
+
 
 
             
@@ -144,29 +177,53 @@ struct EventListView: View {
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button {
-                    showDisplaySettings = true
+                    activeSheet = .displaySettings
                 } label: {
                     Image(systemName: "paintpalette")
                 }
             }
         }
-        .sheet(item: $shareItem) { item in
-            ActivityView(activityItems: [item.url])
+        .sheet(item: $activeSheet) { sheet in
+            switch sheet {
+
+            case .monthPicker:
+                CalendarMonthSheetView(
+                    selectedDate: $selectedDate,
+                    displayedMonth: $monthCursor,
+                    maxSelectableDate: maxSelectableDate
+                )
+                .environmentObject(eventManager)
+                .onAppear {
+                    monthCursor = selectedDate
+                }
+
+
+
+            case .addEvent:
+                AddEventView(
+                    prefillDate: selectedDate,
+                    offDays: [],
+                    busyHours: []
+                )
+                .environmentObject(eventManager)
+                .environmentObject(session)
+
+            case .share(let item):
+                ActivityView(activityItems: [item.url])
+
+            case .displaySettings:
+                DisplaySettingsSheet()
+
+            case .pastWeek(let week):
+                PastWeeklySummaryView(
+                    week: (year: week.year, week: week.week)
+                )
+                .environmentObject(eventManager)
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+            }
         }
 
-        .sheet(isPresented: $showAddSheet) {
-            AddEventView(
-                prefillDate: selectedDate,
-                offDays: [],          // EventListView KHÔNG QUẢN → để rỗng
-                busyHours: []         // EventListView KHÔNG QUẢN → để rỗng
-            )
-            .environmentObject(eventManager)
-            .environmentObject(session)
-        }
-
-        .sheet(isPresented: $showDisplaySettings) {
-            DisplaySettingsSheet()
-        }
         .onChange(of: selectedDate) { _, newDate in
 
             // ⭐ 1️⃣ ĐÁNH DẤU ĐÃ XEM EVENT TRONG NGÀY (XOÁ DOT NEW)
@@ -178,23 +235,18 @@ struct EventListView: View {
             let selected = cal.startOfDay(for: newDate)
 
             if selected < today {
-                selectedPastWeek = week(from: newDate)
+                activeSheet = .pastWeek(week(from: newDate))
             }
+
         }
 
-    .sheet(item: $selectedPastWeek) { week in
-            PastWeeklySummaryView(week: (year: week.year, week: week.week))
-                .environmentObject(eventManager)
-                .presentationDetents([.large])
-                .presentationDragIndicator(.visible)
-        }
-
+   
     }
     
     
     
     
-    
+  
     
     
     
@@ -218,7 +270,7 @@ struct EventScrollContent: View {
     let onAddEvent: () -> Void
     let onShareCalendar: () -> Void
     let onBookPartner: () -> Void
-    
+    let maxSelectableDate: Date
     let timeDisplayMode: EventTimeDisplayMode
     @EnvironmentObject var eventManager: EventManager
     
@@ -235,17 +287,24 @@ struct EventScrollContent: View {
     private var isOffDay: Bool {
         eventManager.isOffDay(selectedDate)
     }
+    let onOpenMonthPicker: () -> Void
 
     
     var body: some View {
         ScrollView {
 
             // ===== DAY HEADER =====
-            BigDateHeaderView(date: selectedDate)
+            BigDateHeaderView(
+                date: selectedDate
+            ) {
+                onOpenMonthPicker()
+            }
 
             HorizontalDayPickerView(
-                selectedDate: $selectedDate
+                selectedDate: $selectedDate,
+                maxSelectableDate: maxSelectableDate
             )
+
             .padding(.bottom, 8)
 
 

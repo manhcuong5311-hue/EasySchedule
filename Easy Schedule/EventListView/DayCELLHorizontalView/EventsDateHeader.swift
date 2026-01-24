@@ -16,7 +16,7 @@ struct BigDateHeaderView: View {
     @Environment(\.colorScheme) private var colorScheme
     @EnvironmentObject var uiAccent: UIAccentStore
     
-    
+    let onTap: (() -> Void)?
     
     
     
@@ -26,33 +26,38 @@ struct BigDateHeaderView: View {
         f.dateFormat = "d MMMM"
         return f
     }
-
+    
     private var yearFormatter: DateFormatter {
         let f = DateFormatter()
         f.dateFormat = "yyyy"
         return f
     }
-
+    
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-
-            Text(dayFormatter.string(from: date))
-                .foregroundColor(.primary)
-
-            Text(yearFormatter.string(from: date))
-                .foregroundColor(uiAccent.color)
-
-            Image(systemName: "chevron.right")
-                .foregroundColor(uiAccent.color.opacity(0.85))
-
-            Spacer()
+        Button {
+            onTap?()
+        } label: {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                
+                Text(dayFormatter.string(from: date))
+                    .foregroundColor(.primary)
+                
+                Text(yearFormatter.string(from: date))
+                    .foregroundColor(uiAccent.color)
+                
+                Image(systemName: "chevron.right")
+                    .foregroundColor(uiAccent.color.opacity(0.85))
+                
+                Spacer()
+            }
+            .font(.system(size: 36, weight: .bold, design: .rounded))
+            .modifier(TitleShadow.primary(colorScheme))   // ⭐ GẮN Ở ĐÂY
+            .padding(.horizontal, 20)
+            .padding(.top, 12)
+            .padding(.bottom, 8)
+            
         }
-        .font(.system(size: 36, weight: .bold, design: .rounded))
-        .modifier(TitleShadow.primary(colorScheme))   // ⭐ GẮN Ở ĐÂY
-        .padding(.horizontal, 20)
-        .padding(.top, 12)
-        .padding(.bottom, 8)
-
+        .buttonStyle(.plain)
     }
 }
 

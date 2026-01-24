@@ -10,7 +10,9 @@ struct HorizontalDayPickerView: View {
 
     @Binding var selectedDate: Date
     @EnvironmentObject var eventManager: EventManager
-
+    let maxSelectableDate: Date
+    
+    
     var body: some View {
         GeometryReader { geo in
             let config = LayoutConfig(availableWidth: geo.size.width)
@@ -20,19 +22,34 @@ struct HorizontalDayPickerView: View {
 
                     ForEach(config.days(around: selectedDate), id: \.self) { day in
                         let key = Calendar.current.startOfDay(for: day)
+                        let dayStart = Calendar.current.startOfDay(for: day)
+                        let today = Calendar.current.startOfDay(for: Date())
+
+                        let isPast = dayStart < today
+                        let isOutOfRange = dayStart > maxSelectableDate
+                        let isLocked = isPast || isOutOfRange
 
                         DayCell(
                             day: day,
                             isSelected: Calendar.current.isDate(day, inSameDayAs: selectedDate),
+
+                            isPastDay: isPast,
+                            isOffDay: eventManager.isOffDay(day),
+                            isLocked: isLocked,
+
                             unreadCount: eventManager.unreadCountByDay[key] ?? 0,
                             hasNew: eventManager.hasNewByDay[key] ?? false,
                             width: config.cellWidth
                         )
+
+                        .opacity(isLocked ? 0.35 : 1)
+                        .allowsHitTesting(!isLocked)
                         .onTapGesture {
                             withAnimation(.easeInOut) {
                                 selectedDate = day
                             }
                         }
+
                     }
 
                 }
@@ -77,24 +94,18 @@ private struct LayoutConfig {
 
 struct DayCell: View {
     let day: Date
-      let isSelected: Bool
-      let unreadCount: Int
-      let hasNew: Bool
-      let width: CGFloat
+     let isSelected: Bool
 
+     let isPastDay: Bool
+     let isOffDay: Bool
+     let isLocked: Bool
+
+     let unreadCount: Int
+     let hasNew: Bool
+     let width: CGFloat
     @Environment(\.colorScheme) private var colorScheme
     @EnvironmentObject var uiAccent: UIAccentStore
     
-    private var isPastDay: Bool {
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
-        let thisDay = calendar.startOfDay(for: day)
-        return thisDay < today
-    }
-    @EnvironmentObject var eventManager: EventManager
-    private var isOffDay: Bool {
-        eventManager.isOffDay(day)
-    }
 
     
     var body: some View {
@@ -130,6 +141,12 @@ struct DayCell: View {
                         }
                     }
                 )
+                .overlay {
+                    if Calendar.current.isDateInToday(day) && !isSelected {
+                        Circle()
+                            .stroke(uiAccent.color, lineWidth: 1.5)
+                    }
+                }
 
                 .overlay(
                     Group {
@@ -186,10 +203,7 @@ struct DayCell: View {
         .opacity(
             (isPastDay || isOffDay) && !isSelected ? 0.45 : 1
         )
-        .saturation(
-            isOffDay && !isSelected ? 0.25 : 1
-        )
-
+       
     }
     
     
