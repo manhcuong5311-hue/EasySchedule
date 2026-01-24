@@ -44,7 +44,10 @@ struct EventRowView: View {
         todoStore.unfinishedCount(for: event.id)
     }
 
-    
+    private var isOffDay: Bool {
+        eventManager.isOffDay(event.date)
+    }
+
     
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {

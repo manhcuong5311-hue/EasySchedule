@@ -93,7 +93,8 @@ final class EventManager: ObservableObject {
     private var myBusySlotsListener: ListenerRegistration?
 
     
-    
+    @Published var offDays: Set<Date> = []
+
     
     
     
@@ -1702,6 +1703,7 @@ extension EventManager {
         self.currentUserId = uid
 
         // 🔥 LOAD MANUAL BUSY HOURS CỦA OWNER
+        loadUserCalendar(uid: uid)
         
         listenToMyManualBusySlots()
         // (tuỳ chọn nhưng nên có)
@@ -1931,4 +1933,44 @@ extension EventManager {
     func openEvent(eventId: String) {
            selectedEventId = eventId
        }
+    
+    
+    func isOffDay(_ date: Date) -> Bool {
+          guard let uid = currentUserId,
+                let offDays = offDayCache[uid]
+          else { return false }
+
+          let key = Calendar.current.startOfDay(for: date)
+          return offDays.contains(key)
+      }
+    
+    
+    func loadUserCalendar(uid: String) {
+        Firestore.firestore()
+            .collection("publicCalendar")
+            .document(uid)
+            .addSnapshotListener { [weak self] snap, _ in
+                guard
+                    let data = snap?.data(),
+                    let rawOffDays = data["offDays"] as? [Double]
+                else {
+                    DispatchQueue.main.async {
+                        self?.offDayCache[uid] = []
+                    }
+                    return
+                }
+
+                let days = rawOffDays
+                    .map { Date(timeIntervalSince1970: $0) }
+                    .map { Calendar.current.startOfDay(for: $0) }
+
+                DispatchQueue.main.async {
+                    self?.offDayCache[uid] = Set(days)   // ⭐ QUAN TRỌNG
+                }
+            }
+    }
+
+
+    
+    
 }

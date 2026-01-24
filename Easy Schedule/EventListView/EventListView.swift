@@ -218,8 +218,12 @@ struct EventScrollContent: View {
     let onAddEvent: () -> Void
     let onShareCalendar: () -> Void
     let onBookPartner: () -> Void
+    
     let timeDisplayMode: EventTimeDisplayMode
-
+    @EnvironmentObject var eventManager: EventManager
+    
+    
+    
     private var eventsOfSelectedDay: [CalendarEvent] {
         events
             .filter {
@@ -227,7 +231,12 @@ struct EventScrollContent: View {
             }
             .sorted { $0.startTime < $1.startTime }
     }
+    
+    private var isOffDay: Bool {
+        eventManager.isOffDay(selectedDate)
+    }
 
+    
     var body: some View {
         ScrollView {
 
@@ -239,17 +248,20 @@ struct EventScrollContent: View {
             )
             .padding(.bottom, 8)
 
-            // ===== CONTEXT (MONTH / WEEK) =====
-            MonthContextView(date: selectedDate)
-            WeekContextView(date: selectedDate)
 
             // ===== CONTENT =====
             if eventsOfSelectedDay.isEmpty {
-                EmptyEventsStateView(
-                    onAdd: onAddEvent,
-                    onShare: onShareCalendar,
-                    onBookPartner: onBookPartner
-                )
+
+                if isOffDay {
+                    OffDayEmptyStateView(date: selectedDate)
+                } else {
+                    EmptyEventsStateView(
+                        onAdd: onAddEvent,
+                        onShare: onShareCalendar,
+                        onBookPartner: onBookPartner
+                    )
+                }
+
             } else {
                 DaySectionView(
                     day: selectedDate,
@@ -260,29 +272,8 @@ struct EventScrollContent: View {
                 )
                 .padding(.bottom, 80)
             }
+
         }
-    }
-}
-
-struct MonthContextView: View {
-    let date: Date
-
-    var body: some View {
-        Text(date.formatted(.dateTime.year().month()))
-            .font(.caption)
-            .foregroundStyle(.secondary)
-            .padding(.horizontal)
-    }
-}
-
-struct WeekContextView: View {
-    let date: Date
-
-    var body: some View {
-        Text("Week \(Calendar.current.component(.weekOfYear, from: date))")
-            .font(.caption2)
-            .foregroundStyle(.tertiary)
-            .padding(.horizontal)
     }
 }
 

@@ -91,6 +91,10 @@ struct DayCell: View {
         let thisDay = calendar.startOfDay(for: day)
         return thisDay < today
     }
+    @EnvironmentObject var eventManager: EventManager
+    private var isOffDay: Bool {
+        eventManager.isOffDay(day)
+    }
 
     
     var body: some View {
@@ -109,27 +113,24 @@ struct DayCell: View {
                         if isSelected {
                             Circle()
                                 .fill(uiAccent.color)
-                                .overlay(
-                                    // ⭐ VIỀN SÁNG CHO DARK MODE
-                                    Circle()
-                                        .stroke(
-                                            colorScheme == .dark
-                                                ? Color.white.opacity(0.35)
-                                                : Color.clear,
-                                            lineWidth: 1
-                                        )
-                                )
-                             
-                        } else {
+                        } else if isOffDay {
                             Circle()
                                 .fill(
-                                    isPastDay
-                                        ? Color.primary.opacity(colorScheme == .dark ? 0.12 : 0.06)
-                                        : Color.clear
+                                    Color.primary.opacity(
+                                        colorScheme == .dark ? 0.20 : 0.10
+                                    )
+                                )
+                        } else if isPastDay {
+                            Circle()
+                                .fill(
+                                    Color.primary.opacity(
+                                        colorScheme == .dark ? 0.12 : 0.06
+                                    )
                                 )
                         }
                     }
                 )
+
                 .overlay(
                     Group {
                         if isSelected && colorScheme == .dark {
@@ -148,6 +149,16 @@ struct DayCell: View {
                         }
                     }
                 )
+                .overlay(alignment: .bottomTrailing) {
+                    if isOffDay && !isSelected {
+                        Image(systemName: "bed.double.fill")
+                            .font(.caption)
+                            .foregroundColor(uiAccent.color.opacity(0.8))
+                            .offset(x: -2, y: -2)
+                    }
+                }
+
+
                 .dayCellShadow(
                     scheme: colorScheme,
                     isSelected: isSelected
@@ -172,8 +183,13 @@ struct DayCell: View {
         }
         .frame(width: width + 12)   // ⭐ tạo không gian thoáng trên iPad
         .padding(.vertical, 6)
-        .opacity(isPastDay && !isSelected ? 0.45 : 1)
-        .saturation(isPastDay && !isSelected ? 0.3 : 1)
+        .opacity(
+            (isPastDay || isOffDay) && !isSelected ? 0.45 : 1
+        )
+        .saturation(
+            isOffDay && !isSelected ? 0.25 : 1
+        )
+
     }
     
     
