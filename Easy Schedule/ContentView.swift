@@ -47,6 +47,7 @@ struct ContentView: View {
     @State private var selectedTab: AppTab = .events
     @State private var openChatEventId: String?
     @State private var pendingChatEventId: String?
+    @StateObject private var accessBadgeVM = AccessBadgeViewModel()
 
     var body: some View {
 
@@ -91,6 +92,7 @@ struct ContentView: View {
                .tabItem {
                    Label("tab_partners", systemImage: "person.2.fill")
                }
+               .badge(accessBadgeVM.pendingCount)
                .tag(AppTab.partners)
             
             NavigationStack {
@@ -104,6 +106,11 @@ struct ContentView: View {
         .onAppear {
             handlePendingPush()
             eventManager.cleanUpPastEvents()
+        }
+        .onAppear {
+            if let uid = Auth.auth().currentUser?.uid {
+                accessBadgeVM.load(ownerUid: uid)
+            }
         }
 
         // 🔔 CHAT PUSH
