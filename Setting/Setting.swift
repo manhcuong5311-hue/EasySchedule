@@ -72,7 +72,10 @@ final class NotificationManager: ObservableObject {
 
     
     func scheduleNotification(for event: CalendarEvent, leadTime: Int = 15) {
-        guard notificationsEnabled else { return }
+        let enabled = UserDefaults.standard.bool(
+            forKey: "pushNotificationsEnabled"
+        )
+        guard enabled else { return }
 
         let content = UNMutableNotificationContent()
         content.title = event.title
@@ -80,20 +83,29 @@ final class NotificationManager: ObservableObject {
             format: String(localized: "upcoming_event_message"),
             event.title
         )
-
         content.sound = .default
 
-        let triggerDate = Calendar.current.date(byAdding: .minute, value: -leadTime, to: event.startTime) ?? event.startTime
+        let triggerDate =
+            Calendar.current.date(
+                byAdding: .minute,
+                value: -leadTime,
+                to: event.startTime
+            ) ?? event.startTime
+
         let interval = max(triggerDate.timeIntervalSinceNow, 5)
 
         let request = UNNotificationRequest(
-            identifier: event.id,   // <<< DÙNG EVENT ID LÀ IDENTIFIER
+            identifier: event.id,
             content: content,
-            trigger: UNTimeIntervalNotificationTrigger(timeInterval: interval, repeats: false)
+            trigger: UNTimeIntervalNotificationTrigger(
+                timeInterval: interval,
+                repeats: false
+            )
         )
 
         UNUserNotificationCenter.current().add(request)
     }
+
 
 }
 
@@ -155,12 +167,19 @@ struct SettingsView: View {
                                         UIApplication.shared.registerForRemoteNotifications()
                                         PushPreferenceManager.enablePush()
 
+                                        EventManager.shared.rescheduleLocalNotifications()
+
+
                                     case .notDetermined:
                                         NotificationManager.shared.requestPermission { granted in
                                             DispatchQueue.main.async {
                                                 if granted {
                                                     UIApplication.shared.registerForRemoteNotifications()
                                                     PushPreferenceManager.enablePush()
+
+                                                    EventManager.shared.rescheduleLocalNotifications()
+                                                
+
                                                 } else {
                                                     pushNotificationsEnabled = false
                                                 }
@@ -351,6 +370,17 @@ struct SettingsView: View {
             }
             .onReceive(NotificationCenter.default.publisher(for: .OpenPaywall)) { _ in
                 showUpgradeSheet = true
+            }
+            .onChange(of: leadTime) { _, _ in
+                EventManager.shared.rescheduleLocalNotifications()
+            }
+            .onChange(of: pushNotificationsEnabled) { _, enabled in
+                if enabled {
+                    EventManager.shared.rescheduleLocalNotifications()
+                } else {
+                    UNUserNotificationCenter.current()
+                        .removeAllPendingNotificationRequests()
+                }
             }
 
             .alert(

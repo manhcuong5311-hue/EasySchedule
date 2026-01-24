@@ -106,47 +106,48 @@ class AppDelegate: NSObject,
 
 
     // Show banner in foreground
-    func userNotificationCenter(_ center: UNUserNotificationCenter,
-                                willPresent notification: UNNotification,
-                                withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
-        completionHandler([.banner, .sound])
-    }
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
-        didReceive response: UNNotificationResponse,
-        withCompletionHandler completionHandler: @escaping () -> Void
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
-        let userInfo = response.notification.request.content.userInfo
+        let userInfo = notification.request.content.userInfo
 
         guard let type = userInfo["type"] as? String else {
-            completionHandler()
+            completionHandler([.banner, .sound])
             return
         }
 
-        DispatchQueue.main.async {
+        switch type {
 
-            switch type {
+        case "chat":
+            // ✅ Chat vẫn dùng banner hệ thống
+            completionHandler([.banner, .sound])
 
-            case "chat", "event":
-                if let eventId = userInfo["eventId"] as? String {
-                    NotificationRouter.shared.handle(type: type, eventId: eventId)
-                }
+        case "event":
+            completionHandler([]) // ❌ chặn banner iOS
+            pushLocalNotification(
+                title: "New event",
+                body: "A new event has been added to your calendar"
+            )
 
-            case "event_removed":
-                if let eventId = userInfo["eventId"] as? String {
-                    NotificationRouter.shared.handle(type: "event_removed", eventId: eventId)
-                }
+        case "event_removed":
+            completionHandler([])
+            pushLocalNotification(
+                title: "Event removed",
+                body: "An event was removed"
+            )
 
-            case "calendar_access_request":
-                NotificationRouter.shared.handleAccessRequest()
+        case "calendar_access_request":
+            completionHandler([])
+            pushLocalNotification(
+                title: "Calendar access request",
+                body: "Someone wants to access your calendar"
+            )
 
-            default:
-                break
-            }
-
+        default:
+            completionHandler([])
         }
-
-        completionHandler()
     }
 
 

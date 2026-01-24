@@ -1481,7 +1481,9 @@ extension EventManager {
                     // 3) Update local + UI
                     self.saveEvents()
                     self.updateGroupedEvents()
-
+                    // 🔔 RESCHEDULE SAU KHI SYNC
+                    self.rescheduleLocalNotifications()
+                    
                     // 4) Detect event mới
                     let newIds = Set(firestoreUpcoming.map { $0.id })
                     let addedIds = newIds.subtracting(oldIds)
@@ -1708,6 +1710,9 @@ extension EventManager {
         listenToMyManualBusySlots()
         // (tuỳ chọn nhưng nên có)
         listenToEvents()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+               self.rescheduleLocalNotifications()
+           }
     }
 
 
@@ -1973,4 +1978,37 @@ extension EventManager {
 
     
     
+}
+
+extension EventManager {
+
+    /// 🔔 Reschedule toàn bộ local notifications cho event sắp tới
+    func rescheduleLocalNotifications() {
+        let enabled = UserDefaults.standard.bool(forKey: "pushNotificationsEnabled")
+        guard enabled else {
+            // Nếu user tắt push → xoá hết
+            UNUserNotificationCenter.current()
+                .removeAllPendingNotificationRequests()
+            return
+        }
+
+        let leadTime = UserDefaults.standard.integer(forKey: "leadTime")
+        let now = Date()
+
+        // ❗ Xoá toàn bộ trước (tránh duplicate)
+        UNUserNotificationCenter.current()
+            .removeAllPendingNotificationRequests()
+
+        for event in events {
+            // Chỉ schedule event tương lai
+            guard event.startTime > now else { continue }
+
+            NotificationManager.shared.scheduleNotification(
+                for: event,
+                leadTime: leadTime
+            )
+        }
+
+        print("🔔 Rescheduled local notifications:", events.count)
+    }
 }
