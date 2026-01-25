@@ -78,6 +78,7 @@ struct EventListView: View {
     }
     @State private var activeSheet: ActiveSheet1?
     @State private var monthCursor: Date = Date()
+    @State private var isMonthPickerOpen = false
 
 
     private var eventsIntroOverlay: some View {
@@ -149,14 +150,21 @@ struct EventListView: View {
                       activeSheet = .pastWeek(week(from: date))
                   },
 
-
                 maxSelectableDate: maxSelectableDate,   // ✅ ĐƯA LÊN TRƯỚC
 
                 timeDisplayMode: timeDisplayMode,
 
+                isMonthPickerOpen: $isMonthPickerOpen,
+                
                 onOpenMonthPicker: {
-                    activeSheet = .monthPicker
-                }
+                       isMonthPickerOpen = true
+                       activeSheet = .monthPicker
+                   },
+                
+                onOpenDisplaySettings: {
+                      activeSheet = .displaySettings
+                  }
+                 
             )
 
 
@@ -178,16 +186,7 @@ struct EventListView: View {
         .onAppear {
             guideManager.startIfNeeded()   // ⭐ DÒNG QUAN TRỌNG
         }
-        // ⭐ NÚT EDIT Ở GÓC PHẢI
-        .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                Button {
-                    activeSheet = .displaySettings
-                } label: {
-                    Image(systemName: "paintpalette")
-                }
-            }
-        }
+        .toolbar(.hidden, for: .navigationBar)
         .sheet(item: $activeSheet) { sheet in
             switch sheet {
 
@@ -198,9 +197,12 @@ struct EventListView: View {
                     maxSelectableDate: maxSelectableDate
                 )
                 .environmentObject(eventManager)
-                .onAppear {
-                    monthCursor = selectedDate
+                .onDisappear {
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        isMonthPickerOpen = false   // ⭐ CHEVRON QUAY LẠI
+                    }
                 }
+
 
 
 
@@ -265,22 +267,31 @@ struct EventListView: View {
 
 
 struct EventScrollContent: View {
-
+    
     let events: [CalendarEvent]
     let showOwnerLabel: Bool
     let timeFontSize: Double
-
+    
     @Binding var selectedDate: Date
-
+    
     let onAddEvent: () -> Void
     let onShareCalendar: () -> Void
     let onBookPartner: () -> Void
     let onViewSummary: (Date) -> Void
     let maxSelectableDate: Date
     let timeDisplayMode: EventTimeDisplayMode
+    
+    @Binding var isMonthPickerOpen: Bool
+    let onOpenMonthPicker: () -> Void
+    let onOpenDisplaySettings: () -> Void
+
+    
+    
+    
+    
     @EnvironmentObject var eventManager: EventManager
-    
-    
+    @EnvironmentObject var uiAccent: UIAccentStore
+   
     
     private var eventsOfSelectedDay: [CalendarEvent] {
         events
@@ -293,30 +304,26 @@ struct EventScrollContent: View {
     private var isOffDay: Bool {
         eventManager.isOffDay(selectedDate)
     }
-    let onOpenMonthPicker: () -> Void
-
+   
+    
     
     var body: some View {
+   
         ScrollView {
-
-            // ===== DAY HEADER =====
-            BigDateHeaderView(
-                date: selectedDate
-            ) {
-                onOpenMonthPicker()
-            }
-
+            
+           
+            
             HorizontalDayPickerView(
                 selectedDate: $selectedDate,
                 maxSelectableDate: maxSelectableDate
             )
-
+            
             .padding(.bottom, 8)
-
-
+            
+            
             // ===== CONTENT =====
             if eventsOfSelectedDay.isEmpty {
-
+                
                 if isOffDay {
                     OffDayEmptyStateView(
                         date: selectedDate,
@@ -331,7 +338,7 @@ struct EventScrollContent: View {
                         onBookPartner: onBookPartner
                     )
                 }
-
+                
             } else {
                 DaySectionView(
                     day: selectedDate,
@@ -343,15 +350,57 @@ struct EventScrollContent: View {
                     onShareCalendar: onShareCalendar,
                     onBookPartner: onBookPartner
                 )
-
+                
                 .padding(.bottom, 80)
             }
-
+            
         }
         .frame(maxWidth: .infinity, alignment: .topLeading)
+        .safeAreaInset(edge: .top, spacing: 0) {
+            HStack(alignment: .center) {
+
+                // ===== BIG DATE HEADER (BÊN TRÁI) =====
+                BigDateHeaderView(
+                    date: selectedDate,
+                    isExpanded: $isMonthPickerOpen
+                ) {
+                    isMonthPickerOpen = true
+                    onOpenMonthPicker()
+                }
+
+                Spacer()
+
+                // ===== FLOATING PAINTPALETTE (BÊN PHẢI) =====
+                Button {
+                    // ⚙️ MỞ DISPLAY SETTINGS
+                    onOpenDisplaySettings()
+                } label: {
+                    Image(systemName: "paintpalette")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(uiAccent.color)
+                        .frame(width: 44, height: 44)
+                        .background(
+                            Circle()
+                                .fill(Color(.systemBackground))
+                        )
+                        .shadow(
+                            color: Color.black.opacity(0.18),
+                            radius: 4,
+                            y: 2
+                        )
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 4)
+            .padding(.bottom, 4)
+        }
+
+
 
     }
 }
+    
+
 
 
 struct MonthSectionView: View {

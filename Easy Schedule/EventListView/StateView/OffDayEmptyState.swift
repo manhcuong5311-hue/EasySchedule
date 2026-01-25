@@ -31,7 +31,7 @@ struct OffDayEmptyStateView: View {
                 onViewSummary()
             } label: {
                 Label(
-                    String(localized: "view_weekly_summary"),
+                    String(localized: "view_weekly_past_events_summary"),
                     systemImage: "chart.bar"
                 )
             }

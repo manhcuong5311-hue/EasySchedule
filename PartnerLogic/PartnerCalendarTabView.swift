@@ -61,7 +61,9 @@ struct PartnerCalendarTabView: View {
                     partnersIntroOverlay
                 }
             }
+         
         }
+        .toolbar(.hidden, for: .navigationBar)
         // ✅ LOAD BADGE KHI VIEW XUẤT HIỆN
         .onAppear {
             guard let uid = Auth.auth().currentUser?.uid else { return }
@@ -70,40 +72,59 @@ struct PartnerCalendarTabView: View {
     }
 
 
+    private var partnerHeaderView: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Text(String(localized: "title_partner1"))
+                    .foregroundColor(uiAccent.color)
 
+                Text(String(localized: "title_calendar1"))
+                    .foregroundColor(.primary)
+            }
+            .font(.system(size: 34, weight: .bold, design: .rounded))
+            .modifier(TitleShadow.primary(colorScheme))
+
+            Text(String(localized: "partner_calendar_description"))
+                .font(.system(size: 15, weight: .medium))
+                .foregroundColor(.secondary)
+                .shadow(
+                    color: colorScheme == .dark
+                    ? Color.white.opacity(0.15)
+                    : Color.black.opacity(0.10),
+                    radius: 1,
+                    y: 1
+                )
+        }
+        .padding(.horizontal)
+        .padding(.top, 16)
+    }
+
+    private var floatingAddButton: some View {
+        Button {
+            guard !isLoading else { return }
+            addAppointmentPressed()
+        } label: {
+            Image(systemName: "plus")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundColor(uiAccent.color)
+                .frame(width: 44, height: 44)
+                .background(
+                    Circle()
+                        .fill(Color(.systemBackground))
+                )
+                .shadow(
+                    color: Color.black.opacity(0.18),
+                    radius: 4,
+                    y: 2
+                )
+        }
+        .accessibilityLabel(String(localized: "add_appointment"))
+    }
 
     // MARK: - Subviews
     private var mainContent: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                
-                
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack(spacing: 8) {
-                        Text(String(localized: "title_partner1"))
-                            .foregroundColor(uiAccent.color)
-
-                        Text(String(localized: "title_calendar1"))
-                            .foregroundColor(.primary)
-                    }
-
-                    .font(.system(size: 34, weight: .bold, design: .rounded))
-                    .modifier(TitleShadow.primary(colorScheme))   // ⭐ CHUẨN HOÁ
-                    
-                    Text(String(localized: "partner_calendar_description"))
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundColor(.secondary)
-                        .shadow(
-                            color: colorScheme == .dark
-                            ? Color.white.opacity(0.15)
-                            : Color.black.opacity(0.10),
-                            radius: 1,
-                            y: 1
-                        )
-                }
-                .padding(.horizontal)
-                .padding(.top, 16)
-                
                 
                 
                 if !network.isOnline {
@@ -230,19 +251,33 @@ struct PartnerCalendarTabView: View {
                 // MARK: CONTENT AREA (DANH SÁCH LỊCH)
                 // ================================
                 contentArea
-                    .padding(.top, 8)
+                    .padding(.top, 12)
                 
             
             }
             .padding(.top, 12)
         }
+        .safeAreaInset(edge: .top, spacing: 0) {
+            HStack(alignment: .center) {
+
+                // ===== HEADER BÊN TRÁI =====
+                partnerHeaderView
+
+                Spacer()
+
+                // ===== FLOATING + BÊN PHẢI =====
+                floatingAddButton
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 16)
+            .padding(.top, 4)
+            .padding(.bottom, 4)
+            .background(Color(.systemBackground))
+        }
 
         // ================================
         // MARK: TITLE + TOOLBAR
         // ================================
-        .toolbar {
-            partnerToolbar   // chỉ giữ nút +
-        }
         .navigationTitle("")            // hoặc bỏ luôn
         .navigationBarTitleDisplayMode(.inline)
 

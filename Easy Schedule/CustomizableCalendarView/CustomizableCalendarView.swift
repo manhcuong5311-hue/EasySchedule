@@ -213,11 +213,39 @@ struct CustomizableCalendarView: View {
             }
 
             cooldownToast
+            // ⭐⭐ NÚT + FLOATING (TO – RÕ – PREMIUM) ⭐⭐
+            VStack {
+                HStack {
+                    Spacer()
+
+                    Button {
+                        showAddSheet = true
+                    } label: {
+                        Image(systemName: "plus")
+                            .font(.system(size: 22, weight: .bold))   // ⭐ TO RÕ HƠN
+                            .foregroundColor(uiAccent.color)
+                            .frame(width: 52, height: 52)             // ⭐ KÍCH THƯỚC NÚT
+                            .background(
+                                Circle()
+                                    .fill(Color(.systemBackground))
+                            )
+                            .shadow(
+                                color: colorScheme == .dark
+                                    ? Color.white.opacity(0.35)
+                                    : Color.black.opacity(0.25),
+                                radius: 6,
+                                y: 3
+                            )
+                    }
+                }
+                .padding(.trailing, 16)
+                .padding(.top, 10)
+
+                Spacer()
+            }
+
         }
-        .toolbar {
-            addToolbar
-        }
-        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .navigationBar)
 
         .sheet(isPresented: $showAddSheet) { addEventSheet }
         .sheet(isPresented: $showBusyHoursSheet) { busyHoursSheet }
@@ -383,36 +411,6 @@ struct CustomizableCalendarView: View {
         .environmentObject(eventManager)
     }
     
-    @ToolbarContentBuilder
-    private var addToolbar: some ToolbarContent {
-
-        ToolbarItem(placement: .navigationBarLeading) {
-            Button {
-                guideManager.show(.calendarIntro)
-            } label: {
-                Image(systemName: "questionmark.circle")
-            }
-        }
-
-        ToolbarItem(placement: .navigationBarTrailing) {
-            Button {
-                showAddSheet = true
-            } label: {
-                Image(systemName: "plus")
-                    .foregroundColor(uiAccent.color)
-                    .shadow(
-                        color: colorScheme == .dark
-                            ? Color.white.opacity(0.35)   // ⭐ glow sáng
-                            : Color.black.opacity(0.25),  // ⭐ shadow đen
-                        radius: 4,
-                        y: 2
-                    )
-            }
-        }
-
-    }
-
-
     private var calendarIntroOverlay: some View {
         GeometryReader { geo in
             ZStack {

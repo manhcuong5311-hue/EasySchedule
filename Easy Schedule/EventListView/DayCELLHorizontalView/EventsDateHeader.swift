@@ -13,11 +13,17 @@ struct MonthHeaderPositionKey: PreferenceKey {
 
 struct BigDateHeaderView: View {
     let date: Date
+    @Binding var isExpanded: Bool
+    let onTap: (() -> Void)?
+    
+    
     @Environment(\.colorScheme) private var colorScheme
     @EnvironmentObject var uiAccent: UIAccentStore
     
-    let onTap: (() -> Void)?
-    
+
+   
+
+
     
     
     
@@ -35,8 +41,12 @@ struct BigDateHeaderView: View {
     
     var body: some View {
         Button {
+            withAnimation(.easeInOut(duration: 0.25)) {
+                isExpanded = true
+            }
             onTap?()
         } label: {
+
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 
                 Text(dayFormatter.string(from: date))
@@ -47,14 +57,22 @@ struct BigDateHeaderView: View {
                 
                 Image(systemName: "chevron.right")
                     .foregroundColor(uiAccent.color.opacity(0.85))
+                    .rotationEffect(.degrees(isExpanded ? 90 : 0))   // ⭐ xoay xuống
+                    .animation(.easeInOut(duration: 0.25), value: isExpanded)
+
                 
                 Spacer()
             }
-            .font(.system(size: 36, weight: .bold, design: .rounded))
-            .modifier(TitleShadow.primary(colorScheme))   // ⭐ GẮN Ở ĐÂY
-            .padding(.horizontal, 20)
-            .padding(.top, 12)
-            .padding(.bottom, 8)
+            .font(.system(size: 26, weight: .bold, design: .rounded))
+            .lineLimit(1)
+            .minimumScaleFactor(0.9)
+            .lineSpacing(0)
+            .compositingGroup()
+            .modifier(TitleShadow.primary(colorScheme))
+   // ⭐ GẮN Ở ĐÂY
+            .padding(.horizontal, 16)
+            .padding(.top, 4)
+            .padding(.bottom, 4)
             
         }
         .buttonStyle(.plain)
