@@ -327,12 +327,18 @@ struct EventScrollContent: View {
                     dayEvents: eventsOfSelectedDay,
                     showOwnerLabel: showOwnerLabel,
                     timeFontSize: timeFontSize,
-                    timeDisplayMode: timeDisplayMode
+                    timeDisplayMode: timeDisplayMode,
+                    onAddEvent: onAddEvent,
+                    onShareCalendar: onShareCalendar,
+                    onBookPartner: onBookPartner
                 )
+
                 .padding(.bottom, 80)
             }
 
         }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+
     }
 }
 
@@ -353,7 +359,10 @@ struct MonthSectionView: View {
 //NEW
     let selectedDate: Date   // ✅ thêm
     let timeDisplayMode: EventTimeDisplayMode
-
+    // ✅ THÊM 3 ACTION
+       let onAddEvent: () -> Void
+       let onShareCalendar: () -> Void
+       let onBookPartner: () -> Void
     
     
     var body: some View {
@@ -373,13 +382,16 @@ struct MonthSectionView: View {
             
             ForEach(groupedByWeek.keys.sorted(), id: \.self) { week in
                 WeekSectionView(
-                    week: week,
-                    events: groupedByWeek[week] ?? [],
-                    showOwnerLabel: showOwnerLabel,
-                    timeFontSize: timeFontSize,
-                    selectedDate: selectedDate,
-                    timeDisplayMode: timeDisplayMode
-                )
+                                   week: week,
+                                   events: groupedByWeek[week] ?? [],
+                                   showOwnerLabel: showOwnerLabel,
+                                   timeFontSize: timeFontSize,
+                                   selectedDate: selectedDate,
+                                   timeDisplayMode: timeDisplayMode,
+                                   onAddEvent: onAddEvent,
+                                   onShareCalendar: onShareCalendar,
+                                   onBookPartner: onBookPartner
+                               )
             }
         }
     }
@@ -393,6 +405,10 @@ struct WeekSectionView: View {
     let timeFontSize: Double
     let selectedDate: Date   // ✅ thêm
     let timeDisplayMode: EventTimeDisplayMode
+    // ✅ THÊM 3 ACTION
+       let onAddEvent: () -> Void
+       let onShareCalendar: () -> Void
+       let onBookPartner: () -> Void
 
     private var groupedByDay: [Date: [CalendarEvent]] {
         EventGrouping.byDay(events)
@@ -415,7 +431,10 @@ struct WeekSectionView: View {
                     dayEvents: groupedByDay[day] ?? [],
                     showOwnerLabel: showOwnerLabel,
                     timeFontSize: timeFontSize,
-                    timeDisplayMode: timeDisplayMode   // ⭐ THÊM
+                    timeDisplayMode: timeDisplayMode,
+                    onAddEvent: onAddEvent,
+                    onShareCalendar: onShareCalendar,
+                    onBookPartner: onBookPartner
                 )
 
             }
@@ -432,6 +451,13 @@ private struct DaySectionView: View {
     let showOwnerLabel: Bool
     let timeFontSize: Double
     let timeDisplayMode: EventTimeDisplayMode
+    
+    // ✅ THÊM 3 ACTION
+        let onAddEvent: () -> Void
+        let onShareCalendar: () -> Void
+        let onBookPartner: () -> Void
+    
+    
     @EnvironmentObject var session: SessionStore
     @EnvironmentObject var eventManager: EventManager
 
@@ -446,7 +472,33 @@ private struct DaySectionView: View {
 
     @EnvironmentObject var uiAccent: UIAccentStore
 
-    
+    private var shouldShowLightSuggestion: Bool {
+        let isTodayOrFuture =
+            Calendar.current.startOfDay(for: day) >=
+            Calendar.current.startOfDay(for: Date())
+
+        let key = dayKey(day)
+
+        return isTodayOrFuture
+            && !dayEvents.isEmpty
+            && dayEvents.count < 4
+            && !collapsedDays.contains(key)
+    }
+
+
+    @AppStorage("collapsed_light_suggestion_days")
+    private var collapsedDaysRaw: String = ""
+
+    private var collapsedDays: Set<String> {
+        Set(collapsedDaysRaw.split(separator: ",").map(String.init))
+    }
+
+    private func dayKey(_ date: Date) -> String {
+        let cal = Calendar.current
+        let comps = cal.dateComponents([.year, .month, .day], from: date)
+        return "\(comps.year!)-\(comps.month!)-\(comps.day!)"
+    }
+
     
     
     
@@ -462,6 +514,7 @@ private struct DaySectionView: View {
                 unreadCount: unreadCount,
                 hasNew: hasNew
             )
+            
 
             VStack(alignment: .leading, spacing: 6) {
                 ForEach(dayEvents) { event in
@@ -477,13 +530,66 @@ private struct DaySectionView: View {
                 }
             }
             .padding(.leading, 16)
+            
+    // ===== < 4 EVENTS SUGGESTION (BOTTOM) =====
+            if shouldShowLightSuggestion {
+                LightDaySuggestionView(
+                    onAdd: onAddEvent,
+                    onShare: onShareCalendar,
+                    onBookPartner: onBookPartner,
+                    onCollapse: {
+                        let key = dayKey(day)
+
+                        if !collapsedDays.contains(key) {
+                            let updated = collapsedDays
+                                .union([key])
+                                .joined(separator: ",")
+
+                            collapsedDaysRaw = updated
+                        }
+                    }
+                )
+
+
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+            }
         }
-        
+        .onAppear {
+            resetCollapseIfNeeded()
+        }
+        .onChange(of: dayEvents.count) { _, _ in
+            resetCollapseIfNeeded()
+        }
+
         .padding(.vertical, 8)
     }
 
 
 
+    
+    
+    
+    
+    
+    
+    
+    
+    private func resetCollapseIfNeeded() {
+        let key = dayKey(day)
+
+        guard dayEvents.count >= 4,
+              collapsedDays.contains(key)
+        else { return }
+
+        let updated = collapsedDays
+            .subtracting([key])
+            .joined(separator: ",")
+
+        collapsedDaysRaw = updated
+    }
+
+    
 }
 
 
