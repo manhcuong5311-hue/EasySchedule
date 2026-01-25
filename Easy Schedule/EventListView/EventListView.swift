@@ -144,6 +144,11 @@ struct EventListView: View {
                 },
 
                 onBookPartner: onBookPartner,
+                
+                onViewSummary: { date in
+                      activeSheet = .pastWeek(week(from: date))
+                  },
+
 
                 maxSelectableDate: maxSelectableDate,   // ✅ ĐƯA LÊN TRƯỚC
 
@@ -270,6 +275,7 @@ struct EventScrollContent: View {
     let onAddEvent: () -> Void
     let onShareCalendar: () -> Void
     let onBookPartner: () -> Void
+    let onViewSummary: (Date) -> Void
     let maxSelectableDate: Date
     let timeDisplayMode: EventTimeDisplayMode
     @EnvironmentObject var eventManager: EventManager
@@ -312,7 +318,12 @@ struct EventScrollContent: View {
             if eventsOfSelectedDay.isEmpty {
 
                 if isOffDay {
-                    OffDayEmptyStateView(date: selectedDate)
+                    OffDayEmptyStateView(
+                        date: selectedDate,
+                        onViewSummary: {
+                            onViewSummary(selectedDate)
+                        }
+                    )
                 } else {
                     EmptyEventsStateView(
                         onAdd: onAddEvent,
