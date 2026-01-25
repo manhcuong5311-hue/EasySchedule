@@ -99,12 +99,14 @@ struct EventRowView: View {
                     // 🔵 TODO COUNT (MY EVENT)
                     if isMyEvent && unfinishedTodoCount > 0 {
                         Text("\(unfinishedTodoCount)")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(.white)
-                            .padding(6)
-                            .background(
-                                Circle().fill(Color.red)
-                            )
+                            .font(.system(size: 11, weight: .medium))
+                                   .foregroundColor(uiAccent.color.opacity(0.8))
+                                   .padding(.horizontal, 6)
+                                   .padding(.vertical, 2)
+                                   .background(
+                                       Capsule()
+                                           .fill(uiAccent.color.opacity(0.12))
+                                   )
                     }
 
                     // ▶️ CHEVRON
