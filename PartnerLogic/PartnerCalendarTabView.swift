@@ -105,21 +105,24 @@ struct PartnerCalendarTabView: View {
             addAppointmentPressed()
         } label: {
             Image(systemName: "plus")
-                .font(.system(size: 18, weight: .semibold))
+                .font(.system(size: 22, weight: .bold))     // ⭐ CÙNG SIZE
                 .foregroundColor(uiAccent.color)
-                .frame(width: 44, height: 44)
+                .frame(width: 52, height: 52)               // ⭐ CÙNG KÍCH THƯỚC
                 .background(
                     Circle()
                         .fill(Color(.systemBackground))
                 )
                 .shadow(
-                    color: Color.black.opacity(0.18),
-                    radius: 4,
-                    y: 2
+                    color: colorScheme == .dark
+                        ? Color.white.opacity(0.35)         // ⭐ DARK MODE
+                        : Color.black.opacity(0.25),        // ⭐ LIGHT MODE
+                    radius: 6,
+                    y: 3
                 )
         }
         .accessibilityLabel(String(localized: "add_appointment"))
     }
+ 
 
     // MARK: - Subviews
     private var mainContent: some View {

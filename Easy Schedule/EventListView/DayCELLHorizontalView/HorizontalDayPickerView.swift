@@ -82,13 +82,31 @@ private struct LayoutConfig {
     }
 
     func days(around center: Date) -> [Date] {
-        let half = visibleCount / 2
         let calendar = Calendar.current
+        let total = visibleCount
 
-        return (-half...half).compactMap {
+        let today = calendar.startOfDay(for: Date())
+        let centerDay = calendar.startOfDay(for: center)
+
+        // 🔑 Nếu user đang ở quá khứ → cân bằng hơn
+        let isPastMode = centerDay < today
+
+        let pastCount: Int
+        if isPastMode {
+            pastCount = total / 2        // cân bằng khi ở quá khứ
+        } else {
+            pastCount = 1                // GIỮ NGUYÊN hành vi hiện tại
+        }
+
+        let futureCount = total - pastCount - 1   // -1 cho center
+
+        return (-pastCount...futureCount).compactMap {
             calendar.date(byAdding: .day, value: $0, to: center)
         }
     }
+
+
+    
 }
 
 
