@@ -560,7 +560,13 @@ private struct DaySectionView: View {
     }
 
     
-    
+    @AppStorage("event_card_layout")
+    private var cardLayoutRaw: String = EventCardLayout.normal.rawValue
+
+    private var cardLayout: EventCardLayout {
+        EventCardLayout(rawValue: cardLayoutRaw) ?? .normal
+    }
+
     
 
     var body: some View {
@@ -578,15 +584,28 @@ private struct DaySectionView: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 ForEach(dayEvents) { event in
-                    EventRowView(
-                        event: event,
-                        showOwnerLabel: showOwnerLabel,
-                        timeFontSize: timeFontSize,
-                        expandedEvents: $expandedEvents,
-                        chatMeta: eventManager.chatMeta(for: event.id),
-                        timeDisplayMode: timeDisplayMode   // ✅ DÙNG MODE MỚI
-                    )
+                    switch cardLayout {
 
+                    case .normal:
+                        EventRowView(
+                            event: event,
+                            showOwnerLabel: showOwnerLabel,
+                            timeFontSize: timeFontSize,
+                            expandedEvents: $expandedEvents,
+                            chatMeta: eventManager.chatMeta(for: event.id),
+                            timeDisplayMode: timeDisplayMode
+                        )
+
+                    case .compact:
+                        CompactEventRowView(
+                            event: event,
+                            timeFontSize: timeFontSize,
+                            timeDisplayMode: timeDisplayMode,   // ⬅️ đưa lên trước
+                            expandedEvents: $expandedEvents,
+                            chatMeta: eventManager.chatMeta(for: event.id)
+                        )
+
+                    }
                 }
             }
             .padding(.leading, 16)

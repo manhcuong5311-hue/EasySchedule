@@ -148,13 +148,14 @@ struct EventRowView: View {
                         chatMeta.unread
                         ? unreadBorderColor
                         : (
-                            colorScheme == .dark
-                            ? Color.white.opacity(0.06)
-                            : Color.clear
+                            colorScheme == .light
+                            ? Color.black.opacity(0.15)   // ⭐ viền nhẹ cho light
+                            : Color.white.opacity(0.15)
                         ),
                         lineWidth: chatMeta.unread ? 1.5 : 1
                     )
             )
+
 
 
 
@@ -258,15 +259,11 @@ struct EventRowView: View {
     
     
     private var cardBackground: Color {
-        switch colorScheme {
-        case .light:
-            return Color(.secondarySystemBackground)
-        case .dark:
-            return Color(.tertiarySystemBackground)
-        @unknown default:
-            return Color(.systemBackground)
-        }
+        colorScheme == .light
+        ? Color(.systemGray6)
+        : Color(.tertiarySystemBackground)
     }
+
 
     private var unreadBorderColor: Color {
         guard chatMeta.unread else { return .clear }

@@ -25,105 +25,35 @@ struct DisplaySettingsSheet: View {
     private var timeDisplayMode: EventTimeDisplayMode {
         EventTimeDisplayMode(rawValue: timeDisplayModeRaw) ?? .timeRange
     }
+    
+    // ⭐ EVENT CARD LAYOUT
+    @AppStorage("event_card_layout")
+    private var cardLayoutRaw: String = EventCardLayout.normal.rawValue
+
+    private var cardLayout: EventCardLayout {
+        EventCardLayout(rawValue: cardLayoutRaw) ?? .normal
+    }
+
 
     @EnvironmentObject var uiAccent: UIAccentStore
 
+    private var isCompactLayout: Bool {
+        cardLayout == .compact
+    }
+
+    
+    
+    
+    
+    
     var body: some View {
         NavigationStack {
             List {
-                // =====================
-                // UI ACCENT COLOR
-                // =====================
-                Section(
-                    String(localized: "display_settings_ui_accent")
-                ) {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 12) {
-                            ForEach(UIAccentPreset.allCases, id: \.rawValue) { preset in
-                                Circle()
-                                    .fill(Color(hex: preset.hex))
-                                    .frame(width: 28, height: 28)
-                                    .overlay(
-                                        Circle()
-                                            .stroke(
-                                                uiAccent.hex == preset.hex
-                                                ? Color.primary
-                                                : Color.clear,
-                                                lineWidth: 2
-                                            )
-                                    )
-                                    .onTapGesture {
-                                        uiAccent.set(hex: preset.hex)
-                                    }
-                            }
-                        }
-                    }
-                    .padding(.vertical, 4)
-                }
-
-                // =====================
-                // EVENT DISPLAY
-                // =====================
-                Section(
-                    String(localized: "display_settings_event_time")
-                ) {
-                    VStack(alignment: .leading, spacing: 8) {
-
-                        Text(
-                            String(
-                                format: String(localized: "display_settings_time_font_size"),
-                                arguments: [Int(timeFontSize)]
-                            )
-                        )
-                        .font(.caption)
-
-                        Slider(
-                            value: $timeFontSize,
-                            in: 11...25,
-                            step: 1
-                        )
-                    }
-                    .padding(.vertical, 4)
-                }
-
-                // =====================
-                // EVENT TIME FORMAT
-                // =====================
-                Section(
-                    String(localized: "display_settings_event_time_format")
-                ) {
-                    ForEach(EventTimeDisplayMode.allCases) { mode in
-                        HStack {
-                            Text(mode.title)
-                            Spacer()
-                            if timeDisplayMode == mode {
-                                Image(systemName: "checkmark")
-                            }
-                        }
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            timeDisplayModeRaw = mode.rawValue
-                        }
-                    }
-                }
-
-                // =====================
-                // CHAT COLORS
-                // =====================
-                Section(
-                    String(localized: "display_settings_chat_colors")
-                ) {
-
-                    ChatColorPresetPicker(
-                        title: String(localized: "chat_color_my_messages"),
-                        selectedRaw: $myPresetRaw
-                    )
-
-                    ChatColorPresetPicker(
-                        title: String(localized: "chat_color_other_messages"),
-                        selectedRaw: $otherPresetRaw
-                    )
-                }
+                uiAccentSection
+                eventCardLayoutSection
+                eventTimeSection
+                eventTimeFormatSection
+                chatColorSection
             }
             .navigationTitle(
                 String(localized: "display_settings_navigation_title")
@@ -131,6 +61,158 @@ struct DisplaySettingsSheet: View {
             .navigationBarTitleDisplayMode(.inline)
         }
     }
+
+    
+    
+    
+    private var eventCardLayoutSection: some View {
+        Section(
+            String(localized: "display_settings_event_card_layout")
+        ) {
+            ForEach(EventCardLayout.allCases) { layout in
+                HStack {
+                    Text(layout.title)
+
+                    Spacer()
+
+                    if cardLayout == layout {
+                        Image(systemName: "checkmark")
+                            .foregroundColor(.accentColor)
+                    }
+                }
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    applyLayout(layout)
+                }
+            }
+        }
+    }
+
+    private func applyLayout(_ layout: EventCardLayout) {
+        let wasLayout = cardLayout
+        cardLayoutRaw = layout.rawValue
+
+        guard wasLayout != layout else { return }
+
+        if let defaultMode = layout.defaultTimeDisplayMode {
+            timeDisplayModeRaw = defaultMode.rawValue
+        }
+    }
+
+
+
+
+
+    private var eventTimeSection: some View {
+        Section(
+            String(localized: "display_settings_event_time")
+        ) {
+            VStack(alignment: .leading, spacing: 8) {
+
+                Text(
+                    String(
+                        format: String(localized: "display_settings_time_font_size"),
+                        arguments: [Int(timeFontSize)]
+                    )
+                )
+                .font(.caption)
+                .foregroundStyle(.primary)
+
+                Slider(
+                    value: $timeFontSize,
+                    in: 11...25,
+                    step: 1
+                )
+            }
+            .padding(.vertical, 4)
+        }
+    }
+
+
+
+    private var eventTimeFormatSection: some View {
+        Section(
+            String(localized: "display_settings_event_time_format")
+        ) {
+            ForEach(EventTimeDisplayMode.allCases) { mode in
+                HStack {
+                    Text(mode.title)
+                        .foregroundStyle(
+                            isCompactLayout ? .secondary : .primary
+                        )
+
+                    Spacer()
+
+                    if timeDisplayMode == mode {
+                        Image(systemName: "checkmark")
+                    }
+                }
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    guard !isCompactLayout else { return }
+                    timeDisplayModeRaw = mode.rawValue
+                }
+                .disabled(isCompactLayout)
+            }
+
+            if isCompactLayout {
+                Text(String(localized: "compact_time_format_locked"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+
+    private var uiAccentSection: some View {
+        Section(
+            String(localized: "display_settings_ui_accent")
+        ) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(UIAccentPreset.allCases, id: \.rawValue) { preset in
+                        Circle()
+                            .fill(Color(hex: preset.hex))
+                            .frame(width: 28, height: 28)
+                            .overlay(
+                                Circle()
+                                    .stroke(
+                                        uiAccent.hex == preset.hex
+                                        ? Color.primary
+                                        : Color.clear,
+                                        lineWidth: 2
+                                    )
+                            )
+                            .onTapGesture {
+                                uiAccent.set(hex: preset.hex)
+                            }
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+        }
+    }
+
+    
+    private var chatColorSection: some View {
+        Section(
+            String(localized: "display_settings_chat_colors")
+        ) {
+            ChatColorPresetPicker(
+                title: String(localized: "chat_color_my_messages"),
+                selectedRaw: $myPresetRaw
+            )
+
+            ChatColorPresetPicker(
+                title: String(localized: "chat_color_other_messages"),
+                selectedRaw: $otherPresetRaw
+            )
+        }
+    }
+
+    
+    
+    
 }
 
 struct ColorPickerRow: View {
