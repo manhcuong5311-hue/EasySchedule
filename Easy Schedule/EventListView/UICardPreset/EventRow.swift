@@ -149,8 +149,8 @@ struct EventRowView: View {
                         ? unreadBorderColor
                         : (
                             colorScheme == .light
-                            ? Color.black.opacity(0.15)   // ⭐ viền nhẹ cho light
-                            : Color.white.opacity(0.15)
+                            ? Color.black.opacity(0.05)   // ⭐ viền nhẹ cho light
+                            : Color.white.opacity(0.05)
                         ),
                         lineWidth: chatMeta.unread ? 1.5 : 1
                     )

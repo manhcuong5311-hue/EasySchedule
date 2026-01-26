@@ -71,8 +71,8 @@ struct CompactEventRowView: View {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .stroke(
                         colorScheme == .light
-                        ? Color.black.opacity(0.15)
-                        : Color.white.opacity(0.15),
+                        ? Color.black.opacity(0.1)
+                        : Color.white.opacity(0.1),
                         lineWidth: 1
                     )
             }
