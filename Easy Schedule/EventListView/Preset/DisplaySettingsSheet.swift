@@ -9,7 +9,9 @@ import SwiftUI
 struct DisplaySettingsSheet: View {
 
     // EVENT TIME
-    @AppStorage("timeFontSize") private var timeFontSize: Double = 13
+    @AppStorage("timeFontSize_v2")
+    private var timeFontSize: Int = 13
+
 
     // CHAT COLOR
     @AppStorage("chat_my_preset")
@@ -41,8 +43,14 @@ struct DisplaySettingsSheet: View {
         cardLayout == .compact
     }
 
-    
-    
+    @AppStorage("timeline_start_hour")
+    private var timelineStartHour: Int = 6
+
+    @AppStorage("timeline_end_hour")
+    private var timelineEndHour: Int = 22
+
+    @State private var localTimeFontSize: Double = 13
+
     
     
     
@@ -51,10 +59,50 @@ struct DisplaySettingsSheet: View {
             List {
                 uiAccentSection
                 eventCardLayoutSection
+                if cardLayout == .timeline {
+                       timelineHourSection
+                   }
                 eventTimeSection
                 eventTimeFormatSection
                 chatColorSection
             }
+            .onAppear {
+                let defaults = UserDefaults.standard
+
+                // Nếu từng lưu Double → reset key
+                if defaults.object(forKey: "timeFontSize") is Double {
+                    defaults.removeObject(forKey: "timeFontSize")
+                    timeFontSize = 13
+                }
+
+                // Clamp an toàn
+                timeFontSize = max(11, min(timeFontSize, 25))
+
+                if cardLayout == .timeline {
+                    sanitizeTimelineHours()
+                }
+            }
+
+            .onChange(of: timeFontSize) { _, newValue in
+                if newValue < 11 {
+                    timeFontSize = 11
+                } else if newValue > 25 {
+                    timeFontSize = 25
+                }
+            }
+
+
+            .onChange(of: timelineStartHour) { _, newValue in
+                if newValue >= timelineEndHour {
+                    timelineEndHour = min(newValue + 1, 24)
+                }
+            }
+            .onChange(of: timelineEndHour) { _, newValue in
+                if newValue <= timelineStartHour {
+                    timelineStartHour = max(newValue - 1, 0)
+                }
+            }
+
             .navigationTitle(
                 String(localized: "display_settings_navigation_title")
             )
@@ -62,7 +110,18 @@ struct DisplaySettingsSheet: View {
         }
     }
 
-    
+    private func sanitizeTimelineHours() {
+
+        // 1️⃣ Clamp tuyệt đối
+        timelineStartHour = min(max(timelineStartHour, 0), 23)
+        timelineEndHour   = min(max(timelineEndHour, 1), 24)
+
+        // 2️⃣ Đảm bảo start < end
+        if timelineStartHour >= timelineEndHour {
+            timelineEndHour = min(timelineStartHour + 1, 24)
+        }
+    }
+
     
     
     private var eventCardLayoutSection: some View {
@@ -88,6 +147,46 @@ struct DisplaySettingsSheet: View {
         }
     }
 
+    private var timelineHourSection: some View {
+        Section(
+            String(localized: "display_settings_timeline_hours")
+        ) {
+
+            // START HOUR
+            Stepper(
+                value: $timelineStartHour,
+                in: 0...(timelineEndHour - 1)
+            ) {
+                Text(
+                    String(
+                        format: String(localized: "timeline_start_hour"),
+                        timelineStartHour
+                    )
+                )
+            }
+
+            // END HOUR
+            Stepper(
+                value: $timelineEndHour,
+                in: (timelineStartHour + 1)...24
+            ) {
+                Text(
+                    String(
+                        format: String(localized: "timeline_end_hour"),
+                        timelineEndHour
+                    )
+                )
+            }
+
+            Text(
+                String(localized: "timeline_hours_hint")
+            )
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        }
+    }
+
+    
     private func applyLayout(_ layout: EventCardLayout) {
         let wasLayout = cardLayout
         cardLayoutRaw = layout.rawValue
@@ -107,26 +206,41 @@ struct DisplaySettingsSheet: View {
         Section(
             String(localized: "display_settings_event_time")
         ) {
-            VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Button {
+                    timeFontSize -= 1
+                } label: {
+                    Image(systemName: "minus.circle.fill")
+                        .font(.title3)
+                }
+                .buttonStyle(.borderless)   // ⭐️ DÒNG QUAN TRỌNG
+                .disabled(timeFontSize <= 11)
+
+                Spacer()
 
                 Text(
                     String(
                         format: String(localized: "display_settings_time_font_size"),
-                        arguments: [Int(timeFontSize)]
+                        timeFontSize
                     )
                 )
-                .font(.caption)
-                .foregroundStyle(.primary)
+                .font(.body)
 
-                Slider(
-                    value: $timeFontSize,
-                    in: 11...25,
-                    step: 1
-                )
+                Spacer()
+
+                Button {
+                    timeFontSize += 1
+                } label: {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.title3)
+                }
+                .buttonStyle(.borderless)   // ⭐️ DÒNG QUAN TRỌNG
+                .disabled(timeFontSize >= 25)
             }
-            .padding(.vertical, 4)
+            .contentShape(Rectangle()) // optional, giúp tap ổn định hơn
         }
     }
+
 
 
 
@@ -152,7 +266,7 @@ struct DisplaySettingsSheet: View {
                     guard !isCompactLayout else { return }
                     timeDisplayModeRaw = mode.rawValue
                 }
-                .disabled(isCompactLayout)
+    
             }
 
             if isCompactLayout {

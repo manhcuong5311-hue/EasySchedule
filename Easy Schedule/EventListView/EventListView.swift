@@ -32,7 +32,9 @@ struct EventListView: View {
     @EnvironmentObject var guideManager: GuideManager
 
     @AppStorage("showOwnerLabel") private var showOwnerLabel = true
-    @AppStorage("timeFontSize") private var timeFontSize: Double = 13
+    @AppStorage("timeFontSize_v2")
+    private var timeFontSize: Int = 13
+
 //NEW
 
     
@@ -128,7 +130,7 @@ struct EventListView: View {
             EventScrollContent(
                 events: eventManager.events,
                 showOwnerLabel: showOwnerLabel,
-                timeFontSize: timeFontSize,
+                timeFontSize: Double(timeFontSize),
                 selectedDate: $selectedDate,
 
                 onAddEvent: {
@@ -567,7 +569,12 @@ private struct DaySectionView: View {
         EventCardLayout(rawValue: cardLayoutRaw) ?? .normal
     }
 
-    
+    private var manualBusySlotsOfDay: [CalendarEvent] {
+        eventManager.myManualBusySlots.filter {
+            Calendar.current.isDate($0.startTime, inSameDayAs: day)
+        }
+    }
+
 
     var body: some View {
 
@@ -583,30 +590,51 @@ private struct DaySectionView: View {
             
 
             VStack(alignment: .leading, spacing: 6) {
-                ForEach(dayEvents) { event in
+             
                     switch cardLayout {
 
-                    case .normal:
-                        EventRowView(
-                            event: event,
-                            showOwnerLabel: showOwnerLabel,
-                            timeFontSize: timeFontSize,
-                            expandedEvents: $expandedEvents,
-                            chatMeta: eventManager.chatMeta(for: event.id),
-                            timeDisplayMode: timeDisplayMode
+                    case .timeline:
+                        TimelineDayView(
+                            date: day,
+                            events: dayEvents,
+                            timeDisplayMode: timeDisplayMode,
+                            manualBusySlots: manualBusySlotsOfDay
                         )
+                        .padding(.top, 8)
 
-                    case .compact:
-                        CompactEventRowView(
-                            event: event,
-                            timeFontSize: timeFontSize,
-                            timeDisplayMode: timeDisplayMode,   // ⬅️ đưa lên trước
-                            expandedEvents: $expandedEvents,
-                            chatMeta: eventManager.chatMeta(for: event.id)
-                        )
+                    case .normal, .compact:
+                        VStack(alignment: .leading, spacing: 6) {
+                            ForEach(dayEvents) { event in
+                                switch cardLayout {
 
+                                case .normal:
+                                    EventRowView(
+                                        event: event,
+                                        showOwnerLabel: showOwnerLabel,
+                                        timeFontSize: timeFontSize,
+                                        expandedEvents: $expandedEvents,
+                                        chatMeta: eventManager.chatMeta(for: event.id),
+                                        timeDisplayMode: timeDisplayMode
+                                    )
+
+                                case .compact:
+                                    CompactEventRowView(
+                                        event: event,
+                                        timeFontSize: timeFontSize,
+                                        timeDisplayMode: timeDisplayMode,
+                                        expandedEvents: $expandedEvents,
+                                        chatMeta: eventManager.chatMeta(for: event.id)
+                                    )
+
+                                default:
+                                    EmptyView()
+                                }
+                            }
+                        }
+                        .padding(.leading, 16)
                     }
-                }
+
+                
             }
             .padding(.leading, 16)
             
@@ -646,13 +674,7 @@ private struct DaySectionView: View {
 
 
 
-    
-    
-    
-    
-    
-    
-    
+
     
     private func resetCollapseIfNeeded() {
         let key = dayKey(day)
