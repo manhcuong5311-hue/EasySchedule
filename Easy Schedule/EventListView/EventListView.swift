@@ -596,75 +596,51 @@ private struct DaySectionView: View {
             
 
             VStack(alignment: .leading, spacing: 6) {
-             
-                    switch cardLayout {
 
-                    case .timeline:
-                        TimelineDayView(
-                            date: day,
-                            events: dayEvents,
-                            timeDisplayMode: timeDisplayMode,
-                            manualBusySlots: manualBusySlotsOfDay
-                        )
-                        .padding(.top, 8)
+                switch cardLayout {
 
-<<<<<<< HEAD
-                    case .normal, .compact:
-                        VStack(alignment: .leading, spacing: 6) {
-                            ForEach(dayEvents) { event in
-                                switch cardLayout {
+                case .timeline:
+                    TimelineDayView(
+                        date: day,
+                        events: dayEvents,
+                        manualBusySlots: manualBusySlotsOfDay,
+                        timeDisplayMode: timeDisplayMode
+                    )
+                    .padding(.top, 8)
 
-                                case .normal:
-                                    EventRowView(
-                                        event: event,
-                                        showOwnerLabel: showOwnerLabel,
-                                        timeFontSize: timeFontSize,
-                                        expandedEvents: $expandedEvents,
-                                        chatMeta: eventManager.chatMeta(for: event.id),
-                                        timeDisplayMode: timeDisplayMode
-                                    )
+                case .normal, .compact:
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(dayEvents) { event in
+                            switch cardLayout {
 
-                                case .compact:
-                                    CompactEventRowView(
-                                        event: event,
-                                        timeFontSize: timeFontSize,
-                                        timeDisplayMode: timeDisplayMode,
-                                        expandedEvents: $expandedEvents,
-                                        chatMeta: eventManager.chatMeta(for: event.id)
-                                    )
+                            case .normal:
+                                EventRowView(
+                                    event: event,
+                                    showOwnerLabel: showOwnerLabel,
+                                    timeFontSize: timeFontSize,
+                                    expandedEvents: $expandedEvents,
+                                    chatMeta: eventManager.chatMeta(for: event.id),
+                                    timeDisplayMode: timeDisplayMode
+                                )
 
-                                default:
-                                    EmptyView()
-                                }
+                            case .compact:
+                                CompactEventRowView(
+                                    event: event,
+                                    timeFontSize: timeFontSize,
+                                    timeDisplayMode: timeDisplayMode,
+                                    expandedEvents: $expandedEvents,
+                                    chatMeta: eventManager.chatMeta(for: event.id)
+                                )
+
+                            default:
+                                EmptyView()
                             }
                         }
-                        .padding(.leading, 16)
-=======
-                    case .compact:
-                        CompactEventRowView(
-                            event: event,
-                            timeFontSize: timeFontSize,
-                            timeDisplayMode: timeDisplayMode,   // ⬅️ đưa lên trước
-                            expandedEvents: $expandedEvents,
-                            chatMeta: eventManager.chatMeta(for: event.id)
-                        )
-                    case .timeline:
-
-                               TimelineDayView(
-                                   date: day,
-                                   events: dayEvents,
-                                   manualBusySlots: eventManager.myManualBusySlots,
-                                   timeDisplayMode: timeDisplayMode
-                               )
-                               .padding(.horizontal, 12)
-                               .padding(.top, 4)
-                        
->>>>>>> 2f1e950 (feat(event): update event feature)
                     }
-
-                
+                    .padding(.leading, 16)
+                }
             }
-            .padding(.leading, 16)
+
             
     // ===== < 4 EVENTS SUGGESTION (BOTTOM) =====
             if shouldShowLightSuggestion {

@@ -18,7 +18,9 @@ struct ChatColorPickerSheet: View {
         NavigationStack {
             List {
 
-                Section("chat_color_section_my_messages") {
+                Section(
+                    String(localized: "chat_color_section_my_messages")
+                ) {
                     ForEach(ChatColorPreset.allCases, id: \.rawValue) { preset in
                         colorRow(
                             preset: preset,
@@ -29,7 +31,9 @@ struct ChatColorPickerSheet: View {
                     }
                 }
 
-                Section("chat_color_section_other_messages") {
+                Section(
+                    String(localized: "chat_color_section_other_messages")
+                ) {
                     ForEach(ChatColorPreset.allCases, id: \.rawValue) { preset in
                         colorRow(
                             preset: preset,
@@ -40,7 +44,9 @@ struct ChatColorPickerSheet: View {
                     }
                 }
             }
-            .navigationTitle("chat_color_navigation_title")
+            .navigationTitle(
+                String(localized: "chat_color_navigation_title")
+            )
             .navigationBarTitleDisplayMode(.inline)
         }
     }
@@ -58,7 +64,7 @@ struct ChatColorPickerSheet: View {
                 .fill(Color(hex: preset.hex))
                 .frame(width: 20, height: 20)
 
-            Text(preset.title) // ⚠️ preset.title cần chuẩn hoá riêng (ghi chú bên dưới)
+            Text(preset.title)
 
             Spacer()
 

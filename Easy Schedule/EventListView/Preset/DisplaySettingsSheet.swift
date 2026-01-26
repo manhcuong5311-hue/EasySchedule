@@ -4,31 +4,31 @@
 //
 //  Created by Sam Manh Cuong on 22/1/26.
 //
+
 import SwiftUI
 
 struct DisplaySettingsSheet: View {
 
-    // EVENT TIME
+    // MARK: - Event Time
     @AppStorage("timeFontSize_v2")
     private var timeFontSize: Int = 13
 
-
-    // CHAT COLOR
+    // MARK: - Chat Color
     @AppStorage("chat_my_preset")
     private var myPresetRaw: String = ChatColorPreset.blue.rawValue
 
     @AppStorage("chat_other_preset")
     private var otherPresetRaw: String = ChatColorPreset.graphite.rawValue
 
-    // ⭐ TIME DISPLAY MODE (REFactored)
+    // MARK: - Time Display Mode
     @AppStorage("event_time_display_mode")
     private var timeDisplayModeRaw: String = EventTimeDisplayMode.timeRange.rawValue
 
     private var timeDisplayMode: EventTimeDisplayMode {
         EventTimeDisplayMode(rawValue: timeDisplayModeRaw) ?? .timeRange
     }
-    
-    // ⭐ EVENT CARD LAYOUT
+
+    // MARK: - Event Card Layout
     @AppStorage("event_card_layout")
     private var cardLayoutRaw: String = EventCardLayout.normal.rawValue
 
@@ -36,214 +36,79 @@ struct DisplaySettingsSheet: View {
         EventCardLayout(rawValue: cardLayoutRaw) ?? .normal
     }
 
-
-    @EnvironmentObject var uiAccent: UIAccentStore
-
     private var isCompactLayout: Bool {
         cardLayout == .compact
     }
 
-<<<<<<< HEAD
-    @AppStorage("timeline_start_hour")
-    private var timelineStartHour: Int = 6
-=======
-    // ⭐ TIMELINE SETTINGS
-    @AppStorage("timeline_start_hour")
-    private var timelineStartHour: Int = 8
->>>>>>> 2f1e950 (feat(event): update event feature)
-
-    @AppStorage("timeline_end_hour")
-    private var timelineEndHour: Int = 22
-
-<<<<<<< HEAD
-    @State private var localTimeFontSize: Double = 13
-
-    
-=======
-    
     private var isTimelineLayout: Bool {
         cardLayout == .timeline
     }
 
->>>>>>> 2f1e950 (feat(event): update event feature)
-    
-    
+    // MARK: - Timeline Settings
+    @AppStorage("timeline_start_hour")
+    private var timelineStartHour: Int = 8
+
+    @AppStorage("timeline_end_hour")
+    private var timelineEndHour: Int = 22
+
+    // MARK: - Env
+    @EnvironmentObject var uiAccent: UIAccentStore
+
+    // MARK: - Body
     var body: some View {
         NavigationStack {
             List {
                 uiAccentSection
                 eventCardLayoutSection
-<<<<<<< HEAD
-                if cardLayout == .timeline {
-                       timelineHourSection
-                   }
-=======
+
                 if isTimelineLayout {
                     timelineSettingsSection
                 }
 
->>>>>>> 2f1e950 (feat(event): update event feature)
                 eventTimeSection
                 eventTimeFormatSection
                 chatColorSection
             }
-<<<<<<< HEAD
-            .onAppear {
-                let defaults = UserDefaults.standard
-
-                // Nếu từng lưu Double → reset key
-                if defaults.object(forKey: "timeFontSize") is Double {
-                    defaults.removeObject(forKey: "timeFontSize")
-                    timeFontSize = 13
-                }
-
-                // Clamp an toàn
-                timeFontSize = max(11, min(timeFontSize, 25))
-
-                if cardLayout == .timeline {
-                    sanitizeTimelineHours()
-                }
-            }
-
-            .onChange(of: timeFontSize) { _, newValue in
-                if newValue < 11 {
-                    timeFontSize = 11
-                } else if newValue > 25 {
-                    timeFontSize = 25
-                }
-            }
-
-
-            .onChange(of: timelineStartHour) { _, newValue in
-                if newValue >= timelineEndHour {
-                    timelineEndHour = min(newValue + 1, 24)
-                }
-            }
-            .onChange(of: timelineEndHour) { _, newValue in
-                if newValue <= timelineStartHour {
-                    timelineStartHour = max(newValue - 1, 0)
-                }
-            }
-
-=======
-            // ⭐ GUARD TIMELINE HOURS (SHEET LEVEL)
-               .onChange(of: timelineStartHour) { _, _ in
-                   clampTimelineHours()
-               }
-               .onChange(of: timelineEndHour) { _, _ in
-                   clampTimelineHours()
-               }
->>>>>>> 2f1e950 (feat(event): update event feature)
             .navigationTitle(
                 String(localized: "display_settings_navigation_title")
             )
             .navigationBarTitleDisplayMode(.inline)
-            
+            .onChange(of: timelineStartHour) { _, _ in
+                clampTimelineHours()
+            }
+            .onChange(of: timelineEndHour) { _, _ in
+                clampTimelineHours()
+            }
+            .onAppear {
+                clampTimelineHours()
+                clampTimeFontSize()
+            }
         }
     }
+
+    // MARK: - Guards
 
     private func clampTimelineHours() {
-        // ⛔️ Absolute bounds
         timelineStartHour = min(max(timelineStartHour, 0), 23)
         timelineEndHour   = min(max(timelineEndHour, 1), 24)
 
-        // ⛔️ Logical order
         if timelineStartHour >= timelineEndHour {
             timelineEndHour = min(timelineStartHour + 1, 24)
         }
     }
 
-    private var timelineSettingsSection: some View {
-        Section(
-            String(localized: "display_settings_timeline_range")
-        ) {
-            VStack(alignment: .leading, spacing: 12) {
-
-                // ===== START HOUR =====
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(
-                        String(
-                            format: String(localized: "timeline_start_hour_format"),
-                            timelineStartHour
-                        )
-                    )
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
-                    Slider(
-                        value: Binding(
-                            get: { Double(timelineStartHour) },
-                            set: { newValue in
-                                let value = Int(newValue)
-                                timelineStartHour = min(value, timelineEndHour - 1)
-                            }
-                        ),
-                        in: 0...23,
-                        step: 1
-                    )
-                }
-
-                // ===== END HOUR =====
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(
-                        String(
-                            format: String(localized: "timeline_end_hour_format"),
-                            timelineEndHour
-                        )
-                    )
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
-                    Slider(
-                        value: Binding(
-                            get: { Double(timelineEndHour) },
-                            set: { newValue in
-                                let value = Int(newValue)
-                                timelineEndHour = max(value, timelineStartHour + 1)
-                            }
-                        ),
-                        in: 1...24,
-                        step: 1
-                    )
-                }
-
-                Text(
-                    String(localized: "timeline_range_hint")
-                )
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-            }
-            .padding(.vertical, 4)
-        }
+    private func clampTimeFontSize() {
+        timeFontSize = min(max(timeFontSize, 11), 25)
     }
 
-<<<<<<< HEAD
-    private func sanitizeTimelineHours() {
+    // MARK: - Sections
 
-        // 1️⃣ Clamp tuyệt đối
-        timelineStartHour = min(max(timelineStartHour, 0), 23)
-        timelineEndHour   = min(max(timelineEndHour, 1), 24)
-
-        // 2️⃣ Đảm bảo start < end
-        if timelineStartHour >= timelineEndHour {
-            timelineEndHour = min(timelineStartHour + 1, 24)
-        }
-    }
-
-    
-=======
->>>>>>> 2f1e950 (feat(event): update event feature)
-    
     private var eventCardLayoutSection: some View {
-        Section(
-            String(localized: "display_settings_event_card_layout")
-        ) {
+        Section(String(localized: "display_settings_event_card_layout")) {
             ForEach(EventCardLayout.allCases) { layout in
                 HStack {
                     Text(layout.title)
-
                     Spacer()
-
                     if cardLayout == layout {
                         Image(systemName: "checkmark")
                             .foregroundColor(.accentColor)
@@ -257,73 +122,67 @@ struct DisplaySettingsSheet: View {
         }
     }
 
-    private var timelineHourSection: some View {
-        Section(
-            String(localized: "display_settings_timeline_hours")
-        ) {
+    private var timelineSettingsSection: some View {
+        Section(String(localized: "display_settings_timeline_range")) {
+            VStack(alignment: .leading, spacing: 12) {
 
-            // START HOUR
-            Stepper(
-                value: $timelineStartHour,
-                in: 0...(timelineEndHour - 1)
-            ) {
-                Text(
-                    String(
-                        format: String(localized: "timeline_start_hour"),
-                        timelineStartHour
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(
+                        String(
+                            format: String(localized: "timeline_start_hour_format"),
+                            timelineStartHour
+                        )
                     )
-                )
-            }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
 
-            // END HOUR
-            Stepper(
-                value: $timelineEndHour,
-                in: (timelineStartHour + 1)...24
-            ) {
-                Text(
-                    String(
-                        format: String(localized: "timeline_end_hour"),
-                        timelineEndHour
+                    Slider(
+                        value: Binding(
+                            get: { Double(timelineStartHour) },
+                            set: { timelineStartHour = Int($0) }
+                        ),
+                        in: 0...23,
+                        step: 1
                     )
-                )
-            }
+                }
 
-            Text(
-                String(localized: "timeline_hours_hint")
-            )
-            .font(.caption)
-            .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(
+                        String(
+                            format: String(localized: "timeline_end_hour_format"),
+                            timelineEndHour
+                        )
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                    Slider(
+                        value: Binding(
+                            get: { Double(timelineEndHour) },
+                            set: { timelineEndHour = Int($0) }
+                        ),
+                        in: 1...24,
+                        step: 1
+                    )
+                }
+
+                Text(String(localized: "timeline_range_hint"))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.vertical, 4)
         }
     }
-
-    
-    private func applyLayout(_ layout: EventCardLayout) {
-        let wasLayout = cardLayout
-        cardLayoutRaw = layout.rawValue
-
-        guard wasLayout != layout else { return }
-
-        if let defaultMode = layout.defaultTimeDisplayMode {
-            timeDisplayModeRaw = defaultMode.rawValue
-        }
-    }
-
-
-
-
 
     private var eventTimeSection: some View {
-        Section(
-            String(localized: "display_settings_event_time")
-        ) {
+        Section(String(localized: "display_settings_event_time")) {
             HStack {
                 Button {
                     timeFontSize -= 1
+                    clampTimeFontSize()
                 } label: {
                     Image(systemName: "minus.circle.fill")
-                        .font(.title3)
                 }
-                .buttonStyle(.borderless)   // ⭐️ DÒNG QUAN TRỌNG
                 .disabled(timeFontSize <= 11)
 
                 Spacer()
@@ -334,39 +193,29 @@ struct DisplaySettingsSheet: View {
                         timeFontSize
                     )
                 )
-                .font(.body)
 
                 Spacer()
 
                 Button {
                     timeFontSize += 1
+                    clampTimeFontSize()
                 } label: {
                     Image(systemName: "plus.circle.fill")
-                        .font(.title3)
                 }
-                .buttonStyle(.borderless)   // ⭐️ DÒNG QUAN TRỌNG
                 .disabled(timeFontSize >= 25)
             }
-            .contentShape(Rectangle()) // optional, giúp tap ổn định hơn
         }
     }
 
-
-
-
     private var eventTimeFormatSection: some View {
-        Section(
-            String(localized: "display_settings_event_time_format")
-        ) {
+        Section(String(localized: "display_settings_event_time_format")) {
             ForEach(EventTimeDisplayMode.allCases) { mode in
                 HStack {
                     Text(mode.title)
                         .foregroundStyle(
                             isCompactLayout ? .secondary : .primary
                         )
-
                     Spacer()
-
                     if timeDisplayMode == mode {
                         Image(systemName: "checkmark")
                     }
@@ -376,7 +225,6 @@ struct DisplaySettingsSheet: View {
                     guard !isCompactLayout else { return }
                     timeDisplayModeRaw = mode.rawValue
                 }
-    
             }
 
             if isCompactLayout {
@@ -387,11 +235,8 @@ struct DisplaySettingsSheet: View {
         }
     }
 
-
     private var uiAccentSection: some View {
-        Section(
-            String(localized: "display_settings_ui_accent")
-        ) {
+        Section(String(localized: "display_settings_ui_accent")) {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
                     ForEach(UIAccentPreset.allCases, id: \.rawValue) { preset in
@@ -412,16 +257,12 @@ struct DisplaySettingsSheet: View {
                             }
                     }
                 }
-                .padding(.vertical, 4)
             }
         }
     }
 
-    
     private var chatColorSection: some View {
-        Section(
-            String(localized: "display_settings_chat_colors")
-        ) {
+        Section(String(localized: "display_settings_chat_colors")) {
             ChatColorPresetPicker(
                 title: String(localized: "chat_color_my_messages"),
                 selectedRaw: $myPresetRaw
@@ -434,34 +275,19 @@ struct DisplaySettingsSheet: View {
         }
     }
 
-    
-    
-    
-}
+    // MARK: - Helpers
 
-struct ColorPickerRow: View {
+    private func applyLayout(_ layout: EventCardLayout) {
+        let old = cardLayout
+        cardLayoutRaw = layout.rawValue
 
-    let title: String
-    @Binding var hex: String
+        guard old != layout else { return }
 
-    var body: some View {
-        HStack {
-            Text(title)
-
-            Spacer()
-
-            ColorPicker(
-                "",
-                selection: Binding(
-                    get: { Color(hex: hex) },
-                    set: { hex = $0.toHex() ?? hex }
-                )
-            )
-            .labelsHidden()
+        if let defaultMode = layout.defaultTimeDisplayMode {
+            timeDisplayModeRaw = defaultMode.rawValue
         }
     }
 }
-
 
 struct ChatColorPresetPicker: View {
 
