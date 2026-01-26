@@ -307,7 +307,13 @@ struct EventScrollContent: View {
         eventManager.isOffDay(selectedDate)
     }
    
-    
+    @AppStorage("event_card_layout")
+    private var cardLayoutRaw: String = EventCardLayout.normal.rawValue
+
+    private var cardLayout: EventCardLayout {
+        EventCardLayout(rawValue: cardLayoutRaw) ?? .normal
+    }
+
     
     var body: some View {
    
@@ -602,6 +608,7 @@ private struct DaySectionView: View {
                         )
                         .padding(.top, 8)
 
+<<<<<<< HEAD
                     case .normal, .compact:
                         VStack(alignment: .leading, spacing: 6) {
                             ForEach(dayEvents) { event in
@@ -632,6 +639,27 @@ private struct DaySectionView: View {
                             }
                         }
                         .padding(.leading, 16)
+=======
+                    case .compact:
+                        CompactEventRowView(
+                            event: event,
+                            timeFontSize: timeFontSize,
+                            timeDisplayMode: timeDisplayMode,   // ⬅️ đưa lên trước
+                            expandedEvents: $expandedEvents,
+                            chatMeta: eventManager.chatMeta(for: event.id)
+                        )
+                    case .timeline:
+
+                               TimelineDayView(
+                                   date: day,
+                                   events: dayEvents,
+                                   manualBusySlots: eventManager.myManualBusySlots,
+                                   timeDisplayMode: timeDisplayMode
+                               )
+                               .padding(.horizontal, 12)
+                               .padding(.top, 4)
+                        
+>>>>>>> 2f1e950 (feat(event): update event feature)
                     }
 
                 

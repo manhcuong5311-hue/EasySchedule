@@ -41,9 +41,14 @@ struct CompactEventRowView: View {
         expandedEvents.contains(event.id)
     }
 
+    private var hasUnfinishedTodo: Bool {
+        isMyEvent && todoStore.hasUnfinishedTodo(for: event.id)
+    }
+
     private var unfinishedTodoCount: Int {
         todoStore.unfinishedCount(for: event.id)
     }
+
 
     private var statusIndicator: StatusIndicator {
         chatMeta.unread ? .unreadChat : .none

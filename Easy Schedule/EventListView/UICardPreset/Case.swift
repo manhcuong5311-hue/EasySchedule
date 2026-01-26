@@ -9,7 +9,11 @@ import SwiftUI
 enum EventCardLayout: String, CaseIterable, Identifiable {
     case normal
     case compact
+<<<<<<< HEAD
     case timeline
+=======
+    case timeline   // ⭐ NEW – Timeline View Mode
+>>>>>>> 2f1e950 (feat(event): update event feature)
 
     var id: String { rawValue }
 
@@ -20,7 +24,10 @@ enum EventCardLayout: String, CaseIterable, Identifiable {
 
         case .compact:
             return String(localized: "layout_compact")
+<<<<<<< HEAD
 
+=======
+>>>>>>> 2f1e950 (feat(event): update event feature)
         case .timeline:
             return String(localized: "layout_timeline")
         }
@@ -30,12 +37,19 @@ enum EventCardLayout: String, CaseIterable, Identifiable {
     var defaultTimeDisplayMode: EventTimeDisplayMode? {
         switch self {
         case .compact:
+<<<<<<< HEAD
             return .timeRange
 
         case .timeline:
             return .anchor   // ⭐ hợp với Timeline (mốc giờ)
 
         case .normal:
+=======
+            return .timeRange          // preset cũ
+        case .timeline:
+            return .timeRange          // ⭐ timeline v1 dùng time range
+        default:
+>>>>>>> 2f1e950 (feat(event): update event feature)
             return nil
         }
     }

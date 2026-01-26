@@ -43,15 +43,29 @@ struct DisplaySettingsSheet: View {
         cardLayout == .compact
     }
 
+<<<<<<< HEAD
     @AppStorage("timeline_start_hour")
     private var timelineStartHour: Int = 6
+=======
+    // ⭐ TIMELINE SETTINGS
+    @AppStorage("timeline_start_hour")
+    private var timelineStartHour: Int = 8
+>>>>>>> 2f1e950 (feat(event): update event feature)
 
     @AppStorage("timeline_end_hour")
     private var timelineEndHour: Int = 22
 
+<<<<<<< HEAD
     @State private var localTimeFontSize: Double = 13
 
     
+=======
+    
+    private var isTimelineLayout: Bool {
+        cardLayout == .timeline
+    }
+
+>>>>>>> 2f1e950 (feat(event): update event feature)
     
     
     var body: some View {
@@ -59,13 +73,21 @@ struct DisplaySettingsSheet: View {
             List {
                 uiAccentSection
                 eventCardLayoutSection
+<<<<<<< HEAD
                 if cardLayout == .timeline {
                        timelineHourSection
                    }
+=======
+                if isTimelineLayout {
+                    timelineSettingsSection
+                }
+
+>>>>>>> 2f1e950 (feat(event): update event feature)
                 eventTimeSection
                 eventTimeFormatSection
                 chatColorSection
             }
+<<<<<<< HEAD
             .onAppear {
                 let defaults = UserDefaults.standard
 
@@ -103,13 +125,99 @@ struct DisplaySettingsSheet: View {
                 }
             }
 
+=======
+            // ⭐ GUARD TIMELINE HOURS (SHEET LEVEL)
+               .onChange(of: timelineStartHour) { _, _ in
+                   clampTimelineHours()
+               }
+               .onChange(of: timelineEndHour) { _, _ in
+                   clampTimelineHours()
+               }
+>>>>>>> 2f1e950 (feat(event): update event feature)
             .navigationTitle(
                 String(localized: "display_settings_navigation_title")
             )
             .navigationBarTitleDisplayMode(.inline)
+            
         }
     }
 
+    private func clampTimelineHours() {
+        // ⛔️ Absolute bounds
+        timelineStartHour = min(max(timelineStartHour, 0), 23)
+        timelineEndHour   = min(max(timelineEndHour, 1), 24)
+
+        // ⛔️ Logical order
+        if timelineStartHour >= timelineEndHour {
+            timelineEndHour = min(timelineStartHour + 1, 24)
+        }
+    }
+
+    private var timelineSettingsSection: some View {
+        Section(
+            String(localized: "display_settings_timeline_range")
+        ) {
+            VStack(alignment: .leading, spacing: 12) {
+
+                // ===== START HOUR =====
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(
+                        String(
+                            format: String(localized: "timeline_start_hour_format"),
+                            timelineStartHour
+                        )
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                    Slider(
+                        value: Binding(
+                            get: { Double(timelineStartHour) },
+                            set: { newValue in
+                                let value = Int(newValue)
+                                timelineStartHour = min(value, timelineEndHour - 1)
+                            }
+                        ),
+                        in: 0...23,
+                        step: 1
+                    )
+                }
+
+                // ===== END HOUR =====
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(
+                        String(
+                            format: String(localized: "timeline_end_hour_format"),
+                            timelineEndHour
+                        )
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                    Slider(
+                        value: Binding(
+                            get: { Double(timelineEndHour) },
+                            set: { newValue in
+                                let value = Int(newValue)
+                                timelineEndHour = max(value, timelineStartHour + 1)
+                            }
+                        ),
+                        in: 1...24,
+                        step: 1
+                    )
+                }
+
+                Text(
+                    String(localized: "timeline_range_hint")
+                )
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            }
+            .padding(.vertical, 4)
+        }
+    }
+
+<<<<<<< HEAD
     private func sanitizeTimelineHours() {
 
         // 1️⃣ Clamp tuyệt đối
@@ -123,6 +231,8 @@ struct DisplaySettingsSheet: View {
     }
 
     
+=======
+>>>>>>> 2f1e950 (feat(event): update event feature)
     
     private var eventCardLayoutSection: some View {
         Section(

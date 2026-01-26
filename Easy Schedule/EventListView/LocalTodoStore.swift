@@ -258,3 +258,10 @@ struct LocalTodoListView: View {
         newTodo = ""
     }
 }
+
+extension LocalTodoStore {
+
+    func hasUnfinishedTodo(for eventId: String) -> Bool {
+        unfinishedCount(for: eventId) > 0
+    }
+}

@@ -31,6 +31,16 @@
 		0DCA51322EC38C75008324B2 /* Easy Schedule.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Easy Schedule.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		0D6D96232F2789D600775995 /* Exceptions for "Easy Schedule" folder in "Easy Schedule" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				EventListView/TimeLineUI/EventDetailVIew.swift,
+			);
+			target = 0DCA51312EC38C75008324B2 /* Easy Schedule */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		0D49EBAA2F0E879600433C0A /* GuideTour */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
@@ -69,6 +79,9 @@
 		};
 		0DCA51342EC38C75008324B2 /* Easy Schedule */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				0D6D96232F2789D600775995 /* Exceptions for "Easy Schedule" folder in "Easy Schedule" target */,
+			);
 			path = "Easy Schedule";
 			sourceTree = "<group>";
 		};
