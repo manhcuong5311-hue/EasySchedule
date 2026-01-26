@@ -43,32 +43,32 @@ enum AppTab: Hashable {
 struct ContentView: View {
 
     @EnvironmentObject var eventManager: EventManager
-    @State private var showPastEvents = false
+ 
     @State private var selectedTab: AppTab = .events
     @State private var openChatEventId: String?
     @State private var pendingChatEventId: String?
+    @StateObject private var accessBadgeVM = AccessBadgeViewModel()
 
     var body: some View {
 
         TabView(selection: $selectedTab) {
 
             NavigationStack {
-                EventListView(showPastEvents: $showPastEvents)
-                    .navigationDestination(item: $openChatEventId) { id in
-                        ChatEntryResolverView(eventId: id)
+                EventListView(
+                    onBookPartner: {
+                        selectedTab = .partners   // 👈 SWITCH SANG TAB ĐỐI TÁC
                     }
-                    .onAppear {
-
-                        // 🔔 CHAT
-                        if let chatId = pendingChatEventId,
-                           openChatEventId == nil {
-
-                            openChatEventId = chatId
-                            pendingChatEventId = nil
-                        }
-                    }
-
+                )
+                .navigationDestination(item: $openChatEventId) { id in
+                    ChatEntryResolverView(eventId: id)
+                }
+                .onChange(of: pendingChatEventId) { _, chatId in
+                    guard let chatId else { return }
+                    openChatEventId = chatId
+                    pendingChatEventId = nil
+                }
             }
+
             .tabItem {
                 Label("tab_events", systemImage: "list.bullet.rectangle")
             }
@@ -83,13 +83,18 @@ struct ContentView: View {
             .tag(AppTab.calendar)
 
             NavigationStack {
-                PartnerCalendarTabView()
-            }
-            .tabItem {
-                Label("tab_partners", systemImage: "person.2.fill")
-            }
-            .tag(AppTab.partners)
-
+                   PartnerCalendarTabView(
+                       onBookPartner: {
+                           selectedTab = .partners    // 👈 TAB 3
+                       }
+                   )
+               }
+               .tabItem {
+                   Label("tab_partners", systemImage: "person.2.fill")
+               }
+               .badge(accessBadgeVM.pendingCount)
+               .tag(AppTab.partners)
+            
             NavigationStack {
                 SettingsView()
             }
@@ -101,6 +106,11 @@ struct ContentView: View {
         .onAppear {
             handlePendingPush()
             eventManager.cleanUpPastEvents()
+        }
+        .onAppear {
+            if let uid = Auth.auth().currentUser?.uid {
+                accessBadgeVM.load(ownerUid: uid)
+            }
         }
 
         // 🔔 CHAT PUSH

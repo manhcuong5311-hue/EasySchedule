@@ -39,9 +39,26 @@ class ChatMetaViewModel: ObservableObject {
 
         self.lastNotifiedMessage =
             UserDefaults.standard.string(forKey: "lastNotified_\(eventId)")
+    }
+    static func placeholder(eventId: String) -> ChatMetaViewModel {
+        let vm = ChatMetaViewModel(eventId: eventId, myId: "")
+        return vm
+    }
 
+    func startListening() {
+        guard listener == nil else { return }
         listen()
     }
+    func markSeen() {
+        let chatRef = Firestore.firestore()
+            .collection("chats")
+            .document(eventId)
+
+        chatRef.updateData([
+            "unread.\(myId)": false
+        ])
+    }
+
 
     deinit {
         listener?.remove()
@@ -65,8 +82,15 @@ class ChatMetaViewModel: ObservableObject {
                     ChatForegroundTracker.shared.activeChatEventId != self.eventId
 
                 DispatchQueue.main.async {
-                    self.lastMessage = lastMsg
-                    self.unread = isUnread
+
+                    // ✅ chỉ publish khi thật sự thay đổi
+                    if self.lastMessage != lastMsg {
+                        self.lastMessage = lastMsg
+                    }
+
+                    if self.unread != isUnread {
+                        self.unread = isUnread
+                    }
 
                     if shouldNotify {
                         self.lastNotifiedMessage = lastMsg
@@ -77,6 +101,7 @@ class ChatMetaViewModel: ObservableObject {
                         )
                     }
                 }
+
             }
     }
 }

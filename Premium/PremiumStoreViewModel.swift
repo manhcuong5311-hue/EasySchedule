@@ -127,6 +127,23 @@ final class PremiumStoreViewModel: ObservableObject {
 
         return success
     }
+    // MARK: - START FREE TRIAL
+    func startFreeTrial() {
+        guard tier == .free else { return }
+
+        Task {
+            loading = true
+
+            let success = await PremiumStore.shared.startFreeTrial()
+            await refresh()
+
+            if success {
+                syncPremiumStatusToFirestore()
+            }
+
+            loading = false
+        }
+    }
 
     // MARK: - RESTORE
     func restore() async -> Bool {

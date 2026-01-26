@@ -1,26 +1,16 @@
-
+//
+//  5.swift
+//  Easy Schedule
+//
+//  Created by Sam Manh Cuong on 20/1/26.
+//
 import SwiftUI
-import Combine
 
-enum OnboardingStep: Int {
-    case hero = 0
-    case availability
-    case chat
-    case planning
-    case webBooking 
-    case cta
-}
-extension Color {
-    static let onboardingDarkBackground = Color(red: 14/255, green: 17/255, blue: 22/255)
-    static let onboardingDarkCard = Color(red: 28/255, green: 31/255, blue: 38/255)
-}
+struct OnboardingWebBookingSlide: View {
 
-struct OnboardingHeroSlide: View {
-    
     let onNext: () -> Void
-    
     @Environment(\.colorScheme) private var scheme
-    
+
     var body: some View {
         ZStack {
 
@@ -29,11 +19,11 @@ struct OnboardingHeroSlide: View {
                 colors: scheme == .light
                     ? [
                         Color(.systemBackground),
-                        Color.accentColor.opacity(0.08)
+                        Color.accentColor.opacity(0.06)
                       ]
                     : [
                         Color.onboardingDarkBackground,
-                        Color.onboardingDarkBackground.opacity(0.85)
+                        Color.onboardingDarkBackground.opacity(0.9)
                       ],
                 startPoint: .top,
                 endPoint: .bottom
@@ -42,36 +32,28 @@ struct OnboardingHeroSlide: View {
 
             VStack(spacing: 0) {
 
-                // MARK: - Curved Header (TypeAI style)
-                CurvedHeader()
+                // MARK: - Header
+                WebBookingHeader()
 
                 Spacer(minLength: 12)
 
-                // MARK: - iPhone Mock
-                AvailabilityPhoneMock1()
-                    .padding(.top, -40)
+                // MARK: - Phone mock
+                WebBookingPhoneMock()
+                    .padding(.top, -30)
 
                 Spacer()
 
                 // MARK: - CTA
-                VStack(spacing: 14) {
-
-                    Button {
-                        onNext() 
-                    } label: {
-                        Text(String(localized: "onboarding_get_started"))
-                            .font(.system(size: 17, weight: .semibold))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 16)
-                            .background(Color.accentColor)
-                            .foregroundColor(.white)
-                            .cornerRadius(18)
-                    }
-
-                    Text(String(localized: "onboarding_legal"))
-                        .font(.system(size: 12))
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
+                Button {
+                    onNext()
+                } label: {
+                    Text(String(localized: "onboarding_next"))
+                        .font(.system(size: 17, weight: .semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(Color.accentColor)
+                        .foregroundColor(.white)
+                        .cornerRadius(18)
                 }
                 .padding(.horizontal, 24)
                 .padding(.bottom, 28)
@@ -80,60 +62,60 @@ struct OnboardingHeroSlide: View {
     }
 }
 
-struct CurvedHeader: View {
+struct WebBookingHeader: View {
+
     @Environment(\.colorScheme) private var scheme
+
     var body: some View {
         ZStack {
 
-            // Curved background
             RoundedRectangle(cornerRadius: 40)
                 .fill(
                     scheme == .light
                     ? Color(.secondarySystemBackground)
                     : Color.onboardingDarkCard
                 )
-
                 .frame(height: 260)
                 .offset(y: -80)
 
             VStack(spacing: 14) {
 
-                // App name / icon (nhẹ)
                 HStack(spacing: 8) {
-                    Image(systemName: "calendar.badge.clock")
+                    Image(systemName: "link.circle.fill")
                         .font(.system(size: 18, weight: .semibold))
                         .foregroundColor(Color.accentColor)
 
                     Text("Easy Schedule")
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.primary)
                 }
 
-                // Big title
-                Text(String(localized: "onboarding_shared_availability_title"))                    .font(.system(size: 34, weight: .bold))
+                Text(String(localized: "onboarding_web_booking_title"))
+                    .font(.system(size: 34, weight: .bold))
                     .tracking(-0.8)
+                    .multilineTextAlignment(.center)
 
-                // Pill badge
-                Text(String(localized: "onboarding_realtime_sync"))
+                Text(String(localized: "onboarding_web_booking_subtitle"))
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 24)
+
+                Text(String(localized: "onboarding_no_app_required"))
                     .font(.system(size: 14, weight: .semibold))
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
                     .background(
-                        Capsule()
-                            .fill(
-                                scheme == .light
-                                ? Color(.secondarySystemBackground)
-                                : Color.onboardingDarkCard.opacity(0.85)
-                            )
-
-
+                        Capsule().fill(
+                            scheme == .light
+                            ? Color(.secondarySystemBackground)
+                            : Color.onboardingDarkCard.opacity(0.85)
+                        )
                     )
                     .overlay(
                         Capsule()
                             .stroke(Color.accentColor.opacity(0.8), lineWidth: 1.5)
                     )
                     .foregroundColor(Color.accentColor)
-
             }
             .padding(.top, 40)
             .offset(y: -40)
@@ -141,8 +123,11 @@ struct CurvedHeader: View {
     }
 }
 
-struct AvailabilityPhoneMock1: View {
+
+struct WebBookingPhoneMock: View {
+
     @Environment(\.colorScheme) private var scheme
+
     var body: some View {
         ZStack {
 
@@ -153,42 +138,39 @@ struct AvailabilityPhoneMock1: View {
                 .frame(width: 260, height: 520)
                 .offset(y: 20)
 
-            // Phone body
+            // Phone
             RoundedRectangle(cornerRadius: 38)
                 .fill(
                     scheme == .light
                     ? Color(.tertiarySystemFill)
                     : Color(red: 22/255, green: 26/255, blue: 32/255)
                 )
-
                 .frame(width: 260, height: 520)
 
-            // Screen
             RoundedRectangle(cornerRadius: 32)
                 .fill(
                     scheme == .light
                     ? Color(.systemBackground)
                     : Color(red: 18/255, green: 22/255, blue: 28/255)
                 )
-
                 .frame(width: 246, height: 506)
 
-            // Fake UI content
-            VStack(spacing: 12) {
+            VStack(spacing: 14) {
                 Spacer()
 
-                Text(String(localized: "mock_busy_time"))
+                Text("https://easyschedule-ce98a.web.app")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(.secondary)
 
+                Text(String(localized: "mock_select_time"))
                     .font(.system(size: 15, weight: .medium))
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
-                    .background(
-                        Color.accentColor.opacity(scheme == .light ? 0.15 : 0.25)
-                    )
-                    .cornerRadius(12)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(Color.accentColor.opacity(0.15))
+                    .cornerRadius(14)
 
-                Text(String(localized: "mock_updated_now"))
-                    .font(.system(size: 12))
+                Text(String(localized: "mock_confirm_booking"))
+                    .font(.system(size: 14))
                     .foregroundColor(.secondary)
 
                 Spacer()
@@ -197,5 +179,3 @@ struct AvailabilityPhoneMock1: View {
         }
     }
 }
-
-

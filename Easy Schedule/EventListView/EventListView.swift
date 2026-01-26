@@ -7,139 +7,81 @@
 import SwiftUI
 import Combine
 
+enum ActiveSheet1: Identifiable {
+    case monthPicker
+    case addEvent
+    case share(ShareItem)
+    case displaySettings
+    case pastWeek(WeekKey)
+
+    var id: String {
+        switch self {
+        case .monthPicker: return "month"
+        case .addEvent: return "add"
+        case .share: return "share"
+        case .displaySettings: return "display"
+        case .pastWeek(let w): return "week-\(w.year)-\(w.week)"
+        }
+    }
+}
 
 
 struct EventListView: View {
     @EnvironmentObject var eventManager: EventManager
-    @Binding var showPastEvents: Bool
-    @State private var selectedWeek: (year: Int, week: Int)? = nil
-    @State private var selectedDate: Date? = nil  // dùng để mở chi tiết ngày
-    @State private var searchText: String = ""    // dùng để tìm kiếm
-    @State private var showDeleteAlert = false
-    @State private var eventToDelete: CalendarEvent? = nil
-    // MARK: — tùy chỉnh UI
-    @State private var showCustomizeSheet = false
     @EnvironmentObject var session: SessionStore
-    @State private var collapsedDays: Set<Date> = []
-    @State private var unreadCountForDay: Int = 0
     @EnvironmentObject var guideManager: GuideManager
 
+    @AppStorage("showOwnerLabel") private var showOwnerLabel = true
+    @AppStorage("timeFontSize_v2")
+    private var timeFontSize: Int = 13
 
-    // Lưu cấu hình hiển thị (AppStorage để giữ xuyên các lần chạy app)
-    @AppStorage("showOwnerLabel") private var showOwnerLabel: Bool = true
-    @AppStorage("timeFontSize") private var timeFontSize: Double = 13.0
-    @AppStorage("timeColorHex") private var timeColorHex: String = "#007AFF"
+//NEW
 
-    var body: some View {
-        ZStack {
-            mainContent
+    
+    @State private var selectedDate: Date = Date()
 
-            if guideManager.isActive(.eventsIntro) {
-                eventsIntroOverlay
-            }
-        }
+ 
+
+    @AppStorage("event_time_display_mode")
+    private var timeDisplayModeRaw: String = EventTimeDisplayMode.timeRange.rawValue
+
+
+    private var timeDisplayMode: EventTimeDisplayMode {
+        EventTimeDisplayMode(rawValue: timeDisplayModeRaw) ?? .timeRange
     }
 
-    private func formattedMonth(_ date: Date) -> String {
-        date.formatted(.dateTime.month(.wide).year())
+
+    @EnvironmentObject var uiAccent: UIAccentStore
+
+//NEWWWWWW
+
+    let onBookPartner: () -> Void
+    
+    @State private var forceShowEventsGuide = false
+
+    private var maxSelectableDate: Date {
+        let cal = Calendar.current
+        let days =
+            PremiumLimits
+                .limits(for: PremiumStoreViewModel.shared.tier)
+                .maxBookingDaysAhead
+
+        let raw = cal.date(byAdding: .day, value: days, to: Date())!
+        return cal.startOfDay(for: raw)
     }
 
-    private var mainContent: some View {
-        VStack {
-            // Nút chuyển giữa 2 chế độ
-            Picker("", selection: $showPastEvents) {
-                Text(String(localized: "current_events")).tag(false)
-                    Text(String(localized: "past_events")).tag(true)
-            }
-            .pickerStyle(.segmented)
-            .padding(.horizontal)
-            
-            // Ô tìm kiếm chỉ hiện khi xem "lịch đã qua"
-            if showPastEvents {
-                HStack {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundColor(.gray)
-                    TextField(String(localized: "search_placeholder"), text: $searchText)
-                        .textFieldStyle(PlainTextFieldStyle())
-                }
-                .padding(10)
-                .background(Color(.systemGray6))
-                .cornerRadius(12)
-                .padding(.horizontal)
-            }
-            
-            if showPastEvents {
-                pastEventsGroupedView
-            } else {
-                upcomingEventsList
-            }
-        }
-        .navigationTitle(
-            showPastEvents
-            ? String(localized: "past_events")
-            : String(localized: "current_events")
+    
+    private func week(from date: Date) -> WeekKey {
+        let cal = Calendar.current
+        return WeekKey(
+            year: cal.component(.yearForWeekOfYear, from: date),
+            week: cal.component(.weekOfYear, from: date)
         )
-        .toolbar {
-
-            // ❓ Help — bên trái
-            ToolbarItem(placement: .navigationBarLeading) {
-                Button {
-                    guideManager.show(.eventsIntro)
-                } label: {
-                    Image(systemName: "questionmark.circle")
-                }
-                .accessibilityLabel(
-                    String(localized: "help")
-                )
-
-            }
-
-            // ⚙️ Customize — bên phải
-            ToolbarItem(placement: .navigationBarTrailing) {
-                Button {
-                    showCustomizeSheet = true
-                } label: {
-                    Image(systemName: "slider.horizontal.3")
-                }
-                .accessibilityLabel(
-                    String(localized: "customize_events")
-                )
-
-            }
-        }
-
-        .onAppear {
-            eventManager.cleanUpPastEvents()
-        }
-        .sheet(isPresented: Binding(
-            get: { selectedWeek != nil },
-            set: { if !$0 { selectedWeek = nil } }
-        )) {
-            if let week = selectedWeek {
-                PastEventsByWeekView(week: week)
-                    .environmentObject(eventManager)
-            }
-        }
-        .sheet(isPresented: $showCustomizeSheet) {
-            CustomizeCalendarSettingsView()
-        }
-        .alert(String(localized: "delete_event_title"), isPresented: $showDeleteAlert) {
-            Button(String(localized: "delete"), role: .destructive) {
-                if let event = eventToDelete {
-                    eventManager.deleteEvent(event)
-                }
-                eventToDelete = nil
-            }
-
-            Button(String(localized: "cancel"), role: .cancel) {
-                eventToDelete = nil
-            }
-        } message: {
-            let eventTitle = eventToDelete?.title ?? ""
-            let prefix = String(localized: "delete_event_confirm_prefix")
-            Text("\(prefix) “\(eventTitle)”?")
-        }
     }
+    @State private var activeSheet: ActiveSheet1?
+    @State private var monthCursor: Date = Date()
+    @State private var isMonthPickerOpen = false
+
 
     private var eventsIntroOverlay: some View {
         GeometryReader { geo in
@@ -154,15 +96,23 @@ struct EventListView: View {
                     GuideBubble(
                         textKey: "events_guide_intro",
                         onNext: {
-                            guideManager.complete(.eventsIntro)
+                            // 1️⃣ TẮT KÍCH HOẠT CỤC BỘ
+                            forceShowEventsGuide = false
+
+                            // 2️⃣ NẾU GUIDE ĐANG ACTIVE THẬT → COMPLETE
+                            if guideManager.isActive(.eventsIntro) {
+                                guideManager.complete(.eventsIntro)
+                            }
                         },
                         onDoNotShowAgain: {
+                            // 1️⃣ TẮT KÍCH HOẠT CỤC BỘ
+                            forceShowEventsGuide = false
+
+                            // 2️⃣ DISABLE PERMANENT
                             guideManager.disablePermanently(.eventsIntro)
                         }
                     )
-                    .frame(
-                        maxWidth: min(420, geo.size.width * 0.9)
-                    )
+                    .frame(maxWidth: min(420, geo.size.width * 0.9))
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .padding(.top, 140)
@@ -171,416 +121,612 @@ struct EventListView: View {
     }
 
 
+    
+    
+    
+    var body: some View {
+        ZStack {
+           
+            EventScrollContent(
+                events: eventManager.events,
+                showOwnerLabel: showOwnerLabel,
+                timeFontSize: Double(timeFontSize),
+                selectedDate: $selectedDate,
 
-    // MARK: - Lịch hiện tại (gộp theo Tháng → Tuần → Ngày)
-    private var upcomingEventsList: some View {
+                onAddEvent: {
+                    activeSheet = .addEvent
+                },
 
-        func formattedMonth(_ date: Date) -> String {
-            date.formatted(.dateTime.month(.wide).year())
-        }
-
-        func formattedMediumDate(_ date: Date) -> String {
-            date.formatted(date: .numeric, time: .omitted)
-        }
-
-        func formattedTime(_ date: Date) -> String {
-            date.formatted(date: .omitted, time: .shortened)
-        }
-
-        let groupedByMonth = EventGrouping.byMonth(eventManager.events)
-        let sortedMonths = groupedByMonth.keys.sorted()
-
-        return List {
-            if eventManager.events.isEmpty {
-                Text(String(localized: "no_upcoming_events"))
-                    .foregroundColor(.secondary)
-            } else {
-
-                ForEach(sortedMonths, id: \.self) { monthDate in
-                    let monthEvents = groupedByMonth[monthDate] ?? []
-
-                    Section(header:
-                        HStack {
-                            Text(formattedMonth(monthDate))
-                                .font(.headline)
-                            Spacer()
-                            let template = String(localized: "number_of_events_month")
-                            Text(template.replacingOccurrences(of: "{count}", with: "\(monthEvents.count)"))
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                        }
-                    ) {
-
-                        let groupedByWeek = EventGrouping.byWeek(monthEvents)
-                        let sortedWeeks = groupedByWeek.keys.sorted()
-
-                        ForEach(sortedWeeks, id: \.self) { week in
-                            let weekEvents = groupedByWeek[week] ?? []
-                            let weekPrefix = String(localized: "week_prefix")
-
-                            Section(header:
-                                Text("\(weekPrefix) \(week)")
-                                    .font(.subheadline.bold())
-                                    .foregroundColor(.secondary)
-                            ) {
-
-                                let groupedByDay = EventGrouping.byDay(weekEvents)
-                                let sortedDays = groupedByDay.keys.sorted()
-
-                                ForEach(sortedDays, id: \.self) { day in
-                                    DaySectionView(
-                                        day: day,
-                                        dayEvents: groupedByDay[day] ?? [],
-                                        collapsedDays: $collapsedDays,
-                                        showOwnerLabel: showOwnerLabel,
-                                        timeFontSize: timeFontSize,
-                                        timeColorHex: timeColorHex,
-                                        session: session,
-                                        eventManager: eventManager,
-                                        onDelete: deleteUpcomingEvent,
-                                        showDeleteConfirmation: showDeleteConfirmation
-                                    )
-                                }
-
-                            }
-                        }
+                onShareCalendar: {
+                    if let uid = session.currentUserId,
+                       let url = URL(
+                           string: "https://easyschedule-ce98a.web.app/calendar/\(uid)"
+                       ) {
+                        activeSheet = .share(ShareItem(url: url))
                     }
-                }
+                },
+
+                onBookPartner: onBookPartner,
+                
+                onViewSummary: { date in
+                      activeSheet = .pastWeek(week(from: date))
+                  },
+
+                maxSelectableDate: maxSelectableDate,   // ✅ ĐƯA LÊN TRƯỚC
+
+                timeDisplayMode: timeDisplayMode,
+
+                isMonthPickerOpen: $isMonthPickerOpen,
+                
+                onOpenMonthPicker: {
+                       isMonthPickerOpen = true
+                       activeSheet = .monthPicker
+                   },
+                
+                onOpenDisplaySettings: {
+                      activeSheet = .displaySettings
+                  }
+                 
+            )
+
+
+
+
+            
+
+            if guideManager.isActive(.eventsIntro) || forceShowEventsGuide {
+                eventsIntroOverlay
+            }
+
+        }
+        .onChange(of: guideManager.activeGuide) { _, newGuide in
+            if newGuide == .calendarIntro {
+                forceShowEventsGuide = true
             }
         }
-        .listStyle(.insetGrouped)
-    }
 
-    
-    private func formattedDayHeader(_ date: Date) -> String {
-        date.formatted(.dateTime.weekday(.wide).day())
-    }
-
-
-    private func showDeleteConfirmation(for event: CalendarEvent) {
-        eventToDelete = event
-        showDeleteAlert = true
-    }
-    
-    // MARK: - Lịch đã qua (gộp theo tháng + tuần + tìm kiếm)
-    private var pastEventsGroupedView: some View {
-        // Lọc theo từ khóa tìm kiếm (title hoặc owner)
-        let filteredEvents = eventManager.pastEvents.filter { event in
-            searchText.isEmpty ||
-            event.title.localizedCaseInsensitiveContains(searchText) ||
-            event.owner.localizedCaseInsensitiveContains(searchText)
+        .onAppear {
+            guideManager.startIfNeeded()   // ⭐ DÒNG QUAN TRỌNG
         }
-        
-        // Nhóm theo tháng (dựa trên năm + tháng)
-        let groupedByMonth = Dictionary(grouping: filteredEvents) { event -> Date in
-            let calendar = Calendar.current
-            let comps = calendar.dateComponents([.year, .month], from: event.startTime)
-            return calendar.date(from: comps)!
-        }
+        .toolbar(.hidden, for: .navigationBar)
+        .sheet(item: $activeSheet) { sheet in
+            switch sheet {
 
-        // Sắp xếp tháng mới nhất lên trên
-        let sortedMonths = groupedByMonth.keys.sorted(by: >)
-        
-        return List {
-            if filteredEvents.isEmpty {
-                Text(
-                    searchText.isEmpty
-                    ? String(localized: "no_past_events")
-                    : String(localized: "no_results_found")
+            case .monthPicker:
+                CalendarMonthSheetView(
+                    selectedDate: $selectedDate,
+                    displayedMonth: $monthCursor,
+                    maxSelectableDate: maxSelectableDate
                 )
-
-                    .foregroundColor(.secondary)
-            } else {
-                ForEach(sortedMonths, id: \.self) { monthDate in
-                    let monthEvents = groupedByMonth[monthDate] ?? []
-                    
-                    // Hiển thị tháng
-                    Section(header:
-                                HStack {
-                        Text(formattedMonth(monthDate))
-                            .font(.headline)
-                        Spacer()
-                        let template = String(localized: "number_of_events_month")
-                        Text(template.replacingOccurrences(of: "{count}", with: "\(monthEvents.count)"))
-
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                    }
-                    ) {
-                        // Nhóm trong tháng đó theo tuần
-                        let groupedByWeek = Dictionary(grouping: monthEvents) { event -> Int in
-                            Calendar.current.component(.weekOfMonth, from: event.date)
-                        }
-                        let sortedWeeks = groupedByWeek.keys.sorted()
-                        
-                        ForEach(sortedWeeks, id: \.self) { week in
-                            let weekEvents = groupedByWeek[week] ?? []
-                            
-                            Button {
-                                // Gộp tuần này để mở danh sách chi tiết
-                                let comps = Calendar.current.dateComponents([.yearForWeekOfYear, .weekOfYear], from: weekEvents.first!.date)
-                                selectedWeek = (comps.yearForWeekOfYear!, comps.weekOfYear!)
-
-                            } label: {
-                                HStack {
-                                    let sampleDate = weekEvents.first!.date
-                                    let week = Calendar.current.component(.weekOfMonth, from: sampleDate)
-
-                                    let weekPrefix = String(localized: "week_prefix")
-                                    let monthName = sampleDate.formatted(.dateTime.month(.wide))
-
-                                    Text("\(weekPrefix) \(week) \(monthName)")
-                                        .font(.body)
-
-                                    Spacer()
-
-                                    let template = String(localized: "number_of_events_week")
-                                    Text(template.replacingOccurrences(of: "{count}",
-                                                                       with: "\(weekEvents.count)"))
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                }
-
-
-                                .padding(.vertical, 4)
-                            }
-                        }
+                .environmentObject(eventManager)
+                .onDisappear {
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        isMonthPickerOpen = false   // ⭐ CHEVRON QUAY LẠI
                     }
                 }
+
+
+
+
+            case .addEvent:
+                AddEventView(
+                    prefillDate: selectedDate,
+                    offDays: [],
+                    busyHours: []
+                )
+                .environmentObject(eventManager)
+                .environmentObject(session)
+
+            case .share(let item):
+                ActivityView(activityItems: [item.url])
+
+            case .displaySettings:
+                DisplaySettingsSheet()
+
+            case .pastWeek(let week):
+                PastWeeklySummaryView(
+                    week: (year: week.year, week: week.week)
+                )
+                .environmentObject(eventManager)
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
             }
         }
-        .listStyle(.insetGrouped)
+
+        .onChange(of: selectedDate) { _, newDate in
+
+            // ⭐ 1️⃣ ĐÁNH DẤU ĐÃ XEM EVENT TRONG NGÀY (XOÁ DOT NEW)
+            eventManager.markDayEventsAsSeen(newDate)
+
+            // ⭐ 2️⃣ LOGIC CŨ CỦA BẠN – GIỮ NGUYÊN
+            let cal = Calendar.current
+            let today = cal.startOfDay(for: Date())
+            let selected = cal.startOfDay(for: newDate)
+
+            if selected < today {
+                activeSheet = .pastWeek(week(from: newDate))
+            }
+
+        }
+
+   
+    }
+    
+    
+    
+    
+  
+    
+    
+    
+    
+}
+
+
+
+
+
+
+
+struct EventScrollContent: View {
+    
+    let events: [CalendarEvent]
+    let showOwnerLabel: Bool
+    let timeFontSize: Double
+    
+    @Binding var selectedDate: Date
+    
+    let onAddEvent: () -> Void
+    let onShareCalendar: () -> Void
+    let onBookPartner: () -> Void
+    let onViewSummary: (Date) -> Void
+    let maxSelectableDate: Date
+    let timeDisplayMode: EventTimeDisplayMode
+    
+    @Binding var isMonthPickerOpen: Bool
+    let onOpenMonthPicker: () -> Void
+    let onOpenDisplaySettings: () -> Void
+
+    
+    
+    
+    
+    @EnvironmentObject var eventManager: EventManager
+    @EnvironmentObject var uiAccent: UIAccentStore
+   
+    
+    private var eventsOfSelectedDay: [CalendarEvent] {
+        events
+            .filter {
+                Calendar.current.isDate($0.startTime, inSameDayAs: selectedDate)
+            }
+            .sorted { $0.startTime < $1.startTime }
+    }
+    
+    private var isOffDay: Bool {
+        eventManager.isOffDay(selectedDate)
     }
    
-    // MARK: - Hàng hiển thị sự kiện
-    private func eventRow(_ event: CalendarEvent) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+    @AppStorage("event_card_layout")
+    private var cardLayoutRaw: String = EventCardLayout.normal.rawValue
 
-            // ⭐ Tiêu đề
-            Text(event.title)
-                .font(.headline)
+    private var cardLayout: EventCardLayout {
+        EventCardLayout(rawValue: cardLayoutRaw) ?? .normal
+    }
 
-            // ⭐ Hàng thông tin người tạo + ngày
-            HStack(spacing: 4) {
-
-                if showOwnerLabel {
-                    if event.origin == .iCreatedForOther {
-                        HStack(spacing: 4) {
-                            UserNameView(uid: event.createdBy)
-                            Text("→")
-                            UserNameView(uid: event.owner)
+    
+    var body: some View {
+   
+        ScrollView {
+            
+           
+            
+            HorizontalDayPickerView(
+                selectedDate: $selectedDate,
+                maxSelectableDate: maxSelectableDate
+            )
+            
+            .padding(.bottom, 8)
+            
+            
+            // ===== CONTENT =====
+            if eventsOfSelectedDay.isEmpty {
+                
+                if isOffDay {
+                    OffDayEmptyStateView(
+                        date: selectedDate,
+                        onViewSummary: {
+                            onViewSummary(selectedDate)
                         }
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                    } else {
-                        Text(displayName(for: event, uid: event.createdBy, eventManager: eventManager))
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                    }
+                    )
+                } else {
+                    EmptyEventsStateView(
+                        onAdd: onAddEvent,
+                        onShare: onShareCalendar,
+                        onBookPartner: onBookPartner
+                    )
+                }
+                
+            } else {
+                DaySectionView(
+                    day: selectedDate,
+                    dayEvents: eventsOfSelectedDay,
+                    showOwnerLabel: showOwnerLabel,
+                    timeFontSize: timeFontSize,
+                    timeDisplayMode: timeDisplayMode,
+                    onAddEvent: onAddEvent,
+                    onShareCalendar: onShareCalendar,
+                    onBookPartner: onBookPartner
+                )
+                
+                .padding(.bottom, 80)
+            }
+            
+        }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .safeAreaInset(edge: .top, spacing: 0) {
+            HStack(alignment: .center) {
+
+                // ===== BIG DATE HEADER (BÊN TRÁI) =====
+                BigDateHeaderView(
+                    date: selectedDate,
+                    isExpanded: $isMonthPickerOpen
+                ) {
+                    isMonthPickerOpen = true
+                    onOpenMonthPicker()
                 }
 
-                Text(String(localized: "bullet_separator"))
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
+                Spacer()
 
-                Text(formattedDate(event.date))
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
+                // ===== FLOATING PAINTPALETTE (BÊN PHẢI) =====
+                Button {
+                    // ⚙️ MỞ DISPLAY SETTINGS
+                    onOpenDisplaySettings()
+                } label: {
+                    Image(systemName: "paintpalette")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(uiAccent.color)
+                        .frame(width: 44, height: 44)
+                        .background(
+                            Circle()
+                                .fill(Color(.systemBackground))
+                        )
+                        .shadow(
+                            color: Color.black.opacity(0.18),
+                            radius: 4,
+                            y: 2
+                        )
+                }
             }
-
-            // ⭐ Thời gian
-            Text("\(formattedTime(event.startTime)) - \(formattedTime(event.endTime))")
-                .font(.system(size: CGFloat(timeFontSize), weight: .regular))
-                .foregroundColor(Color(hex: timeColorHex))
+            .padding(.horizontal, 16)
+            .padding(.top, 4)
+            .padding(.bottom, 4)
         }
-        .padding(.vertical, 4)
-    }
 
-    // MARK: - Xoá sự kiện hiện tại
-    private func deleteUpcomingEvent(at offsets: IndexSet) {
-        eventManager.events.remove(atOffsets: offsets)
-    }
-    
-    // MARK: - Helper định dạng
-    private func formattedDate(_ date: Date) -> String {
-        date.formatted(.dateTime.day().month().year())
-    }
 
-    
-    func formattedTime(_ date: Date) -> String {
-        date.formatted(date: .omitted, time: .shortened)
-    }
 
+    }
 }
+    
+
+
+
+struct MonthSectionView: View {
+    let month: Date
+    let events: [CalendarEvent]
+
+
+
+    let showOwnerLabel: Bool
+    let timeFontSize: Double
+
+
+    private var groupedByWeek: [Int: [CalendarEvent]] {
+        EventGrouping.byWeek(events)
+    }
+//NEW
+    let selectedDate: Date   // ✅ thêm
+    let timeDisplayMode: EventTimeDisplayMode
+    // ✅ THÊM 3 ACTION
+       let onAddEvent: () -> Void
+       let onShareCalendar: () -> Void
+       let onBookPartner: () -> Void
+    
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+
+                // Vẫn giữ Geometry để sync, nhưng không vẽ chữ
+                Color.clear
+                    .frame(height: 1)
+                    .background(
+                        GeometryReader { geo in
+                            Color.clear.preference(
+                                key: MonthHeaderPositionKey.self,
+                                value: [month: geo.frame(in: .global).minY]
+                            )
+                        }
+                    )
+            
+            ForEach(groupedByWeek.keys.sorted(), id: \.self) { week in
+                WeekSectionView(
+                                   week: week,
+                                   events: groupedByWeek[week] ?? [],
+                                   showOwnerLabel: showOwnerLabel,
+                                   timeFontSize: timeFontSize,
+                                   selectedDate: selectedDate,
+                                   timeDisplayMode: timeDisplayMode,
+                                   onAddEvent: onAddEvent,
+                                   onShareCalendar: onShareCalendar,
+                                   onBookPartner: onBookPartner
+                               )
+            }
+        }
+    }
+}
+
+struct WeekSectionView: View {
+    let week: Int
+    let events: [CalendarEvent]
+
+    let showOwnerLabel: Bool
+    let timeFontSize: Double
+    let selectedDate: Date   // ✅ thêm
+    let timeDisplayMode: EventTimeDisplayMode
+    // ✅ THÊM 3 ACTION
+       let onAddEvent: () -> Void
+       let onShareCalendar: () -> Void
+       let onBookPartner: () -> Void
+
+    private var groupedByDay: [Date: [CalendarEvent]] {
+        EventGrouping.byDay(events)
+    }
+
+    private var filteredDays: [Date] {
+        groupedByDay.keys
+            .filter {
+                Calendar.current.isDate($0, inSameDayAs: selectedDate)
+            }
+            .sorted()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+
+            ForEach(filteredDays, id: \.self) { day in
+                DaySectionView(
+                    day: day,
+                    dayEvents: groupedByDay[day] ?? [],
+                    showOwnerLabel: showOwnerLabel,
+                    timeFontSize: timeFontSize,
+                    timeDisplayMode: timeDisplayMode,
+                    onAddEvent: onAddEvent,
+                    onShareCalendar: onShareCalendar,
+                    onBookPartner: onBookPartner
+                )
+
+            }
+        }
+    }
+}
+
 
 private struct DaySectionView: View {
 
     let day: Date
     let dayEvents: [CalendarEvent]
-    @State private var unreadCountForDay: Int = 0
-
-    @Binding var collapsedDays: Set<Date>
-
+  
     let showOwnerLabel: Bool
     let timeFontSize: Double
-    let timeColorHex: String
+    let timeDisplayMode: EventTimeDisplayMode
+    
+    // ✅ THÊM 3 ACTION
+        let onAddEvent: () -> Void
+        let onShareCalendar: () -> Void
+        let onBookPartner: () -> Void
+    
+    
+    @EnvironmentObject var session: SessionStore
+    @EnvironmentObject var eventManager: EventManager
 
-    let session: SessionStore
-    let eventManager: EventManager
+//new
+    
+    @State private var expandedEvents: Set<String> = []
 
-    let onDelete: (IndexSet) -> Void
-    let showDeleteConfirmation: (CalendarEvent) -> Void
-
-    private var isCollapsed: Bool {
-        collapsedDays.contains(day)
+    private func isExpanded(_ event: CalendarEvent) -> Bool {
+        expandedEvents.contains(event.id)
     }
 
+
+    @EnvironmentObject var uiAccent: UIAccentStore
+
+    private var shouldShowLightSuggestion: Bool {
+        let isTodayOrFuture =
+            Calendar.current.startOfDay(for: day) >=
+            Calendar.current.startOfDay(for: Date())
+
+        let key = dayKey(day)
+
+        return isTodayOrFuture
+            && !dayEvents.isEmpty
+            && dayEvents.count < 4
+            && !collapsedDays.contains(key)
+    }
+
+
+    @AppStorage("collapsed_light_suggestion_days")
+    private var collapsedDaysRaw: String = ""
+
+    private var collapsedDays: Set<String> {
+        Set(collapsedDaysRaw.split(separator: ",").map(String.init))
+    }
+
+    private func dayKey(_ date: Date) -> String {
+        let cal = Calendar.current
+        let comps = cal.dateComponents([.year, .month, .day], from: date)
+        return "\(comps.year!)-\(comps.month!)-\(comps.day!)"
+    }
+
+    
+    @AppStorage("event_card_layout")
+    private var cardLayoutRaw: String = EventCardLayout.normal.rawValue
+
+    private var cardLayout: EventCardLayout {
+        EventCardLayout(rawValue: cardLayoutRaw) ?? .normal
+    }
+
+    private var manualBusySlotsOfDay: [CalendarEvent] {
+        eventManager.myManualBusySlots.filter {
+            Calendar.current.isDate($0.startTime, inSameDayAs: day)
+        }
+    }
 
 
     var body: some View {
-        Section(header: headerView) {
-            if !isCollapsed {
-                ForEach(dayEvents.sorted { $0.startTime < $1.startTime }) { event in
-                    eventRow(event)
+
+        let unreadCount = eventManager.unreadCount(for: day)
+        let hasNew = eventManager.hasNewEvent(for: day)
+
+        VStack(alignment: .leading, spacing: 8) {
+
+            headerView(
+                unreadCount: unreadCount,
+                hasNew: hasNew
+            )
+            
+
+            VStack(alignment: .leading, spacing: 6) {
+
+                switch cardLayout {
+
+                case .timeline:
+                    TimelineDayView(
+                        date: day,
+                        events: dayEvents,
+                        manualBusySlots: manualBusySlotsOfDay,
+                        timeDisplayMode: timeDisplayMode
+                    )
+                    .padding(.top, 8)
+
+                case .normal, .compact:
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(dayEvents) { event in
+                            switch cardLayout {
+
+                            case .normal:
+                                EventRowView(
+                                    event: event,
+                                    showOwnerLabel: showOwnerLabel,
+                                    timeFontSize: timeFontSize,
+                                    expandedEvents: $expandedEvents,
+                                    chatMeta: eventManager.chatMeta(for: event.id),
+                                    timeDisplayMode: timeDisplayMode
+                                )
+
+                            case .compact:
+                                CompactEventRowView(
+                                    event: event,
+                                    timeFontSize: timeFontSize,
+                                    timeDisplayMode: timeDisplayMode,
+                                    expandedEvents: $expandedEvents,
+                                    chatMeta: eventManager.chatMeta(for: event.id)
+                                )
+
+                            default:
+                                EmptyView()
+                            }
+                        }
+                    }
+                    .padding(.leading, 16)
                 }
-                .onDelete(perform: onDelete)
+            }
+
+            
+    // ===== < 4 EVENTS SUGGESTION (BOTTOM) =====
+            if shouldShowLightSuggestion {
+                LightDaySuggestionView(
+                    onAdd: onAddEvent,
+                    onShare: onShareCalendar,
+                    onBookPartner: onBookPartner,
+                    onCollapse: {
+                        let key = dayKey(day)
+
+                        if !collapsedDays.contains(key) {
+                            let updated = collapsedDays
+                                .union([key])
+                                .joined(separator: ",")
+
+                            collapsedDaysRaw = updated
+                        }
+                    }
+                )
+
+
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
             }
         }
         .onAppear {
-            updateUnreadCount()   // ⭐ BƯỚC 3.1
+            resetCollapseIfNeeded()
         }
-        .onChange(of: dayEvents) {
-            updateUnreadCount()
+        .onChange(of: dayEvents.count) { _, _ in
+            resetCollapseIfNeeded()
         }
 
+        .padding(.vertical, 8)
     }
 
-}
-private extension DaySectionView {
 
-    func updateUnreadCount() {
-        let count = dayEvents.filter { event in
-            eventManager.chatMeta(for: event.id).unread
-        }.count
 
-        // ⚠️ BẮT BUỘC dùng async để tránh update trong render
-        DispatchQueue.main.async {
-            unreadCountForDay = count
-        }
+
+    
+    private func resetCollapseIfNeeded() {
+        let key = dayKey(day)
+
+        guard dayEvents.count >= 4,
+              collapsedDays.contains(key)
+        else { return }
+
+        let updated = collapsedDays
+            .subtracting([key])
+            .joined(separator: ",")
+
+        collapsedDaysRaw = updated
     }
+
+    
 }
+
+
+
+
+
+
+
+
+
 
 private extension DaySectionView {
 
-    var headerView: some View {
-        HStack(spacing: 8) {
+    func headerView(
+        unreadCount: Int,
+        hasNew: Bool
+    ) -> some View {
 
-            Text(day.formatted(.dateTime.weekday(.wide).day()))
-                .font(.headline)
-
+        HStack {
             Spacer()
 
-            if unreadCountForDay > 0 {
-                Text("\(unreadCountForDay)")
-                    .font(.caption.bold())
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Color.red)
-                    .clipShape(Capsule())
-            }
-
-            Button {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    toggle()
-                }
-            } label: {
-                Image(systemName: isCollapsed ? "chevron.down" : "chevron.up")
-                    .foregroundColor(.secondary)
-            }
-            .buttonStyle(.plain)
-        }
-        .contentShape(Rectangle())
-    }
-
-    func toggle() {
-        if isCollapsed {
-            collapsedDays.remove(day)
-        } else {
-            collapsedDays.insert(day)
-        }
-    }
-}
-private extension DaySectionView {
-
-    func eventRow(_ event: CalendarEvent) -> some View {
-        HStack(alignment: .top, spacing: 8) {
-
-            Circle()
-                .fill(Color(hex: event.colorHex.isEmpty ? "#FF0000" : event.colorHex))
-                .frame(width: 12, height: 12)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(event.title)
-                    .font(.headline)
-
-                if showOwnerLabel {
-                    Text(event.originLabel)
-                        .font(.caption)
-                        .foregroundColor(.blue)
-                }
-
-                if showOwnerLabel {
-                    if event.origin == .iCreatedForOther {
-                        HStack(spacing: 4) {
-                            UserNameView(uid: event.createdBy)
-                            Text("→")
-                            UserNameView(uid: event.owner)
-                        }
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                    } else {
-                        Text(displayName(
-                            for: event,
-                            uid: event.createdBy,
-                            eventManager: eventManager
-                        ))
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                    }
-                }
-
-                Text(
-                    "\(event.startTime.formatted(date: .omitted, time: .shortened)) - " +
-                    "\(event.endTime.formatted(date: .omitted, time: .shortened))"
-                )
-                .font(.system(size: CGFloat(timeFontSize)))
-                .foregroundColor(Color(hex: timeColorHex))
-            }
-
-            Spacer()
-
-            if event.createdBy != event.owner {
-                ChatButtonWithBadge(
-                    event: event,
-                    otherUserId: event.createdBy == session.currentUserId
-                        ? event.owner
-                        : event.createdBy
+            if unreadCount > 0 || hasNew {
+                DayStatusBadgeView(
+                    unreadCount: unreadCount,
+                    hasNew: hasNew
                 )
             }
         }
-        .padding(.vertical, 4)
-        .contentShape(Rectangle())
-        .swipeActions {
-            Button(role: .destructive) {
-                showDeleteConfirmation(event)
-            } label: {
-                Label(String(localized: "delete"), systemImage: "trash")
-            }
-        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 6)
     }
 }
-
 
 struct UserNameView: View {
     @EnvironmentObject var eventManager: EventManager
@@ -597,3 +743,13 @@ struct UserNameView: View {
     }
 }
 
+struct DayPositionKey: PreferenceKey {
+    static var defaultValue: [Date: CGFloat] = [:]
+
+    static func reduce(
+        value: inout [Date: CGFloat],
+        nextValue: () -> [Date: CGFloat]
+    ) {
+        value.merge(nextValue(), uniquingKeysWith: { $1 })
+    }
+}

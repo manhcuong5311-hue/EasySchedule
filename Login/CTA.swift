@@ -13,7 +13,6 @@ struct FinalOnboardingCTASlide: View {
     @Environment(\.colorScheme) private var scheme
 
     @Binding var hasSeenOnboarding: Bool
-    @State private var showShare = false
     @State private var showPaywall = false
 
     var body: some View {
@@ -60,9 +59,9 @@ struct FinalOnboardingCTASlide: View {
                 Spacer()
 
                 // MARK: - Primary CTA
-                Button {
-                    showShare = true
-                } label: {
+                ShareLink(
+                    item: URL(string: "https://apps.apple.com/app/id6756092474")!
+                ) {
                     Text(String(localized: "final_cta_invite"))
                         .font(.system(size: 17, weight: .semibold))
                         .frame(maxWidth: .infinity)
@@ -75,8 +74,8 @@ struct FinalOnboardingCTASlide: View {
                             radius: 12,
                             y: 8
                         )
-
                 }
+
 
                 // MARK: - Secondary CTA
                 Button {
@@ -112,11 +111,7 @@ struct FinalOnboardingCTASlide: View {
         }
 
 
-        .sheet(isPresented: $showShare) {
-            ShareLink(
-                item: URL(string: "https://apps.apple.com/app/id6756092474")!
-            )
-        }
+       
     }
 }
 

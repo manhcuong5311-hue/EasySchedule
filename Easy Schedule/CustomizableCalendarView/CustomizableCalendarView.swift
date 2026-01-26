@@ -8,6 +8,22 @@ import SwiftUI
 import Combine
 import FirebaseAuth
 
+enum BusyHoursStyle {
+
+    /// Màu semantic cho trạng thái "có busy hours"
+    static let activeColor = Color(hex: "#FFB020")   // amber, KHÔNG trùng accent iOS
+
+    /// Background nhẹ cho trạng thái active
+    static let activeBackground = Color(hex: "#FFB020").opacity(0.15)
+
+    /// Icon khi chưa có busy hours → dùng accent
+    static func iconColor(
+        hasBusy: Bool,
+        accent: Color
+    ) -> Color {
+        hasBusy ? activeColor : accent
+    }
+}
 
 
 private struct BusyKey: Hashable {
@@ -45,8 +61,9 @@ struct CustomizableCalendarView: View {
     @State private var showConfirmOffDayAlert = false
     @State private var pendingOffDayDate: Date? = nil
     @State private var showCalendarGuide = false
-
-   
+//NEWWWWWWWWWW
+    @EnvironmentObject var uiAccent: UIAccentStore
+    @Environment(\.colorScheme) private var colorScheme
 
 
     @State private var offDays: Set<Date> = [] {
@@ -139,6 +156,37 @@ struct CustomizableCalendarView: View {
 
             ScrollView {
                 VStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 6) {
+
+                        HStack(spacing: 8) {
+                            Text(String(localized: "title_my"))
+                                .foregroundColor(uiAccent.color)
+
+                            Text(String(localized: "title_calendar"))
+                                .foregroundColor(.primary)
+                        }
+
+                        .font(.system(size: 36, weight: .bold, design: .rounded))
+                        .tracking(-0.4)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .modifier(TitleShadow.primary(colorScheme))   // ⭐ NEW
+
+
+                        Text(String(localized: "view_and_manage_your_calendar"))
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundColor(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .shadow(
+                                color: colorScheme == .dark
+                                    ? Color.white.opacity(0.15)
+                                    : Color.black.opacity(0.10),
+                                radius: 1,
+                                y: 1
+                            )
+
+                    }
+                    .padding(.horizontal)
+                    .padding(.top, 16)
 
                     CalendarGridView(
                         selectedDate: $selectedDate,
@@ -165,9 +213,40 @@ struct CustomizableCalendarView: View {
             }
 
             cooldownToast
+            // ⭐⭐ NÚT + FLOATING (TO – RÕ – PREMIUM) ⭐⭐
+            VStack {
+                HStack {
+                    Spacer()
+
+                    Button {
+                        showAddSheet = true
+                    } label: {
+                        Image(systemName: "plus")
+                            .font(.system(size: 22, weight: .bold))   // ⭐ TO RÕ HƠN
+                            .foregroundColor(uiAccent.color)
+                            .frame(width: 52, height: 52)             // ⭐ KÍCH THƯỚC NÚT
+                            .background(
+                                Circle()
+                                    .fill(Color(.systemBackground))
+                            )
+                            .shadow(
+                                color: colorScheme == .dark
+                                    ? Color.white.opacity(0.35)
+                                    : Color.black.opacity(0.25),
+                                radius: 6,
+                                y: 3
+                            )
+                    }
+                }
+                .padding(.trailing, 16)
+                .padding(.top, 10)
+
+                Spacer()
+            }
+
         }
-        .navigationTitle(String(localized: "my_calendar"))
-        .toolbar { addToolbar }
+        .toolbar(.hidden, for: .navigationBar)
+
         .sheet(isPresented: $showAddSheet) { addEventSheet }
         .sheet(isPresented: $showBusyHoursSheet) { busyHoursSheet }
         .alert(String(localized: "delete_event_title"), isPresented: $showDeleteAlert) {
@@ -263,7 +342,7 @@ struct CustomizableCalendarView: View {
         } label: {
             HStack(spacing: 10) {
                 Image(systemName: "square.and.arrow.up")
-                    .foregroundColor(.blue)
+                    .foregroundColor(uiAccent.color)
 
                 Text(String(localized: "share_calendar"))
                     .font(.body.weight(.semibold))
@@ -271,6 +350,7 @@ struct CustomizableCalendarView: View {
         }
         .calendarActionStyle()
         .padding(.horizontal)
+        .modifier(ActionButtonShadow.primary(colorScheme))
         .sheet(item: $shareItem) { item in
             ActivityView(activityItems: [item.url])
         }
@@ -331,27 +411,6 @@ struct CustomizableCalendarView: View {
         .environmentObject(eventManager)
     }
     
-    @ToolbarContentBuilder
-    private var addToolbar: some ToolbarContent {
-
-        ToolbarItem(placement: .navigationBarLeading) {
-            Button {
-                guideManager.show(.calendarIntro)
-            } label: {
-                Image(systemName: "questionmark.circle")
-            }
-        }
-
-        ToolbarItem(placement: .navigationBarTrailing) {
-            Button {
-                showAddSheet = true
-            } label: {
-                Image(systemName: "plus")
-            }
-        }
-    }
-
-
     private var calendarIntroOverlay: some View {
         GeometryReader { geo in
             ZStack {
@@ -437,21 +496,21 @@ struct CustomizableCalendarView: View {
 
     private func handleDateChange(_ newDate: Date?) {
         guard let date = newDate else { return }
-        guard let uid = eventManager.currentUserId else {
-            localBusyIntervals = []
-            return
-        }
 
-        // 1️⃣ Busy do EVENT (read-only)
+        // 1️⃣ Event busy
         eventBusyIntervals = eventManager.events(for: date)
             .map { ($0.startTime, $0.endTime) }
 
-        // 2️⃣ Busy HOURS — CHỈ MANUAL
+        // 2️⃣ Manual busy – OWNER (NGUỒN CHUẨN)
         localBusyIntervals =
-            eventManager.partnerBusySlots[uid]?
-                .filter { $0.colorHex == "#FFA500" }   // manual only
-                .map { ($0.startTime, $0.endTime) } ?? []
+            eventManager.myManualBusySlots
+                .filter {
+                    Calendar.current.isDate($0.startTime, inSameDayAs: date)
+                }
+                .map { ($0.startTime, $0.endTime) }
     }
+
+
 
 
 
@@ -552,7 +611,7 @@ struct CustomizableCalendarView: View {
                            ? "xmark.circle"
                            : "bed.double"
                        )
-                       .foregroundColor(.blue)
+                       .foregroundColor(uiAccent.color)
 
                        Text(
                            isOffDay(date)
@@ -564,6 +623,7 @@ struct CustomizableCalendarView: View {
                }
                .calendarActionStyle()
                .padding(.horizontal)
+               .modifier(ActionButtonShadow.primary(colorScheme))
                .disabled(isCooldown)
             // ===== BUSY HOURS =====
             let hasBusy = hasBusyHours(on: date)
@@ -579,8 +639,13 @@ struct CustomizableCalendarView: View {
                 showBusyHoursSheet = true
             } label: {
                 HStack(spacing: 10) {
-                    Image(systemName: "clock")
-                        .foregroundColor(hasBusy ? .orange : .blue)
+                    Image(systemName: hasBusy ? "clock.badge.exclamationmark" : "clock")
+                        .foregroundColor(
+                            BusyHoursStyle.iconColor(
+                                hasBusy: hasBusy,
+                                accent: uiAccent.color
+                            )
+                        )
 
                     Text(String(localized: "busy_hours"))
                         .font(.body.weight(.semibold))
@@ -592,15 +657,64 @@ struct CustomizableCalendarView: View {
             )
             .background(
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(hasBusy ? Color.orange.opacity(0.15) : Color.clear)
+                    .fill(
+                        hasBusy
+                        ? BusyHoursStyle.activeBackground
+                        : Color.clear
+                    )
             )
+            .modifier(ActionButtonShadow.primary(colorScheme))
+            .overlay(alignment: .topTrailing) {
+                if hasBusy {
+                    Circle()
+                        .fill(BusyHoursStyle.activeColor)
+                        .frame(width: 6, height: 6)
+                        .offset(x: -6, y: 6)
+                }
+            }
+
             .padding(.horizontal)
+
 
 
         }
     }
+    
+    
 }
 
+struct ActionButtonShadow {
+
+    static func primary(_ scheme: ColorScheme) -> some ViewModifier {
+        ShadowModifier(
+            main: scheme == .dark
+                ? Color.white.opacity(0.12)
+                : Color.black.opacity(0.18),
+            mainRadius: 8,
+            mainY: 4,
+            secondary: scheme == .dark
+                ? Color.white.opacity(0.06)
+                : Color.black.opacity(0.08),
+            secondaryRadius: 3,
+            secondaryY: 1
+        )
+    }
+}
+
+private struct ShadowModifier: ViewModifier {
+    let main: Color
+    let mainRadius: CGFloat
+    let mainY: CGFloat
+    let secondary: Color
+    let secondaryRadius: CGFloat
+    let secondaryY: CGFloat
+
+    func body(content: Content) -> some View {
+        content
+            .shadow(color: main, radius: mainRadius, y: mainY)
+            .shadow(color: secondary, radius: secondaryRadius, y: secondaryY)
+    }
+}
 
 
 

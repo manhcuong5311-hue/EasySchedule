@@ -96,6 +96,7 @@ class SessionStore: ObservableObject {
 
             guard self.didSetupSession == false else { return }
             self.didSetupSession = true
+            self.registerForPushIfNeeded(user: user)
 
             self.saveProfileIfNeeded(user: user)
             self.syncTimezoneIfNeeded()
@@ -272,6 +273,57 @@ class SessionStore: ObservableObject {
         UserDefaults.standard.set(tz.identifier, forKey: "lastTimezoneId")
     }
 
+    
+    
+    
+    // MARK: - Register Push After Login
+    func registerForPushIfNeeded(user: User) {
+
+        // 1️⃣ Xin permission (idempotent – iOS tự bỏ qua nếu đã có)
+        UNUserNotificationCenter.current()
+            .requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
+                guard granted else {
+                    print("🚫 Notification permission denied")
+                    return
+                }
+
+                DispatchQueue.main.async {
+                    UIApplication.shared.registerForRemoteNotifications()
+                }
+            }
+
+        // 2️⃣ Lấy FCM token hiện tại
+        Messaging.messaging().token { token, error in
+            if let error = error {
+                print("❌ Get FCM token error:", error.localizedDescription)
+                return
+            }
+
+            guard let token = token else {
+                print("⚠️ FCM token is nil")
+                return
+            }
+
+            print("🔥 Register FCM token after login:", token)
+
+            // 3️⃣ Lưu token vào Firestore (gắn với user)
+            Firestore.firestore()
+                .collection("users")
+                .document(user.uid)
+                .updateData([
+                    "notificationTokens": FieldValue.arrayUnion([token]),
+                    "updatedAt": FieldValue.serverTimestamp()
+                ]) { error in
+                    if let error = error {
+                        print("❌ Save FCM token error:", error.localizedDescription)
+                    } else {
+                        print("✅ FCM token saved for user", user.uid)
+                    }
+                }
+        }
+    }
+
+    
     // MARK: - Push Token Cleanup
     func removeCurrentPushToken() {
         guard let uid = currentUserId else { return }

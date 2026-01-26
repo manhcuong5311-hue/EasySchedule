@@ -74,9 +74,36 @@ final class EventManager: ObservableObject {
     // --- Persisted user name cache key
     private let kUserNamesKey = "es_userNames_cache_v1"
     private var lastEventCreateTime: Date?
+    
+    private var lastUpcomingFetch: Date?
+    private let upcomingTTL: TimeInterval = 300 // 5 phút
+
+    
     @Published var selectedChatEventId: String?
     @Published var selectedEventId: String?
+    @Published var myManualBusySlots: [CalendarEvent] = []
 
+   
+    
+    @Published var unreadCountByDay: [Date: Int] = [:]
+    @Published var hasNewByDay: [Date: Bool] = [:]
+
+
+    private var chatUnreadCancellables: [String: AnyCancellable] = [:]
+    private var myBusySlotsListener: ListenerRegistration?
+
+    
+    @Published var offDays: Set<Date> = []
+
+    @Published var selectedEventWrapper: SelectedEvent?
+
+    
+    
+    
+    
+    
+    
+    
     // persisted + in-memory cache
     @Published var userNames: [String: String] = [:] {
         didSet {
@@ -85,7 +112,7 @@ final class EventManager: ObservableObject {
             }
         }
     }
-    @Published var chatMetaCache: [String: ChatMetaViewModel] = [:]
+    private var chatMetaCache: [String: ChatMetaViewModel] = [:]
 
     // ⭐ PREMIUM FLAG
     private var isPremiumUser: Bool {
@@ -98,9 +125,15 @@ final class EventManager: ObservableObject {
         set { UserDefaults.standard.set(newValue, forKey: "allowDuplicateEvents") }
     }
     private var isProcessing = false
-    @State private var shareLink: String?
-    @State private var showShareSheet = false
+    
+    @Published var shareLink: String?
+    @Published var showShareSheet = false
+
+    
+    
+    
     @Published var isAdding = false
+    
     private var currentRequestId: UUID?
 
     @Published var alertMessage: String = ""
@@ -113,6 +146,7 @@ final class EventManager: ObservableObject {
         didSet {
            
             updateGroupedEvents()
+            recomputeDayBadges()
         }
     }
 
@@ -130,7 +164,6 @@ final class EventManager: ObservableObject {
         loadSharedLinks()
         loadPersistedUserNames()
         updateGroupedEvents()
-        listenToEvents()
         retryPendingDeletes()
       
     }
@@ -212,25 +245,41 @@ final class EventManager: ObservableObject {
         print("🔄 Reloading events for user:", uid)
         listenToEvents()        // 🔥 CHỈ CẦN DÒNG NÀY
     }
+    @MainActor
+    func loadUpcomingEvents(force: Bool = false) async {
+        guard let uid = currentUserId else { return }
+
+        if !force,
+           let last = lastUpcomingFetch,
+           Date().timeIntervalSince(last) < upcomingTTL {
+            return // dùng cache
+        }
+
+        do {
+            let snapshot = try await db.collection("events")
+                .whereField("participants", arrayContains: uid)
+                .getDocuments()
+
+            let now = Date()
+
+            let fetched = snapshot.documents
+                .compactMap { CalendarEvent.from($0) }
+                .filter { $0.endTime >= now }
+                .sorted { $0.startTime < $1.startTime }
+
+            self.events = fetched
+            self.saveEvents()
+            self.updateGroupedEvents()
+            self.lastUpcomingFetch = Date()
+
+        } catch {
+            print("❌ loadUpcomingEvents failed:", error)
+        }
+    }
 
     
-    func chatMeta(for eventId: String) -> ChatMetaViewModel {
-        if let existing = chatMetaCache[eventId] {
-            return existing
-        }
+    
 
-        guard let myId = currentUserId else {
-            fatalError("❌ EventManager not configured with currentUserId")
-        }
-
-        let vm = ChatMetaViewModel(
-            eventId: eventId,
-            myId: myId
-        )
-
-        chatMetaCache[eventId] = vm
-        return vm
-    }
 
     // MARK: - Name Resolver (SOURCE OF TRUTH)
     func displayName(for uid: String) -> String {
@@ -307,31 +356,43 @@ final class EventManager: ObservableObject {
 
         let ref = db.collection("events").document(ev.id)
 
-        // 1️⃣ Ghi người xoá TRƯỚC
-        ref.updateData([
+        // ⭐ BẮT BUỘC ghi ĐỦ FIELD cho Cloud Function
+        let payload: [String: Any] = [
             "deletedBy": uid,
-            "deletedAt": Timestamp(date: Date())
-        ]) { _ in
+            "deletedAt": Timestamp(date: Date()),
+            "participants": ev.participants,
+            "title": ev.title
+        ]
 
-            // 2️⃣ Sau đó mới delete
+        // 1️⃣ Ghi metadata xoá TRƯỚC (merge để không mất field khác)
+        ref.setData(payload, merge: true) { error in
+            if let error = error {
+                print("❌ Failed to set delete metadata:", error.localizedDescription)
+                return
+            }
+
+            // 2️⃣ Sau đó mới delete document
             ref.delete { error in
                 if let error = error {
                     print("⚠ Pending delete FAILED:", error.localizedDescription)
                     return
                 }
 
+                // 3️⃣ Cleanup busy slot
                 self.removeBusySlotFromPublicCalendar(event: ev)
 
+                // 4️⃣ Cleanup local
                 DispatchQueue.main.async {
                     self.events.removeAll { $0.id == ev.id }
                     self.saveEvents()
                     self.updateGroupedEvents()
                 }
 
-                print("✅ Pending delete SUCCESS:", ev.id)
+                print("🗑️ Event deleted with full metadata:", ev.id)
             }
         }
     }
+
 
 
     func cleanUpPastEvents() {
@@ -765,25 +826,31 @@ extension EventManager {
 
         let ref = db.collection("events").document(newEvent.id)
 
-    do {
-            try ref.setData(from: newEvent) { err in
+        do {
+               try ref.setData(from: newEvent) { err in
+                   if let err = err {
+                       print("❌ Firestore error:", err.localizedDescription)
+                       self.alertMessage = String(localized: "network_error_try_again.")
+                       self.showAlert = true
+                       return
+                   }
 
-                if let err = err {
-                    print("❌ Firestore error:", err.localizedDescription)
-                    self.alertMessage = String(localized:"network_error_try_again.")
-                    self.showAlert = true
-                    return
-                }
-                NotificationManager.shared.scheduleNotification(for: newEvent)
-                self.syncBusySlots(for: newEvent)
-            }
-        } catch {
-            print("❌ Encode error:", error)
-            return false
-        }
+                   // ✅✅✅ OPTIMISTIC LOCAL UPDATE (CỐT LÕI FIX)
+                   DispatchQueue.main.async {
+                       EventSeenStore.shared.markSeen(eventId: newEvent.id)
+                   }
 
-        return true
-    }
+                   // Side effects
+                   NotificationManager.shared.scheduleNotification(for: newEvent)
+                   self.syncBusySlots(for: newEvent)
+               }
+           } catch {
+               print("❌ Encode error:", error)
+               return false
+           }
+
+           return true
+       }
 
 
 
@@ -882,6 +949,53 @@ extension EventManager {
                     completion(value)
                 } else {
                     completion(false)
+                }
+            }
+    }
+    
+    func listenToMyManualBusySlots() {
+        guard let uid = currentUserId else { return }
+
+        myBusySlotsListener?.remove()
+
+        myBusySlotsListener = db
+            .collection("publicCalendar")
+            .document(uid)
+            .addSnapshotListener { snap, _ in
+                guard let data = snap?.data() else { return }
+
+                let raw = data["busySlots"] as? [[String: Any]] ?? []
+                let now = Date()
+
+                let slots: [CalendarEvent] = raw.compactMap { dict in
+                    guard
+                        dict["source"] as? String == "manual",
+                        let start = dict["start"] as? TimeInterval,
+                        let end   = dict["end"]   as? TimeInterval
+                    else { return nil }
+
+                    let s = Date(timeIntervalSince1970: start)
+                    let e = Date(timeIntervalSince1970: end)
+                    guard e > now else { return nil }
+
+                    return CalendarEvent(
+                        id: dict["id"] as? String ?? UUID().uuidString,
+                        title: String(localized: "busy"),
+                        date: Calendar.current.startOfDay(for: s),
+                        startTime: s,
+                        endTime: e,
+                        owner: uid,
+                        sharedUser: uid,
+                        createdBy: uid,
+                        participants: [uid],
+                        colorHex: "#FFA500",
+                        pendingDelete: false,
+                        origin: .busySlot
+                    )
+                }
+
+                DispatchQueue.main.async {
+                    self.myManualBusySlots = slots
                 }
             }
     }
@@ -1009,15 +1123,6 @@ extension EventManager {
                 }
             }
     }
-
-
-    func openChat(eventId: String) {
-          selectedChatEventId = eventId
-      }
-
-      func openEvent(eventId: String) {
-          selectedEventId = eventId
-      }
 
 
     // MARK: - Remove busy slot
@@ -1377,7 +1482,9 @@ extension EventManager {
                     // 3) Update local + UI
                     self.saveEvents()
                     self.updateGroupedEvents()
-
+                    // 🔔 RESCHEDULE SAU KHI SYNC
+                    self.rescheduleLocalNotifications()
+                    
                     // 4) Detect event mới
                     let newIds = Set(firestoreUpcoming.map { $0.id })
                     let addedIds = newIds.subtracting(oldIds)
@@ -1398,6 +1505,50 @@ extension EventManager {
                     for user in allUsers {
                         self.listenToBusySlots(sharedUserId: user)
                     }
+                }
+            }
+    }
+    func loadMyManualBusySlots() {
+        guard let uid = currentUserId else { return }
+
+        db.collection("publicCalendar")
+            .document(uid)
+            .getDocument { snap, _ in
+                guard let data = snap?.data() else { return }
+
+                let raw = data["busySlots"] as? [[String: Any]] ?? []
+                let now = Date()
+
+                let slots: [CalendarEvent] = raw.compactMap { dict in
+                    guard
+                        dict["source"] as? String == "manual",
+                        let start = dict["start"] as? TimeInterval,
+                        let end   = dict["end"]   as? TimeInterval
+                    else { return nil }
+
+                    let s = Date(timeIntervalSince1970: start)
+                    let e = Date(timeIntervalSince1970: end)
+
+                    guard e > now else { return nil }
+
+                    return CalendarEvent(
+                        id: dict["id"] as? String ?? UUID().uuidString,
+                        title: String(localized: "busy"),
+                        date: Calendar.current.startOfDay(for: s),
+                        startTime: s,
+                        endTime: e,
+                        owner: uid,
+                        sharedUser: uid,
+                        createdBy: uid,
+                        participants: [uid],
+                        colorHex: "#FFA500",
+                        pendingDelete: false,
+                        origin: .busySlot
+                    )
+                }
+
+                DispatchQueue.main.async {
+                    self.myManualBusySlots = slots
                 }
             }
     }
@@ -1434,30 +1585,25 @@ extension EventManager {
     /// Gom event mới vào danh sách local, tránh trùng ID và tránh revive pendingDelete
     func merge(_ incoming: [CalendarEvent]) {
 
-        let incomingIds = Set(incoming.map { $0.id })
+        var map: [String: CalendarEvent] = [:]
 
-        // 1️⃣ REMOVE local events KHÔNG còn trên Firestore
-        var updated = self.events.filter { ev in
-            // Giữ event đang pendingDelete để retry
-            if ev.pendingDelete { return true }
-
-            // Firestore còn → giữ
-            return incomingIds.contains(ev.id)
-        }
-
-        // 2️⃣ ADD / UPDATE từ Firestore
+        // 1️⃣ Lấy incoming làm source of truth
         for ev in incoming {
-            if let idx = updated.firstIndex(where: { $0.id == ev.id }) {
-                updated[idx] = ev
-            } else {
-                updated.append(ev)
-            }
+            map[ev.id] = ev
         }
 
-        self.events = updated
+        // 2️⃣ Giữ pendingDelete local (không revive)
+        for ev in events where ev.pendingDelete {
+            map[ev.id] = ev
+        }
+
+        let merged = Array(map.values)
+
+        self.events = merged.sorted { $0.startTime < $1.startTime }
         self.saveEvents()
         self.updateGroupedEvents()
     }
+
 
 
     // MARK: - Listeners (prevent revival)
@@ -1555,13 +1701,21 @@ extension EventManager {
 
     func configureForUser(uid: String) {
         guard configuredUid != uid else { return }
-        configuredUid = uid
 
+        configuredUid = uid
         self.currentUserId = uid
 
-        // 🔥 BẮT BUỘC
+        // 🔥 LOAD MANUAL BUSY HOURS CỦA OWNER
+        loadUserCalendar(uid: uid)
+        
+        listenToMyManualBusySlots()
+        // (tuỳ chọn nhưng nên có)
         listenToEvents()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+               self.rescheduleLocalNotifications()
+           }
     }
+
 
 
   
@@ -1671,4 +1825,216 @@ extension EventManager {
     }
 
 
+}
+
+//New Badge eventListView
+
+
+
+extension EventManager {
+
+
+    private func dayKey(_ date: Date) -> Date {
+        Calendar.current.startOfDay(for: date)
+    }
+
+    func recomputeDayBadges() {
+        var unread: [Date: Int] = [:]
+        var hasNew: [Date: Bool] = [:]
+
+        for ev in events {
+            let day = dayKey(ev.date)
+
+            // unread
+            if chatMeta(for: ev.id).unread {
+                unread[day, default: 0] += 1
+            }
+
+            // new event (seen logic)
+            if !EventSeenStore.shared.isSeen(eventId: ev.id) {
+                hasNew[day] = true
+            }
+        }
+
+        DispatchQueue.main.async {
+            self.unreadCountByDay = unread
+            self.hasNewByDay = hasNew
+        }
+    }
+
+    func chatMeta(for eventId: String) -> ChatMetaViewModel {
+
+        if let existing = chatMetaCache[eventId] {
+            return existing
+        }
+
+        guard let myId = currentUserId else {
+            // 🔕 chưa ready → trả placeholder
+            return ChatMetaViewModel.placeholder(eventId: eventId)
+        }
+
+        let vm = ChatMetaViewModel(
+            eventId: eventId,
+            myId: myId
+        )
+
+        vm.startListening()
+
+        chatUnreadCancellables[eventId] =
+            vm.$unread
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] _ in
+                    self?.recomputeDayBadges()
+                }
+
+        chatMetaCache[eventId] = vm
+        return vm
+    }
+
+    
+    func openChat(eventId: String) {
+        selectedChatEventId = eventId
+    }
+
+
+    func markEventSeen(_ eventId: String) {
+        // local seen
+        EventSeenStore.shared.markSeen(eventId: eventId)
+
+        // remote seen (chat)
+        chatMeta(for: eventId).markSeen()
+
+        // update badge theo ngày
+        recomputeDayBadges()
+    }
+
+    func markDayEventsAsSeen(_ date: Date) {
+        let key = Calendar.current.startOfDay(for: date)
+
+        let dayEvents = events.filter {
+            Calendar.current.isDate($0.date, inSameDayAs: key)
+        }
+
+        guard !dayEvents.isEmpty else { return }
+
+        for ev in dayEvents {
+            // ✅ CHỈ MARK SEEN EVENT
+            EventSeenStore.shared.markSeen(eventId: ev.id)
+            // ❌ KHÔNG ĐỤNG chatMeta
+        }
+
+        recomputeDayBadges()
+    }
+
+
+    func unreadCount(for day: Date) -> Int {
+          let key = Calendar.current.startOfDay(for: day)
+          return unreadCountByDay[key] ?? 0
+      }
+
+      func hasNewEvent(for day: Date) -> Bool {
+          let key = Calendar.current.startOfDay(for: day)
+          return hasNewByDay[key] ?? false
+      }
+    func openEvent(eventId: String) {
+        selectedEventId = eventId
+        selectedEventWrapper = SelectedEvent(id: eventId)
+    }
+
+    
+    func isOffDay(_ date: Date) -> Bool {
+          guard let uid = currentUserId,
+                let offDays = offDayCache[uid]
+          else { return false }
+
+          let key = Calendar.current.startOfDay(for: date)
+          return offDays.contains(key)
+      }
+    
+    
+    func loadUserCalendar(uid: String) {
+        Firestore.firestore()
+            .collection("publicCalendar")
+            .document(uid)
+            .addSnapshotListener { [weak self] snap, _ in
+                guard
+                    let data = snap?.data(),
+                    let rawOffDays = data["offDays"] as? [Double]
+                else {
+                    DispatchQueue.main.async {
+                        self?.offDayCache[uid] = []
+                    }
+                    return
+                }
+
+                let days = rawOffDays
+                    .map { Date(timeIntervalSince1970: $0) }
+                    .map { Calendar.current.startOfDay(for: $0) }
+
+                DispatchQueue.main.async {
+                    self?.offDayCache[uid] = Set(days)   // ⭐ QUAN TRỌNG
+                }
+            }
+    }
+
+
+    
+    
+}
+
+extension EventManager {
+
+    /// 🔔 Reschedule toàn bộ local notifications cho event sắp tới
+    func rescheduleLocalNotifications() {
+        let enabled = UserDefaults.standard.bool(forKey: "pushNotificationsEnabled")
+        guard enabled else {
+            // Nếu user tắt push → xoá hết
+            UNUserNotificationCenter.current()
+                .removeAllPendingNotificationRequests()
+            return
+        }
+
+        let leadTime = UserDefaults.standard.integer(forKey: "leadTime")
+        let now = Date()
+
+        // ❗ Xoá toàn bộ trước (tránh duplicate)
+        UNUserNotificationCenter.current()
+            .removeAllPendingNotificationRequests()
+
+        for event in events {
+            // Chỉ schedule event tương lai
+            guard event.startTime > now else { continue }
+
+            NotificationManager.shared.scheduleNotification(
+                for: event,
+                leadTime: leadTime
+            )
+        }
+
+        print("🔔 Rescheduled local notifications:", events.count)
+    }
+}
+
+extension EventManager {
+
+    var selectedEvent: CalendarEvent? {
+        guard let id = selectedEventId else { return nil }
+        return events.first { $0.id == id }
+    }
+  
+    func event(for wrapper: SelectedEvent) -> CalendarEvent? {
+        events.first { $0.id == wrapper.id }
+    }
+
+}
+
+struct SelectedEvent: Identifiable {
+    let id: String
+    
+    
+    
+    
+    
+    
+    
 }

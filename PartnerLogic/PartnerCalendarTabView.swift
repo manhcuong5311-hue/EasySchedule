@@ -42,7 +42,16 @@ struct PartnerCalendarTabView: View {
             Calendar.current.startOfDay(for: event.date)
         }
     }
+//NEWWWWWWW
+    
+    @EnvironmentObject var uiAccent: UIAccentStore
 
+    @Environment(\.colorScheme) private var colorScheme
+
+    let onBookPartner: () -> Void
+    
+    
+    
     var body: some View {
         NavigationStack {
             ZStack {
@@ -52,7 +61,9 @@ struct PartnerCalendarTabView: View {
                     partnersIntroOverlay
                 }
             }
+         
         }
+        .toolbar(.hidden, for: .navigationBar)
         // ✅ LOAD BADGE KHI VIEW XUẤT HIỆN
         .onAppear {
             guard let uid = Auth.auth().currentUser?.uid else { return }
@@ -61,52 +72,104 @@ struct PartnerCalendarTabView: View {
     }
 
 
+    private var partnerHeaderView: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Text(String(localized: "title_partner1"))
+                    .foregroundColor(uiAccent.color)
 
+                Text(String(localized: "title_calendar1"))
+                    .foregroundColor(.primary)
+            }
+            .font(.system(size: 34, weight: .bold, design: .rounded))
+            .modifier(TitleShadow.primary(colorScheme))
+
+            Text(String(localized: "partner_calendar_description"))
+                .font(.system(size: 15, weight: .medium))
+                .foregroundColor(.secondary)
+                .shadow(
+                    color: colorScheme == .dark
+                    ? Color.white.opacity(0.15)
+                    : Color.black.opacity(0.10),
+                    radius: 1,
+                    y: 1
+                )
+        }
+        .padding(.horizontal)
+        .padding(.top, 16)
+    }
+
+    private var floatingAddButton: some View {
+        Button {
+            guard !isLoading else { return }
+            addAppointmentPressed()
+        } label: {
+            Image(systemName: "plus")
+                .font(.system(size: 22, weight: .bold))     // ⭐ CÙNG SIZE
+                .foregroundColor(uiAccent.color)
+                .frame(width: 52, height: 52)               // ⭐ CÙNG KÍCH THƯỚC
+                .background(
+                    Circle()
+                        .fill(Color(.systemBackground))
+                )
+                .shadow(
+                    color: colorScheme == .dark
+                        ? Color.white.opacity(0.35)         // ⭐ DARK MODE
+                        : Color.black.opacity(0.25),        // ⭐ LIGHT MODE
+                    radius: 6,
+                    y: 3
+                )
+        }
+        .accessibilityLabel(String(localized: "add_appointment"))
+    }
+ 
 
     // MARK: - Subviews
     private var mainContent: some View {
         ScrollView {
-            VStack(spacing: 20) {
+            VStack(alignment: .leading, spacing: 20) {
+                
+                
                 if !network.isOnline {
-                           OfflineBannerView()
-                               .padding(.horizontal)
-                       }
+                    OfflineBannerView()
+                        .padding(.horizontal)
+                }
                 // ================================
                 // MARK: INPUT UID AREA
                 // ================================
                 inputArea
                     .padding(.horizontal)
-
-
+                
+                
                 // ================================
                 // MARK: ACTION BUTTONS
                 // ================================
                 VStack(alignment: .leading, spacing: 12) {
-
+                    
                     Text(String(localized: "manage_sharing"))
                         .font(.headline)
                         .padding(.leading, 4)
-
+                    
                     VStack(spacing: 0) {
-
+                        
                         manageRow(
                             icon: "clock.arrow.circlepath",
                             title: String(localized: "viewed_history")
                         ) {
                             activeSheet = .history
                         }
-
+                        
                         Divider()
-
+                        
                         manageRow(
                             icon: "person.crop.circle.badge.plus",
                             title: String(localized: "created_for_others")
                         ) {
                             activeSheet = .createdEvents
                         }
-
+                        
                         Divider()
-
+                        
                         manageRow(
                             icon: "person.2.fill",
                             title: String(localized: "manage_access"),
@@ -114,19 +177,33 @@ struct PartnerCalendarTabView: View {
                         ) {
                             activeSheet = .manageAccess
                         }
-
+                        
                     }
                     .background(Color(.systemBackground))
                     .cornerRadius(14)
                     .overlay(
                         RoundedRectangle(cornerRadius: 14)
-                            .stroke(Color.gray.opacity(0.15))
+                            .stroke(Color.gray.opacity(0.12))
+                    )
+                    .shadow(
+                        color: colorScheme == .dark
+                        ? Color.white.opacity(0.12)
+                        : Color.black.opacity(0.18),
+                        radius: 8,
+                        y: 4
+                    )
+                    .shadow(
+                        color: colorScheme == .dark
+                        ? Color.white.opacity(0.06)
+                        : Color.black.opacity(0.08),
+                        radius: 3,
+                        y: 1
                     )
                 }
                 .padding(.horizontal)
-
-
-
+                
+                
+                
                 // ================================
                 // MARK: UID INFO
                 // ================================
@@ -134,34 +211,34 @@ struct PartnerCalendarTabView: View {
                 // - nil        → unknown_user (UID không tồn tại)
                 // - "No name"  → user chưa đặt tên
                 // - "ABC"      → user có tên
-
+                
                 VStack(alignment: .leading, spacing: 6) {
                     if let uid = parsedUID {
                         HStack(spacing: 8) {
                             Image(systemName: "person.crop.circle")
-                                .foregroundColor(.blue)
-
+                                .foregroundColor(uiAccent.color)
+                            
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(eventManager.userNames[uid] ?? String(localized: "unknown_user"))
                                     .font(.headline)
-
+                                
                                 Text(shortUID(uid))
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }
-
+                            
                             Spacer()
-
+                            
                             Text(String(localized: "account_active"))
                                 .foregroundColor(.green)
                                 .font(.caption)
                         }
                     }
-
+                    
                 }
                 .padding(.horizontal)
-
-
+                
+                
                 // ================================
                 // MARK: ERROR AREA
                 // ================================
@@ -171,25 +248,43 @@ struct PartnerCalendarTabView: View {
                         .foregroundColor(.red)
                         .padding(.horizontal)
                 }
-
-
+                
+                
                 // ================================
                 // MARK: CONTENT AREA (DANH SÁCH LỊCH)
                 // ================================
                 contentArea
-                    .padding(.top, 8)
-
+                    .padding(.top, 12)
+                
+            
             }
             .padding(.top, 12)
+        }
+        .safeAreaInset(edge: .top, spacing: 0) {
+            HStack(alignment: .center) {
+
+                // ===== HEADER BÊN TRÁI =====
+                partnerHeaderView
+
+                Spacer()
+
+                // ===== FLOATING + BÊN PHẢI =====
+                floatingAddButton
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 16)
+            .padding(.top, 4)
+            .padding(.bottom, 4)
+            .background(Color(.systemBackground))
         }
 
         // ================================
         // MARK: TITLE + TOOLBAR
         // ================================
-        .navigationTitle(String(localized: "partner_calendar"))
-        .toolbar {
-            partnerToolbar
-        }
+        .navigationTitle("")            // hoặc bỏ luôn
+        .navigationBarTitleDisplayMode(.inline)
+
+
 
         // ================================
         // MARK: SHEETS
@@ -257,32 +352,22 @@ struct PartnerCalendarTabView: View {
     @ToolbarContentBuilder
     private var partnerToolbar: some ToolbarContent {
 
-        // ❓ Help — bên trái
-        ToolbarItem(placement: .navigationBarLeading) {
-            Button {
-                guideManager.show(.partnersIntro)
-            } label: {
-                Image(systemName: "questionmark.circle")
-            }
-            .accessibilityLabel(
-                String(localized: "help")
-            )
-
-        }
-
         // ➕ Add appointment — bên phải (GIỮ NGUYÊN)
         ToolbarItem(placement: .navigationBarTrailing) {
             Button {
                 guard !isLoading else { return }
                 addAppointmentPressed()
             } label: {
-                Circle()
-                    .fill(Color.blue.opacity(0.2))
-                    .frame(width: 34, height: 34)
-                    .overlay(
-                        Image(systemName: "plus")
-                            .foregroundColor(.blue)
-                    )
+                Image(systemName: "plus")
+                           .font(.system(size: 20, weight: .semibold))
+                           .foregroundColor(uiAccent.color)
+                           .shadow(
+                               color: colorScheme == .dark
+                                   ? Color.white.opacity(0.18)
+                                   : Color.black.opacity(0.25),
+                               radius: 3,
+                               y: 2
+                           )
             }
             .accessibilityLabel(
                 String(localized: "add_appointment")
@@ -315,8 +400,24 @@ struct PartnerCalendarTabView: View {
                     .frame(maxWidth: .infinity)
                     .padding(10)
                 }
+                .tint(uiAccent.color)
                 .buttonStyle(.borderedProminent)
-
+                .clipShape(Capsule())
+                .shadow(
+                    color: colorScheme == .dark
+                        ? Color.white.opacity(0.15)
+                        : Color.black.opacity(0.25),
+                    radius: 8,
+                    y: 5
+                )
+                .shadow(
+                    color: colorScheme == .dark
+                        ? Color.white.opacity(0.08)
+                        : Color.black.opacity(0.12),
+                    radius: 3,
+                    y: 2
+                )
+                
                 Button(action: {
                     linkText = ""
                     parsedUID = nil
@@ -377,7 +478,9 @@ struct PartnerCalendarTabView: View {
                     ? String(localized: "no_uid_yet")
                     : String(localized: "no_busy_events")
                 )
-                    .foregroundColor(.secondary)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity)
                 Spacer()
             } else {
                 EmptyView()
@@ -592,7 +695,7 @@ struct PartnerCalendarTabView: View {
         Button(action: action) {
             HStack(spacing: 12) {
                 Image(systemName: icon)
-                    .foregroundColor(.blue)
+                    .foregroundColor(uiAccent.color)
                     .frame(width: 22)
 
                 Text(title)
@@ -651,14 +754,3 @@ struct PartnerCalendarTabView: View {
 }
 
 
-
-
-// MARK: - Preview
-struct PartnerCalendarTabView_Previews: PreviewProvider {
-    static var previews: some View {
-        NavigationStack {
-            PartnerCalendarTabView()
-                .environmentObject(EventManager.shared)
-        }
-    }
-}
