@@ -19,8 +19,9 @@ struct TimelineDayView: View {
     }
 
     private var safeEndHour: Int {
-        min(max(endHour, safeStartHour + 1), 24)
+        min(max(endHour, safeStartHour + 1), 23)
     }
+
     private var timelineHeight: CGFloat {
         CGFloat(safeEndHour - safeStartHour) * TimelineLayout.hourHeight
     }
@@ -52,6 +53,37 @@ struct TimelineDayView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .frame(height: timelineHeight)
+            
         }
+        .sheet(item: $eventManager.selectedEventWrapper) { wrapper in
+            if let event = eventManager.event(for: wrapper) {
+                EventDetailView(event: event)
+            }
+        }
+
+    }
+}
+
+import SwiftUI
+
+import Combine
+
+struct EventDetailView: View {
+    let event: CalendarEvent
+
+    var body: some View {
+        VStack(spacing: 12) {
+            Text(event.title)
+                .font(.headline)
+
+            Text(EventTimeDisplayMode.timeRange.primaryText(for: event))
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+
+            Divider()
+
+            LocalTodoListView(eventId: event.id)
+        }
+        .padding()
     }
 }

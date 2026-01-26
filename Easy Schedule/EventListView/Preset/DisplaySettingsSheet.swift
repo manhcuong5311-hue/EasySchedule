@@ -10,8 +10,9 @@ import SwiftUI
 struct DisplaySettingsSheet: View {
 
     // MARK: - Event Time
-    @AppStorage("timeFontSize_v2")
-    private var timeFontSize: Int = 13
+    @AppStorage("timeFontSize")
+    private var timeFontSize: Double = 13
+
 
     // MARK: - Chat Color
     @AppStorage("chat_my_preset")
@@ -101,6 +102,7 @@ struct DisplaySettingsSheet: View {
         timeFontSize = min(max(timeFontSize, 11), 25)
     }
 
+
     // MARK: - Sections
 
     private var eventCardLayoutSection: some View {
@@ -177,12 +179,14 @@ struct DisplaySettingsSheet: View {
     private var eventTimeSection: some View {
         Section(String(localized: "display_settings_event_time")) {
             HStack {
+
                 Button {
-                    timeFontSize -= 1
-                    clampTimeFontSize()
+                    timeFontSize = max(11, timeFontSize - 1)
                 } label: {
                     Image(systemName: "minus.circle.fill")
+                        .font(.title3)
                 }
+                .buttonStyle(.borderless)
                 .disabled(timeFontSize <= 11)
 
                 Spacer()
@@ -190,22 +194,25 @@ struct DisplaySettingsSheet: View {
                 Text(
                     String(
                         format: String(localized: "display_settings_time_font_size"),
-                        timeFontSize
+                        Int(timeFontSize)
                     )
                 )
 
                 Spacer()
 
                 Button {
-                    timeFontSize += 1
-                    clampTimeFontSize()
+                    timeFontSize = min(25, timeFontSize + 1)
                 } label: {
                     Image(systemName: "plus.circle.fill")
+                        .font(.title3)
                 }
+                .buttonStyle(.borderless)
                 .disabled(timeFontSize >= 25)
             }
         }
     }
+
+
 
     private var eventTimeFormatSection: some View {
         Section(String(localized: "display_settings_event_time_format")) {

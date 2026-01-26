@@ -19,8 +19,9 @@ struct TimelineNowIndicatorView: View {
     }
 
     private var safeEndHour: Int {
-        min(max(endHour, safeStartHour + 1), 24)
+        min(max(endHour, safeStartHour + 1), 23)
     }
+
 
     private var timelineStart: Date? {
         Calendar.current.date(
@@ -32,13 +33,24 @@ struct TimelineNowIndicatorView: View {
     }
 
     private var timelineEnd: Date? {
-        Calendar.current.date(
-            bySettingHour: safeEndHour,
+        if endHour >= 24 {
+            // 23:59:59 của ngày hiện tại
+            return Calendar.current.date(
+                bySettingHour: 23,
+                minute: 59,
+                second: 59,
+                of: date
+            )
+        }
+
+        return Calendar.current.date(
+            bySettingHour: endHour,
             minute: 0,
             second: 0,
             of: date
         )
     }
+
 
     private var isToday: Bool {
         Calendar.current.isDate(now, inSameDayAs: date)

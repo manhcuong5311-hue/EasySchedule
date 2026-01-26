@@ -33,16 +33,16 @@ struct TimelineContentColumn: View {
     var body: some View {
         ZStack(alignment: .topLeading) {
 
-            // ⭐ NOW INDICATOR
+            // 🔴 NOW INDICATOR — LUÔN Ở DƯỚI
             TimelineNowIndicatorView(
                 date: date,
                 startHour: startHour,
                 endHour: endHour,
                 now: now
             )
+            .zIndex(0)   // ⭐ QUAN TRỌNG
 
-
-            
+            // 🟦 EVENTS — LUÔN Ở TRÊN
             ForEach(allItems) { event in
                 TimelineEventNodeView(
                     event: event,
@@ -51,11 +51,11 @@ struct TimelineContentColumn: View {
                     endHour: endHour,
                     timeDisplayMode: timeDisplayMode
                 )
+                .zIndex(1)   // ⭐ QUAN TRỌNG
             }
         }
         .onReceive(timer) { now = $0 }
-
         .frame(maxWidth: .infinity)
-    
     }
+
 }

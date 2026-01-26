@@ -23,8 +23,9 @@ struct TimelineEventNodeView: View {
     }
 
     private var safeEndHour: Int {
-        min(max(endHour, safeStartHour + 1), 24)
+        min(max(endHour, safeStartHour + 1), 23)
     }
+
 
     private var timelineStart: Date? {
         Calendar.current.date(
@@ -36,13 +37,24 @@ struct TimelineEventNodeView: View {
     }
 
     private var timelineEnd: Date? {
-        Calendar.current.date(
-            bySettingHour: safeEndHour,
+        if endHour >= 24 {
+            // 23:59:59 của ngày hiện tại
+            return Calendar.current.date(
+                bySettingHour: 23,
+                minute: 59,
+                second: 59,
+                of: date
+            )
+        }
+
+        return Calendar.current.date(
+            bySettingHour: endHour,
             minute: 0,
             second: 0,
             of: date
         )
     }
+
 
 
     // MARK: - Clamp
@@ -120,13 +132,10 @@ struct TimelineEventNodeView: View {
 //Content
     
     private var content: some View {
-        HStack(alignment: .top, spacing: 8) {
+        HStack(alignment: .top, spacing: 0) {
 
-            icon
-            // ===== DOT (ANCHOR) =====
+            // ===== DOT COLUMN =====
             ZStack(alignment: .topTrailing) {
-
-                // DOT CHÍNH (ANCHOR)
                 Circle()
                     .fill(Color(hex: event.colorHex))
                     .frame(
@@ -134,7 +143,6 @@ struct TimelineEventNodeView: View {
                         height: TimelineLayout.dotSize
                     )
 
-                // 🔴 UNREAD DOT
                 if hasUnreadChat {
                     Circle()
                         .fill(Color.red)
@@ -142,9 +150,25 @@ struct TimelineEventNodeView: View {
                         .offset(x: 3, y: -3)
                 }
             }
-            .offset(x: -2, y: 6) // ⭐ chạm spine
+            .frame(width: TimelineLayout.dotColumnWidth)
+            .padding(.top, 12)
 
-            
+            // ===== CARD COLUMN =====
+            eventCard
+        }
+        .offset(y: offsetY)
+        .zIndex(event.origin == .busySlot ? 0.5 : 1)
+        .onTapGesture {
+            handleTap()
+        }
+    }
+
+
+    private var eventCard: some View {
+        HStack(alignment: .top, spacing: 8) {
+
+            icon
+
             VStack(alignment: .leading, spacing: 4) {
 
                 HStack(spacing: 6) {
@@ -152,45 +176,35 @@ struct TimelineEventNodeView: View {
                         .font(.subheadline)
                         .fixedSize(horizontal: false, vertical: true)
 
-                    if isMyEvent && LocalTodoStore.shared.unfinishedCount(for: event.id) > 0 {
-                        Image(systemName: "checklist")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                    if hasUnfinishedTodo {
-                        Image(systemName: "checklist")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-
+                    indicators
                 }
 
                 Text(timeDisplayMode.primaryText(for: event))
                     .font(.caption2)
                     .foregroundColor(.secondary)
             }
-
         }
         .padding(8)
-        .frame(maxWidth: .infinity, alignment: .topLeading) // ⭐ FULL WIDTH
+        .frame(maxWidth: .infinity, alignment: .topLeading)
         .background(
             RoundedRectangle(cornerRadius: TimelineLayout.blockCornerRadius)
                 .fill(Color(hex: event.colorHex).opacity(0.07))
         )
         .overlay(
             RoundedRectangle(cornerRadius: TimelineLayout.blockCornerRadius)
-                .stroke(
-                    uiAccent.color.opacity(0.6),
-                    lineWidth: 0.8
-                )
+                .stroke(uiAccent.color.opacity(0.6), lineWidth: 0.8)
         )
+    }
 
-
-        .padding(.leading, TimelineLayout.contentPadding)
-        .offset(y: offsetY)
-        .onTapGesture {
-            handleTap()
+    private var indicators: some View {
+        HStack(spacing: 4) {
+            if hasUnfinishedTodo {
+                Image(systemName: "checklist")
+            }
+          
         }
+        .font(.caption2)
+        .foregroundStyle(.secondary)
     }
 
     

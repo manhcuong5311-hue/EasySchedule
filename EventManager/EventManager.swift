@@ -95,7 +95,8 @@ final class EventManager: ObservableObject {
     
     @Published var offDays: Set<Date> = []
 
-    
+    @Published var selectedEventWrapper: SelectedEvent?
+
     
     
     
@@ -1936,9 +1937,10 @@ extension EventManager {
           return hasNewByDay[key] ?? false
       }
     func openEvent(eventId: String) {
-           selectedEventId = eventId
-       }
-    
+        selectedEventId = eventId
+        selectedEventWrapper = SelectedEvent(id: eventId)
+    }
+
     
     func isOffDay(_ date: Date) -> Bool {
           guard let uid = currentUserId,
@@ -2011,4 +2013,28 @@ extension EventManager {
 
         print("🔔 Rescheduled local notifications:", events.count)
     }
+}
+
+extension EventManager {
+
+    var selectedEvent: CalendarEvent? {
+        guard let id = selectedEventId else { return nil }
+        return events.first { $0.id == id }
+    }
+  
+    func event(for wrapper: SelectedEvent) -> CalendarEvent? {
+        events.first { $0.id == wrapper.id }
+    }
+
+}
+
+struct SelectedEvent: Identifiable {
+    let id: String
+    
+    
+    
+    
+    
+    
+    
 }

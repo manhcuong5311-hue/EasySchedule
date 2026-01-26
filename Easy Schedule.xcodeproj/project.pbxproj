@@ -35,7 +35,7 @@
 		0D6D96232F2789D600775995 /* Exceptions for "Easy Schedule" folder in "Easy Schedule" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				EventListView/TimeLineUI/EventDetailVIew.swift,
+				PastEventView/EventDetailVIew.swift,
 			);
 			target = 0DCA51312EC38C75008324B2 /* Easy Schedule */;
 		};
