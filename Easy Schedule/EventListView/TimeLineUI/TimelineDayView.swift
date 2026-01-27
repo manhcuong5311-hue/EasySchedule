@@ -30,16 +30,24 @@ struct TimelineDayView: View {
        private var timeFontSize: Double = 13
 
     var body: some View {
+
+        let screenWidth = UIScreen.main.bounds.width
+        let leadingPadding: CGFloat = 40
+        let hourWidth = TimelineLayout.hourLabelWidth + 1
+        let contentWidth = screenWidth - hourWidth - leadingPadding
+
         ScrollView {
             HStack(alignment: .top, spacing: 0) {
 
+                // ⏰ HOUR COLUMN — NHỎ, CỐ ĐỊNH
                 TimelineHourColumn(
                     startHour: safeStartHour,
                     endHour: safeEndHour,
                     timeFontSize: timeFontSize
                 )
-                .frame(width: TimelineLayout.hourLabelWidth + 1)
+                .frame(width: hourWidth)
 
+                // 📅 CONTENT COLUMN — PHẦN CÒN LẠI
                 TimelineContentColumn(
                     date: date,
                     startHour: safeStartHour,
@@ -48,20 +56,20 @@ struct TimelineDayView: View {
                     manualBusySlots: manualBusySlots,
                     timeDisplayMode: timeDisplayMode
                 )
-                .frame(maxWidth: .infinity, alignment: .leading)
-
+                .frame(width: contentWidth, alignment: .leading)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.leading, leadingPadding)
             .frame(height: timelineHeight)
-            
         }
         .sheet(item: $eventManager.selectedEventWrapper) { wrapper in
             if let event = eventManager.event(for: wrapper) {
                 EventDetailView(event: event)
             }
         }
-
     }
+
+    
+    
 }
 
 import SwiftUI
@@ -72,18 +80,45 @@ struct EventDetailView: View {
     let event: CalendarEvent
 
     var body: some View {
-        VStack(spacing: 12) {
-            Text(event.title)
-                .font(.headline)
+        ScrollView {
+            VStack(spacing: 16) {
 
-            Text(EventTimeDisplayMode.timeRange.primaryText(for: event))
-                .font(.subheadline)
-                .foregroundColor(.secondary)
+                // ===== HEADER =====
+                VStack(alignment: .leading, spacing: 8) {
 
-            Divider()
+                    Text(event.title)
+                        .font(.title3)
+                        .fontWeight(.semibold)
 
-            LocalTodoListView(eventId: event.id)
+                    Text(EventTimeDisplayMode.timeRange.primaryText(for: event))
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                .padding()
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(Color(.systemGray6))
+                )
+
+                // ===== TODO SECTION =====
+                VStack(alignment: .leading, spacing: 12) {
+
+                    Label("Tasks", systemImage: "checklist")
+                        .font(.headline)
+
+                    LocalTodoListView(eventId: event.id)
+                }
+                .padding()
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(Color(.systemGray6))
+                )
+            }
+            .padding()
         }
-        .padding()
+        .navigationTitle("Event")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }

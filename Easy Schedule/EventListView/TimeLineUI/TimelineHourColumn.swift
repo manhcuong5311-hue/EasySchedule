@@ -23,13 +23,7 @@ struct TimelineHourColumn: View {
 
                     // ⏱ TIME LABEL
                     Text(String(format: "%02d:00", hour))
-                        .font(
-                            .system(
-                                size: hourFontSize,
-                                weight: .regular,
-                                design: .monospaced
-                            )
-                        )
+                        .font(.system(size: timeFontSize, weight: .regular))
                         .foregroundColor(.secondary)
                         .frame(
                             width: TimelineLayout.hourLabelWidth,

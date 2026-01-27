@@ -1,9 +1,4 @@
-//
-//  Untitled.swift
-//  Easy Schedule
-//
-//  Created by Sam Manh Cuong on 26/1/26.
-//
+
 import SwiftUI
 import Combine
 
@@ -38,8 +33,10 @@ struct TimelineContentColumn: View {
                 date: date,
                 startHour: startHour,
                 endHour: endHour,
-                now: now
+                now: now,
+                occlusionRanges: occlusionRanges
             )
+
             .zIndex(0)   // ⭐ QUAN TRỌNG
 
             // 🟦 EVENTS — LUÔN Ở TRÊN
@@ -55,7 +52,43 @@ struct TimelineContentColumn: View {
             }
         }
         .onReceive(timer) { now = $0 }
-        .frame(maxWidth: .infinity)
+
+      
     }
 
+    private var occlusionRanges: [TimelineOcclusionRange] {
+        allItems.compactMap { event in
+            guard
+                let start = Calendar.current.date(
+                    bySettingHour: startHour,
+                    minute: 0,
+                    second: 0,
+                    of: date
+                )
+            else { return nil }
+
+            let visibleStart = max(event.startTime, start)
+            let visibleEnd   = min(event.endTime, now)
+
+            guard visibleEnd > visibleStart else { return nil }
+
+            let startMin = visibleStart.timeIntervalSince(start) / 60
+            let endMin   = visibleEnd.timeIntervalSince(start) / 60
+
+            let minY = CGFloat(startMin) * TimelineLayout.minuteHeight
+            let maxY = CGFloat(endMin) * TimelineLayout.minuteHeight
+
+            return TimelineOcclusionRange(minY: minY, maxY: maxY)
+        }
+    }
+
+}
+
+struct TimelineOcclusionRange {
+    let minY: CGFloat
+    let maxY: CGFloat
+
+    func contains(_ y: CGFloat) -> Bool {
+        y >= minY && y <= maxY
+    }
 }

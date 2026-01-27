@@ -136,26 +136,25 @@ struct TimelineEventNodeView: View {
 
             // ===== DOT COLUMN =====
             ZStack(alignment: .topTrailing) {
-                Circle()
-                    .fill(Color(hex: event.colorHex))
-                    .frame(
-                        width: TimelineLayout.dotSize,
-                        height: TimelineLayout.dotSize
-                    )
 
-                if hasUnreadChat {
-                    Circle()
-                        .fill(Color.red)
-                        .frame(width: 4, height: 4)
-                        .offset(x: 3, y: -3)
+                // Main dot
+                ZStack {
+        
+                    Image(systemName: isMyEvent ? "person.fill" : "person.2.fill")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.primary)
+
                 }
             }
             .frame(width: TimelineLayout.dotColumnWidth)
             .padding(.top, 12)
 
+
             // ===== CARD COLUMN =====
             eventCard
+            .padding(.leading, 4)
         }
+        .padding(.leading, 6)
         .offset(y: offsetY)
         .zIndex(event.origin == .busySlot ? 0.5 : 1)
         .onTapGesture {
@@ -165,36 +164,40 @@ struct TimelineEventNodeView: View {
 
 
     private var eventCard: some View {
-        HStack(alignment: .top, spacing: 8) {
+        VStack(alignment: .leading, spacing: 2) {
 
-            icon
+            HStack(spacing: 6) {
+                Text(event.title)
+                    .font(.subheadline)
 
-            VStack(alignment: .leading, spacing: 4) {
-
-                HStack(spacing: 6) {
-                    Text(event.title)
-                        .font(.subheadline)
-                        .fixedSize(horizontal: false, vertical: true)
-
-                    indicators
+                if hasUnfinishedTodo {
+                    Image(systemName: "checklist")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
                 }
-
-                Text(timeDisplayMode.primaryText(for: event))
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
             }
+
+            Text(timeDisplayMode.primaryText(for: event))
+                .font(.caption)
+                .foregroundColor(.secondary)
         }
-        .padding(8)
-        .frame(maxWidth: .infinity, alignment: .topLeading)
+
+        .padding(.vertical, 8)
+        .padding(.horizontal, 10)
         .background(
-            RoundedRectangle(cornerRadius: TimelineLayout.blockCornerRadius)
-                .fill(Color(hex: event.colorHex).opacity(0.07))
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color(.systemGray5))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: TimelineLayout.blockCornerRadius)
-                .stroke(uiAccent.color.opacity(0.6), lineWidth: 0.8)
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(
+                    hasUnreadChat ? Color.red.opacity(0.4) : Color.clear,
+                    lineWidth: 1
+                )
         )
+
     }
+
 
     private var indicators: some View {
         HStack(spacing: 4) {
@@ -208,14 +211,6 @@ struct TimelineEventNodeView: View {
     }
 
     
-    // MARK: - Icon
-
-    private var icon: some View {
-        Image(systemName: isMyEvent ? "person.fill" : "person.2.fill")
-            .font(.caption)
-            .foregroundColor(Color(hex: event.colorHex))
-    }
-
     // MARK: - Tap behavior
 
     private func handleTap() {
