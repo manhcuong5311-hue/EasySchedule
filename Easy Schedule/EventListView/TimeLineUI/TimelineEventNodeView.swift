@@ -123,10 +123,20 @@ struct TimelineEventNodeView: View {
     var body: some View {
         if !isVisible {
             EmptyView()
+        } else if event.origin == .busySlot {
+            BusySlotCardView(
+                start: event.startTime,
+                end: event.endTime,
+                date: date,
+                startHour: startHour
+            )
+            .zIndex(0)   // 🔒 luôn nằm dưới event thật
         } else {
             content
+                .zIndex(1)
         }
     }
+
     
     
 //Content
@@ -223,3 +233,4 @@ struct TimelineEventNodeView: View {
         }
     }
 }
+

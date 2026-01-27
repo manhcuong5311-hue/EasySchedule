@@ -24,11 +24,15 @@ struct TimelineContentColumn: View {
         in: .common
     ).autoconnect()
 
+    private var mergedBusySlots: [MergedBusySlot] {
+        mergeBusySlots(allItems)
+    }
+
     
     var body: some View {
         ZStack(alignment: .topLeading) {
 
-            // 🔴 NOW INDICATOR — LUÔN Ở DƯỚI
+            // 🔴 NOW INDICATOR
             TimelineNowIndicatorView(
                 date: date,
                 startHour: startHour,
@@ -36,11 +40,24 @@ struct TimelineContentColumn: View {
                 now: now,
                 occlusionRanges: occlusionRanges
             )
+            .zIndex(0)
 
-            .zIndex(0)   // ⭐ QUAN TRỌNG
+            // 🟡 BUSY SLOT (MERGED – 1 CARD DUY NHẤT)
+            ForEach(
+                mergeBusySlots(manualBusySlots),
+                id: \.start
+            ) { slot in
+                BusySlotCardView(
+                    start: slot.start,
+                    end: slot.end,
+                    date: date,
+                    startHour: startHour
+                )
+                .zIndex(0.5)
+            }
 
-            // 🟦 EVENTS — LUÔN Ở TRÊN
-            ForEach(allItems) { event in
+            // 🟦 EVENT THẬT (KHÔNG BAO GIỜ LẪN BUSY)
+            ForEach(events) { event in
                 TimelineEventNodeView(
                     event: event,
                     date: date,
@@ -48,9 +65,10 @@ struct TimelineContentColumn: View {
                     endHour: endHour,
                     timeDisplayMode: timeDisplayMode
                 )
-                .zIndex(1)   // ⭐ QUAN TRỌNG
+                .zIndex(1)
             }
         }
+
         .onReceive(timer) { now = $0 }
 
       
@@ -81,7 +99,45 @@ struct TimelineContentColumn: View {
             return TimelineOcclusionRange(minY: minY, maxY: maxY)
         }
     }
+    
+    
+    private func mergeBusySlots(
+        _ slots: [CalendarEvent]
+    ) -> [MergedBusySlot] {
 
+        let busy = slots
+            .filter { $0.origin == .busySlot }
+            .sorted { $0.startTime < $1.startTime }
+
+        guard !busy.isEmpty else { return [] }
+
+        var result: [MergedBusySlot] = []
+        var currentStart = busy[0].startTime
+        var currentEnd   = busy[0].endTime
+
+        for slot in busy.dropFirst() {
+
+            // ⭐ CHẠM GIỜ hoặc liền kề (<= 1 phút)
+            if slot.startTime <= currentEnd.addingTimeInterval(60) {
+                currentEnd = max(currentEnd, slot.endTime)
+            } else {
+                result.append(
+                    MergedBusySlot(start: currentStart, end: currentEnd)
+                )
+                currentStart = slot.startTime
+                currentEnd   = slot.endTime
+            }
+        }
+
+        result.append(
+            MergedBusySlot(start: currentStart, end: currentEnd)
+        )
+
+        return result
+    }
+
+    
+    
 }
 
 struct TimelineOcclusionRange {

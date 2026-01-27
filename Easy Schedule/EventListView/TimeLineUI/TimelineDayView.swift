@@ -53,7 +53,7 @@ struct TimelineDayView: View {
                     startHour: safeStartHour,
                     endHour: safeEndHour,
                     events: events,
-                    manualBusySlots: manualBusySlots,
+                    manualBusySlots: eventManager.myManualBusySlots,
                     timeDisplayMode: timeDisplayMode
                 )
                 .frame(width: contentWidth, alignment: .leading)
@@ -104,7 +104,11 @@ struct EventDetailView: View {
                 // ===== TODO SECTION =====
                 VStack(alignment: .leading, spacing: 12) {
 
-                    Label("Tasks", systemImage: "checklist")
+                    Label(
+                        String(localized: "tasks"),
+                        systemImage: "checklist"
+                    )
+                
                         .font(.headline)
 
                     LocalTodoListView(eventId: event.id)
@@ -118,7 +122,9 @@ struct EventDetailView: View {
             }
             .padding()
         }
-        .navigationTitle("Event")
+        .navigationTitle(
+            String(localized: "event_navigation_title")
+        )
         .navigationBarTitleDisplayMode(.inline)
     }
 }
