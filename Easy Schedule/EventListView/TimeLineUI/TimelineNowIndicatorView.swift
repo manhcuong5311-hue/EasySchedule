@@ -70,21 +70,36 @@ struct TimelineNowIndicatorView: View {
         return CGFloat(minutes) * TimelineLayout.minuteHeight
     }
 
+    let occlusionRanges: [TimelineOcclusionRange]
+
+    private var isOccludedByEvent: Bool {
+        occlusionRanges.contains { $0.contains(offsetY) }
+    }
+
+    
+    
+    
     var body: some View {
         if isVisible {
-            HStack(spacing: 6) {
+            ZStack(alignment: .leading) {
 
-                // 🔴 DOT — CHẠM SPINE
-                    Circle()
-                            .fill(Color.red)
-                            .frame(width: 6, height: 6)
-                            .offset(x: 0) // ⭐ ăn nửa vào spine
+                // LINE — chỉ hiện khi KHÔNG bị che
+                if !isOccludedByEvent {
+                    Rectangle()
+                        .fill(Color.accentColor.opacity(0.35))
+                        .fill(Color.red.opacity(0.6))
+                        .frame(height: 1)
+                }
 
-                Rectangle()
-                    .fill(Color.red.opacity(0.6))
-                    .frame(height: 1)
+                // DOT — LUÔN LUÔN HIỆN
+                Circle()
+                    .fill(Color.accentColor)
+                    .frame(width: 4, height: 4)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .offset(y: offsetY)
         }
     }
+
 }
+

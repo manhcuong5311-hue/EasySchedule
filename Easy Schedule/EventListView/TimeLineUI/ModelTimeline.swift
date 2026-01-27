@@ -40,4 +40,41 @@ enum TimelineLayout {
 
     /// Khoảng cách từ dot column sang card
     static let contentPadding: CGFloat = 0
+
+
+    // =====================================================
+    // MARK: - Busy Slot (NEW)
+    // =====================================================
+
+    /// Khoảng dịch ngang của BUSY card so với event card
+    /// → đảm bảo không bao giờ đè event
+    static let busyCardOffsetX: CGFloat = 140
+
+    /// Bo góc card busy (nhẹ hơn event)
+    static let busyCornerRadius: CGFloat = 10
+
+    /// Opacity nền busy slot (nhạt – không gây nhiễu)
+    static let busyBackgroundOpacity: CGFloat = 0.18
+
+    /// Opacity viền / accent busy slot
+    static let busyAccentOpacity: CGFloat = 0.35
+}
+
+struct MergedBusySlot: Identifiable {
+    let id = UUID()
+    let start: Date
+    let end: Date
+    
+    
+    
+}
+extension EventTimeDisplayMode {
+
+    func primaryText(from start: Date, to end: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        formatter.dateStyle = .none
+
+        return "\(formatter.string(from: start)) – \(formatter.string(from: end))"
+    }
 }

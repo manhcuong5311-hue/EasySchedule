@@ -155,6 +155,7 @@ struct RootView: View {
         .environmentObject(eventManager)
         .environmentObject(network)
         .environmentObject(uiAccent)
+        .tint(uiAccent.color)
         .sheet(isPresented: $showPremiumIntro) {
             PremiumIntroView(
                 isPresented: $showPremiumIntro,
