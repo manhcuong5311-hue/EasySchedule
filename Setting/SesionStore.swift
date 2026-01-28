@@ -193,6 +193,8 @@ class SessionStore: ObservableObject {
     // MARK: - Sign Out
     func signOut() {
         do {
+            // ⭐ CLEAR ACCESS CACHE
+               AccessService.shared.clearLocalAccessCache()
             // ⭐ CLEAN PUSH TOKEN TRƯỚC
             removeCurrentPushToken()
 

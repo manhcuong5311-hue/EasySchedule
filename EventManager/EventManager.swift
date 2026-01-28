@@ -35,6 +35,8 @@ struct CalendarEvent: Identifiable, Hashable, Codable {
 
     // MARK: - Participants
     var participants: [String] = []
+    // MARK: - Roles
+    var admins: [String]? = nil   // ⭐ NEW
 
     // MARK: - Name resolution fields (⭐ NEW)
     var participantNames: [String: String]? = nil   // <— thêm
@@ -304,23 +306,28 @@ final class EventManager: ObservableObject {
      }
 
     func preloadUsersIfNeeded() {
-        // Nếu cache đã có dữ liệu → KHÔNG gọi Firestore
-        if !userNames.isEmpty { return }
 
-        Firestore.firestore().collection("users").getDocuments { snap, _ in
-            guard let docs = snap?.documents else { return }
+        Firestore.firestore()
+            .collection("users")
+            .getDocuments { snap, _ in
 
-            var temp: [String: String] = [:]
+                guard let docs = snap?.documents else { return }
 
-            for doc in docs {
-                temp[doc.documentID] = doc["name"] as? String ?? doc.documentID
+                var temp = self.userNames   // giữ cache cũ
+
+                for doc in docs {
+                    temp[doc.documentID] =
+                        doc["name"] as? String
+                        ?? doc["displayName"] as? String
+                        ?? doc.documentID
+                }
+
+                DispatchQueue.main.async {
+                    self.userNames = temp
+                }
             }
-
-            DispatchQueue.main.async {
-                self.userNames = temp
-            }
-        }
     }
+
 
     private func loadPersistedUserNames() {
         guard let data = UserDefaults.standard.data(forKey: kUserNamesKey) else { return }
@@ -530,14 +537,14 @@ final class EventManager: ObservableObject {
     }
 
     func syncBusySlots(for event: CalendarEvent) {
-        // thêm owner (chính mình)
-        addBusySlot(for: event.owner, event: event)
 
-        // thêm partner
-        for uid in event.participants {
+        let all = Set(event.participants + [event.owner])
+
+        for uid in all {
             addBusySlot(for: uid, event: event)
         }
     }
+
 
 
 
@@ -819,6 +826,7 @@ extension EventManager {
             sharedUser: uid,
             createdBy: uid,
             participants: [uid],
+            admins: [uid],
             colorHex: colorHex,
             pendingDelete: false,
             origin: .myEvent
@@ -853,7 +861,133 @@ extension EventManager {
        }
 
 
+    // MARK: - GROUP: Add participant
+    func addParticipant(
+        _ newUid: String,
+        to event: CalendarEvent,
+        completion: ((Bool) -> Void)? = nil
+    ) {
 
+        guard let myUid = currentUserId else {
+            completion?(false)
+            return
+        }
+
+        // Chỉ admin/owner mới được add
+        guard
+           event.admins?.contains(myUid) == true ||
+           event.owner == myUid
+        else {
+
+            print("🚫 No permission to add member")
+            completion?(false)
+            return
+        }
+
+        // Tránh duplicate
+        guard !event.participants.contains(newUid) else {
+            completion?(true)
+            return
+        }
+
+        var updated = event.participants
+        updated.append(newUid)
+
+        let ref = db.collection("events").document(event.id)
+
+        ref.updateData([
+            "participants": updated,
+            "admins": event.admins ?? [myUid]
+        ]) { error in
+
+            if let error = error {
+                print("❌ Add participant failed:", error.localizedDescription)
+                completion?(false)
+                return
+            }
+
+            // ✅ Sync chat participants
+            self.db.collection("chats")
+                .document(event.id)
+                .setData([
+                    "participants": updated
+                ], merge: true)
+
+            // ✅ Sync busy slot cho user mới
+            self.addBusySlot(for: newUid, event: event)
+
+            completion?(true)
+        }
+    }
+
+    
+    // MARK: - GROUP: Remove participant
+    func removeParticipant(
+        _ uid: String,
+        from event: CalendarEvent,
+        completion: ((Bool) -> Void)? = nil
+    ) {
+
+        guard let myUid = currentUserId else {
+            completion?(false)
+            return
+        }
+
+        guard
+           event.admins?.contains(myUid) == true ||
+           event.owner == myUid
+        else {
+
+            completion?(false)
+            return
+        }
+
+        var updated = event.participants
+        updated.removeAll { $0 == uid }
+
+        guard !updated.isEmpty else {
+            completion?(false)
+            return
+        }
+
+        let ref = db.collection("events").document(event.id)
+
+        var newAdmins = event.admins ?? []
+        newAdmins.removeAll { $0 == uid }
+
+        ref.updateData([
+            "participants": updated,
+            "admins": newAdmins
+        ])  { error in
+
+            if let error = error {
+                print("❌ Remove participant failed:", error.localizedDescription)
+                completion?(false)
+                return
+            }
+
+            // Update chat
+            self.db.collection("chats")
+                .document(event.id)
+                .setData([
+                    "participants": updated
+                ], merge: true)
+
+            // Remove busy slot
+            self.removeBusySlotFromPublicCalendar(event: event)
+
+            completion?(true)
+        }
+    }
+
+    
+    
+    
+    
+    
+    
+    
+    
     func updateEvent(_ event: CalendarEvent,
                      newTitle: String,
                      newDate: Date,
@@ -894,6 +1028,7 @@ extension EventManager {
                     sharedUser: event.sharedUser,
                     createdBy: event.createdBy,
                     participants: event.participants,
+                    admins: event.admins,
                     colorHex: newColorHex,
                     pendingDelete: false,
                     origin: .myEvent
@@ -905,6 +1040,12 @@ extension EventManager {
     }
 
 
+    
+    
+    
+    
+    
+    
     // MARK: DELETE EVENT with PENDING DELETE
     func deleteEvent(_ event: CalendarEvent) {
 
@@ -1117,11 +1258,26 @@ extension EventManager {
             .collection("users")
             .document(uid)
             .getDocument { snap, _ in
-                guard let name = snap?.data()?["displayName"] as? String else { return }
+
+                let name =
+                    snap?.data()?["name"] as? String
+                    ?? snap?.data()?["displayName"] as? String
+                    ?? uid
+
                 DispatchQueue.main.async {
                     self.userNames[uid] = name
                 }
             }
+    }
+
+    func addMember(eventId: String, userId: String) {
+
+        Firestore.firestore()
+            .collection("events")
+            .document(eventId)
+            .updateData([
+                "participants": FieldValue.arrayUnion([userId])
+            ])
     }
 
 
@@ -1150,7 +1306,6 @@ extension EventManager {
         title: String,
         start: Date,
         end: Date,
-        createdBy: String,
         completion: @escaping (Bool, String?) -> Void
     ) {
         guard !isAdding else { return }
@@ -1197,7 +1352,6 @@ extension EventManager {
                     title: title,
                     start: start,
                     end: end,
-                    createdBy: createdBy,
                     requestId: requestId,              // ⭐ PASS DOWN
                     completion: completion
                 )
@@ -1213,7 +1367,6 @@ extension EventManager {
             title: title,
             start: start,
             end: end,
-            createdBy: createdBy,
             requestId: requestId,              // ⭐ PASS DOWN
             completion: completion
         )
@@ -1224,7 +1377,6 @@ extension EventManager {
         title: String,
         start: Date,
         end: Date,
-        createdBy: String,
         requestId: UUID,
         completion: @escaping (Bool, String?) -> Void
     ) {
@@ -1333,15 +1485,37 @@ extension EventManager {
             // ===============================
             // 5️⃣ TẠO EVENT DATA
             // ===============================
+            guard let currentUid = Auth.auth().currentUser?.uid else {
+                self.fail(
+                    String(localized: "you_need_to_log_in"),
+                    completion: completion
+                )
+                return
+            }
+
             let eventData: [String: Any] = [
+
                 "title": title,
+
+                // Owner = người được đặt lịch
                 "owner": ownerUid,
+
+                // Người đặt
                 "sharedUser": currentUid,
-                "createdBy": createdBy,
+
+                // 🔥 FIX: LUÔN = auth uid
+                "createdBy": currentUid,
+
+                // 2 người đều là participant
                 "participants": Array(Set([ownerUid, currentUid])),
+
+                // 🔥 Cả 2 đều là admin
+                "admins": [ownerUid, currentUid],
+
                 "date": Timestamp(date: start),
                 "startTime": Timestamp(date: start),
                 "endTime": Timestamp(date: end),
+
                 "colorHex": "#007AFF"
             ]
 

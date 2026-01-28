@@ -25,7 +25,7 @@ class AccessService {
                 "uid": requester,
                 "name": requesterName ?? "",
                 "requestedAt": FieldValue.serverTimestamp()
-            ]) { error in
+            ], merge: true) { error in
                 if let error = error {
                     print("❌ Failed to create request:", error.localizedDescription)
                 } else {
@@ -53,6 +53,8 @@ class AccessService {
                     print("❌ Allow failed:", error.localizedDescription)
                     completion(false)
                 } else {
+                    self.clearLocalAccessCache()
+
                     print("✅ ALLOW SUCCESS: \(ownerUid) allowed \(otherUid)")
                     completion(true)
                     self.removeRequest(ownerUid: ownerUid, requesterUid: otherUid)
@@ -63,34 +65,69 @@ class AccessService {
 
     // ⭐ DENY (A chặn B)
     func denyUser(ownerUid: String, otherUid: String, completion: @escaping (Bool) -> Void) {
+
+        let key = "allow_\(ownerUid)_\(otherUid)"
+
         db.collection("calendarAccess")
             .document(ownerUid)
             .collection("allowed")
             .document(otherUid)
             .delete { error in
+
                 if let error = error {
                     print("❌ Deny failed:", error.localizedDescription)
                     completion(false)
                 } else {
+
+                    // ⭐ CLEAR LOCAL CACHE
+                    UserDefaults.standard.removeObject(forKey: key)
+
                     print("🚫 DENY SUCCESS: \(ownerUid) denied \(otherUid)")
                     completion(true)
 
-                    // ⭐ XOÁ REQUEST nếu tồn tại
                     self.removeRequest(ownerUid: ownerUid, requesterUid: otherUid)
                 }
             }
     }
 
+    func clearLocalAccessCache() {
+
+        let defaults = UserDefaults.standard
+
+        for key in defaults.dictionaryRepresentation().keys {
+            if key.hasPrefix("allow_") {
+                defaults.removeObject(forKey: key)
+            }
+        }
+
+        defaults.synchronize()
+
+        print("🧹 Cleared local access cache")
+    }
+
     // ⭐ CHECK ALLOW
-    func isAllowed(ownerUid: String, otherUid: String, completion: @escaping (Bool) -> Void) {
+    func isAllowed(ownerUid: String,
+                   otherUid: String,
+                   completion: @escaping (Bool) -> Void) {
+
+        let key = "allow_\(ownerUid)_\(otherUid)"
+
         db.collection("calendarAccess")
             .document(ownerUid)
             .collection("allowed")
             .document(otherUid)
-            .getDocument { snap, _ in
-                completion(snap?.exists ?? false)
+            .getDocument { snap, error in
+
+                let allowed = snap?.exists ?? false
+
+                // Sync lại cache cho cả A và B
+                UserDefaults.standard.set(allowed, forKey: key)
+
+                completion(allowed)
             }
     }
+
+
 
     // ⭐ FETCH ALLOWED LIST
     func fetchAllowedList(ownerUid: String, completion: @escaping ([AllowedUser]) -> Void) {

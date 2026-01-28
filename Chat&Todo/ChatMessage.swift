@@ -14,7 +14,7 @@ struct ChatMessage: Identifiable, Codable {
 
     var text: String
     var senderId: String
-    var senderName: String
+    var senderName: String?
     var timestamp: Date
     var seenBy: [String: Bool]?
     var latitude: Double?
@@ -29,7 +29,7 @@ struct ChatMessage: Identifiable, Codable {
         clientId: String = UUID().uuidString,
         text: String,
         senderId: String,
-        senderName: String,
+        senderName: String?,
         timestamp: Date = Date(),
         seenBy: [String: Bool] = [:],
         latitude: Double? = nil,
