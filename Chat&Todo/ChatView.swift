@@ -47,11 +47,21 @@ struct ChatView: View {
     @AppStorage("chat_other_preset") private var otherPresetRaw: String = ChatColorPreset.graphite.rawValue
 
 
-
-
-
     private let geocoder = CLGeocoder()
 
+    
+    private var canManageMembers: Bool {
+
+        guard let myUid = session.currentUserId else { return false }
+
+        return eventInfo.owner == myUid ||
+               eventInfo.admins?.contains(myUid) == true
+    }
+
+    
+    
+    
+    
     
     init(
         eventId: String,
@@ -200,10 +210,22 @@ struct ChatView: View {
             )
 
         }
-        .navigationTitle(otherName)
+        .navigationTitle(
+            eventInfo.participants.count > 2
+            ? eventInfo.title
+            : otherName
+        )
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 HStack(spacing: 8) {
+                    
+                    if canManageMembers {
+                                   Button {
+                                       activeSheet = .addMember
+                                   } label: {
+                                       Image(systemName: "person.badge.plus")
+                                   }
+                               }
                     // ⭐ Premium indicator
                     if premium.isPremium {
                         Image(systemName: "star.fill")
@@ -280,6 +302,12 @@ struct ChatView: View {
                         activeAlert = .limit
                     }
                 }
+                
+            case .addMember:
+                AddMemberSheet(
+                    event: eventInfo
+                )
+                .environmentObject(eventManager)
 
             case .premium:
                 PremiumUpgradeSheet()
@@ -310,12 +338,10 @@ struct ChatView: View {
             // 3️⃣ Đảm bảo chat tồn tại → listen messages
             Task {
                 await vm.ensureChatExists(
-                    participants: [
-                        session.currentUserId!,
-                        otherUserId
-                    ],
+                    participants: eventInfo.participants,
                     eventEndTime: eventEndTime
                 )
+
                 try? await Task.sleep(nanoseconds: 300_000_000)
                 vm.listenMessages()
 
@@ -482,14 +508,13 @@ struct ChatView: View {
         return HStack {
             if isMe { Spacer(minLength: 40) }
 
-            VStack(alignment: isMe ? .trailing : .leading, spacing: 4) {
+            VStack(alignment: isMe ? .trailing : .leading, spacing: 6) {
 
-                // 👤 Tên người gửi (chỉ hiện bên kia)
-                if !isMe {
-                    Text(eventManager.displayName(for: msg.senderId))
-                        .font(.caption2)
-                        .foregroundColor(style.secondaryText)
-                }
+               
+            
+
+
+
 
                 // 📍 MESSAGE: LOCATION
                 if let lat = msg.latitude, let lon = msg.longitude {
@@ -547,8 +572,38 @@ struct ChatView: View {
 
                 // 💬 MESSAGE: TEXT
                 else {
-                    Text(msg.text)
-                        .foregroundColor(style.text)
+
+                    let sender =
+                        msg.senderName
+                        ?? eventManager.userNames[msg.senderId]
+                        ?? eventManager.displayName(for: msg.senderId)
+
+                    if isMe {
+
+                        // Tin nhắn của mình
+                        Text(msg.text)
+                            .foregroundColor(style.text)
+                            .padding(10)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(style.background)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .stroke(style.border, lineWidth: 0.8)
+                                    )
+                            )
+
+                    } else {
+
+                        // Tin nhắn người khác: "Name: text"
+                        (
+                            Text("\(sender): ")
+                                .fontWeight(.semibold)
+                                .foregroundColor(style.text)
+                            +
+                            Text(msg.text)
+                                .foregroundColor(style.text)
+                        )
                         .padding(10)
                         .background(
                             RoundedRectangle(cornerRadius: 12)
@@ -558,17 +613,9 @@ struct ChatView: View {
                                         .stroke(style.border, lineWidth: 0.8)
                                 )
                         )
-                        .contextMenu {
-                            Button {
-                                UIPasteboard.general.string = msg.text
-                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                            } label: {
-                                Label(String(localized: "copy"), systemImage: "doc.on.doc")
-                            }
-                        }
-
-
+                    }
                 }
+
 
                 // 👁 Seen / Delivered
                 if isMe {
@@ -667,6 +714,8 @@ enum ChatSheet: Identifiable {
     case mapPicker
     case premium
     case todo
-
+    // ⭐ ADD
+    case addMember
+    
     var id: Int { hashValue }
 }

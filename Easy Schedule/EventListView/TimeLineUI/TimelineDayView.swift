@@ -23,8 +23,14 @@ struct TimelineDayView: View {
     }
 
     private var timelineHeight: CGFloat {
-        CGFloat(safeEndHour - safeStartHour) * TimelineLayout.hourHeight
+        CGFloat(effectiveEndHour - effectiveStartHour)
+        * TimelineLayout.hourHeight
     }
+    private var isAutoExpanded: Bool {
+        guard let r = eventHourRange else { return false }
+        return r.start < safeStartHour || r.end > safeEndHour
+    }
+
     
     @AppStorage("timeFontSize")
        private var timeFontSize: Double = 13
@@ -37,30 +43,42 @@ struct TimelineDayView: View {
         let contentWidth = screenWidth - hourWidth - leadingPadding
 
         ScrollView {
-            HStack(alignment: .top, spacing: 0) {
+            VStack(alignment: .leading, spacing: 6) {
 
-                // ⏰ HOUR COLUMN — NHỎ, CỐ ĐỊNH
-                TimelineHourColumn(
-                    startHour: safeStartHour,
-                    endHour: safeEndHour,
-                    timeFontSize: timeFontSize
-                )
-                .frame(width: hourWidth)
+                // 💡 AUTO-EXPAND HINT
+                if isAutoExpanded {
+                    Text(String(localized: "timeline_auto_expanded_hint"))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .padding(.leading, leadingPadding + 4)
+                }
 
-                // 📅 CONTENT COLUMN — PHẦN CÒN LẠI
-                TimelineContentColumn(
-                    date: date,
-                    startHour: safeStartHour,
-                    endHour: safeEndHour,
-                    events: events,
-                    manualBusySlots: eventManager.myManualBusySlots,
-                    timeDisplayMode: timeDisplayMode
-                )
-                .frame(width: contentWidth, alignment: .leading)
+                HStack(alignment: .top, spacing: 0) {
+
+                    // ⏰ HOUR COLUMN
+                    TimelineHourColumn(
+                        startHour: effectiveStartHour,
+                        endHour: effectiveEndHour,
+                        timeFontSize: timeFontSize
+                    )
+                    .frame(width: hourWidth)
+
+                    // 📅 CONTENT COLUMN
+                    TimelineContentColumn(
+                        date: date,
+                        startHour: effectiveStartHour,
+                        endHour: effectiveEndHour,
+                        events: events,
+                        manualBusySlots: eventManager.myManualBusySlots,
+                        timeDisplayMode: timeDisplayMode
+                    )
+                    .frame(width: contentWidth, alignment: .leading)
+                }
+                .padding(.leading, leadingPadding)
+                .frame(height: timelineHeight)
             }
-            .padding(.leading, leadingPadding)
-            .frame(height: timelineHeight)
         }
+
         .sheet(item: $eventManager.selectedEventWrapper) { wrapper in
             if let event = eventManager.event(for: wrapper) {
                 EventDetailView(event: event)
@@ -69,6 +87,33 @@ struct TimelineDayView: View {
     }
 
     
+    private var eventHourRange: (start: Int, end: Int)? {
+        let all = events + manualBusySlots
+        guard !all.isEmpty else { return nil }
+
+        let cal = Calendar.current
+
+        let startHours = all.map {
+            cal.component(.hour, from: $0.startTime)
+        }
+
+        let endHours = all.map {
+            cal.component(.hour, from: $0.endTime)
+        }
+
+        return (start: startHours.min()!, end: endHours.max()!)
+    }
+
+    private var effectiveStartHour: Int {
+        guard let r = eventHourRange else { return safeStartHour }
+        return min(safeStartHour, r.start)
+    }
+
+    private var effectiveEndHour: Int {
+        guard let r = eventHourRange else { return safeEndHour }
+        return max(safeEndHour, r.end)
+    }
+
     
 }
 

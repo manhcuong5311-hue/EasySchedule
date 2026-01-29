@@ -56,7 +56,8 @@ class ChatViewModel: ObservableObject {
         self.myName = myName
         loadOfflineMessages()
         listenChatMeta()
-        // ❌ BỎ listenMessages() Ở ĐÂY
+        EventManager.shared.preloadUsersIfNeeded()
+
     }
 
     private var offlineKey: String {
@@ -108,11 +109,20 @@ class ChatViewModel: ObservableObject {
 
                     guard
                         let senderId = data["senderId"] as? String,
-                        let senderName = data["senderName"] as? String,
                         let timestamp = (data["timestamp"] as? Timestamp)?.dateValue()
                     else {
                         return nil
                     }
+
+                    // ⭐ FALLBACK NAME (QUAN TRỌNG)
+                    EventManager.shared.fetchUserNameIfNeeded(uid: senderId)
+
+                    let senderName =
+                        (data["senderName"] as? String)
+                        ?? EventManager.shared.userNames[senderId]
+                        ?? senderId
+
+
 
                     let text = data["text"] as? String ?? ""
                     let seenBy = data["seenBy"] as? [String: Bool] ?? [:]
@@ -190,7 +200,7 @@ class ChatViewModel: ObservableObject {
 
             var messageData: [String: Any] = [
                 "senderId": msg.senderId,
-                "senderName": msg.senderName,
+                "senderName": msg.senderName ?? "",
                 "timestamp": Timestamp(date: msg.timestamp),
                 "seenBy": msg.seenBy ?? [msg.senderId: true]
             ]
@@ -256,8 +266,11 @@ class ChatViewModel: ObservableObject {
         let chatRef = db.collection("chats").document(eventId)
 
         // ⭐ 1. TẠO LOCAL MESSAGE (CHO UI)
+        let uuid = UUID().uuidString
+
         let localMessage = ChatMessage(
-            clientId: UUID().uuidString,
+            id: uuid,              // ⭐ ADD
+            clientId: uuid,        // ⭐ SAME
             text: text,
             senderId: myId,
             senderName: myName,
@@ -275,14 +288,17 @@ class ChatViewModel: ObservableObject {
             "freeCount.\(myId)": FieldValue.increment(Int64(1))
         ])
 
+        let displayName = EventManager.shared.displayName(for: myId)
+
         chatRef.setData([
-            "lastMessage": text,
+            "lastMessage": "\(displayName): \(text)",
             "lastMessageTime": Timestamp(),
             "unread": [
                 myId: false,
                 otherUserId: true
             ]
         ], merge: true)
+
 
         // ⭐ 4. NẾU OFFLINE → DỪNG Ở sending
         guard isOnline else { return }
@@ -335,8 +351,11 @@ class ChatViewModel: ObservableObject {
         let chatRef = db.collection("chats").document(eventId)
 
         // ⭐ 1. LOCAL MESSAGE (UI)
+        let uuid = UUID().uuidString
+
         let localMessage = ChatMessage(
-            clientId: UUID().uuidString,
+            id: uuid,
+            clientId: uuid,
             text: String(localized: "location_sent"),
             senderId: myId,
             senderName: myName,
@@ -354,14 +373,17 @@ class ChatViewModel: ObservableObject {
             "freeCount.\(myId)": FieldValue.increment(Int64(1))
         ])
 
+        let displayName = EventManager.shared.displayName(for: myId)
+
         chatRef.setData([
-            "lastMessage": String(localized: "location_sent"),
+            "lastMessage": "\(displayName): \(String(localized: "location_sent"))",
             "lastMessageTime": Timestamp(),
             "unread": [
                 myId: false,
                 otherUserId: true
             ]
         ], merge: true)
+
 
         // ⭐ 3. OFFLINE → UI giữ sending
         guard isOnline else { return }

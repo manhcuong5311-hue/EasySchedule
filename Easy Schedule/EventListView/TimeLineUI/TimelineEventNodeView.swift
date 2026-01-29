@@ -5,6 +5,7 @@
 //  Created by Sam Manh Cuong on 26/1/26.
 //
 import SwiftUI
+import FirebaseAuth
 
 struct TimelineEventNodeView: View {
 
@@ -16,6 +17,9 @@ struct TimelineEventNodeView: View {
 
     @EnvironmentObject var eventManager: EventManager
     @EnvironmentObject var uiAccent: UIAccentStore
+    // ===== ACTION STATE =====
+    @State private var showDeleteConfirm = false
+    @State private var showLeaveConfirm = false
 
     // MARK: - Timeline bounds
     private var safeStartHour: Int {
@@ -55,6 +59,31 @@ struct TimelineEventNodeView: View {
         )
     }
 
+   
+
+    private var myUid: String? {
+        Auth.auth().currentUser?.uid
+    }
+
+    private var isOwner: Bool {
+        myUid == event.owner
+    }
+
+    private var isCreator: Bool {
+        myUid == event.createdBy
+    }
+
+    private var isAdmin: Bool {
+        event.admins?.contains(myUid ?? "") == true
+    }
+
+    private var canDeleteEvent: Bool {
+        isOwner || isCreator || isAdmin
+    }
+
+    private var canLeaveEvent: Bool {
+        !canDeleteEvent && event.participants.contains(myUid ?? "")
+    }
 
 
     // MARK: - Clamp
@@ -135,6 +164,7 @@ struct TimelineEventNodeView: View {
             content
                 .zIndex(1)
         }
+        
     }
 
     
@@ -170,6 +200,62 @@ struct TimelineEventNodeView: View {
         .onTapGesture {
             handleTap()
         }
+        .contextMenu {
+
+            // 🔒 BusySlot → KHÔNG cho menu
+            if event.origin == .busySlot {
+                EmptyView()
+            }
+
+            // ✅ Được xoá
+            else if canDeleteEvent {
+
+                Button(role: .destructive) {
+                    showDeleteConfirm = true
+                } label: {
+                    Label(
+                        String(localized: "delete"),
+                        systemImage: "trash"
+                    )
+                }
+
+            }
+            // 👤 Chỉ được leave
+            else if canLeaveEvent {
+
+                Button(role: .destructive) {
+                    showLeaveConfirm = true
+                } label: {
+                    Label(
+                        String(localized: "leave_event"),
+                        systemImage: "rectangle.portrait.and.arrow.right"
+                    )
+                }
+            }
+        }
+        .alert(
+            String(localized: "leave_event"),
+            isPresented: $showLeaveConfirm
+        ) {
+            Button(String(localized: "leave"), role: .destructive) {
+                leaveEvent()
+            }
+            Button(String(localized: "cancel"), role: .cancel) {}
+        } message: {
+            Text(String(localized: "leave_event_confirm"))
+        }
+        .alert(
+            String(localized: "delete_event"),
+            isPresented: $showDeleteConfirm
+        ) {
+            Button(String(localized: "delete"), role: .destructive) {
+                deleteEvent()
+            }
+            Button(String(localized: "cancel"), role: .cancel) {}
+        } message: {
+            Text(String(localized: "delete_event_confirm"))
+        }
+
     }
 
 
@@ -232,5 +318,27 @@ struct TimelineEventNodeView: View {
             eventManager.openChat(eventId: event.id)
         }
     }
+    
+    private func deleteEvent() {
+        guard canDeleteEvent else { return }
+
+        withAnimation {
+            eventManager.deleteEvent(event)
+        }
+    }
+
+    private func leaveEvent() {
+        guard let uid = myUid else { return }
+
+        eventManager.removeParticipant(
+            uid,
+            from: event
+        ) { success in
+            if !success {
+                print("❌ Leave event failed")
+            }
+        }
+    }
+
 }
 

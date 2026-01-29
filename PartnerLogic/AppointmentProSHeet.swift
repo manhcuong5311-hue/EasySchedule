@@ -409,8 +409,7 @@ struct AppointmentProSheet: View {
             forSharedUser: uid,
             title: titleText,
             start: slot.start,
-            end: slot.end,
-            createdBy: Auth.auth().currentUser?.uid ?? ""
+            end: slot.end
         ) { success, msg in
             DispatchQueue.main.async {
                 if success { showSuccessAlert = true }
@@ -554,6 +553,15 @@ extension CalendarEvent {
             participants = arrAny.compactMap { $0 as? String }
         }
 
+        // admins
+        var admins: [String]? = nil
+        if let arr = data["admins"] as? [String] {
+            admins = arr
+        } else if let arrAny = data["admins"] as? [Any] {
+            admins = arrAny.compactMap { $0 as? String }
+        }
+
+        
         // ⭐ NEW: Read participantNames + creatorName
         let participantNames = data["participantNames"] as? [String: String] ?? [:]
         let creatorName = data["creatorName"] as? String ?? ""
@@ -580,6 +588,7 @@ extension CalendarEvent {
             sharedUser: sharedUser,
             createdBy: createdBy,
             participants: participants,
+            admins: admins,
             participantNames: participantNames,  // ⭐ ADDED
             creatorName: creatorName,            // ⭐ ADDED
             colorHex: colorHex,

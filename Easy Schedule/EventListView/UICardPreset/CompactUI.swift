@@ -7,7 +7,7 @@
 
 import SwiftUI
 import Combine
-
+import FirebaseAuth
 
 private enum StatusIndicator {
     case unreadChat
@@ -54,6 +54,30 @@ struct CompactEventRowView: View {
         chatMeta.unread ? .unreadChat : .none
     }
 
+    private var myUid: String? {
+        Auth.auth().currentUser?.uid
+    }
+
+    private var isOwner: Bool {
+        myUid == event.owner
+    }
+
+    private var isAdmin: Bool {
+        event.admins?.contains(myUid ?? "") == true
+    }
+
+    private var canDeleteEvent: Bool {
+        isOwner || isAdmin || (myUid == event.createdBy)
+    }
+
+
+    private var canLeaveEvent: Bool {
+        !canDeleteEvent && event.participants.contains(myUid ?? "")
+    }
+
+    @State private var showLeaveConfirm = false
+
+    
     // ===== BODY =====
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -84,7 +108,9 @@ struct CompactEventRowView: View {
         )
         .animation(.easeInOut(duration: 0.2), value: isExpanded)
 
-        .contextMenu { deleteMenu }
+        .contextMenu {
+            contextMenuContent
+        }
         .onLongPressGesture(minimumDuration: 0.3) {
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
             toggleExpand()
@@ -100,6 +126,37 @@ struct CompactEventRowView: View {
                 Text(String(localized: "delete_event_confirm"))
             }
         )
+        .alert(
+            String(localized: "leave_event"),
+            isPresented: $showLeaveConfirm
+        ) {
+
+            Button("Leave", role: .destructive) {
+                leaveEvent()
+            }
+
+            Button("Cancel", role: .cancel) {}
+
+        } message: {
+            Text("You will be removed from this event.")
+        }
+
+    }
+
+    
+    private func leaveEvent() {
+
+        guard let uid = myUid else { return }
+
+        eventManager.removeParticipant(
+            uid,
+            from: event
+        ) { success in
+
+            if !success {
+                print("❌ Leave event failed")
+            }
+        }
     }
 
     // ===== ROW CONTENT =====
@@ -149,6 +206,36 @@ struct CompactEventRowView: View {
         }
     }
 
+    @ViewBuilder
+    private var contextMenuContent: some View {
+
+        if canDeleteEvent {
+
+            Button(role: .destructive) {
+                showDeleteConfirm = true
+            } label: {
+                Label(
+                    String(localized: "delete"),
+                    systemImage: "trash"
+                )
+            }
+
+        } else if canLeaveEvent {
+
+            Button(role: .destructive) {
+                showLeaveConfirm = true
+            } label: {
+                Label(
+                    String(localized: "leave_event"),
+                    systemImage: "rectangle.portrait.and.arrow.right"
+                )
+            }
+
+        } else {
+
+            EmptyView()
+        }
+    }
 
 
     private var externalEventContext: String {

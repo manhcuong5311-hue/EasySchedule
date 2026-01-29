@@ -518,7 +518,7 @@ struct PartnerCalendarTabView: View {
                     if let uid = parsedUID {
                         selectedSharedUserId = uid
                         // open pro sheet (your AppointmentProSheet should read sharedUserId)
-                        self.activeSheet = .addAppointment
+                        checkAccessAndOpen(uid: uid)
 
                     } else {
                         alertMessage = String(localized: "uid_required")
@@ -531,6 +531,51 @@ struct PartnerCalendarTabView: View {
             .buttonStyle(.bordered)
         }
         .padding(.vertical, 6)
+    }
+
+    private func checkAccessAndOpen(uid: String) {
+
+        guard let me = Auth.auth().currentUser?.uid else {
+            alertMessage = String(localized: "login_required")
+            showAlert = true
+            return
+        }
+
+        // Owner tự book cho mình
+        if uid == me {
+            selectedSharedUserId = uid
+            activeSheet = .addAppointment
+            return
+        }
+
+        isLoading = true
+
+        AccessService.shared.isAllowed(ownerUid: uid, otherUid: me) { allowed in
+            DispatchQueue.main.async {
+                self.isLoading = false
+
+                if allowed {
+                    self.selectedSharedUserId = uid
+                    self.activeSheet = .addAppointment
+                } else {
+                    // ⭐ FIX: TẠO REQUEST
+                    let requesterName =
+                        self.eventManager.userNames[me] ?? me
+
+                    AccessService.shared.createRequest(
+                        owner: uid,
+                        requester: me,
+                        requesterName: requesterName
+                    )
+
+                    self.alertMessage =
+                        String(localized: "request_not_allowed_sent")
+                    self.showAlert = true
+                }
+            }
+        }
+
+        
     }
 
     // MARK: - Actions & Helpers
@@ -582,8 +627,8 @@ struct PartnerCalendarTabView: View {
 
                 // ✅ OK → mới cho mở sheet
                 self.parsedUID = parsed
-                self.selectedSharedUserId = parsed
-                self.activeSheet = .addAppointment
+                self.checkAccessAndOpen(uid: parsed)
+
             }
         }
     }
