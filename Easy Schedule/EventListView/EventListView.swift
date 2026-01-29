@@ -82,7 +82,9 @@ struct EventListView: View {
     @State private var monthCursor: Date = Date()
     @State private var isMonthPickerOpen = false
 
-
+//NEWWWWWW
+  
+    
     private var eventsIntroOverlay: some View {
         GeometryReader { geo in
             ZStack {

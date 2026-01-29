@@ -45,6 +45,13 @@ struct DisplaySettingsSheet: View {
         cardLayout == .timeline
     }
 
+    @AppStorage("daily_morning_reminder_enabled")
+    var morningEnabled: Bool = false
+
+    @AppStorage("daily_evening_reminder_enabled")
+    var eveningEnabled: Bool = false
+
+    
     // MARK: - Timeline Settings
     @AppStorage("timeline_start_hour")
     private var timelineStartHour: Int = 8
@@ -55,6 +62,10 @@ struct DisplaySettingsSheet: View {
     // MARK: - Env
     @EnvironmentObject var uiAccent: UIAccentStore
 
+    @AppStorage("did_customize_timeline_hours")
+    private var didCustomizeTimelineHours: Bool = false
+
+    
     // MARK: - Body
     var body: some View {
         NavigationStack {
@@ -76,16 +87,32 @@ struct DisplaySettingsSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .onChange(of: timelineStartHour) { _, _ in
                 clampTimelineHours()
+                didCustomizeTimelineHours = true
+                DailyRhythmNotificationManager.rescheduleIfNeeded()
             }
+
             .onChange(of: timelineEndHour) { _, _ in
                 clampTimelineHours()
+                didCustomizeTimelineHours = true
+                DailyRhythmNotificationManager.rescheduleIfNeeded()
             }
+
             .onAppear {
                 clampTimelineHours()
                 clampTimeFontSize()
             }
         }
+        
+        
+        
+        
+        
+    
     }
+    
+   
+
+    
 
     // MARK: - Guards
 

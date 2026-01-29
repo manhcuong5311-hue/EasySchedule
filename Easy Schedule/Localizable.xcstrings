@@ -6442,6 +6442,64 @@
         }
       }
     },
+    "evening_reminder_body" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Take a moment to relax and rest for the night."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "一日が終わりに近づいています。ゆっくりして、心と体を休めてください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "하루가 거의 끝났어요. 속도를 늦추고 충분히 쉬어 주세요."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ngày hôm nay sắp kết thúc. Thả lỏng và cho bản thân được nghỉ ngơi."
+          }
+        }
+      }
+    },
+    "evening_reminder_title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Time to wind down 🌙"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "そろそろ休みましょう 🌙"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이제 쉬어도 괜찮아요 🌙"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đến lúc nghỉ ngơi 🌙"
+          }
+        }
+      }
+    },
     "event_already_exists" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -10962,6 +11020,64 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tháng"
+          }
+        }
+      }
+    },
+    "morning_reminder_body" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A new day begins. Take a moment to plan what matters today."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "新しい一日が始まりました。今日大切なことを少し整理してみましょう。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "새로운 하루가 시작됐어요. 오늘 중요한 일을 천천히 정리해 보세요."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Một ngày mới bắt đầu. Hãy dành chút thời gian để sắp xếp điều quan trọng hôm nay."
+          }
+        }
+      }
+    },
+    "morning_reminder_title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Good morning ☀️"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "おはようございます ☀️"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "좋은 아침이에요 ☀️"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chào buổi sáng ☀️"
           }
         }
       }
