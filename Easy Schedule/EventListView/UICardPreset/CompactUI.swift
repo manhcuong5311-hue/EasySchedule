@@ -79,7 +79,8 @@ struct CompactEventRowView: View {
 
     @State private var showLeaveConfirm = false
 
-    
+    @State private var showAddMemberSheet = false
+
     // ===== BODY =====
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -120,6 +121,11 @@ struct CompactEventRowView: View {
         .onAppear {
             chatMeta.startListening()
         }
+        .sheet(isPresented: $showAddMemberSheet) {
+            AddMemberSheet(event: event)
+                .environmentObject(eventManager)
+        }
+
         .alert(
             String(localized: "delete_event"),
             isPresented: $showDeleteConfirm,
@@ -192,8 +198,23 @@ struct CompactEventRowView: View {
     @ViewBuilder
     private var contextMenuContent: some View {
 
+        // 👑 Owner / Creator / Admin
         if canDeleteEvent {
 
+            // 👥 Add people (SAFE ACTION)
+            Button {
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                showAddMemberSheet = true
+            } label: {
+                Label(
+                    String(localized: "add_member_title"),
+                    systemImage: "person.badge.plus"
+                )
+            }
+
+            Divider() // ⭐ TÁCH DELETE RA XA
+
+            // ❌ Delete event
             Button(role: .destructive) {
                 showDeleteConfirm = true
             } label: {
@@ -202,8 +223,10 @@ struct CompactEventRowView: View {
                     systemImage: "trash"
                 )
             }
+        }
 
-        } else if shouldShowLeaveNotAllowed {
+        // 👤 Member thường → chỉ được leave
+        else if shouldShowLeaveNotAllowed {
 
             Button {
                 showLeaveConfirm = true
@@ -213,12 +236,13 @@ struct CompactEventRowView: View {
                     systemImage: "rectangle.portrait.and.arrow.right"
                 )
             }
+        }
 
-        } else {
-
+        else {
             EmptyView()
         }
     }
+
 
 
     private var externalEventContext: String {

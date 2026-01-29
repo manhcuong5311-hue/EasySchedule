@@ -407,6 +407,12 @@ struct PremiumUpgradeSheet: View {
                     "\(limits.advanceDays)"
                 )
             )
+        case .members:
+            if plan == .premium {
+                Text(String(localized: "members_invite_people"))
+            } else {
+                Text(String(localized: "members_plan_with_groups"))
+            }
 
 
 
@@ -451,6 +457,7 @@ enum PlanType: String, CaseIterable {
 enum FeatureRow: CaseIterable {
     case eventsPerDay
     case advanceDays
+    case members
     case chat
     case todo
     case offDays
@@ -461,6 +468,7 @@ func featureTitle(_ row: FeatureRow) -> LocalizedStringKey {
     switch row {
     case .eventsPerDay: return "feature_events_per_day"
     case .advanceDays: return "feature_advance_days"
+    case .members: return "feature_members"
     case .chat: return "feature_chat"
     case .todo: return "feature_todo"
     case .offDays: return "feature_off_days"

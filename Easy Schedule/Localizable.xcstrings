@@ -1462,25 +1462,25 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Add member"
+            "value" : "Add people to event"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "メンバーを追加"
+            "value" : "イベントに人を追加"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "멤버 추가"
+            "value" : "이벤트에 사람 추가"
           }
         },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Thêm thành viên"
+            "value" : "Thêm người vào sự kiện"
           }
         }
       }
@@ -3119,6 +3119,35 @@
         }
       }
     },
+    "chat_message_alex" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When should we meet?"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "何時に会いますか？"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "몇 시에 만날까요?"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chúng ta gặp nhau lúc mấy giờ?"
+          }
+        }
+      }
+    },
     "chat_message_confirm" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3148,6 +3177,64 @@
         }
       }
     },
+    "chat_message_lina" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "How about 3:00 PM?"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "15:00はどうですか？"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "오후 3시는 어때요?"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "3 giờ chiều thì sao?"
+          }
+        }
+      }
+    },
+    "chat_message_noah" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Same here 👍"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "私もOKです 👍"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "저도요 👍"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Mình cũng vậy 👍"
+          }
+        }
+      }
+    },
     "chat_message_question" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3173,6 +3260,35 @@
           "stringUnit" : {
             "state" : "needs_review",
             "value" : "Chúng ta gặp lúc 3 giờ được không?"
+          }
+        }
+      }
+    },
+    "chat_message_sam" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "3:00 PM works for me."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "15:00で問題ないです。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "오후 3시 괜찮아요."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "3 giờ chiều với mình ổn."
           }
         }
       }
@@ -3233,6 +3349,151 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Màu tin nhắn của người khác"
+          }
+        }
+      }
+    },
+    "chat_tag_alex" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alex"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alex"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alex"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alex"
+          }
+        }
+      }
+    },
+    "chat_tag_lina" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lina"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Lina"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Lina"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Lina"
+          }
+        }
+      }
+    },
+    "chat_tag_mia" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mia"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mia"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mia"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mia"
+          }
+        }
+      }
+    },
+    "chat_tag_noah" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Noah"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Noah"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Noah"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Noah"
+          }
+        }
+      }
+    },
+    "chat_tag_sam" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sam"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sam"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sam"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sam"
           }
         }
       }
@@ -3359,25 +3620,25 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Prepare agenda – 3:00 PM"
+            "value" : "Book a table"
           }
         },
         "ja" : {
           "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "議題を準備 – 15:00"
+            "state" : "translated",
+            "value" : "席を予約"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "안건 준비 – 오후 3:00"
+            "value" : "자리 예약"
           }
         },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Chuẩn bị nội dung họp – 3:00"
+            "value" : "Đặt bàn"
           }
         }
       }
@@ -6448,24 +6709,24 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Take a moment to relax and rest for the night."
+            "value" : "The day is ending. Slow down and give yourself some rest."
           }
         },
         "ja" : {
           "stringUnit" : {
-            "state" : "translated",
+            "state" : "needs_review",
             "value" : "一日が終わりに近づいています。ゆっくりして、心と体を休めてください。"
           }
         },
         "ko" : {
           "stringUnit" : {
-            "state" : "translated",
+            "state" : "needs_review",
             "value" : "하루가 거의 끝났어요. 속도를 늦추고 충분히 쉬어 주세요."
           }
         },
         "vi" : {
           "stringUnit" : {
-            "state" : "translated",
+            "state" : "needs_review",
             "value" : "Ngày hôm nay sắp kết thúc. Thả lỏng và cho bản thân được nghỉ ngơi."
           }
         }
@@ -7882,6 +8143,64 @@
         }
       }
     },
+    "faq_members_limit_a" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You can add up to 5 people to a single event."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "1つのイベントには最大5人まで追加できます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "하나의 이벤트에 최대 5명까지 추가할 수 있습니다."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Bạn có thể thêm tối đa 5 người vào một sự kiện."
+          }
+        }
+      }
+    },
+    "faq_members_limit_q" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "How many people can I add to an event?"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1つのイベントに何人まで追加できますか？"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "하나의 이벤트에 몇 명까지 추가할 수 있나요?"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tôi có thể thêm tối đa bao nhiêu người vào một sự kiện?"
+          }
+        }
+      }
+    },
     "faq_section_limits" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -8023,6 +8342,64 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Danh sách công việc có bị giới hạn không?"
+          }
+        }
+      }
+    },
+    "feature_add_people_subtitle" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invite people and plan together."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "人を招待して一緒に計画できます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "사람을 초대하고 함께 계획하세요."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Mời người khác và cùng lên lịch."
+          }
+        }
+      }
+    },
+    "feature_add_people_title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add people to events"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "イベントに人を追加"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이벤트에 사람 추가"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thêm người vào sự kiện"
           }
         }
       }
@@ -8379,6 +8756,35 @@
         }
       }
     },
+    "feature_members" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "People per event"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "イベント参加人数"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이벤트 참여 인원"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Số người trong mỗi sự kiện"
+          }
+        }
+      }
+    },
     "feature_off_days" : {
       "comment" : "The accessibility label for the \"Off Days\" toggle.",
       "isCommentAutoGenerated" : true,
@@ -8465,6 +8871,64 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Việc cần làm mỗi sự kiện"
+          }
+        }
+      }
+    },
+    "feature_todo_subtitle" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Manage tasks in one place."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "タスクをまとめて管理。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "할 일을 한곳에서 관리하세요."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Quản lý công việc ngay trong sự kiện."
+          }
+        }
+      }
+    },
+    "feature_todo_title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Todos inside events"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "イベント内のTo-Do"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이벤트 안의 할 일"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Việc cần làm trong sự kiện"
           }
         }
       }
@@ -10788,6 +11252,64 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Bạn có thể quản lý hoặc hủy gói đăng ký bất cứ lúc nào trong phần cài đặt tài khoản App Store."
+          }
+        }
+      }
+    },
+    "members_invite_people" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "5"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "5"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "5"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "5"
+          }
+        }
+      }
+    },
+    "members_plan_with_groups" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "5"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "5"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "5"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "5"
           }
         }
       }
@@ -14922,25 +15444,25 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Free 7 days"
+            "value" : "After the trial, about $0.06 per day."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "7日間無料"
+            "value" : "トライアル後は、1日あたり約9円です。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "7일 무료"
+            "value" : "체험 기간 이후에는 하루 약 70원입니다."
           }
         },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Miễn phí 7 ngày"
+            "value" : "Sau thời gian dùng thử, khoảng 1.400₫ mỗi ngày."
           }
         }
       }

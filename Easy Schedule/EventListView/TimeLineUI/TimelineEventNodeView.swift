@@ -149,6 +149,8 @@ struct TimelineEventNodeView: View {
         isMyEvent && todoStore.hasUnfinishedTodo(for: event.id)
     }
 
+    @State private var showAddMemberSheet = false
+
     // MARK: - Body
 
     var body: some View {
@@ -204,14 +206,29 @@ struct TimelineEventNodeView: View {
         }
         .contextMenu {
 
-            // 🔒 BusySlot → KHÔNG cho menu
+            // 🔒 BusySlot → KHÔNG menu
             if event.origin == .busySlot {
                 EmptyView()
             }
 
-            // ✅ Được xoá
+            // 👑 Owner / Creator / Admin
             else if canDeleteEvent {
 
+                // 👥 Add people (CHỈ khi có quyền)
+                Button {
+                    // ✅ Haptic nhẹ – iOS style
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    showAddMemberSheet = true
+                } label: {
+                    Label(
+                        String(localized: "add_member_title"),
+                        systemImage: "person.badge.plus"
+                    )
+                }
+
+                Divider() // ⭐ TÁCH HÀNH ĐỘNG NGUY HIỂM
+
+                // ❌ Delete event
                 Button(role: .destructive) {
                     showDeleteConfirm = true
                 } label: {
@@ -220,9 +237,9 @@ struct TimelineEventNodeView: View {
                         systemImage: "trash"
                     )
                 }
-
             }
-            // 👤 Chỉ được leave
+
+            // 👤 Member thường → chỉ được leave
             else if canLeaveEvent {
 
                 Button {
@@ -233,9 +250,16 @@ struct TimelineEventNodeView: View {
                         systemImage: "rectangle.portrait.and.arrow.right"
                     )
                 }
-                
             }
         }
+
+
+        .sheet(isPresented: $showAddMemberSheet) {
+            AddMemberSheet(event: event)
+                .environmentObject(eventManager)
+        }
+
+        
         .alert(
             String(localized: "leave_event"),
             isPresented: $showLeaveConfirm

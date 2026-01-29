@@ -66,6 +66,7 @@ struct FAQView: View {
                     ("faq_4_q", "faq_4_a"),
                     ("faq_5_q", "faq_5_a"),
                     ("faq_6_q", "faq_6_a"),
+                    ("faq_members_limit_q", "faq_members_limit_a"),
                     ("faq_chat_limit_q", "faq_chat_limit_a"),
                     ("faq_todo_limit_q", "faq_todo_limit_a"),
 
