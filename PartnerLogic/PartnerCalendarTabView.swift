@@ -551,21 +551,31 @@ struct PartnerCalendarTabView: View {
         isLoading = true
 
         AccessService.shared.isAllowed(ownerUid: uid, otherUid: me) { allowed in
-
             DispatchQueue.main.async {
                 self.isLoading = false
 
                 if allowed {
-                    // ✅ ĐÃ ĐƯỢC PHÉP → mở luôn
                     self.selectedSharedUserId = uid
                     self.activeSheet = .addAppointment
                 } else {
-                    // ❌ CHƯA ĐƯỢC PHÉP
-                    self.alertMessage = String(localized: "booking_permission_required")
+                    // ⭐ FIX: TẠO REQUEST
+                    let requesterName =
+                        self.eventManager.userNames[me] ?? me
+
+                    AccessService.shared.createRequest(
+                        owner: uid,
+                        requester: me,
+                        requesterName: requesterName
+                    )
+
+                    self.alertMessage =
+                        String(localized: "request_not_allowed_sent")
                     self.showAlert = true
                 }
             }
         }
+
+        
     }
 
     // MARK: - Actions & Helpers

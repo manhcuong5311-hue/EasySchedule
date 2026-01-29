@@ -973,15 +973,44 @@ extension EventManager {
                     "participants": updated
                 ], merge: true)
 
-            // Remove busy slot
-            self.removeBusySlotFromPublicCalendar(event: event)
+            // ✅ Chỉ xoá busySlot của người bị kick
+                    self.removeBusySlotForUser(
+                        eventId: event.id,
+                        uid: uid
+                    )
+
 
             completion?(true)
         }
     }
 
     
-    
+  
+    // ⭐ Remove busySlot của 1 user bị kick
+    private func removeBusySlotForUser(
+        eventId: String,
+        uid: String
+    ) {
+
+        let doc = db.collection("publicCalendar").document(uid)
+
+        doc.getDocument { snap, _ in
+
+            guard var slots =
+                    snap?.data()?["busySlots"] as? [[String: Any]]
+            else { return }
+
+            // ❗ Chỉ remove slot của event này
+            slots.removeAll {
+                ($0["id"] as? String) == eventId &&
+                ($0["source"] as? String) == "event"
+            }
+
+            doc.setData(["busySlots": slots], merge: true)
+        }
+    }
+
+
     
     
     
@@ -1049,6 +1078,26 @@ extension EventManager {
     // MARK: DELETE EVENT with PENDING DELETE
     func deleteEvent(_ event: CalendarEvent) {
 
+        guard let myUid = currentUserId else { return }
+
+        // ✅ Chỉ owner hoặc creator mới được xoá thật
+        let canDelete =
+            myUid == event.owner ||
+            myUid == event.createdBy
+
+        // ============================
+        // 👉 MEMBER → LEAVE EVENT
+        // ============================
+        if !canDelete {
+
+            leaveEventOnly(event)
+            return
+        }
+
+        // ============================
+        // 👉 OWNER / CREATOR → DELETE
+        // ============================
+
         guard let idx = events.firstIndex(where: { $0.id == event.id }) else { return }
 
         // 1️⃣ Mark pending
@@ -1057,27 +1106,67 @@ extension EventManager {
 
         // 2️⃣ Xoá local NGAY
         let evId = event.id
+
         events.removeAll { $0.id == evId }
+
         UNUserNotificationCenter.current()
             .removePendingNotificationRequests(withIdentifiers: [event.id])
 
         saveEvents()
         updateGroupedEvents()
 
-        // 3️⃣ Xoá remote (kệ nếu fail — pendingDelete sẽ retry khi app mở lại)
+        // 3️⃣ Xoá remote (retry nếu fail)
         deleteRemoteOnly(event)
 
-        // 4️⃣ Remove busySlot remote
+        // 4️⃣ Remove busySlot cho TẤT CẢ (chỉ owner được làm)
         removeBusySlotForAllParticipants(event: event)
 
-
-        // 5️⃣ Clear local busySlots cache for the affected owner (so next fetch reads fresh)
-        //    - owner is the publicCalendar document id we use as cache key
+        // 5️⃣ Clear cache owner
         DispatchQueue.main.async {
             self.busySlotCache.removeValue(forKey: event.owner)
             self.busySlotPremiumCache.removeValue(forKey: event.owner)
         }
-       
+    }
+
+    private func leaveEventOnly(_ event: CalendarEvent) {
+
+        guard let myUid = currentUserId else { return }
+
+        var updated = event.participants
+        updated.removeAll { $0 == myUid }
+
+        guard !updated.isEmpty else { return }
+
+        let ref = db.collection("events").document(event.id)
+
+        // 1️⃣ Update participants
+        ref.updateData([
+            "participants": updated
+        ])
+
+        // 2️⃣ Remove busySlot CHỈ CỦA MÌNH
+        let doc = db.collection("publicCalendar").document(myUid)
+
+        doc.getDocument { snap, _ in
+
+            var slots = snap?.data()?["busySlots"] as? [[String: Any]] ?? []
+
+            slots.removeAll {
+                ($0["id"] as? String) == event.id &&
+                ($0["source"] as? String) == "event"
+            }
+
+            doc.setData(["busySlots": slots], merge: true)
+        }
+
+        // 3️⃣ Remove local
+        DispatchQueue.main.async {
+
+            self.events.removeAll { $0.id == event.id }
+
+            self.saveEvents()
+            self.updateGroupedEvents()
+        }
     }
 
     
