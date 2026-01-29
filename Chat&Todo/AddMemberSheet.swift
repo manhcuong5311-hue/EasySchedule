@@ -157,9 +157,9 @@ struct AddMemberSheet: View {
             isPresented: $showKickConfirm
         ) {
 
-            Button(String(localized:"cancel", role: .cancel)) {}
+            Button(String(localized:"cancel")) { }
 
-            Button(String(localized:"remove", role: .destructive)) {
+            Button(String(localized:"remove")) {
 
                 if let uid = memberToKick {
 
@@ -169,21 +169,21 @@ struct AddMemberSheet: View {
                     ) { success in
 
                         if success {
-                            dismiss()   // 🔑 reload lại event khi mở lại
+                            dismiss()
                         } else {
                             error = String(localized: "add_member_error_no_permission")
                         }
 
                         memberToKick = nil
-
                     }
                 }
             }
 
         } message: {
-            Text(String(localized: "add_member_remove_confirm_message"))
 
+            Text(String(localized: "add_member_remove_confirm_message"))
         }
+
 
     }
     
@@ -234,7 +234,7 @@ struct AddMemberSheet: View {
             return
         }
 
-        let newUid = uidText.trimmingCharacters(in: .whitespaces)
+        let newUid = uidText.trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard !newUid.isEmpty else {
             error = String(localized: "add_member_error_invalid_uid")
@@ -247,7 +247,7 @@ struct AddMemberSheet: View {
             return
         }
 
-        // ❌ Tránh duplicate
+        // ❌ Tránh duplicate (UX-level)
         if event.participants.contains(newUid) {
             error = String(localized: "add_member_error_user_already_joined")
             return
@@ -256,18 +256,52 @@ struct AddMemberSheet: View {
         isLoading = true
         error = nil
 
-        eventManager.addParticipant(newUid, to: event) { success in
-
+        // ⭐ GỌI VALIDATE TRƯỚC
+        eventManager.validateAddMember(newUid: newUid, event: event) { result in
             DispatchQueue.main.async {
+                self.isLoading = false
 
-                isLoading = false
+                switch result {
 
-                if success {
-                    dismiss()
-                } else {
-                    error = String(localized: "add_member_error_failed_add")
+                case .ok:
+                    // 👉 CHỈ OK MỚI ADD THẬT
+                    self.isLoading = true
+                    self.eventManager.addParticipant(newUid, to: event) { success in
+                        DispatchQueue.main.async {
+                            self.isLoading = false
+                            if success {
+                                dismiss()
+                            } else {
+                                self.error = String(localized: "add_member_error_failed_add")
+                            }
+                        }
+                    }
+
+                case .busy:
+                    self.error = String(localized: "add_member_user_busy")
+
+                case .offDay:
+                    self.error = String(localized: "add_member_user_off_day")
+
+                case .eventEnded:
+                    self.error = String(localized: "add_member_event_ended")
+
+                case .limitReached:
+                    self.error = String(localized: "event_limit_reached")
+
+                case .noPermission:
+                    self.error = String(localized: "add_member_error_no_permission")
+
+                case .userNotFound:
+                    self.error = String(localized: "uid_not_found")
+
+                case .notLoggedIn:
+                    self.error = String(localized: "add_member_error_not_logged_in")
                 }
             }
         }
     }
+
+    
 }
+

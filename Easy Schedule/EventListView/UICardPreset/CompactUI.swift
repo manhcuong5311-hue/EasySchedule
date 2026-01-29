@@ -4,6 +4,7 @@
 //
 //  Created by Sam Manh Cuong on 26/1/26.
 //
+// NOTE: Participants cannot self-leave events. Only owner/creator/admin can remove users.
 
 import SwiftUI
 import Combine
@@ -71,9 +72,10 @@ struct CompactEventRowView: View {
     }
 
 
-    private var canLeaveEvent: Bool {
+    private var shouldShowLeaveNotAllowed: Bool {
         !canDeleteEvent && event.participants.contains(myUid ?? "")
     }
+
 
     @State private var showLeaveConfirm = false
 
@@ -130,34 +132,15 @@ struct CompactEventRowView: View {
             String(localized: "leave_event"),
             isPresented: $showLeaveConfirm
         ) {
-
-            Button("Leave", role: .destructive) {
-                leaveEvent()
-            }
-
-            Button("Cancel", role: .cancel) {}
-
+            Button(String(localized: "close"), role: .cancel) {}
         } message: {
-            Text("You will be removed from this event.")
+            Text(String(localized: "leave_event_not_allowed"))
         }
+
 
     }
 
     
-    private func leaveEvent() {
-
-        guard let uid = myUid else { return }
-
-        eventManager.removeParticipant(
-            uid,
-            from: event
-        ) { success in
-
-            if !success {
-                print("❌ Leave event failed")
-            }
-        }
-    }
 
     // ===== ROW CONTENT =====
 
@@ -220,9 +203,9 @@ struct CompactEventRowView: View {
                 )
             }
 
-        } else if canLeaveEvent {
+        } else if shouldShowLeaveNotAllowed {
 
-            Button(role: .destructive) {
+            Button {
                 showLeaveConfirm = true
             } label: {
                 Label(

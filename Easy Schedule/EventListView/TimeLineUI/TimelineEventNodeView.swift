@@ -4,6 +4,8 @@
 //
 //  Created by Sam Manh Cuong on 26/1/26.
 //
+// NOTE: Participants cannot self-leave events. Only owner/creator/admin can remove users.
+
 import SwiftUI
 import FirebaseAuth
 
@@ -223,7 +225,7 @@ struct TimelineEventNodeView: View {
             // 👤 Chỉ được leave
             else if canLeaveEvent {
 
-                Button(role: .destructive) {
+                Button {
                     showLeaveConfirm = true
                 } label: {
                     Label(
@@ -231,19 +233,18 @@ struct TimelineEventNodeView: View {
                         systemImage: "rectangle.portrait.and.arrow.right"
                     )
                 }
+                
             }
         }
         .alert(
             String(localized: "leave_event"),
             isPresented: $showLeaveConfirm
         ) {
-            Button(String(localized: "leave"), role: .destructive) {
-                leaveEvent()
-            }
-            Button(String(localized: "cancel"), role: .cancel) {}
+            Button(String(localized: "close"), role: .cancel) {}
         } message: {
-            Text(String(localized: "leave_event_confirm"))
+            Text(String(localized: "leave_event_not_allowed"))
         }
+
         .alert(
             String(localized: "delete_event"),
             isPresented: $showDeleteConfirm
@@ -327,18 +328,6 @@ struct TimelineEventNodeView: View {
         }
     }
 
-    private func leaveEvent() {
-        guard let uid = myUid else { return }
-
-        eventManager.removeParticipant(
-            uid,
-            from: event
-        ) { success in
-            if !success {
-                print("❌ Leave event failed")
-            }
-        }
-    }
-
+   
 }
 

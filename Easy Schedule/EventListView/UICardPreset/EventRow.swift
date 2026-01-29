@@ -1,5 +1,6 @@
 import SwiftUI
 import FirebaseAuth
+// NOTE: Participants cannot self-leave events. Only owner/creator/admin can remove users.
 
 struct EventRowView: View {
 
@@ -207,7 +208,7 @@ struct EventRowView: View {
 
             } else if canLeaveEvent {
 
-                Button(role: .destructive) {
+                Button {
                     showLeaveConfirm = true
                 } label: {
                     Label(
@@ -216,6 +217,7 @@ struct EventRowView: View {
                     )
                 }
             }
+            
         }
 
         .onLongPressGesture(minimumDuration: 0.3) {
@@ -229,13 +231,11 @@ struct EventRowView: View {
             String(localized: "leave_event"),
             isPresented: $showLeaveConfirm
         ) {
-            Button(String(localized: "leave"), role: .destructive) {
-                leaveEvent()
-            }
-            Button(String(localized: "cancel"), role: .cancel) {}
+            Button(String(localized: "close"), role: .cancel) {}
         } message: {
-            Text(String(localized: "leave_event_confirm"))
+            Text(String(localized: "leave_event_not_allowed"))
         }
+
 
         .alert(
             String(localized: "delete_event"),
@@ -256,20 +256,6 @@ struct EventRowView: View {
 
         withAnimation {
             eventManager.deleteEvent(event)
-        }
-    }
-
-
-    private func leaveEvent() {
-        guard let uid = myUid else { return }
-
-        eventManager.removeParticipant(
-            uid,
-            from: event
-        ) { success in
-            if !success {
-                print("❌ Leave event failed")
-            }
         }
     }
 
