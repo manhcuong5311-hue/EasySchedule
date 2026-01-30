@@ -43,7 +43,7 @@ struct CompactEventRowView: View {
     }
 
     private var hasUnfinishedTodo: Bool {
-        isMyEvent && todoStore.hasUnfinishedTodo(for: event.id)
+        isPersonalEvent && todoStore.hasUnfinishedTodo(for: event.id)
     }
 
     private var unfinishedTodoCount: Int {
@@ -76,10 +76,19 @@ struct CompactEventRowView: View {
         !canDeleteEvent && event.participants.contains(myUid ?? "")
     }
 
+    private var isPersonalEvent: Bool {
+        event.participants.count == 1
+    }
+
+    private var hasTodoCapability: Bool {
+        isPersonalEvent
+    }
 
     @State private var showLeaveConfirm = false
 
     @State private var showAddMemberSheet = false
+
+    @State private var showActionSheet = false
 
     // ===== BODY =====
     var body: some View {
@@ -87,9 +96,10 @@ struct CompactEventRowView: View {
 
             rowContent
 
-            if isMyEvent && isExpanded {
+            if isExpanded {
                 todoList
             }
+
         }
         .background(
             ZStack {
@@ -114,13 +124,33 @@ struct CompactEventRowView: View {
         .contextMenu {
             contextMenuContent
         }
-        .onLongPressGesture(minimumDuration: 0.3) {
+        .onLongPressGesture {
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-            toggleExpand()
+            showActionSheet = true
         }
+
+
         .onAppear {
             chatMeta.startListening()
         }
+        .confirmationDialog(
+            String(localized: "event_open_action"),
+            isPresented: $showActionSheet
+        ) {
+            Button(String(localized: "open_todo")) {
+                toggleExpand()
+            }
+
+            Button(String(localized: "open_chat")) {
+                openChat()
+            }
+
+            Button(String(localized: "cancel"), role: .cancel) {}
+        }
+
+
+
+        
         .sheet(isPresented: $showAddMemberSheet) {
             AddMemberSheet(event: event)
                 .environmentObject(eventManager)
@@ -167,12 +197,13 @@ struct CompactEventRowView: View {
         .padding(.vertical, 8)
         .padding(.horizontal, 12)
         .onTapGesture {
-            if isMyEvent {
+            if isPersonalEvent {
                 toggleExpand()
             } else {
-                openChatIfNeeded()
+                showActionSheet = true
             }
         }
+
 
     }
 
@@ -271,11 +302,12 @@ struct CompactEventRowView: View {
 
             statusDot
 
-            if isMyEvent && unfinishedTodoCount > 0 {
+            if isPersonalEvent && unfinishedTodoCount > 0 {
                 todoCountView
             }
         }
     }
+
 
     @ViewBuilder
     private var statusDot: some View {
@@ -365,12 +397,18 @@ struct CompactEventRowView: View {
     }
 
 
-    private func openChatIfNeeded() {
-        guard !isMyEvent else { return }
+    
+    
+    
+    
+    private func openChat() {
+        expandedEvents.remove(event.id)   // 🔒 đóng todo nếu có
         eventManager.selectedChatEventId = event.id
         chatMeta.markSeen()
         EventSeenStore.shared.markSeen(eventId: event.id)
     }
+
+
 
     private func deleteEvent() {
         withAnimation {

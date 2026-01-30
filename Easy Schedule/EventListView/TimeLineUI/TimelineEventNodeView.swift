@@ -132,10 +132,7 @@ struct TimelineEventNodeView: View {
 
     // MARK: - Event type
 
-    private var isMyEvent: Bool {
-        event.origin != .busySlot &&
-        event.createdBy == event.owner
-    }
+ 
 
     
     private var hasUnreadChat: Bool {
@@ -146,10 +143,17 @@ struct TimelineEventNodeView: View {
     @ObservedObject private var todoStore = LocalTodoStore.shared
 
     private var hasUnfinishedTodo: Bool {
-        isMyEvent && todoStore.hasUnfinishedTodo(for: event.id)
+        isPersonalEvent && todoStore.hasUnfinishedTodo(for: event.id)
     }
 
+
     @State private var showAddMemberSheet = false
+    @State private var showActionSheet = false
+
+    
+    private var isPersonalEvent: Bool {
+        event.participants.count == 1
+    }
 
     // MARK: - Body
 
@@ -184,7 +188,7 @@ struct TimelineEventNodeView: View {
                 // Main dot
                 ZStack {
         
-                    Image(systemName: isMyEvent ? "person.fill" : "person.2.fill")
+                    Image(systemName: isPersonalEvent ? "person.fill" : "person.2.fill")
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundColor(.primary)
 
@@ -251,6 +255,20 @@ struct TimelineEventNodeView: View {
                     )
                 }
             }
+        }
+        .confirmationDialog(
+            String(localized: "event_open_action"),
+            isPresented: $showActionSheet
+        ) {
+            Button(String(localized: "open_todo")) {
+                eventManager.openEvent(eventId: event.id)
+            }
+
+            Button(String(localized: "open_chat")) {
+                eventManager.openChat(eventId: event.id)
+            }
+
+            Button(String(localized: "cancel"), role: .cancel) {}
         }
 
 
@@ -337,12 +355,14 @@ struct TimelineEventNodeView: View {
     private func handleTap() {
         guard event.origin != .busySlot else { return }
 
-        if isMyEvent {
+        if isPersonalEvent {
             eventManager.openEvent(eventId: event.id)
         } else {
-            eventManager.openChat(eventId: event.id)
+            showActionSheet = true
         }
     }
+
+
     
     private func deleteEvent() {
         guard canDeleteEvent else { return }

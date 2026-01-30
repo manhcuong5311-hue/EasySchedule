@@ -880,6 +880,7 @@ extension EventManager {
             return
         }
 
+        // ✅ Permission giữ nguyên
         guard
             event.owner == myUid ||
             event.admins?.contains(myUid) == true
@@ -888,41 +889,87 @@ extension EventManager {
             return
         }
 
+        // ✅ Không add trùng (giữ nguyên behavior)
         guard !event.participants.contains(newUid) else {
             completion?(true)
             return
         }
 
-        var updated = event.participants
-        updated.append(newUid)
+        // =========================
+        // 1️⃣ BUILD UPDATED STATE
+        // =========================
+        var updatedParticipants = event.participants
+        updatedParticipants.append(newUid)
 
-        let admins = event.admins ?? [event.owner]
+        let updatedAdmins = event.admins ?? [event.owner]
 
         let ref = db.collection("events").document(event.id)
 
+        // =========================
+        // 2️⃣ UPDATE FIRESTORE EVENT
+        // =========================
         ref.updateData([
-            "participants": updated,
-            "admins": admins
+            "participants": updatedParticipants,
+            "admins": updatedAdmins
         ]) { error in
 
-            if error != nil {
+            guard error == nil else {
                 completion?(false)
                 return
             }
 
-            // sync chat
+            // =========================
+            // 3️⃣ BOOTSTRAP / UPDATE CHAT
+            // =========================
             self.db.collection("chats")
                 .document(event.id)
                 .setData(
-                    ["participants": updated],
+                    [
+                        "participants": updatedParticipants,
+                        "createdAt": FieldValue.serverTimestamp(),
+                        "lastUpdated": FieldValue.serverTimestamp()
+                    ],
                     merge: true
                 )
 
-            // sync busy slot
+            // =========================
+            // 4️⃣ SYNC BUSY SLOT (GIỮ + MỞ RỘNG)
+            // =========================
+            // ⬅️ giữ hành vi cũ
             self.addBusySlot(for: newUid, event: event)
 
-            // 🔄 clear cache
+            // ⬅️ đảm bảo event nhóm sync đúng cho tất cả
+            let updatedEvent = CalendarEvent(
+                id: event.id,
+                title: event.title,
+                date: event.date,
+                startTime: event.startTime,
+                endTime: event.endTime,
+                owner: event.owner,
+                sharedUser: event.sharedUser,
+                createdBy: event.createdBy,
+                participants: updatedParticipants,
+                admins: updatedAdmins,
+                colorHex: event.colorHex,
+                pendingDelete: false,
+                origin: event.origin
+            )
+
+            self.syncBusySlots(for: updatedEvent)
+
+            // =========================
+            // 5️⃣ UPDATE LOCAL STATE
+            // =========================
             DispatchQueue.main.async {
+
+                if let idx = self.events.firstIndex(where: { $0.id == event.id }) {
+
+                    self.events[idx] = updatedEvent
+                    self.saveEvents()
+                    self.updateGroupedEvents()
+                }
+
+                // 🔄 clear cache (giữ nguyên behavior cũ)
                 self.partnerBusySlotCache.removeValue(forKey: newUid)
                 self.partnerBusySlots.removeValue(forKey: newUid)
             }
@@ -1369,16 +1416,6 @@ extension EventManager {
                     self.userNames[uid] = name
                 }
             }
-    }
-
-    func addMember(eventId: String, userId: String) {
-
-        Firestore.firestore()
-            .collection("events")
-            .document(eventId)
-            .updateData([
-                "participants": FieldValue.arrayUnion([userId])
-            ])
     }
 
 

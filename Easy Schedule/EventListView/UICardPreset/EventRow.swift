@@ -22,6 +22,10 @@ struct EventRowView: View {
         event.createdBy == event.owner
     }
 
+    private var isPersonalEvent: Bool {
+        event.participants.count == 1
+    }
+
     private var isExpanded: Bool {
         expandedEvents.contains(event.id)
     }
@@ -78,6 +82,9 @@ struct EventRowView: View {
 
     @State private var showAddMemberSheet = false
 
+    @State private var showActionSheet = false
+
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
 
@@ -126,7 +133,7 @@ struct EventRowView: View {
                     }
 
                     // 🔵 TODO COUNT (MY EVENT)
-                    if isMyEvent && unfinishedTodoCount > 0 {
+                    if isPersonalEvent && unfinishedTodoCount > 0 {
                         Text("\(unfinishedTodoCount)")
                             .font(.system(size: 11, weight: .medium))
                                    .foregroundColor(uiAccent.color.opacity(0.8))
@@ -139,7 +146,7 @@ struct EventRowView: View {
                     }
 
                     // ▶️ CHEVRON
-                    if isMyEvent {
+                    if isPersonalEvent {
                         Button {
                             toggleExpand()
                         } label: {
@@ -157,8 +164,9 @@ struct EventRowView: View {
             }
             .contentShape(Rectangle())
             .onTapGesture {
-                openChatIfNeeded()
+                handleEventTap()
             }
+
             .padding(14)
             .background(
                 RoundedRectangle(cornerRadius: 16)
@@ -185,14 +193,12 @@ struct EventRowView: View {
                     )
             )
 
-
-
-
             // ===== TODO =====
-            if isMyEvent && isExpanded {
+            if isExpanded {
                 LocalTodoListView(eventId: event.id)
                     .padding(.horizontal, 12)
             }
+
         }
         .contextMenu {
 
@@ -241,6 +247,21 @@ struct EventRowView: View {
         .onLongPressGesture(minimumDuration: 0.3) {
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         }
+        .confirmationDialog(
+            String(localized: "event_open_action"),
+            isPresented: $showActionSheet
+        ) {
+            Button(String(localized: "open_todo")) {
+                toggleExpand()
+            }
+
+            Button(String(localized: "open_chat")) {
+                openChat()
+            }
+
+            Button(String(localized: "cancel"), role: .cancel) {}
+        }
+
 
         .onAppear {
             chatMeta.startListening()
@@ -274,6 +295,29 @@ struct EventRowView: View {
 
     }
     
+    
+    
+    
+    
+    
+    
+    
+    
+    private func handleEventTap() {
+
+        // Event cá nhân → tap mở todo (giữ UX cũ)
+        if isPersonalEvent {
+            toggleExpand()
+            return
+        }
+
+        // Event nhóm → cho user chọn Chat
+        showActionSheet = true
+    }
+
+
+    
+    
     private func deleteEvent() {
         guard canDeleteEvent else { return }
 
@@ -282,17 +326,20 @@ struct EventRowView: View {
         }
     }
 
-    private func openChatIfNeeded() {
-        guard !isMyEvent else { return }
+    private func openChat() {
+
+        // 🔒 Đóng todo nếu đang mở
+        expandedEvents.remove(event.id)
 
         // 1️⃣ Set event đang mở chat
         eventManager.selectedChatEventId = event.id
 
-        // 2️⃣ Clear unread
+        // 2️⃣ Mark seen
         chatMeta.markSeen()
-        // ⭐ ADD DÒNG NÀY
-            EventSeenStore.shared.markSeen(eventId: event.id)
+        EventSeenStore.shared.markSeen(eventId: event.id)
     }
+
+
 
     
     

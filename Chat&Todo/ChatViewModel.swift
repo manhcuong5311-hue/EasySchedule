@@ -37,29 +37,32 @@ class ChatViewModel: ObservableObject {
     private let db = Firestore.firestore()
     private var listener: ListenerRegistration?
 
+    
+    //New
+    
+    private let participants: [String]
+
     // MARK: - Identity
     let eventId: String
-    let otherUserId: String
     let myId: String
     let myName: String
 
     // MARK: - Init
     init(
         eventId: String,
-        otherUserId: String,
+        participants: [String],
         myId: String,
         myName: String
     ) {
         self.eventId = eventId
-        self.otherUserId = otherUserId
+        self.participants = participants
         self.myId = myId
         self.myName = myName
         loadOfflineMessages()
         listenChatMeta()
         EventManager.shared.preloadUsersIfNeeded()
-
     }
-
+    
     private var offlineKey: String {
         "offline_messages_\(eventId)_\(myId)"
     }
@@ -71,26 +74,20 @@ class ChatViewModel: ObservableObject {
 
     // MARK: - Ensure chat exists (BẮT BUỘC)
     @MainActor
-    func ensureChatExists(
-        participants: [String],
-        eventEndTime: Date
-    ) async {
-
+    func ensureChatExists(eventEndTime: Date) async throws {
         let ref = db.collection("chats").document(eventId)
 
-        do {
-            let snap = try await ref.getDocument()
-            if snap.exists { return }
+        let snap = try await ref.getDocument()
+        if snap.exists { return }
 
-            try await ref.setData([
-                "participants": participants,
-                "eventEndTime": Timestamp(date: eventEndTime),
-                "createdAt": Timestamp()
-            ])
-        } catch {
-            print("❌ ensureChatExists failed:", error)
-        }
+        try await ref.setData([
+            "participants": participants,
+            "eventEndTime": Timestamp(date: eventEndTime),
+            "createdAt": Timestamp()
+        ])
     }
+
+
 
     // MARK: - Realtime listener
     func listenMessages() {
@@ -246,8 +243,16 @@ class ChatViewModel: ObservableObject {
     }
 
 
-    // MARK: - Update free limit (CLIENT SIDE)
-   
+    
+    private func buildUnreadMap() -> [String: Bool] {
+        var map: [String: Bool] = [:]
+        for uid in participants {
+            map[uid] = (uid != myId)
+        }
+        return map
+    }
+
+
     // MARK: - Send text message
     func sendMessage(
         isPremium: Bool,
@@ -293,11 +298,9 @@ class ChatViewModel: ObservableObject {
         chatRef.setData([
             "lastMessage": "\(displayName): \(text)",
             "lastMessageTime": Timestamp(),
-            "unread": [
-                myId: false,
-                otherUserId: true
-            ]
+            "unread": buildUnreadMap()
         ], merge: true)
+
 
 
         // ⭐ 4. NẾU OFFLINE → DỪNG Ở sending
@@ -378,10 +381,8 @@ class ChatViewModel: ObservableObject {
         chatRef.setData([
             "lastMessage": "\(displayName): \(String(localized: "location_sent"))",
             "lastMessageTime": Timestamp(),
-            "unread": [
-                myId: false,
-                otherUserId: true
-            ]
+            "unread": buildUnreadMap()
+
         ], merge: true)
 
 
@@ -514,10 +515,7 @@ class ChatViewModel: ObservableObject {
         chatRef.setData([
             "lastMessage": lastMessage,
             "lastMessageTime": Timestamp(),
-            "unread": [
-                myId: false,
-                otherUserId: true
-            ]
+            "unread": buildUnreadMap()
         ], merge: true)
     }
    

@@ -187,21 +187,7 @@ struct AddMemberSheet: View {
 
     }
     
-    private func addMember(_ uid: String) {
-
-        guard !uid.isEmpty else { return }
-
-        // Không add trùng
-        if event.participants.contains(uid) {
-            return
-        }
-
-        eventManager.addMember(
-            eventId: event.id,
-            userId: uid
-        )
-    }
-
+  
     private func canKick(_ uid: String) -> Bool {
 
         guard let myUid = Auth.auth().currentUser?.uid else {
