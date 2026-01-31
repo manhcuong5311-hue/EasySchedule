@@ -240,10 +240,16 @@ struct WeekPagerView: View {
     let maxBookingDays: Int
 
     private let calendar = Calendar.current
+    private let weeks: [Date]
+
     @Environment(\.dismiss) private var dismiss
 
     @State private var currentWeekStart: Date
     @State private var showRotateHint = false
+    @Environment(\.horizontalSizeClass) private var hSizeClass
+    private var isIPhone: Bool {
+        UIDevice.current.userInterfaceIdiom == .phone
+    }
 
     init(
         selectedDate: Binding<Date?>,
@@ -259,13 +265,19 @@ struct WeekPagerView: View {
         self.maxBookingDays = maxBookingDays
 
         let base = Calendar.current.startOfWeek(for: selectedDate.wrappedValue ?? Date())
+
+        self.weeks = (-8...8).compactMap {
+            Calendar.current.date(byAdding: .weekOfYear, value: $0, to: base)
+        }
+
         _currentWeekStart = State(initialValue: base)
     }
+
 
     var body: some View {
         NavigationStack {
             TabView(selection: $currentWeekStart) {
-                ForEach(weeksAroundReference, id: \.self) { weekStart in
+                ForEach(weeks, id: \.self) { weekStart in
                     WeekRowView(
                         weekStart: weekStart,
                         selectedDate: $selectedDate,
@@ -275,41 +287,45 @@ struct WeekPagerView: View {
                         maxBookingDays: maxBookingDays
                     )
                     .tag(weekStart)
-                    .padding(.top)
                 }
             }
+        
             .tabViewStyle(.page(indexDisplayMode: .never))
-            .navigationTitle("Week View")
+            .navigationTitle(LocalizedStringKey("week_view_title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button {
-                        showRotateHint = true
-                    } label: {
-                        Image(systemName: "iphone.landscape")
+                    if isIPhone {
+                        Button {
+                            showRotateHint = true
+                        } label: {
+                            Image(systemName: "iphone.landscape")
+                        }
                     }
                 }
 
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { dismiss() }
+                    Button(LocalizedStringKey("done")) { dismiss() }
                 }
             }
 
         }
-        .alert("Rotate your device", isPresented: $showRotateHint) {
-            Button("OK", role: .cancel) {}
+        .alert(
+            LocalizedStringKey("rotate_device_title"),
+            isPresented: $showRotateHint
+        ) {
+            Button(LocalizedStringKey("ok"), role: .cancel) {}
         } message: {
-            Text("Rotate your phone to landscape for a wider and clearer week view.")
+            Text(LocalizedStringKey("rotate_device_message"))
         }
         .onAppear {
-            guard !showRotateHint else { return }
+            guard isIPhone else { return }
 
             if !UserDefaults.standard.bool(forKey: "didShowRotateHint") {
                 showRotateHint = true
                 UserDefaults.standard.set(true, forKey: "didShowRotateHint")
             }
         }
-
 
     }
 
@@ -333,6 +349,17 @@ struct WeekRowView: View {
     let maxBookingDays: Int
 
     private let calendar = Calendar.current
+    @Environment(\.horizontalSizeClass) private var hSizeClass
+
+    private var isPad: Bool {
+        UIDevice.current.userInterfaceIdiom == .pad
+    }
+
+    private var isWideLayout: Bool {
+        isPad && hSizeClass == .regular
+    }
+
+   
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -341,11 +368,32 @@ struct WeekRowView: View {
                 .font(.headline)
                 .padding(.horizontal)
 
-            TabView {
-                dayPage(days: Array(daysInWeek.prefix(4)))
-                dayPage(days: Array(daysInWeek.dropFirst(4)))
+            if isWideLayout {
+                // ✅ iPad / wide screen → 7 days / 1 page
+                HStack(spacing: 12) {
+                    ForEach(daysInWeek, id: \.self) { date in
+                        WeekDayCard(
+                            date: date,
+                            selectedDate: $selectedDate,
+                            events: eventsByDay[calendar.startOfDay(for: date)] ?? [],
+                            isOffDay: offDays.contains {
+                                calendar.isDate($0, inSameDayAs: date)
+                            },
+                            isOwner: isOwner,
+                            maxBookingDays: maxBookingDays
+                        )
+                    }
+                }
+                .padding(.horizontal)
+
+            } else {
+                // 📱 iPhone → 4 + 3
+                TabView {
+                    dayPage(days: Array(daysInWeek.prefix(4)))
+                    dayPage(days: Array(daysInWeek.dropFirst(4)))
+                }
+                .tabViewStyle(.page(indexDisplayMode: .automatic))
             }
-            .tabViewStyle(.page(indexDisplayMode: .automatic))
         }
     }
 
@@ -380,6 +428,7 @@ struct WeekRowView: View {
 }
 
 
+
 struct WeekDayCard: View {
 
     let date: Date
@@ -395,10 +444,14 @@ struct WeekDayCard: View {
     var body: some View {
         let dayStart = calendar.startOfDay(for: date)
         let today = calendar.startOfDay(for: Date())
-        let isLocked = dayStart < today ||
+
+        let isOutOfRange =
+            dayStart < today ||
             dayStart > calendar.startOfDay(
                 for: calendar.date(byAdding: .day, value: maxBookingDays, to: Date())!
             )
+
+        let isLocked = isOutOfRange || (!isOwner && isOffDay)
 
         VStack(alignment: .leading, spacing: 8) {
 
@@ -408,18 +461,33 @@ struct WeekDayCard: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
 
-                Text("\(calendar.component(.day, from: date))")
-                    .font(.title2.bold())
+                HStack {
+                    Text("\(calendar.component(.day, from: date))")
+                        .font(.title2.bold())
+
+                    if isOffDay {
+                        Image(systemName: "leaf.fill") // 🌴 vibe Apple hơn emoji
+                            .font(.caption)
+                            .foregroundColor(.green)
+                            .padding(6)
+                            .background(
+                                Circle()
+                                    .fill(Color.green.opacity(0.15))
+                            )
+                            .accessibilityLabel(LocalizedStringKey("day_off"))
+                    }
+
+                }
             }
 
             Divider()
 
-            // ===== EVENT LIST (SCROLLABLE) =====
+            // ===== EVENT LIST =====
             ScrollView(.vertical, showsIndicators: true) {
                 VStack(alignment: .leading, spacing: 6) {
 
                     if events.isEmpty {
-                        Text("No events")
+                        Text(LocalizedStringKey(isOffDay ? "day_off" : "no_events"))
                             .font(.caption)
                             .foregroundColor(.secondary)
                             .padding(.top, 4)
@@ -448,9 +516,13 @@ struct WeekDayCard: View {
         .background(
             RoundedRectangle(cornerRadius: 12)
                 .fill(
-                    calendar.isDate(selectedDate ?? Date(), inSameDayAs: date)
-                    ? Color.accentColor.opacity(0.15)
-                    : Color(.secondarySystemBackground)
+                    isOffDay
+                        ? Color.gray.opacity(0.15)
+                        : (
+                            calendar.isDate(selectedDate ?? Date(), inSameDayAs: date)
+                            ? Color.accentColor.opacity(0.15)
+                            : Color(.secondarySystemBackground)
+                        )
                 )
         )
         .opacity(isLocked ? 0.4 : 1)
@@ -460,6 +532,7 @@ struct WeekDayCard: View {
             selectedDate = date
         }
     }
+
 }
 
 
