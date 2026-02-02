@@ -208,58 +208,22 @@ struct TimelineEventNodeView: View {
         .onTapGesture {
             handleTap()
         }
-        .contextMenu {
+        .onLongPressGesture(minimumDuration: 0.35) {
+            guard event.origin != .busySlot else { return }
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
 
-            // 🔒 BusySlot → KHÔNG menu
-            if event.origin == .busySlot {
-                EmptyView()
-            }
-
-            // 👑 Owner / Creator / Admin
-            else if canDeleteEvent {
-
-                // 👥 Add people (CHỈ khi có quyền)
-                Button {
-                    // ✅ Haptic nhẹ – iOS style
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                    showAddMemberSheet = true
-                } label: {
-                    Label(
-                        String(localized: "add_member_title"),
-                        systemImage: "person.badge.plus"
-                    )
-                }
-
-                Divider() // ⭐ TÁCH HÀNH ĐỘNG NGUY HIỂM
-
-                // ❌ Delete event
-                Button(role: .destructive) {
-                    showDeleteConfirm = true
-                } label: {
-                    Label(
-                        String(localized: "delete"),
-                        systemImage: "trash"
-                    )
-                }
-            }
-
-            // 👤 Member thường → chỉ được leave
-            else if canLeaveEvent {
-
-                Button {
-                    showLeaveConfirm = true
-                } label: {
-                    Label(
-                        String(localized: "leave_event"),
-                        systemImage: "rectangle.portrait.and.arrow.right"
-                    )
-                }
+            // Owner / Creator / Admin → full action
+            if canDeleteEvent || canLeaveEvent {
+                showActionSheet = true
             }
         }
+
         .confirmationDialog(
             String(localized: "event_open_action"),
             isPresented: $showActionSheet
         ) {
+
+            // 📌 Open
             Button(String(localized: "open_todo")) {
                 eventManager.openEvent(eventId: event.id)
             }
@@ -268,8 +232,31 @@ struct TimelineEventNodeView: View {
                 eventManager.openChat(eventId: event.id)
             }
 
+            // 👥 Add member (Owner / Creator / Admin)
+            if canDeleteEvent {
+                Button(String(localized: "add_member_title")) {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    showAddMemberSheet = true
+                }
+            }
+
+            // ❌ Delete event
+            if canDeleteEvent {
+                Button(String(localized: "delete"), role: .destructive) {
+                    showDeleteConfirm = true
+                }
+            }
+
+            // 🚪 Leave event
+            if canLeaveEvent {
+                Button(String(localized: "leave_event"), role: .destructive) {
+                    showLeaveConfirm = true
+                }
+            }
+
             Button(String(localized: "cancel"), role: .cancel) {}
         }
+
 
 
         .sheet(isPresented: $showAddMemberSheet) {
@@ -355,12 +342,13 @@ struct TimelineEventNodeView: View {
     private func handleTap() {
         guard event.origin != .busySlot else { return }
 
-        if isPersonalEvent {
-            eventManager.openEvent(eventId: event.id)
+        if event.participants.count > 1 {
+            eventManager.openChat(eventId: event.id)
         } else {
-            showActionSheet = true
+            eventManager.openEvent(eventId: event.id)
         }
     }
+
 
 
     

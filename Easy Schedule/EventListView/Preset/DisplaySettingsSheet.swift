@@ -214,7 +214,7 @@ struct DisplaySettingsSheet: View {
                         .font(.title3)
                 }
                 .buttonStyle(.borderless)
-                .disabled(timeFontSize <= 11)
+                .disabled(isCompactLayout || timeFontSize <= 11)
 
                 Spacer()
 
@@ -224,6 +224,7 @@ struct DisplaySettingsSheet: View {
                         Int(timeFontSize)
                     )
                 )
+                .foregroundStyle(isCompactLayout ? .secondary : .primary)
 
                 Spacer()
 
@@ -234,10 +235,18 @@ struct DisplaySettingsSheet: View {
                         .font(.title3)
                 }
                 .buttonStyle(.borderless)
-                .disabled(timeFontSize >= 25)
+                .disabled(isCompactLayout || timeFontSize >= 25)
+            }
+
+            // 👇 Hint cho user (rất nên có)
+            if isCompactLayout {
+                Text(String(localized: "compact_font_size_locked"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         }
     }
+
 
 
 
@@ -320,7 +329,13 @@ struct DisplaySettingsSheet: View {
         if let defaultMode = layout.defaultTimeDisplayMode {
             timeDisplayModeRaw = defaultMode.rawValue
         }
+
+        // 🔒 HARD LOCK FONT SIZE FOR COMPACT
+        if layout == .compact {
+            timeFontSize = 14   // hoặc giá trị bạn chọn cho compact
+        }
     }
+
 }
 
 struct ChatColorPresetPicker: View {

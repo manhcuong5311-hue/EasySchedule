@@ -926,11 +926,13 @@ extension EventManager {
                 .setData(
                     [
                         "participants": updatedParticipants,
+                        "eventEndTime": Timestamp(date: event.endTime), // ⭐ BẮT BUỘC
                         "createdAt": FieldValue.serverTimestamp(),
                         "lastUpdated": FieldValue.serverTimestamp()
                     ],
                     merge: true
                 )
+
 
             // =========================
             // 4️⃣ SYNC BUSY SLOT (GIỮ + MỞ RỘNG)

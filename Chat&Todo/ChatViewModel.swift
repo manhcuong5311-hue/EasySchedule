@@ -60,6 +60,7 @@ class ChatViewModel: ObservableObject {
         self.myName = myName
         loadOfflineMessages()
         listenChatMeta()
+        listenMessages()   // 🔥🔥🔥 BẮT BUỘC
         EventManager.shared.preloadUsersIfNeeded()
     }
     
@@ -97,7 +98,7 @@ class ChatViewModel: ObservableObject {
             .document(eventId)
             .collection("messages")
             .order(by: "timestamp")
-            .limit(toLast: 30)
+            .limit(toLast: 50)
             .addSnapshotListener { snap, _ in
                 guard let snap else { return }
 
