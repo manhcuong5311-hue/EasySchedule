@@ -52,9 +52,23 @@ final class LocalTodoStore: ObservableObject {
         else { return }
 
         list[idx].isDone.toggle()
+        sortPinnedFirst(&list)
+
         todosByEvent[eventId] = list
         save()
+
+        // ⭐️ FIX: nếu todo cá nhân DONE HẾT → clear hint
+        let hasUnfinished = list.contains {
+            !$0.isDone && !$0.isPinned
+        }
+
+        if !hasUnfinished {
+            LocalEventTodoHintStore.shared
+                .clearTodoHint(eventId: eventId)
+        }
     }
+
+
 
     private func save() {
         if let data = try? JSONEncoder().encode(todosByEvent) {
@@ -76,7 +90,18 @@ final class LocalTodoStore: ObservableObject {
         list.removeAll { $0.id == todoId }
         todosByEvent[eventId] = list
         save()
+
+        // ⭐️ FIX: xoá xong mà không còn việc → clear hint
+        let hasUnfinished = list.contains {
+            !$0.isDone && !$0.isPinned
+        }
+
+        if !hasUnfinished {
+            LocalEventTodoHintStore.shared
+                .clearTodoHint(eventId: eventId)
+        }
     }
+
 
 
     func move(from source: IndexSet, to destination: Int, eventId: String) {
@@ -89,22 +114,27 @@ final class LocalTodoStore: ObservableObject {
               let idx = list.firstIndex(where: { $0.id == todoId })
         else { return }
 
-        list[idx].isPinned.toggle()
-
-        // pin lên đầu
-        list.sort {
-            if $0.isPinned != $1.isPinned {
-                return $0.isPinned
-            }
-            return false
-        }
+        list[idx].isPinned.toggle()   // ✅ ĐÚNG
+        sortPinnedFirst(&list)
 
         todosByEvent[eventId] = list
         save()
     }
 
+
     func unfinishedCount(for eventId: String) -> Int {
-        todosByEvent[eventId]?.filter { !$0.isDone }.count ?? 0
+        todosByEvent[eventId]?.filter {
+            !$0.isDone && !$0.isPinned
+        }.count ?? 0
+    }
+
+    private func sortPinnedFirst(_ list: inout [LocalTodo]) {
+        list.sort {
+            if $0.isPinned != $1.isPinned {
+                return $0.isPinned
+            }
+            return false   // giữ nguyên thứ tự còn lại
+        }
     }
 
     
@@ -239,8 +269,18 @@ struct LocalTodoListView: View {
             .contentShape(Rectangle())
             
             .onSubmit {
-                addTodo()
+                let text = newTodo.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !text.isEmpty else { return }
+
+                store.addTodo(text, to: eventId)
+
+                // ⭐️ bật hint cho todo cá nhân
+                LocalEventTodoHintStore.shared
+                    .markHasTodo(eventId: eventId)
+
+                newTodo = ""
             }
+
             .onTapGesture {
                 // giữ feel native
             }
@@ -251,17 +291,55 @@ struct LocalTodoListView: View {
         )
     }
 
-    private func addTodo() {
-        let text = newTodo.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else { return }
-        store.addTodo(text, to: eventId)
-        newTodo = ""
-    }
+    
+ 
+    
+    
 }
 
 extension LocalTodoStore {
 
     func hasUnfinishedTodo(for eventId: String) -> Bool {
         unfinishedCount(for: eventId) > 0
+    }
+}
+
+final class LocalEventTodoHintStore: ObservableObject {
+
+    static let shared = LocalEventTodoHintStore()
+
+    @Published private(set) var hintedEventIds: Set<String> = []
+
+    private let key = "local_event_todo_hints"
+
+    private init() {
+        load()
+    }
+
+    func markHasTodo(eventId: String) {
+        guard !hintedEventIds.contains(eventId) else { return }
+        hintedEventIds.insert(eventId)
+        save()
+    }
+
+    // ⭐️ NEW — xoá hint khi todo done hết
+       func clearTodoHint(eventId: String) {
+           guard hintedEventIds.contains(eventId) else { return }
+           hintedEventIds.remove(eventId)
+           save()
+       }
+    
+    func hasTodoHint(eventId: String) -> Bool {
+        hintedEventIds.contains(eventId)
+    }
+
+    private func save() {
+        let array = Array(hintedEventIds)
+        UserDefaults.standard.set(array, forKey: key)
+    }
+
+    private func load() {
+        let array = UserDefaults.standard.stringArray(forKey: key) ?? []
+        hintedEventIds = Set(array)
     }
 }

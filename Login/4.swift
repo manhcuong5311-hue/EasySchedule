@@ -49,43 +49,59 @@ struct SmartPlanningAISlide: View {
                 // MARK: - Feature cards
                 ZStack {
 
+                    // Day off – top left (higher)
                     TimeFeatureCard(
                         icon: "calendar.badge.minus",
                         title: String(localized: "feature_day_off_title"),
                         subtitle: String(localized: "feature_day_off_subtitle"),
                         color: .orange,
-                        x: -60,
-                        y: -60
+                        x: -70,
+                        y: -120
                     )
 
+                    // Busy hours – top right
                     TimeFeatureCard(
                         icon: "clock.badge.checkmark",
                         title: String(localized: "feature_busy_hours_title"),
                         subtitle: String(localized: "feature_busy_hours_subtitle"),
                         color: .accentColor,
-                        x: 60,
-                        y: 00
+                        x: 70,
+                        y: -60
                     )
 
+                    // Add people – center (slightly lower)
+                    TimeFeatureCard(
+                        icon: "person.2.fill",
+                        title: String(localized: "feature_add_people_title"),
+                        subtitle: String(localized: "feature_add_people_subtitle"),
+                        color: .blue,
+                        x: 0,
+                        y: 5
+                    )
+
+                    // Chat – lower left
                     TimeFeatureCard(
                         icon: "bubble.left.and.bubble.right.fill",
                         title: String(localized: "feature_chat_title"),
                         subtitle: String(localized: "feature_chat_subtitle"),
                         color: .green,
-                        x: -40,
-                        y: 60
+                        x: -65,
+                        y: 70
                     )
 
+                    // Todo – lower right
                     TimeFeatureCard(
-                        icon: "paintpalette.fill",
-                        title: String(localized: "feature_colors_title"),
-                        subtitle: String(localized: "feature_colors_subtitle"),
+                        icon: "checklist",
+                        title: String(localized: "feature_todo_title"),
+                        subtitle: String(localized: "feature_todo_subtitle"),
                         color: .purple,
-                        x: 40,
-                        y: 120
+                        x: 65,
+                        y: 130
                     )
-
                 }
+
+
+
                 .frame(height: 340)
 
                 Spacer()

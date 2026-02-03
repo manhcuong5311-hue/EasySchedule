@@ -46,6 +46,7 @@ struct CalendarEvent: Identifiable, Hashable, Codable {
     var colorHex: String = "#007AFF"
     var pendingDelete: Bool = false
     var origin: EventOrigin = .myEvent
+    
 }
 
 
@@ -170,6 +171,13 @@ final class EventManager: ObservableObject {
       
     }
 
+    
+    
+    
+    
+    
+    
+    
     // MARK: - LOCAL SAVE
     private func saveEvents() {
         if isProcessing { return }   // ⭐ NGĂN GHI ĐÈ SAI
@@ -873,52 +881,106 @@ extension EventManager {
             return
         }
 
-        // Chỉ admin/owner mới được add
+        // ✅ Permission giữ nguyên
         guard
-           event.admins?.contains(myUid) == true ||
-           event.owner == myUid
+            event.owner == myUid ||
+            event.admins?.contains(myUid) == true
         else {
-
-            print("🚫 No permission to add member")
             completion?(false)
             return
         }
 
-        // Tránh duplicate
+        // ✅ Không add trùng (giữ nguyên behavior)
         guard !event.participants.contains(newUid) else {
             completion?(true)
             return
         }
 
-        var updated = event.participants
-        updated.append(newUid)
+        // =========================
+        // 1️⃣ BUILD UPDATED STATE
+        // =========================
+        var updatedParticipants = event.participants
+        updatedParticipants.append(newUid)
+
+        let updatedAdmins = event.admins ?? [event.owner]
 
         let ref = db.collection("events").document(event.id)
 
+        // =========================
+        // 2️⃣ UPDATE FIRESTORE EVENT
+        // =========================
         ref.updateData([
-            "participants": updated,
-            "admins": event.admins ?? [myUid]
+            "participants": updatedParticipants,
+            "admins": updatedAdmins
         ]) { error in
 
-            if let error = error {
-                print("❌ Add participant failed:", error.localizedDescription)
+            guard error == nil else {
                 completion?(false)
                 return
             }
 
-            // ✅ Sync chat participants
+            // =========================
+            // 3️⃣ BOOTSTRAP / UPDATE CHAT
+            // =========================
             self.db.collection("chats")
                 .document(event.id)
-                .setData([
-                    "participants": updated
-                ], merge: true)
+                .setData(
+                    [
+                        "participants": updatedParticipants,
+                        "eventEndTime": Timestamp(date: event.endTime), // ⭐ BẮT BUỘC
+                        "createdAt": FieldValue.serverTimestamp(),
+                        "lastUpdated": FieldValue.serverTimestamp()
+                    ],
+                    merge: true
+                )
 
-            // ✅ Sync busy slot cho user mới
+
+            // =========================
+            // 4️⃣ SYNC BUSY SLOT (GIỮ + MỞ RỘNG)
+            // =========================
+            // ⬅️ giữ hành vi cũ
             self.addBusySlot(for: newUid, event: event)
+
+            // ⬅️ đảm bảo event nhóm sync đúng cho tất cả
+            let updatedEvent = CalendarEvent(
+                id: event.id,
+                title: event.title,
+                date: event.date,
+                startTime: event.startTime,
+                endTime: event.endTime,
+                owner: event.owner,
+                sharedUser: event.sharedUser,
+                createdBy: event.createdBy,
+                participants: updatedParticipants,
+                admins: updatedAdmins,
+                colorHex: event.colorHex,
+                pendingDelete: false,
+                origin: event.origin
+            )
+
+            self.syncBusySlots(for: updatedEvent)
+
+            // =========================
+            // 5️⃣ UPDATE LOCAL STATE
+            // =========================
+            DispatchQueue.main.async {
+
+                if let idx = self.events.firstIndex(where: { $0.id == event.id }) {
+
+                    self.events[idx] = updatedEvent
+                    self.saveEvents()
+                    self.updateGroupedEvents()
+                }
+
+                // 🔄 clear cache (giữ nguyên behavior cũ)
+                self.partnerBusySlotCache.removeValue(forKey: newUid)
+                self.partnerBusySlots.removeValue(forKey: newUid)
+            }
 
             completion?(true)
         }
     }
+
 
     
     // MARK: - GROUP: Remove participant
@@ -1357,16 +1419,6 @@ extension EventManager {
                     self.userNames[uid] = name
                 }
             }
-    }
-
-    func addMember(eventId: String, userId: String) {
-
-        Firestore.firestore()
-            .collection("events")
-            .document(eventId)
-            .updateData([
-                "participants": FieldValue.arrayUnion([userId])
-            ])
     }
 
 
@@ -2289,6 +2341,110 @@ extension EventManager {
         events.first { $0.id == wrapper.id }
     }
 
+    func validateAddMember(
+        newUid: String,
+        event: CalendarEvent,
+        completion: @escaping (AddMemberValidationResult) -> Void
+    ) {
+
+        // 1️⃣ LOGIN
+        guard let myUid = currentUserId else {
+            completion(.notLoggedIn)
+            return
+        }
+
+        // 2️⃣ PERMISSION
+        let canAdd =
+            myUid == event.owner ||
+            event.admins?.contains(myUid) == true
+
+        guard canAdd else {
+            completion(.noPermission)
+            return
+        }
+
+        // 3️⃣ EVENT CÒN HIỆU LỰC
+        guard event.endTime > Date() else {
+            completion(.eventEnded)
+            return
+        }
+
+        // 4️⃣ USER TỒN TẠI
+        validateUserExists(uid: newUid) { exists in
+            guard exists else {
+                completion(.userNotFound)
+                return
+            }
+
+            // =========================
+            // 5️⃣ OFF DAY (FIX CHUẨN)
+            // =========================
+            self.fetchOffDays(for: newUid, forceRefresh: true) { offDays in
+
+                let eventDay =
+                    Calendar.current.startOfDay(for: event.startTime)
+
+                // 🔒 normalize offDays về startOfDay
+                let normalizedOffDays = Set(
+                    offDays.map {
+                        Calendar.current.startOfDay(for: $0)
+                    }
+                )
+
+                if normalizedOffDays.contains(eventDay) {
+                    completion(.offDay)
+                    return
+                }
+
+                // =========================
+                // 6️⃣ BUSY SLOT (EVENT + MANUAL)
+                // =========================
+                self.fetchBusySlots(
+                    for: newUid,
+                    forceRefresh: true   // ⭐ BẮT BUỘC
+                ) { busySlots, _ in
+
+                    let conflict = busySlots.contains {
+                        $0.startTime < event.endTime &&
+                        $0.endTime   > event.startTime
+                    }
+
+                    if conflict {
+                        completion(.busy)
+                        return
+                    }
+
+                    // =========================
+                    // 7️⃣ LIMIT EVENT / DAY
+                    // =========================
+                    let sameDayEvents = self.events.filter {
+                        $0.participants.contains(newUid) &&
+                        Calendar.current.isDate(
+                            $0.startTime,
+                            inSameDayAs: event.startTime
+                        )
+                    }
+
+                    // giữ nguyên business hiện tại
+                    let tier = PremiumStoreViewModel.shared.tier
+                    let limits = PremiumLimits.limits(for: tier)
+
+                    if sameDayEvents.count >= limits.maxEventsPerDay {
+                        completion(.limitReached)
+                        return
+                    }
+
+                    // =========================
+                    // 8️⃣ OK
+                    // =========================
+                    completion(.ok)
+                }
+            }
+        }
+    }
+
+    
+    
 }
 
 struct SelectedEvent: Identifiable {

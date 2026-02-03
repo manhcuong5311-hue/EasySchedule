@@ -82,7 +82,9 @@ struct EventListView: View {
     @State private var monthCursor: Date = Date()
     @State private var isMonthPickerOpen = false
 
-
+//NEWWWWWW
+  
+    
     private var eventsIntroOverlay: some View {
         GeometryReader { geo in
             ZStack {
@@ -617,7 +619,7 @@ private struct DaySectionView: View {
                                 EventRowView(
                                     event: event,
                                     showOwnerLabel: showOwnerLabel,
-                                    timeFontSize: timeFontSize,
+                                    
                                     expandedEvents: $expandedEvents,
                                     chatMeta: eventManager.chatMeta(for: event.id),
                                     timeDisplayMode: timeDisplayMode

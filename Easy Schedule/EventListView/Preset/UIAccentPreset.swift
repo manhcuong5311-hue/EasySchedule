@@ -13,6 +13,9 @@ enum UIAccentPreset: String, CaseIterable {
     case mint
     case purple
     case graphite
+    case green
+    case teal
+    case coral
 
     var title: String {
         switch self {
@@ -26,6 +29,13 @@ enum UIAccentPreset: String, CaseIterable {
             return String(localized: "accent.color.purple")
         case .graphite:
             return String(localized: "accent.color.graphite")
+        case .green:
+            return String(localized: "accent.color.green")
+        case .teal:
+            return String(localized: "accent.color.teal")
+        case .coral:
+            return String(localized: "accent.color.coral")
+
         }
     }
 
@@ -37,6 +47,10 @@ enum UIAccentPreset: String, CaseIterable {
         case .mint:     return "#2AC7BE"
         case .purple:   return "#AF52DE"
         case .graphite: return "#8E8E93"
+        case .green:   return "#34C759"
+        case .teal:    return "#5AC8FA"
+        case .coral:   return "#FF3B30"
+
         }
     }
 }
@@ -47,7 +61,8 @@ final class UIAccentStore: ObservableObject {
     init() {
         self.hex = UserDefaults.standard.string(
             forKey: "ui_accent_color"
-        ) ?? "#FF9500"
+        ) ?? "#007AFF" // iOS Blue default
+
     }
 
     var color: Color {

@@ -4,6 +4,8 @@
 //
 //  Created by Sam Manh Cuong on 26/1/26.
 //
+// NOTE: Participants cannot self-leave events. Only owner/creator/admin can remove users.
+
 import SwiftUI
 import FirebaseAuth
 
@@ -130,10 +132,7 @@ struct TimelineEventNodeView: View {
 
     // MARK: - Event type
 
-    private var isMyEvent: Bool {
-        event.origin != .busySlot &&
-        event.createdBy == event.owner
-    }
+ 
 
     
     private var hasUnreadChat: Bool {
@@ -144,7 +143,37 @@ struct TimelineEventNodeView: View {
     @ObservedObject private var todoStore = LocalTodoStore.shared
 
     private var hasUnfinishedTodo: Bool {
-        isMyEvent && todoStore.hasUnfinishedTodo(for: event.id)
+        isPersonalEvent && todoStore.hasUnfinishedTodo(for: event.id)
+    }
+
+
+    @State private var showAddMemberSheet = false
+    @State private var showActionSheet = false
+
+    
+    private var isPersonalEvent: Bool {
+        event.participants.count == 1
+    }
+
+    private var isTodoOpen: Bool {
+        eventManager.selectedEventId == event.id
+    }
+
+    @ObservedObject private var todoHintStore =
+        LocalEventTodoHintStore.shared
+
+    private var hasAnyTodoHint: Bool {
+        if isPersonalEvent {
+            return hasUnfinishedTodo
+        } else {
+            return todoHintStore.hasTodoHint(eventId: event.id)
+        }
+    }
+
+    private var todoHintDot: some View {
+        Circle()
+            .fill(Color.secondary.opacity(0.6))
+            .frame(width: 5, height: 5)
     }
 
     // MARK: - Body
@@ -180,7 +209,7 @@ struct TimelineEventNodeView: View {
                 // Main dot
                 ZStack {
         
-                    Image(systemName: isMyEvent ? "person.fill" : "person.2.fill")
+                    Image(systemName: isPersonalEvent ? "person.fill" : "person.2.fill")
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundColor(.primary)
 
@@ -200,50 +229,81 @@ struct TimelineEventNodeView: View {
         .onTapGesture {
             handleTap()
         }
-        .contextMenu {
+        .onLongPressGesture(minimumDuration: 0.35) {
+            guard event.origin != .busySlot else { return }
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
 
-            // 🔒 BusySlot → KHÔNG cho menu
-            if event.origin == .busySlot {
-                EmptyView()
-            }
-
-            // ✅ Được xoá
-            else if canDeleteEvent {
-
-                Button(role: .destructive) {
-                    showDeleteConfirm = true
-                } label: {
-                    Label(
-                        String(localized: "delete"),
-                        systemImage: "trash"
-                    )
-                }
-
-            }
-            // 👤 Chỉ được leave
-            else if canLeaveEvent {
-
-                Button(role: .destructive) {
-                    showLeaveConfirm = true
-                } label: {
-                    Label(
-                        String(localized: "leave_event"),
-                        systemImage: "rectangle.portrait.and.arrow.right"
-                    )
-                }
+            // Owner / Creator / Admin → full action
+            if canDeleteEvent || canLeaveEvent {
+                showActionSheet = true
             }
         }
+
+        .confirmationDialog(
+            String(localized: "event_open_action"),
+            isPresented: $showActionSheet
+        ) {
+
+            // 📌 Open
+            Button(
+                String(localized: "open_todo")
+            ) {
+                // ⭐️ set hint cho event nhóm
+                if !isPersonalEvent {
+                    LocalEventTodoHintStore.shared
+                        .markHasTodo(eventId: event.id)
+                }
+
+                eventManager.openEvent(eventId: event.id)
+            }
+
+
+            Button(String(localized: "open_chat")) {
+                eventManager.openChat(eventId: event.id)
+            }
+
+            // 👥 Add member (Owner / Creator / Admin)
+            if canDeleteEvent {
+                Button(String(localized: "add_member_title")) {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    showAddMemberSheet = true
+                }
+            }
+
+            // ❌ Delete event
+            if canDeleteEvent {
+                Button(String(localized: "delete"), role: .destructive) {
+                    showDeleteConfirm = true
+                }
+            }
+
+            // 🚪 Leave event
+            if canLeaveEvent {
+                Button(String(localized: "leave_event"), role: .destructive) {
+                    showLeaveConfirm = true
+                }
+            }
+
+            Button(String(localized: "cancel"), role: .cancel) {}
+        }
+
+
+
+        .sheet(isPresented: $showAddMemberSheet) {
+            AddMemberSheet(event: event)
+                .environmentObject(eventManager)
+        }
+
+        
         .alert(
             String(localized: "leave_event"),
             isPresented: $showLeaveConfirm
         ) {
-            Button(String(localized: "leave"), role: .destructive) {
-                leaveEvent()
-            }
-            Button(String(localized: "cancel"), role: .cancel) {}
+            Button(String(localized: "close"), role: .cancel) {}
         } message: {
-            Text(String(localized: "leave_event_confirm"))
+            Text(String(localized: "leave_event_not_allowed"))
         }
+
         .alert(
             String(localized: "delete_event"),
             isPresented: $showDeleteConfirm
@@ -266,12 +326,16 @@ struct TimelineEventNodeView: View {
                 Text(event.title)
                     .font(.subheadline)
 
-                if hasUnfinishedTodo {
+                if isPersonalEvent && hasUnfinishedTodo {
                     Image(systemName: "checklist")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
+                else if !isPersonalEvent && hasAnyTodoHint {
+                    todoHintDot
+                }
             }
+
 
             Text(timeDisplayMode.primaryText(for: event))
                 .font(.caption)
@@ -312,12 +376,15 @@ struct TimelineEventNodeView: View {
     private func handleTap() {
         guard event.origin != .busySlot else { return }
 
-        if isMyEvent {
-            eventManager.openEvent(eventId: event.id)
-        } else {
+        if event.participants.count > 1 {
             eventManager.openChat(eventId: event.id)
+        } else {
+            eventManager.openEvent(eventId: event.id)
         }
     }
+
+
+
     
     private func deleteEvent() {
         guard canDeleteEvent else { return }
@@ -327,18 +394,6 @@ struct TimelineEventNodeView: View {
         }
     }
 
-    private func leaveEvent() {
-        guard let uid = myUid else { return }
-
-        eventManager.removeParticipant(
-            uid,
-            from: event
-        ) { success in
-            if !success {
-                print("❌ Leave event failed")
-            }
-        }
-    }
-
+   
 }
 

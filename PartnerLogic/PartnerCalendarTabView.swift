@@ -50,7 +50,10 @@ struct PartnerCalendarTabView: View {
 
     let onBookPartner: () -> Void
     
-    
+    var canLoad: Bool {
+        !linkText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isLoading
+    }
+
     
     var body: some View {
         NavigationStack {
@@ -400,8 +403,16 @@ struct PartnerCalendarTabView: View {
                     .frame(maxWidth: .infinity)
                     .padding(10)
                 }
-                .tint(uiAccent.color)
-                .buttonStyle(.borderedProminent)
+                .tint(
+                    canLoad
+                    ? uiAccent.color.opacity(0.75)
+                    : uiAccent.color.opacity(0.35)
+                )
+                .allowsHitTesting(canLoad)
+
+
+                .buttonStyle(.bordered)
+                .background(uiAccent.color.opacity(0.12))
                 .clipShape(Capsule())
                 .shadow(
                     color: colorScheme == .dark

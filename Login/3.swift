@@ -49,31 +49,51 @@ struct ChatToPlanAISlide: View {
 
                 ZStack {
 
+                    // Alex – question (top-left)
                     ChatUserBubble(
-                        tag: String(localized: "chat_tag_user"),
-                        text: String(localized: "chat_message_question"),
+                        tag: String(localized: "chat_tag_alex"),
+                        text: String(localized: "chat_message_alex"),
                         highlight: nil,
-                        x: -40,
-                        y: -80
+                        x: -70,
+                        y: -100
                     )
 
+                    // Lina – suggest time (top-right, visual focus)
                     ChatUserBubble(
-                        tag: String(localized: "chat_tag_user"),
-                        text: String(localized: "chat_message_confirm"),
+                        tag: String(localized: "chat_tag_lina"),
+                        text: String(localized: "chat_message_lina"),
                         highlight: String(localized: "chat_time_3pm"),
-                        x: 40,
-                        y: 0
+                        x: 50,
+                        y: -40
                     )
 
+                    // Sam – confirm (slightly below center)
+                    ChatUserBubble(
+                        tag: String(localized: "chat_tag_sam"),
+                        text: String(localized: "chat_message_sam"),
+                        highlight: String(localized: "chat_time_3pm"),
+                        x: -40,
+                        y: 30
+                    )
 
-                    // Todo
-                    TodoUserBubble(
-                        text: String(localized: "chat_todo_prepare"),
-                        x: -10,
+                    // Noah – agreement (bottom-right)
+                    ChatUserBubble(
+                        tag: String(localized: "chat_tag_noah"),
+                        text: String(localized: "chat_message_noah"),
+                        highlight: nil,
+                        x: 60,
                         y: 90
                     )
 
+                    // Todo – action, close to chat
+                    TodoUserBubble(
+                        text: String(localized: "chat_todo_prepare"),
+                        x: -10,
+                        y: 175
+                    )
                 }
+
+
                 .frame(height: 340)
 
                 Spacer()

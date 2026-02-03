@@ -1,12 +1,14 @@
 import SwiftUI
 import FirebaseAuth
+// NOTE: Participants cannot self-leave events. Only owner/creator/admin can remove users.
 
 struct EventRowView: View {
 
     let event: CalendarEvent
     let showOwnerLabel: Bool
-    let timeFontSize: Double
-   
+    @AppStorage("timeFontSize")
+    private var timeFontSize: Double = 13
+
 
     @Binding var expandedEvents: Set<String>
 
@@ -15,10 +17,16 @@ struct EventRowView: View {
 
     // ⭐ CHAT META – đúng lifecycle
     @ObservedObject var chatMeta: ChatMetaViewModel
+    @ObservedObject private var todoHintStore =
+        LocalEventTodoHintStore.shared
 
 
     private var isMyEvent: Bool {
         event.createdBy == event.owner
+    }
+
+    private var isPersonalEvent: Bool {
+        event.participants.count == 1
     }
 
     private var isExpanded: Bool {
@@ -75,6 +83,24 @@ struct EventRowView: View {
 
     @State private var showLeaveConfirm = false
 
+    @State private var showAddMemberSheet = false
+
+    @State private var showActionSheet = false
+
+    private var hasAnyTodoHint: Bool {
+        if isPersonalEvent {
+            return unfinishedTodoCount > 0
+        } else {
+            return todoHintStore.hasTodoHint(eventId: event.id)
+        }
+    }
+
+    private var todoHintDot: some View {
+        Circle()
+            .fill(Color.secondary.opacity(0.6))
+            .frame(width: 6, height: 6)
+    }
+
     
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -124,7 +150,7 @@ struct EventRowView: View {
                     }
 
                     // 🔵 TODO COUNT (MY EVENT)
-                    if isMyEvent && unfinishedTodoCount > 0 {
+                    if isPersonalEvent && unfinishedTodoCount > 0 {
                         Text("\(unfinishedTodoCount)")
                             .font(.system(size: 11, weight: .medium))
                                    .foregroundColor(uiAccent.color.opacity(0.8))
@@ -135,9 +161,13 @@ struct EventRowView: View {
                                            .fill(uiAccent.color.opacity(0.12))
                                    )
                     }
+                    
+                    else if !isPersonalEvent && hasAnyTodoHint {
+                        todoHintDot
+                    }
 
                     // ▶️ CHEVRON
-                    if isMyEvent {
+                    if isPersonalEvent {
                         Button {
                             toggleExpand()
                         } label: {
@@ -155,8 +185,9 @@ struct EventRowView: View {
             }
             .contentShape(Rectangle())
             .onTapGesture {
-                openChatIfNeeded()
+                handleEventTap()
             }
+
             .padding(14)
             .background(
                 RoundedRectangle(cornerRadius: 16)
@@ -183,19 +214,32 @@ struct EventRowView: View {
                     )
             )
 
-
-
-
             // ===== TODO =====
-            if isMyEvent && isExpanded {
+            if isExpanded {
                 LocalTodoListView(eventId: event.id)
                     .padding(.horizontal, 12)
             }
+
         }
         .contextMenu {
 
+            // 👑 Owner / Creator / Admin
             if canDeleteEvent {
 
+                // 👥 Add people (SAFE ACTION)
+                Button {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    showAddMemberSheet = true
+                } label: {
+                    Label(
+                        String(localized: "add_member_title"),
+                        systemImage: "person.badge.plus"
+                    )
+                }
+
+                Divider() // ⭐ TÁCH DELETE RA XA
+
+                // ❌ Delete event
                 Button(role: .destructive) {
                     showDeleteConfirm = true
                 } label: {
@@ -204,10 +248,12 @@ struct EventRowView: View {
                         systemImage: "trash"
                     )
                 }
+            }
 
-            } else if canLeaveEvent {
+            // 👤 Member thường → chỉ được leave
+            else if canLeaveEvent {
 
-                Button(role: .destructive) {
+                Button {
                     showLeaveConfirm = true
                 } label: {
                     Label(
@@ -218,24 +264,48 @@ struct EventRowView: View {
             }
         }
 
+
         .onLongPressGesture(minimumDuration: 0.3) {
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         }
+        .confirmationDialog(
+            String(localized: "event_open_action"),
+            isPresented: $showActionSheet
+        ) {
+            Button {
+                toggleExpand()
+            } label: {
+                Label(
+                    String(localized: isExpanded ? "close_todo" : "open_todo"),
+                    systemImage: isExpanded ? "chevron.up" : "checklist"
+                )
+            }
+
+            Button(String(localized: "open_chat")) {
+                openChat()
+            }
+
+            Button(String(localized: "cancel"), role: .cancel) {}
+        }
+
 
         .onAppear {
             chatMeta.startListening()
         }
+        .sheet(isPresented: $showAddMemberSheet) {
+            AddMemberSheet(event: event)
+                .environmentObject(eventManager)
+        }
+
         .alert(
             String(localized: "leave_event"),
             isPresented: $showLeaveConfirm
         ) {
-            Button(String(localized: "leave"), role: .destructive) {
-                leaveEvent()
-            }
-            Button(String(localized: "cancel"), role: .cancel) {}
+            Button(String(localized: "close"), role: .cancel) {}
         } message: {
-            Text(String(localized: "leave_event_confirm"))
+            Text(String(localized: "leave_event_not_allowed"))
         }
+
 
         .alert(
             String(localized: "delete_event"),
@@ -251,6 +321,29 @@ struct EventRowView: View {
 
     }
     
+    
+    
+    
+    
+    
+    
+    
+    
+    private func handleEventTap() {
+
+        // Event cá nhân → tap mở todo (giữ UX cũ)
+        if isPersonalEvent {
+            toggleExpand()
+            return
+        }
+
+        // Event nhóm → cho user chọn Chat
+        showActionSheet = true
+    }
+
+
+    
+    
     private func deleteEvent() {
         guard canDeleteEvent else { return }
 
@@ -259,31 +352,20 @@ struct EventRowView: View {
         }
     }
 
+    private func openChat() {
 
-    private func leaveEvent() {
-        guard let uid = myUid else { return }
-
-        eventManager.removeParticipant(
-            uid,
-            from: event
-        ) { success in
-            if !success {
-                print("❌ Leave event failed")
-            }
-        }
-    }
-
-    private func openChatIfNeeded() {
-        guard !isMyEvent else { return }
+        // 🔒 Đóng todo nếu đang mở
+        expandedEvents.remove(event.id)
 
         // 1️⃣ Set event đang mở chat
         eventManager.selectedChatEventId = event.id
 
-        // 2️⃣ Clear unread
+        // 2️⃣ Mark seen
         chatMeta.markSeen()
-        // ⭐ ADD DÒNG NÀY
-            EventSeenStore.shared.markSeen(eventId: event.id)
+        EventSeenStore.shared.markSeen(eventId: event.id)
     }
+
+
 
     
     
@@ -293,9 +375,16 @@ struct EventRowView: View {
                 expandedEvents.remove(event.id)
             } else {
                 expandedEvents.insert(event.id)
+
+                // ⭐️ set hint cho event nhóm
+                if !isPersonalEvent {
+                    LocalEventTodoHintStore.shared
+                        .markHasTodo(eventId: event.id)
+                }
             }
         }
     }
+
 
     private var timeText: some View {
         VStack(alignment: .leading, spacing: 2) {

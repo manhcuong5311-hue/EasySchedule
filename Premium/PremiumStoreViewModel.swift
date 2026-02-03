@@ -178,7 +178,7 @@ struct PremiumLimits {
         switch tier {
         case .free:
             return .init(
-                maxEventsPerDay: 2,
+                maxEventsPerDay: 4,
                 maxBookingDaysAhead: 7,
                 maxChatMessagesPerEvent: 100,
                 maxTodosPerEvent: 5

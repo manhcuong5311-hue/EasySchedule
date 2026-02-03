@@ -4,6 +4,7 @@
 //
 //  Created by Sam Manh Cuong on 26/1/26.
 //
+// NOTE: Participants cannot self-leave events. Only owner/creator/admin can remove users.
 
 import SwiftUI
 import Combine
@@ -42,7 +43,7 @@ struct CompactEventRowView: View {
     }
 
     private var hasUnfinishedTodo: Bool {
-        isMyEvent && todoStore.hasUnfinishedTodo(for: event.id)
+        isPersonalEvent && todoStore.hasUnfinishedTodo(for: event.id)
     }
 
     private var unfinishedTodoCount: Int {
@@ -71,22 +72,37 @@ struct CompactEventRowView: View {
     }
 
 
-    private var canLeaveEvent: Bool {
+    private var shouldShowLeaveNotAllowed: Bool {
         !canDeleteEvent && event.participants.contains(myUid ?? "")
     }
 
+    private var isPersonalEvent: Bool {
+        event.participants.count == 1
+    }
+
+    private var hasTodoCapability: Bool {
+        isPersonalEvent
+    }
+
+    @ObservedObject private var todoHintStore =
+        LocalEventTodoHintStore.shared
+
     @State private var showLeaveConfirm = false
 
-    
+    @State private var showAddMemberSheet = false
+
+    @State private var showActionSheet = false
+
     // ===== BODY =====
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
 
             rowContent
 
-            if isMyEvent && isExpanded {
+            if isExpanded {
                 todoList
             }
+
         }
         .background(
             ZStack {
@@ -111,13 +127,45 @@ struct CompactEventRowView: View {
         .contextMenu {
             contextMenuContent
         }
-        .onLongPressGesture(minimumDuration: 0.3) {
+        .onLongPressGesture {
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-            toggleExpand()
+            showActionSheet = true
         }
+
+
         .onAppear {
             chatMeta.startListening()
         }
+        .confirmationDialog(
+            String(localized: "event_open_action"),
+            isPresented: $showActionSheet
+        ) {
+            Button {
+                toggleExpand()
+            } label: {
+                Label(
+                    String(localized: isExpanded ? "close_todo" : "open_todo"),
+                    systemImage: isExpanded ? "chevron.up" : "checklist"
+                )
+            }
+
+
+
+            Button(String(localized: "open_chat")) {
+                openChat()
+            }
+
+            Button(String(localized: "cancel"), role: .cancel) {}
+        }
+
+
+
+        
+        .sheet(isPresented: $showAddMemberSheet) {
+            AddMemberSheet(event: event)
+                .environmentObject(eventManager)
+        }
+
         .alert(
             String(localized: "delete_event"),
             isPresented: $showDeleteConfirm,
@@ -130,34 +178,15 @@ struct CompactEventRowView: View {
             String(localized: "leave_event"),
             isPresented: $showLeaveConfirm
         ) {
-
-            Button("Leave", role: .destructive) {
-                leaveEvent()
-            }
-
-            Button("Cancel", role: .cancel) {}
-
+            Button(String(localized: "close"), role: .cancel) {}
         } message: {
-            Text("You will be removed from this event.")
+            Text(String(localized: "leave_event_not_allowed"))
         }
+
 
     }
 
     
-    private func leaveEvent() {
-
-        guard let uid = myUid else { return }
-
-        eventManager.removeParticipant(
-            uid,
-            from: event
-        ) { success in
-
-            if !success {
-                print("❌ Leave event failed")
-            }
-        }
-    }
 
     // ===== ROW CONTENT =====
 
@@ -178,12 +207,13 @@ struct CompactEventRowView: View {
         .padding(.vertical, 8)
         .padding(.horizontal, 12)
         .onTapGesture {
-            if isMyEvent {
+            if isPersonalEvent {
                 toggleExpand()
             } else {
-                openChatIfNeeded()
+                showActionSheet = true
             }
         }
+
 
     }
 
@@ -209,8 +239,23 @@ struct CompactEventRowView: View {
     @ViewBuilder
     private var contextMenuContent: some View {
 
+        // 👑 Owner / Creator / Admin
         if canDeleteEvent {
 
+            // 👥 Add people (SAFE ACTION)
+            Button {
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                showAddMemberSheet = true
+            } label: {
+                Label(
+                    String(localized: "add_member_title"),
+                    systemImage: "person.badge.plus"
+                )
+            }
+
+            Divider() // ⭐ TÁCH DELETE RA XA
+
+            // ❌ Delete event
             Button(role: .destructive) {
                 showDeleteConfirm = true
             } label: {
@@ -219,10 +264,12 @@ struct CompactEventRowView: View {
                     systemImage: "trash"
                 )
             }
+        }
 
-        } else if canLeaveEvent {
+        // 👤 Member thường → chỉ được leave
+        else if shouldShowLeaveNotAllowed {
 
-            Button(role: .destructive) {
+            Button {
                 showLeaveConfirm = true
             } label: {
                 Label(
@@ -230,12 +277,13 @@ struct CompactEventRowView: View {
                     systemImage: "rectangle.portrait.and.arrow.right"
                 )
             }
+        }
 
-        } else {
-
+        else {
             EmptyView()
         }
     }
+
 
 
     private var externalEventContext: String {
@@ -247,8 +295,22 @@ struct CompactEventRowView: View {
         }
     }
 
+  
 
-    
+    private var hasAnyTodoHint: Bool {
+        if isPersonalEvent {
+            return unfinishedTodoCount > 0
+        } else {
+            return todoHintStore.hasTodoHint(eventId: event.id)
+        }
+    }
+
+    private var todoHintDot: some View {
+        Circle()
+            .fill(Color.secondary.opacity(0.6))
+            .frame(width: 5, height: 5)
+    }
+
     
     private var colorDot: some View {
         Circle()
@@ -264,11 +326,16 @@ struct CompactEventRowView: View {
 
             statusDot
 
-            if isMyEvent && unfinishedTodoCount > 0 {
+            if isPersonalEvent && unfinishedTodoCount > 0 {
                 todoCountView
             }
+            else if !isPersonalEvent && hasAnyTodoHint {
+                todoHintDot
+            }
+
         }
     }
+
 
     @ViewBuilder
     private var statusDot: some View {
@@ -353,17 +420,30 @@ struct CompactEventRowView: View {
                 expandedEvents.remove(event.id)
             } else {
                 expandedEvents.insert(event.id)
+
+                // ⭐️ local hint cho event nhóm
+                if !isPersonalEvent {
+                    LocalEventTodoHintStore.shared
+                        .markHasTodo(eventId: event.id)
+                }
             }
         }
     }
 
 
-    private func openChatIfNeeded() {
-        guard !isMyEvent else { return }
+
+    
+    
+    
+    
+    private func openChat() {
+        expandedEvents.remove(event.id)   // 🔒 đóng todo nếu có
         eventManager.selectedChatEventId = event.id
         chatMeta.markSeen()
         EventSeenStore.shared.markSeen(eventId: event.id)
     }
+
+
 
     private func deleteEvent() {
         withAnimation {

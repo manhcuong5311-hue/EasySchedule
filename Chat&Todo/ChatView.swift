@@ -83,11 +83,12 @@ struct ChatView: View {
         _vm = StateObject(
             wrappedValue: ChatViewModel(
                 eventId: eventId,
-                otherUserId: otherUserId,
+                participants: eventInfo.participants,
                 myId: myId,
                 myName: myName
             )
         )
+
 
         // ⭐ BẮT BUỘC
         _todoVM = StateObject(
@@ -337,20 +338,19 @@ struct ChatView: View {
 
             // 3️⃣ Đảm bảo chat tồn tại → listen messages
             Task {
-                await vm.ensureChatExists(
-                    participants: eventInfo.participants,
-                    eventEndTime: eventEndTime
-                )
+                do {
+                    try await vm.ensureChatExists(eventEndTime: eventEndTime)
+                    try? await Task.sleep(nanoseconds: 300_000_000)
+                    vm.listenMessages()
 
-                try? await Task.sleep(nanoseconds: 300_000_000)
-                vm.listenMessages()
-
-                // ⭐ MARK SEEN sau khi listener attach
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                    eventManager.markEventSeen(eventId)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        eventManager.markEventSeen(eventId)
+                    }
+                } catch {
+                    print("❌ ensureChatExists failed:", error)
                 }
-
             }
+
 
             // 4️⃣ Retry message gửi offline (⭐ DÒNG BẠN HỎI)
             vm.retryPendingMessagesIfNeeded()
@@ -619,7 +619,9 @@ struct ChatView: View {
 
                 // 👁 Seen / Delivered
                 if isMe {
-                    let seen = msg.seenBy?[otherUserId] == true
+                    let seen = eventInfo.participants
+                        .filter { $0 != myId }
+                        .allSatisfy { msg.seenBy?[$0] == true }
                     Text(seen
                          ? String(localized: "seen")
                          : String(localized: "delivered")
