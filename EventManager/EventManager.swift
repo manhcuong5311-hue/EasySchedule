@@ -46,6 +46,7 @@ struct CalendarEvent: Identifiable, Hashable, Codable {
     var colorHex: String = "#007AFF"
     var pendingDelete: Bool = false
     var origin: EventOrigin = .myEvent
+    
 }
 
 

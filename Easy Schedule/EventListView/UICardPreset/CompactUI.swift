@@ -84,6 +84,9 @@ struct CompactEventRowView: View {
         isPersonalEvent
     }
 
+    @ObservedObject private var todoHintStore =
+        LocalEventTodoHintStore.shared
+
     @State private var showLeaveConfirm = false
 
     @State private var showAddMemberSheet = false
@@ -137,9 +140,16 @@ struct CompactEventRowView: View {
             String(localized: "event_open_action"),
             isPresented: $showActionSheet
         ) {
-            Button(String(localized: "open_todo")) {
+            Button {
                 toggleExpand()
+            } label: {
+                Label(
+                    String(localized: isExpanded ? "close_todo" : "open_todo"),
+                    systemImage: isExpanded ? "chevron.up" : "checklist"
+                )
             }
+
+
 
             Button(String(localized: "open_chat")) {
                 openChat()
@@ -285,8 +295,22 @@ struct CompactEventRowView: View {
         }
     }
 
+  
 
-    
+    private var hasAnyTodoHint: Bool {
+        if isPersonalEvent {
+            return unfinishedTodoCount > 0
+        } else {
+            return todoHintStore.hasTodoHint(eventId: event.id)
+        }
+    }
+
+    private var todoHintDot: some View {
+        Circle()
+            .fill(Color.secondary.opacity(0.6))
+            .frame(width: 5, height: 5)
+    }
+
     
     private var colorDot: some View {
         Circle()
@@ -305,6 +329,10 @@ struct CompactEventRowView: View {
             if isPersonalEvent && unfinishedTodoCount > 0 {
                 todoCountView
             }
+            else if !isPersonalEvent && hasAnyTodoHint {
+                todoHintDot
+            }
+
         }
     }
 
@@ -392,9 +420,16 @@ struct CompactEventRowView: View {
                 expandedEvents.remove(event.id)
             } else {
                 expandedEvents.insert(event.id)
+
+                // ⭐️ local hint cho event nhóm
+                if !isPersonalEvent {
+                    LocalEventTodoHintStore.shared
+                        .markHasTodo(eventId: event.id)
+                }
             }
         }
     }
+
 
 
     

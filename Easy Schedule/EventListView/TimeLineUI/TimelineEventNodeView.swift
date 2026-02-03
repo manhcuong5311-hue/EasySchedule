@@ -155,6 +155,27 @@ struct TimelineEventNodeView: View {
         event.participants.count == 1
     }
 
+    private var isTodoOpen: Bool {
+        eventManager.selectedEventId == event.id
+    }
+
+    @ObservedObject private var todoHintStore =
+        LocalEventTodoHintStore.shared
+
+    private var hasAnyTodoHint: Bool {
+        if isPersonalEvent {
+            return hasUnfinishedTodo
+        } else {
+            return todoHintStore.hasTodoHint(eventId: event.id)
+        }
+    }
+
+    private var todoHintDot: some View {
+        Circle()
+            .fill(Color.secondary.opacity(0.6))
+            .frame(width: 5, height: 5)
+    }
+
     // MARK: - Body
 
     var body: some View {
@@ -224,9 +245,18 @@ struct TimelineEventNodeView: View {
         ) {
 
             // 📌 Open
-            Button(String(localized: "open_todo")) {
+            Button(
+                String(localized: "open_todo")
+            ) {
+                // ⭐️ set hint cho event nhóm
+                if !isPersonalEvent {
+                    LocalEventTodoHintStore.shared
+                        .markHasTodo(eventId: event.id)
+                }
+
                 eventManager.openEvent(eventId: event.id)
             }
+
 
             Button(String(localized: "open_chat")) {
                 eventManager.openChat(eventId: event.id)
@@ -296,12 +326,16 @@ struct TimelineEventNodeView: View {
                 Text(event.title)
                     .font(.subheadline)
 
-                if hasUnfinishedTodo {
+                if isPersonalEvent && hasUnfinishedTodo {
                     Image(systemName: "checklist")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
+                else if !isPersonalEvent && hasAnyTodoHint {
+                    todoHintDot
+                }
             }
+
 
             Text(timeDisplayMode.primaryText(for: event))
                 .font(.caption)

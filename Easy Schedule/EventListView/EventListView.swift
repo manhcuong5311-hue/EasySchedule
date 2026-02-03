@@ -619,7 +619,7 @@ private struct DaySectionView: View {
                                 EventRowView(
                                     event: event,
                                     showOwnerLabel: showOwnerLabel,
-                                    timeFontSize: timeFontSize,
+                                    
                                     expandedEvents: $expandedEvents,
                                     chatMeta: eventManager.chatMeta(for: event.id),
                                     timeDisplayMode: timeDisplayMode

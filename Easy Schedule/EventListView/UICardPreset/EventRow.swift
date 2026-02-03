@@ -6,8 +6,9 @@ struct EventRowView: View {
 
     let event: CalendarEvent
     let showOwnerLabel: Bool
-    let timeFontSize: Double
-   
+    @AppStorage("timeFontSize")
+    private var timeFontSize: Double = 13
+
 
     @Binding var expandedEvents: Set<String>
 
@@ -16,6 +17,8 @@ struct EventRowView: View {
 
     // ⭐ CHAT META – đúng lifecycle
     @ObservedObject var chatMeta: ChatMetaViewModel
+    @ObservedObject private var todoHintStore =
+        LocalEventTodoHintStore.shared
 
 
     private var isMyEvent: Bool {
@@ -84,6 +87,20 @@ struct EventRowView: View {
 
     @State private var showActionSheet = false
 
+    private var hasAnyTodoHint: Bool {
+        if isPersonalEvent {
+            return unfinishedTodoCount > 0
+        } else {
+            return todoHintStore.hasTodoHint(eventId: event.id)
+        }
+    }
+
+    private var todoHintDot: some View {
+        Circle()
+            .fill(Color.secondary.opacity(0.6))
+            .frame(width: 6, height: 6)
+    }
+
     
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -143,6 +160,10 @@ struct EventRowView: View {
                                        Capsule()
                                            .fill(uiAccent.color.opacity(0.12))
                                    )
+                    }
+                    
+                    else if !isPersonalEvent && hasAnyTodoHint {
+                        todoHintDot
                     }
 
                     // ▶️ CHEVRON
@@ -251,8 +272,13 @@ struct EventRowView: View {
             String(localized: "event_open_action"),
             isPresented: $showActionSheet
         ) {
-            Button(String(localized: "open_todo")) {
+            Button {
                 toggleExpand()
+            } label: {
+                Label(
+                    String(localized: isExpanded ? "close_todo" : "open_todo"),
+                    systemImage: isExpanded ? "chevron.up" : "checklist"
+                )
             }
 
             Button(String(localized: "open_chat")) {
@@ -349,9 +375,16 @@ struct EventRowView: View {
                 expandedEvents.remove(event.id)
             } else {
                 expandedEvents.insert(event.id)
+
+                // ⭐️ set hint cho event nhóm
+                if !isPersonalEvent {
+                    LocalEventTodoHintStore.shared
+                        .markHasTodo(eventId: event.id)
+                }
             }
         }
     }
+
 
     private var timeText: some View {
         VStack(alignment: .leading, spacing: 2) {
