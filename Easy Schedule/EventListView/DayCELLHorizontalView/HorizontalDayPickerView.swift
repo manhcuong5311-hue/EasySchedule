@@ -6,6 +6,13 @@
 //
 import SwiftUI
 
+struct DayCardHintBottomKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
 struct HorizontalDayPickerView: View {
 
     @Binding var selectedDate: Date
