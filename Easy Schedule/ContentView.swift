@@ -151,55 +151,59 @@ struct AppFloatingTabBar: View {
     let partnersBadge: Int
 
     var body: some View {
-        HStack(spacing: 0) {
-            tab(.events, "Events", "list.bullet.rectangle")
-            tab(.calendar, "Calendar", "calendar")
-            tab(.partners, "Partners", "person.2.fill", badge: partnersBadge)
-            tab(.settings, "Settings", "gearshape")
+        HStack(spacing: 12) {
+            tab(.events, "list.bullet.rectangle")
+            tab(.calendar, "calendar")
+            tab(.partners, "person.2.fill", badge: partnersBadge)
+            tab(.settings, "gearshape")
         }
-        .padding(.horizontal, 20)
-        .padding(.top, 12)
-        .padding(.bottom, 28)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-        .shadow(color: .black.opacity(0.15), radius: 20, y: 8)
-        .padding(.horizontal, 16)
-        .padding(.bottom, 8)
+        .padding(.horizontal, 12)
+        .padding(.bottom, 12)
     }
 
     private func tab(
         _ tab: AppTab,
-        _ title: String,
         _ systemImage: String,
         badge: Int = 0
     ) -> some View {
+
         Button {
             selectedTab = tab
         } label: {
-            VStack(spacing: 4) {
-                ZStack(alignment: .topTrailing) {
-                    Image(systemName: systemImage)
-                        .font(.system(size: 18, weight: .semibold))
+            ZStack(alignment: .topTrailing) {
 
-                    if badge > 0 {
-                        Text("\(badge)")
-                            .font(.caption2)
-                            .foregroundColor(.white)
-                            .padding(4)
-                            .background(Color.red)
-                            .clipShape(Circle())
-                            .offset(x: 8, y: -6)
-                    }
+                Image(systemName: systemImage)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(
+                        selectedTab == tab
+                        ? .accentColor
+                        : .secondary
+                    )
+                    .frame(width: 44, height: 44)
+                    .background(
+                        Circle()
+                            .fill(.ultraThinMaterial)
+                    )
+                    .shadow(
+                        color: .black.opacity(0.18),
+                        radius: 6,
+                        y: 4
+                    )
+
+                if badge > 0 {
+                    Text("\(badge)")
+                        .font(.caption2.bold())
+                        .foregroundColor(.white)
+                        .padding(4)
+                        .background(Color.red)
+                        .clipShape(Circle())
+                        .offset(x: 6, y: -6)
                 }
-
-                Text(title)
-                    .font(.caption2)
             }
-            .foregroundColor(selectedTab == tab ? .accentColor : .secondary)
-            .frame(maxWidth: .infinity)
         }
     }
 }
+
 
 
 

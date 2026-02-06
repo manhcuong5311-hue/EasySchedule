@@ -83,7 +83,8 @@ struct EventListView: View {
     @State private var isMonthPickerOpen = false
 
 //NEWWWWWW
-  
+    @State private var didUserSelectDate = false
+
     
     private var eventsIntroOverlay: some View {
         GeometryReader { geo in
@@ -167,6 +168,9 @@ struct EventListView: View {
                 
                 onOpenDisplaySettings: {
                       activeSheet = .displaySettings
+                  },
+                onUserSelectDay: {
+                      didUserSelectDate = true   // ✅ SET ĐÚNG FLAG
                   }
                  
             )
@@ -237,10 +241,12 @@ struct EventListView: View {
 
         .onChange(of: selectedDate) { _, newDate in
 
-            // ⭐ 1️⃣ ĐÁNH DẤU ĐÃ XEM EVENT TRONG NGÀY (XOÁ DOT NEW)
+            guard didUserSelectDate else { return }   // ⭐ CHẶN RESET ẢO
+
             eventManager.markDayEventsAsSeen(newDate)
 
-            // ⭐ 2️⃣ LOGIC CŨ CỦA BẠN – GIỮ NGUYÊN
+            didUserSelectDate = false                 // ⭐ RESET FLAG
+
             let cal = Calendar.current
             let today = cal.startOfDay(for: Date())
             let selected = cal.startOfDay(for: newDate)
@@ -248,7 +254,6 @@ struct EventListView: View {
             if selected < today {
                 activeSheet = .pastWeek(week(from: newDate))
             }
-
         }
 
    
@@ -322,56 +327,63 @@ struct EventScrollContent: View {
         EventCardLayout(rawValue: cardLayoutRaw) ?? .normal
     }
 
-    @State private var hintBottomY: CGFloat = 0
+    let onUserSelectDay: () -> Void
+
+    private let headerHeight: CGFloat = 56
+    private let dayPickerHeight: CGFloat = 92
+    private let topSpacing: CGFloat = 40
+    private var dayCardInset: CGFloat {
+        isPad ? 12 : 8
+    }
+    
+    private var bottomCardInset: CGFloat {
+        isPad ? 16 : 12
+    }
 
     var body: some View {
         VStack(spacing: 0) {
 
-            // ===== FIXED HEADER =====
             headerBar
+                .frame(height: headerHeight)
 
-            // ===== FIXED DAY PICKER =====
             HorizontalDayPickerView(
                 selectedDate: $selectedDate,
-                maxSelectableDate: maxSelectableDate
+                maxSelectableDate: maxSelectableDate,
+                onUserSelectDay: { _ in
+                    onUserSelectDay()
+                }
             )
-            .padding(.bottom, 8)
+            .frame(height: dayPickerHeight)
 
-            // ===== DAY CARD =====
             dayCard
+                .frame(maxWidth: .infinity)
+                .frame(maxHeight: .infinity)   // 👈 giữ
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity) // ✅ DÒNG QUAN TRỌNG
         .background(
-               AppBackground.settings(scheme)
-                   .ignoresSafeArea()
-           )
+            AppBackground.settings(scheme)
+                .ignoresSafeArea()
+        )
     }
+
+
+
 
     
     
     
     private var dayCard: some View {
-        VStack(spacing: 0) {
 
-            Capsule()
-                .fill(Color.secondary.opacity(0.3))
-                .frame(width: 36, height: 5)
-                .padding(.top, isPad ? 16 : 8)
-                .padding(.bottom, isPad ? 8 : 4)
-                .background(
-                    GeometryReader { geo in
-                        Color.clear
-                            .preference(
-                                key: DayCardHintBottomKey.self,
-                                value: geo.frame(in: .named("DayCardSpace")).maxY
-                            )
-                    }
-                )
+        // 1️⃣ Chiều cao hint cố định (chrome, không phải content)
+        let hintHeight: CGFloat = isPad ? 36 : 24
 
+        return ZStack(alignment: .top) {
 
+            // ===== SCROLL CONTENT =====
+            ScrollView {
 
-            GeometryReader { geo in
-                ScrollView {
+                VStack(spacing: 0) {
+
 
                     if eventsOfSelectedDay.isEmpty {
 
@@ -401,35 +413,48 @@ struct EventScrollContent: View {
                             onShareCalendar: onShareCalendar,
                             onBookPartner: onBookPartner
                         )
-                        .padding(.bottom, 80)
+                        .padding(.bottom, 16)
                     }
+                    Color.clear
+                                     .frame(height: AppLayout.floatingTabBarHeight + 8)
                 }
-                // ⭐⭐ BƯỚC 4 – GIỚI HẠN VÙNG SCROLL ⭐⭐
-                .frame(
-                      height: max(
-                          0,
-                          geo.size.height - hintBottomY
-                      )
-                  )
             }
 
+            // ===== HINT (OVERLAY – KHÔNG BAO GIỜ BỊ CHE) =====
+            VStack {
+                Capsule()
+                    .fill(Color.secondary.opacity(0.35))
+                    .frame(width: 36, height: 5)
+                    .padding(.top, isPad ? 16 : 8)
+                    .padding(.bottom, isPad ? 8 : 4)
+
+                Spacer()
+            }
+            .frame(height: hintHeight)
+            .background(
+                LinearGradient(
+                    colors: [
+                        AppBackground.card(scheme),
+                        AppBackground.card(scheme).opacity(0.9),
+                        .clear
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
+            .zIndex(1)
         }
-        // ⭐⭐ BƯỚC 3 – BẮT GIÁ TRỊ Ở ĐÂY ⭐⭐
-          .onPreferenceChange(DayCardHintBottomKey.self) { value in
-              hintBottomY = value
-          }
-          .coordinateSpace(name: "DayCardSpace")
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(.systemBackground))
+        .background(AppBackground.card(scheme))
         .clipShape(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
         )
         .shadow(
-              color: AppBackground.panelShadow(scheme),
-              radius: 12,
-              y: -2
-          )
+            color: AppBackground.panelShadow(scheme),
+            radius: 12,
+            y: -2
+        )
     }
+
 
     
     private var headerBar: some View {

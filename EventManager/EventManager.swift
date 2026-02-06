@@ -2224,6 +2224,7 @@ extension EventManager {
     }
 
     func markDayEventsAsSeen(_ date: Date) {
+        print("✅ markDayEventsAsSeen:", date)
         let key = Calendar.current.startOfDay(for: date)
 
         let dayEvents = events.filter {
