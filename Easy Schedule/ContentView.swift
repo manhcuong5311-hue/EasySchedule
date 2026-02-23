@@ -151,16 +151,24 @@ struct AppFloatingTabBar: View {
     let partnersBadge: Int
 
     var body: some View {
-        HStack(spacing: 12) {
-            tab(.events, "list.bullet.rectangle")
-            tab(.calendar, "calendar")
-            tab(.partners, "person.2.fill", badge: partnersBadge)
-            tab(.settings, "gearshape")
-        }
-        .padding(.horizontal, 12)
-        .padding(.bottom, 12)
-    }
+           ZStack {
+               // ✅ NỀN CHE ĐÁY MÀN HÌNH
+               Rectangle()
+                   .fill(.ultraThinMaterial)
+                   .ignoresSafeArea(edges: .bottom)
 
+               HStack(spacing: 12) {
+                   tab(.events, "list.bullet.rectangle")
+                   tab(.calendar, "calendar")
+                   tab(.partners, "person.2.fill", badge: partnersBadge)
+                   tab(.settings, "gearshape")
+               }
+               .padding(.horizontal, 12)
+               .padding(.vertical, 12)
+           }
+           .frame(height: AppLayout.floatingTabBarHeight)
+       }
+    
     private func tab(
         _ tab: AppTab,
         _ systemImage: String,

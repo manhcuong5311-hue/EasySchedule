@@ -78,6 +78,7 @@ extension Easy_scheduleApp {
 
     @ViewBuilder
     var appMainContent: some View {
+        
         if showLaunch {
             LaunchView()
                 .preferredColorScheme(colorScheme)
@@ -88,15 +89,27 @@ extension Easy_scheduleApp {
                         withAnimation { showLaunch = false }
                     }
                 }
-
-        } else if !hasSeenOnboarding {
-            OnboardingContainerView()
-                .preferredColorScheme(colorScheme)
+            
         } else {
-            RootView()
-                .preferredColorScheme(colorScheme)
-                .environmentObject(session)
-                .environmentObject(eventManager)
+            
+            if session.currentUser == nil {
+                
+                // 🔐 LOGIN TRƯỚC
+                LoginView()
+                    .preferredColorScheme(colorScheme)
+                
+            } else if !hasSeenOnboarding {
+                
+                // 🎯 ONBOARDING SAU KHI LOGIN
+                OnboardingContainerView()
+                    .preferredColorScheme(colorScheme)
+                
+            } else {
+                
+                // ✅ APP CHÍNH
+                RootView()
+                    .preferredColorScheme(colorScheme)
+            }
         }
     }
 

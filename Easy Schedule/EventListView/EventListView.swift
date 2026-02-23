@@ -341,30 +341,43 @@ struct EventScrollContent: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
+        GeometryReader { geo in
 
-            headerBar
-                .frame(height: headerHeight)
-
-            HorizontalDayPickerView(
-                selectedDate: $selectedDate,
-                maxSelectableDate: maxSelectableDate,
-                onUserSelectDay: { _ in
-                    onUserSelectDay()
-                }
+            let availableHeight = max(
+                0,
+                geo.size.height
+                    - headerHeight
+                    - dayPickerHeight
             )
-            .frame(height: dayPickerHeight)
 
-            dayCard
-                .frame(maxWidth: .infinity)
-                .frame(maxHeight: .infinity)   // 👈 giữ
+            VStack(spacing: 0) {
+
+                headerBar
+                    .frame(height: headerHeight)
+
+                HorizontalDayPickerView(
+                    selectedDate: $selectedDate,
+                    maxSelectableDate: maxSelectableDate,
+                    onUserSelectDay: { _ in
+                        onUserSelectDay()
+                    }
+                )
+                .frame(height: dayPickerHeight)
+
+                dayCard
+                    .frame(
+                        maxWidth: .infinity,
+                        maxHeight: availableHeight
+                    )
+            }
+         
+            .background(
+                AppBackground.settings(scheme)
+                    .ignoresSafeArea()
+            )
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity) // ✅ DÒNG QUAN TRỌNG
-        .background(
-            AppBackground.settings(scheme)
-                .ignoresSafeArea()
-        )
     }
+
 
 
 
@@ -415,9 +428,8 @@ struct EventScrollContent: View {
                         )
                         .padding(.bottom, 16)
                     }
-                    Color.clear
-                                     .frame(height: AppLayout.floatingTabBarHeight + 8)
                 }
+                .padding(.bottom, AppLayout.floatingTabBarHeight + 12)
             }
 
             // ===== HINT (OVERLAY – KHÔNG BAO GIỜ BỊ CHE) =====
@@ -444,7 +456,11 @@ struct EventScrollContent: View {
             )
             .zIndex(1)
         }
-        .background(AppBackground.card(scheme))
+        .background(
+            AppBackground.card(scheme)
+                .ignoresSafeArea(edges: .bottom)
+        )
+
         .clipShape(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
         )
