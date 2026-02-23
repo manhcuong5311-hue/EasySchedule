@@ -170,7 +170,9 @@ struct HistoryLinkRow: View {
     let onSelect: () -> Void
     let onCopyLink: () -> Void
     let onCopyUID: () -> Void
-
+    @State private var didCopyUID = false
+    
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
 
@@ -207,9 +209,25 @@ struct HistoryLinkRow: View {
         .onTapGesture { onSelect() }
         .contextMenu {
             Button {
-                onCopyUID()
+                UIPasteboard.general.string = link.uid
+
+                withAnimation {
+                    didCopyUID = true
+                }
+
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                    didCopyUID = false
+                }
+
             } label: {
-                Label(String(localized: "copy_uid"), systemImage: "doc.on.doc")
+                Label(
+                    didCopyUID
+                        ? String(localized: "copied")
+                        : String(localized: "copy_uid"),
+                    systemImage: didCopyUID
+                        ? "checkmark.circle.fill"
+                        : "doc.on.doc"
+                )
             }
         }
 

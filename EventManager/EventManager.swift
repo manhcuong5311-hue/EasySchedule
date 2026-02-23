@@ -100,7 +100,7 @@ final class EventManager: ObservableObject {
 
     @Published var selectedEventWrapper: SelectedEvent?
 
-    
+    @Published var invitationCode: String?
     
     
     
@@ -2019,7 +2019,7 @@ extension EventManager {
 
         configuredUid = uid
         self.currentUserId = uid
-
+        ensureInvitationCode(for: uid)
         // 🔥 LOAD MANUAL BUSY HOURS CỦA OWNER
         loadUserCalendar(uid: uid)
         
@@ -2444,6 +2444,132 @@ extension EventManager {
         }
     }
 
+    // MARK: - Invitation Code
+
+    func ensureInvitationCode(for uid: String) {
+        
+        let userRef = db.collection("users").document(uid)
+        
+        userRef.getDocument { snapshot, error in
+            guard let data = snapshot?.data() else { return }
+            
+            // Nếu đã có code → set vào memory
+            if let code = data["invitationCode"] as? String,
+               !code.isEmpty {
+                
+                DispatchQueue.main.async {
+                    self.invitationCode = code
+                }
+                return
+            }
+            
+            // Nếu chưa có → generate
+            self.createUniqueInvitationCode { newCode in
+                guard let newCode = newCode else { return }
+                
+                userRef.setData([
+                    "invitationCode": newCode
+                ], merge: true)
+                
+                DispatchQueue.main.async {
+                    self.invitationCode = newCode
+                }
+                
+                print("🎟 Generated invitation code:", newCode)
+            }
+        }
+    }
+    
+    private func generateInvitationCode(length: Int = 6) -> String {
+        let charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+        return String((0..<length).compactMap { _ in
+            charset.randomElement()
+        })
+    }
+
+    private func createUniqueInvitationCode(
+        completion: @escaping (String?) -> Void
+    ) {
+        func attempt() {
+            let code = generateInvitationCode()
+            
+            db.collection("users")
+                .whereField("invitationCode", isEqualTo: code)
+                .getDocuments { snapshot, _ in
+                    
+                    if snapshot?.documents.isEmpty == true {
+                        completion(code)
+                    } else {
+                        attempt() // thử lại
+                    }
+                }
+        }
+        
+        attempt()
+    }
+    
+    
+    func resolveUid(
+        from input: String,
+        completion: @escaping (String?) -> Void
+    ) {
+
+        // 1️⃣ Remove ALL whitespace
+        let cleaned = input
+            .components(separatedBy: .whitespacesAndNewlines)
+            .joined()
+
+        guard !cleaned.isEmpty else {
+            completion(nil)
+            return
+        }
+
+        // 2️⃣ Nếu là full URL → lấy path component cuối
+        var candidate = cleaned
+
+        if let url = URL(string: cleaned),
+           let last = url.pathComponents.last,
+           !last.isEmpty {
+            candidate = last
+        }
+
+        // 3️⃣ Nếu đúng format Firebase UID → trả luôn
+        if isValidUIDFormat(candidate) {
+            completion(candidate)
+            return
+        }
+
+        // 4️⃣ Nếu 6 ký tự → treat as invitationCode
+        if candidate.count == 6 {
+
+            db.collection("users")
+                .whereField("invitationCode",
+                            isEqualTo: candidate.uppercased())
+                .limit(to: 1)
+                .getDocuments { snapshot, _ in
+
+                    let uid = snapshot?
+                        .documents
+                        .first?
+                        .documentID
+
+                    completion(uid)
+                }
+
+            return
+        }
+
+        // 5️⃣ Không hợp lệ
+        completion(nil)
+    }
+
+    private func isValidUIDFormat(_ uid: String) -> Bool {
+        let regex = "^[A-Za-z0-9_-]{20,}$"
+        return NSPredicate(format: "SELF MATCHES %@", regex)
+            .evaluate(with: uid)
+    }
+    
+    
     
     
 }
