@@ -12,7 +12,8 @@ struct PremiumUpgradeSheet: View {
     private var currentTier: PremiumTier {
         premium.tier
     }
-
+    let preselectProductID: String?
+    let autoPurchase: Bool
 
     @State private var purchaseError: String? = nil
     @State private var isLoading = false
@@ -239,9 +240,46 @@ struct PremiumUpgradeSheet: View {
                 }
             }
             .onAppear {
-                // ⭐ UX IMPROVEMENT
+
                 if currentTier == .premium {
                     selectedPlan = .pro
+                }
+
+                Task {
+                    // 1️⃣ Chỉ start nếu chưa load
+                    if !premium.isLoaded {
+                        premium.start()
+                        
+                        // chờ load xong
+                        while !premium.isLoaded {
+                            try? await Task.sleep(nanoseconds: 150_000_000)
+                        }
+                    }
+
+                    guard let id = preselectProductID else { return }
+
+                    // 2️⃣ Auto select đúng plan
+                    if id.contains("premium") {
+                        selectedPlan = .premium
+                    } else {
+                        selectedPlan = .pro
+                    }
+
+                    // 3️⃣ Tìm product
+                    guard let product = premium.products.first(where: { $0.id == id }) else {
+                        return
+                    }
+
+                    // 4️⃣ Auto purchase nếu bật
+                    if autoPurchase {
+                        isLoading = true
+                        let success = await premium.buy(product)
+                        isLoading = false
+
+                        if success {
+                            dismiss()
+                        }
+                    }
                 }
             }
             .alert(

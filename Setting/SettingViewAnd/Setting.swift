@@ -51,7 +51,12 @@ struct SettingsView: View {
     let appVersion = "1.0.0"
 
     @Environment(\.colorScheme) private var colorScheme
-
+    @State private var versionTapCount = 0
+    @State private var lastVersionTap = Date()
+    @State private var showPremiumIntro = false
+    @State private var showOnboarding = false
+    @State private var showDevMenu = false
+    
     var body: some View {
         NavigationStack {
             Form {
@@ -82,10 +87,46 @@ struct SettingsView: View {
             }
             .alertNotificationSettings($showNotificationSettingsAlert)
             .sheet(isPresented: $showUpgradeSheet) {
-                PremiumUpgradeSheet()
+                PremiumUpgradeSheet(
+                    preselectProductID: "com.SamCorp.EasySchedule.premium.yearly",
+                    autoPurchase: false
+                )
+                .environmentObject(premium)
             }
             .sheet(isPresented: $showPrivacySheet) {
                 PrivacyPolicyView()
+            }
+            .sheet(isPresented: $showPremiumIntro) {
+                PremiumIntroView(
+                    isPresented: $showPremiumIntro,
+                    onUpgrade: {
+                        showUpgradeSheet = true
+                    }
+                )
+            }
+             
+            .confirmationDialog(
+                "Developer Menu",
+                isPresented: $showDevMenu,
+                titleVisibility: .visible
+            ) {
+
+                Button("Open Onboarding") {
+                    showDevMenu = false
+                    
+                    // 🔥 Reset flag như nút cũ
+                    UserDefaults.standard.set(false, forKey: "hasSeenOnboarding")
+                }
+
+                Button("Open Premium Intro") {
+                    showPremiumIntro = true
+                }
+
+                Button("Open Upgrade Sheet") {
+                    showUpgradeSheet = true
+                }
+
+                Button("Cancel", role: .cancel) {}
             }
         }
     }
@@ -98,7 +139,7 @@ extension SettingsView {
     // MARK: - Version Section
     var versionSection: some View {
         Section(
-            footer: bottomSpacer   // 👈 quyết định việc scroll dư
+            footer: bottomSpacer
         ) {
             VStack(spacing: 8) {
                 Text("Easy Schedule")
@@ -111,10 +152,29 @@ extension SettingsView {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 24)
+            .contentShape(Rectangle()) // ⭐ QUAN TRỌNG
+            .onTapGesture {
+                handleVersionTap()
+            }
         }
         .listRowBackground(Color.clear)
     }
+    
+    private func handleVersionTap() {
+        let now = Date()
 
+        if now.timeIntervalSince(lastVersionTap) > 2 {
+            versionTapCount = 0
+        }
+
+        versionTapCount += 1
+        lastVersionTap = now
+
+        if versionTapCount >= 5 {
+            versionTapCount = 0
+            showDevMenu = true
+        }
+    }
     // MARK: - Bottom Spacer (KHÔNG bị collapse)
     private var bottomSpacer: some View {
         Color.clear
@@ -356,13 +416,6 @@ extension SettingsView {
 
     var supportSection: some View {
         Section(header: Text(String(localized: "info_support"))) {
-
-            Button {
-                UserDefaults.standard.set(false, forKey: "hasSeenOnboarding")
-            } label: {
-                Label(String(localized: "view_onboarding"),
-                      systemImage: "rectangle.on.rectangle")
-            }
 
             Button {
                 showPrivacySheet = true

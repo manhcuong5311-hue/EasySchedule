@@ -360,7 +360,7 @@ struct LoginView: View {
             self.isLoggedIn = true
             
             // ✅ FIX Ở ĐÂY
-            let name = [
+            _ = [
                 credential.fullName?.givenName,
                 credential.fullName?.familyName
             ]

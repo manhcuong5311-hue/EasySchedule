@@ -388,7 +388,7 @@ struct EventScrollContent: View {
     private var dayCard: some View {
 
         // 1️⃣ Chiều cao hint cố định (chrome, không phải content)
-        let hintHeight: CGFloat = isPad ? 36 : 24
+        let _: CGFloat = isPad ? 36 : 24
 
         return ZStack(alignment: .top) {
 

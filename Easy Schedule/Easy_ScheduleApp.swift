@@ -151,10 +151,10 @@ struct RootView: View {
                               Task { await premium.refresh() }
                             
                           }
-                    .onChange(of: premium.isLoaded) { _, loaded in
-                        guard loaded else { return }
+                    .onChange(of: premium.tier) { _, tier in
+                        guard premium.isLoaded else { return }
 
-                        if premium.tier == .free,
+                        if tier == .free,
                            PremiumIntroGate.shouldShowToday() {
 
                             showPremiumIntro = true
@@ -179,8 +179,11 @@ struct RootView: View {
         }
         
         .sheet(isPresented: $showPaywall) {
-            PremiumUpgradeSheet()
-                .environmentObject(premium)
+            PremiumUpgradeSheet(
+                preselectProductID: "com.SamCorp.EasySchedule.premium.yearly",
+                autoPurchase: true
+            )
+            .environmentObject(premium)
         }
     }
 }

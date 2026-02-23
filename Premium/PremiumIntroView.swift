@@ -6,48 +6,54 @@
 //
 import SwiftUI
 
-struct PremiumIntroView: View {
-    @Binding var isPresented: Bool
 
-    @State private var canSkip = false
-    @State private var showCard = false
-    @State private var animateCrown = false
+
+struct PremiumIntroView: View {
+
+    @Binding var isPresented: Bool
     let onUpgrade: () -> Void
-    
+
+    @State private var showCard = false
+    @State private var animateHero = false
+    @State private var showClose = false
+
     var body: some View {
         ZStack {
-            // Background dim
-            Color.black.opacity(showCard ? 0.45 : 0)
-                .ignoresSafeArea()
-                .animation(.easeInOut(duration: 0.25), value: showCard)
 
-            VStack {
+            // 🔥 Background
+            Color.black.opacity(showCard ? 0.5 : 0)
+                .ignoresSafeArea()
+                .animation(.easeInOut(duration: 0.3), value: showCard)
+
+            VStack(spacing: 0) {
+
                 Spacer()
 
-                VStack(spacing: 20) {
+                // =====================
+                // HERO IMAGE (TOP)
+                // =====================
+                Image("2")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: 260)
+                    .scaleEffect(animateHero ? 1.05 : 1.0)
+                    .animation(
+                        .easeInOut(duration: 2)
+                            .repeatForever(autoreverses: true),
+                        value: animateHero
+                    )
+                    .padding(.bottom, -40)
 
-                    // 👑 Crown (pulse nhẹ)
-                    Image(systemName: "crown.fill")
-                        .font(.system(size: 44))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [.yellow, .orange],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
-                        .scaleEffect(animateCrown ? 1.08 : 1.0)
-                        .animation(
-                            .easeInOut(duration: 1.3)
-                                .repeatForever(autoreverses: true),
-                            value: animateCrown
-                        )
+                // =====================
+                // CARD
+                // =====================
+                VStack(spacing: 22) {
 
                     Text(String(localized: "premium_intro_title"))
                         .font(.title2.bold())
                         .multilineTextAlignment(.center)
 
-                    VStack(alignment: .leading, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 14) {
 
                         PremiumFeatureRow(
                             icon: "calendar.badge.clock",
@@ -65,86 +71,92 @@ struct PremiumIntroView: View {
                         )
 
                         PremiumFeatureRow(
-                            icon: "checklist",
-                            text: String(localized: "premium_feature_task_management")
-                        )
-
-                        PremiumFeatureRow(
-                            icon: "calendar.badge.plus",
-                            text: String(localized: "premium_feature_off_days")
-                        )
-
-                        PremiumFeatureRow(
-                            icon: "clock.arrow.circlepath",
-                            text: String(localized: "premium_feature_busy_hours")
-                        )
-
-                        PremiumFeatureRow(
                             icon: "arrow.triangle.2.circlepath",
                             text: String(localized: "premium_feature_cloud_sync")
                         )
                     }
 
-                    .padding(.top, 4)
-
                     Button {
-                        // 👉 mở paywall
                         isPresented = false
-                        onUpgrade()    
+                        
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            onUpgrade()
+                        }
+
                     } label: {
-                        Text(String(localized: "premium_upgrade"))
+                        Text(String(localized: "premium_continue"))
                             .font(.headline)
                             .frame(maxWidth: .infinity)
                             .padding()
                             .background(
                                 LinearGradient(
-                                    colors: [Color.accentColor, Color.accentColor.opacity(0.85)],
+                                    colors: [Color.accentColor, Color.accentColor.opacity(0.8)],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 )
                             )
                             .foregroundColor(.white)
-                            .cornerRadius(16)
+                            .cornerRadius(18)
                     }
-                    .padding(.top, 10)
-
-                    Button {
-                        isPresented = false
-                    } label: {
-                        Text(String(localized: "premium_skip"))
-                            .foregroundColor(.secondary)
-                    }
-                    .disabled(!canSkip)
-                    .opacity(canSkip ? 1 : 0)
-                    .offset(y: canSkip ? 0 : 6)
-                    .animation(.easeOut(duration: 0.25), value: canSkip)
                 }
-                .padding(28)
+                .padding(30)
                 .background(
-                    RoundedRectangle(cornerRadius: 30)
+                    RoundedRectangle(cornerRadius: 32)
                         .fill(Color(.systemBackground))
-                        .shadow(color: .black.opacity(0.18), radius: 24, y: 12)
+                        .shadow(color: .black.opacity(0.25), radius: 30, y: 15)
                 )
-                .padding(.horizontal)
-                .scaleEffect(showCard ? 1.0 : 0.92)
+                .padding(.horizontal, 20)
+                .offset(y: showCard ? 0 : 120)
                 .opacity(showCard ? 1 : 0)
                 .animation(
-                    .spring(response: 0.5, dampingFraction: 0.85),
+                    .spring(response: 0.6, dampingFraction: 0.85),
                     value: showCard
                 )
 
                 Spacer()
             }
-        }
-        .onAppear {
-            showCard = true
-            animateCrown = true
 
-            // ⏱ Mở nút Skip sau 3s
-            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-                canSkip = true
+            // =====================
+            // CLOSE BUTTON (2s delay)
+            // =====================
+            if showClose {
+                VStack {
+                    HStack {
+                        Spacer()
+                        Button {
+                            isPresented = false
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 16, weight: .bold))
+                                .foregroundColor(.white)
+                                .frame(width: 36, height: 36)
+                                .background(
+                                    Circle()
+                                        .fill(Color.white.opacity(0.2))
+                                )
+                        }
+                        .padding(.trailing, 20)
+                        .padding(.top, 60)
+                    }
+                    Spacer()
+                }
+                .transition(.opacity)
+                .animation(.easeInOut(duration: 0.25), value: showClose)
             }
         }
+        .onAppear {
+            animateHero = true
+
+            withAnimation {
+                showCard = true
+            }
+
+            // ⏱ Delay 2s mới hiện X
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                showClose = true
+            }
+        }
+        
     }
 }
 
