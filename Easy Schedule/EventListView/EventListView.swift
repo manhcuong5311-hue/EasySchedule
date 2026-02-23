@@ -83,7 +83,8 @@ struct EventListView: View {
     @State private var isMonthPickerOpen = false
 
 //NEWWWWWW
-  
+    @State private var didUserSelectDate = false
+
     
     private var eventsIntroOverlay: some View {
         GeometryReader { geo in
@@ -167,6 +168,9 @@ struct EventListView: View {
                 
                 onOpenDisplaySettings: {
                       activeSheet = .displaySettings
+                  },
+                onUserSelectDay: {
+                      didUserSelectDate = true   // ✅ SET ĐÚNG FLAG
                   }
                  
             )
@@ -237,10 +241,12 @@ struct EventListView: View {
 
         .onChange(of: selectedDate) { _, newDate in
 
-            // ⭐ 1️⃣ ĐÁNH DẤU ĐÃ XEM EVENT TRONG NGÀY (XOÁ DOT NEW)
+            guard didUserSelectDate else { return }   // ⭐ CHẶN RESET ẢO
+
             eventManager.markDayEventsAsSeen(newDate)
 
-            // ⭐ 2️⃣ LOGIC CŨ CỦA BẠN – GIỮ NGUYÊN
+            didUserSelectDate = false                 // ⭐ RESET FLAG
+
             let cal = Calendar.current
             let today = cal.startOfDay(for: Date())
             let selected = cal.startOfDay(for: newDate)
@@ -248,7 +254,6 @@ struct EventListView: View {
             if selected < today {
                 activeSheet = .pastWeek(week(from: newDate))
             }
-
         }
 
    
@@ -291,11 +296,17 @@ struct EventScrollContent: View {
 
     
     
-    
+    @Environment(\.horizontalSizeClass) private var hSizeClass
+
+    private var isPad: Bool {
+        hSizeClass == .regular
+    }
+
     
     @EnvironmentObject var eventManager: EventManager
     @EnvironmentObject var uiAccent: UIAccentStore
    
+    @Environment(\.colorScheme) private var scheme
     
     private var eventsOfSelectedDay: [CalendarEvent] {
         events
@@ -316,98 +327,166 @@ struct EventScrollContent: View {
         EventCardLayout(rawValue: cardLayoutRaw) ?? .normal
     }
 
-    
-    var body: some View {
-   
-        ScrollView {
-            
-           
-            
-            HorizontalDayPickerView(
-                selectedDate: $selectedDate,
-                maxSelectableDate: maxSelectableDate
-            )
-            
-            .padding(.bottom, 8)
-            
-            
-            // ===== CONTENT =====
-            if eventsOfSelectedDay.isEmpty {
-                
-                if isOffDay {
-                    OffDayEmptyStateView(
-                        date: selectedDate,
-                        onViewSummary: {
-                            onViewSummary(selectedDate)
-                        }
-                    )
-                } else {
-                    EmptyEventsStateView(
-                        onAdd: onAddEvent,
-                        onShare: onShareCalendar,
-                        onBookPartner: onBookPartner
-                    )
-                }
-                
-            } else {
-                DaySectionView(
-                    day: selectedDate,
-                    dayEvents: eventsOfSelectedDay,
-                    showOwnerLabel: showOwnerLabel,
-                    timeFontSize: timeFontSize,
-                    timeDisplayMode: timeDisplayMode,
-                    onAddEvent: onAddEvent,
-                    onShareCalendar: onShareCalendar,
-                    onBookPartner: onBookPartner
-                )
-                
-                .padding(.bottom, 80)
-            }
-            
-        }
-        .frame(maxWidth: .infinity, alignment: .topLeading)
-        .safeAreaInset(edge: .top, spacing: 0) {
-            HStack(alignment: .center) {
+    let onUserSelectDay: () -> Void
 
-                // ===== BIG DATE HEADER (BÊN TRÁI) =====
-                BigDateHeaderView(
-                    date: selectedDate,
-                    isExpanded: $isMonthPickerOpen
-                ) {
-                    isMonthPickerOpen = true
-                    onOpenMonthPicker()
-                }
-
-                Spacer()
-
-                // ===== FLOATING PAINTPALETTE (BÊN PHẢI) =====
-                Button {
-                    // ⚙️ MỞ DISPLAY SETTINGS
-                    onOpenDisplaySettings()
-                } label: {
-                    Image(systemName: "paintpalette")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundColor(uiAccent.color)
-                        .frame(width: 44, height: 44)
-                        .background(
-                            Circle()
-                                .fill(Color(.systemBackground))
-                        )
-                        .shadow(
-                            color: Color.black.opacity(0.18),
-                            radius: 4,
-                            y: 2
-                        )
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 4)
-            .padding(.bottom, 4)
-        }
-
-
-
+    private let headerHeight: CGFloat = 56
+    private let dayPickerHeight: CGFloat = 92
+    private let topSpacing: CGFloat = 40
+    private var dayCardInset: CGFloat {
+        isPad ? 12 : 8
     }
+    
+    private var bottomCardInset: CGFloat {
+        isPad ? 16 : 12
+    }
+
+    var body: some View {
+        GeometryReader { geo in
+
+            let availableHeight = max(
+                0,
+                geo.size.height
+                    - headerHeight
+                    - dayPickerHeight
+            )
+
+            VStack(spacing: 0) {
+
+                headerBar
+                    .frame(height: headerHeight)
+
+                HorizontalDayPickerView(
+                    selectedDate: $selectedDate,
+                    maxSelectableDate: maxSelectableDate,
+                    onUserSelectDay: { _ in
+                        onUserSelectDay()
+                    }
+                )
+                .frame(height: dayPickerHeight)
+
+                dayCard
+                    .frame(
+                        maxWidth: .infinity,
+                        maxHeight: availableHeight
+                    )
+            }
+         
+            .background(
+                AppBackground.settings(scheme)
+                    .ignoresSafeArea()
+            )
+        }
+    }
+
+
+
+
+
+    
+    
+    
+    private var dayCard: some View {
+
+        // 1️⃣ Chiều cao hint cố định (chrome, không phải content)
+        let _: CGFloat = isPad ? 36 : 24
+
+        return ZStack(alignment: .top) {
+
+            // ===== SCROLL CONTENT =====
+            ScrollView {
+
+                VStack(spacing: 0) {
+
+
+                    if eventsOfSelectedDay.isEmpty {
+
+                        if isOffDay {
+                            OffDayEmptyStateView(
+                                date: selectedDate,
+                                onViewSummary: {
+                                    onViewSummary(selectedDate)
+                                }
+                            )
+                        } else {
+                            EmptyEventsStateView(
+                                onAdd: onAddEvent,
+                                onShare: onShareCalendar,
+                                onBookPartner: onBookPartner
+                            )
+                        }
+
+                    } else {
+                        DaySectionView(
+                            day: selectedDate,
+                            dayEvents: eventsOfSelectedDay,
+                            showOwnerLabel: showOwnerLabel,
+                            timeFontSize: timeFontSize,
+                            timeDisplayMode: timeDisplayMode,
+                            onAddEvent: onAddEvent,
+                            onShareCalendar: onShareCalendar,
+                            onBookPartner: onBookPartner
+                        )
+                        .padding(.bottom, 16)
+                    }
+                }
+                .padding(.bottom, AppLayout.floatingTabBarHeight + 12)
+            }
+
+            // ===== HINT (OVERLAY – KHÔNG BAO GIỜ BỊ CHE) =====
+        }
+        .background(
+            AppBackground.card(scheme)
+                .ignoresSafeArea(edges: .bottom)
+        )
+
+        .clipShape(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+        )
+        .shadow(
+            color: AppBackground.panelShadow(scheme),
+            radius: 12,
+            y: -2
+        )
+    }
+
+
+    
+    private var headerBar: some View {
+        HStack {
+
+            BigDateHeaderView(
+                date: selectedDate,
+                isExpanded: $isMonthPickerOpen
+            ) {
+                isMonthPickerOpen = true
+                onOpenMonthPicker()
+            }
+
+            Spacer()
+
+            Button {
+                onOpenDisplaySettings()
+            } label: {
+                Image(systemName: "paintpalette")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(uiAccent.color)
+                    .frame(width: 44, height: 44)
+                    .background(
+                        Circle()
+                            .fill(AppBackground.card(scheme))
+                    )
+                    .shadow(
+                        color: AppBackground.panelShadow(scheme),
+                        radius: 4,
+                        y: 2
+                    )
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        // ❌ KHÔNG background ở đây
+    }
+
 }
     
 

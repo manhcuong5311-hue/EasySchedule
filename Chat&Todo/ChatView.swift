@@ -311,8 +311,12 @@ struct ChatView: View {
                 .environmentObject(eventManager)
 
             case .premium:
-                PremiumUpgradeSheet()
-
+                PremiumUpgradeSheet(
+                    preselectProductID: "com.SamCorp.EasySchedule.premium.yearly",
+                    autoPurchase: false
+                )
+                .environmentObject(premium)
+                
             case .todo:
                 TodoListView(
                     chatId: eventId,

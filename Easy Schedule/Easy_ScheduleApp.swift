@@ -78,6 +78,7 @@ extension Easy_scheduleApp {
 
     @ViewBuilder
     var appMainContent: some View {
+        
         if showLaunch {
             LaunchView()
                 .preferredColorScheme(colorScheme)
@@ -88,15 +89,27 @@ extension Easy_scheduleApp {
                         withAnimation { showLaunch = false }
                     }
                 }
-
-        } else if !hasSeenOnboarding {
-            OnboardingContainerView()
-                .preferredColorScheme(colorScheme)
+            
         } else {
-            RootView()
-                .preferredColorScheme(colorScheme)
-                .environmentObject(session)
-                .environmentObject(eventManager)
+            
+            if session.currentUser == nil {
+                
+                // 🔐 LOGIN TRƯỚC
+                LoginView()
+                    .preferredColorScheme(colorScheme)
+                
+            } else if !hasSeenOnboarding {
+                
+                // 🎯 ONBOARDING SAU KHI LOGIN
+                OnboardingContainerView()
+                    .preferredColorScheme(colorScheme)
+                
+            } else {
+                
+                // ✅ APP CHÍNH
+                RootView()
+                    .preferredColorScheme(colorScheme)
+            }
         }
     }
 
@@ -138,10 +151,10 @@ struct RootView: View {
                               Task { await premium.refresh() }
                             
                           }
-                    .onChange(of: premium.isLoaded) { _, loaded in
-                        guard loaded else { return }
+                    .onChange(of: premium.tier) { _, tier in
+                        guard premium.isLoaded else { return }
 
-                        if premium.tier == .free,
+                        if tier == .free,
                            PremiumIntroGate.shouldShowToday() {
 
                             showPremiumIntro = true
@@ -166,8 +179,11 @@ struct RootView: View {
         }
         
         .sheet(isPresented: $showPaywall) {
-            PremiumUpgradeSheet()
-                .environmentObject(premium)
+            PremiumUpgradeSheet(
+                preselectProductID: "com.SamCorp.EasySchedule.premium.yearly",
+                autoPurchase: true
+            )
+            .environmentObject(premium)
         }
     }
 }

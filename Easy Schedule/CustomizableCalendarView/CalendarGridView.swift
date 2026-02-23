@@ -75,14 +75,16 @@ struct CalendarGridView: View {
             
             // MARK: - Tên thứ trong tuần
             HStack {
-                let symbols = Array(calendar.veryShortStandaloneWeekdaySymbols[1...6]) + [calendar.veryShortStandaloneWeekdaySymbols[0]]
-                ForEach(Array(symbols.enumerated()), id: \.offset) { _, symbol in
+                let symbols = calendar.veryShortStandaloneWeekdaySymbols
+                let firstWeekday = calendar.firstWeekday - 1
+                let reordered = Array(symbols[firstWeekday...] + symbols[..<firstWeekday])
+
+                ForEach(Array(reordered.enumerated()), id: \.offset) { _, symbol in
                     Text(symbol)
                         .font(.caption)
                         .frame(maxWidth: .infinity)
                         .foregroundColor(.secondary)
                 }
-
             }
             
             // MARK: - Lưới ngày
@@ -92,7 +94,7 @@ struct CalendarGridView: View {
 
                 if let firstDay = allDays.first {
                     let weekday = calendar.component(.weekday, from: firstDay)
-                    let emptySlots = weekday - calendar.firstWeekday
+                    let emptySlots = (weekday - calendar.firstWeekday + 7) % 7
                     if emptySlots > 0 {
                         ForEach(0..<emptySlots, id: \.self) { idx in
                             Text("")

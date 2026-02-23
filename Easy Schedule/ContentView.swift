@@ -43,7 +43,7 @@ enum AppTab: Hashable {
 struct ContentView: View {
 
     @EnvironmentObject var eventManager: EventManager
- 
+
     @State private var selectedTab: AppTab = .events
     @State private var openChatEventId: String?
     @State private var pendingChatEventId: String?
@@ -51,81 +51,87 @@ struct ContentView: View {
 
     var body: some View {
 
-        TabView(selection: $selectedTab) {
+        ZStack(alignment: .bottom) {
 
-            NavigationStack {
-                EventListView(
-                    onBookPartner: {
-                        selectedTab = .partners   // 👈 SWITCH SANG TAB ĐỐI TÁC
+            // =========================
+            // MAIN CONTENT (NO TABVIEW)
+            // =========================
+            Group {
+                switch selectedTab {
+
+                case .events:
+                    NavigationStack {
+                        EventListView(
+                            onBookPartner: {
+                                selectedTab = .partners
+                            }
+                        )
+                        .navigationDestination(item: $openChatEventId) { id in
+                            ChatEntryResolverView(eventId: id)
+                        }
+                        .onChange(of: pendingChatEventId) { _, chatId in
+                            guard let chatId else { return }
+                            openChatEventId = chatId
+                            pendingChatEventId = nil
+                        }
                     }
-                )
-                .navigationDestination(item: $openChatEventId) { id in
-                    ChatEntryResolverView(eventId: id)
+
+                case .calendar:
+                    NavigationStack {
+                        CustomizableCalendarView()
+                    }
+
+                case .partners:
+                    NavigationStack {
+                        PartnerCalendarTabView(
+                            onBookPartner: {
+                                selectedTab = .partners
+                            }
+                        )
+                    }
+
+                case .settings:
+                    NavigationStack {
+                        SettingsView()
+                    }
                 }
-                .onChange(of: pendingChatEventId) { _, chatId in
-                    guard let chatId else { return }
-                    openChatEventId = chatId
-                    pendingChatEventId = nil
-                }
             }
+            // ⭐ QUAN TRỌNG: cho content ăn full màn hình
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            .tabItem {
-                Label("tab_events", systemImage: "list.bullet.rectangle")
-            }
-            .tag(AppTab.events)
-
-            NavigationStack {
-                CustomizableCalendarView()
-            }
-            .tabItem {
-                Label("tab_calendar", systemImage: "calendar")
-            }
-            .tag(AppTab.calendar)
-
-            NavigationStack {
-                   PartnerCalendarTabView(
-                       onBookPartner: {
-                           selectedTab = .partners    // 👈 TAB 3
-                       }
-                   )
-               }
-               .tabItem {
-                   Label("tab_partners", systemImage: "person.2.fill")
-               }
-               .badge(accessBadgeVM.pendingCount)
-               .tag(AppTab.partners)
-            
-            NavigationStack {
-                SettingsView()
-            }
-            .tabItem {
-                Label("tab_settings", systemImage: "gearshape")
-            }
-            .tag(AppTab.settings)
+            // =========================
+            // FLOATING TAB BAR
+            // =========================
+            AppFloatingTabBar(
+                selectedTab: $selectedTab,
+                partnersBadge: accessBadgeVM.pendingCount
+            )
         }
+        // ⭐ CHÌA KHÓA CUỐI CÙNG
+        .ignoresSafeArea(edges: .bottom)
+
+        // =========================
+        // LIFECYCLE – GIỮ NGUYÊN
+        // =========================
         .onAppear {
             handlePendingPush()
             eventManager.cleanUpPastEvents()
-        }
-        .onAppear {
+
             if let uid = Auth.auth().currentUser?.uid {
                 accessBadgeVM.load(ownerUid: uid)
             }
         }
 
-        // 🔔 CHAT PUSH
+        // 🔔 CHAT PUSH – GIỮ NGUYÊN
         .onChange(of: eventManager.selectedChatEventId) { _, id in
             guard let id else { return }
-
-            pendingChatEventId = id       // 1. Ghi nhớ intent
-            selectedTab = .events         // 2. Chỉ switch tab
+            pendingChatEventId = id
+            selectedTab = .events
             eventManager.selectedChatEventId = nil
         }
-     
     }
 
     private func handlePendingPush() {
-
         if let chatId = UserDefaults.standard.string(forKey: "pendingChatEventId") {
             UserDefaults.standard.removeObject(forKey: "pendingChatEventId")
             eventManager.openChat(eventId: chatId)
@@ -137,6 +143,75 @@ struct ContentView: View {
         }
     }
 }
+
+
+struct AppFloatingTabBar: View {
+
+    @Binding var selectedTab: AppTab
+    let partnersBadge: Int
+
+    var body: some View {
+           ZStack {
+               // ✅ NỀN CHE ĐÁY MÀN HÌNH
+               Rectangle()
+                   .fill(.ultraThinMaterial)
+                   .ignoresSafeArea(edges: .bottom)
+
+               HStack(spacing: 12) {
+                   tab(.events, "list.bullet.rectangle")
+                   tab(.calendar, "calendar")
+                   tab(.partners, "person.2.fill", badge: partnersBadge)
+                   tab(.settings, "gearshape")
+               }
+               .padding(.horizontal, 12)
+               .padding(.vertical, 12)
+           }
+           .frame(height: AppLayout.floatingTabBarHeight)
+       }
+    
+    private func tab(
+        _ tab: AppTab,
+        _ systemImage: String,
+        badge: Int = 0
+    ) -> some View {
+
+        Button {
+            selectedTab = tab
+        } label: {
+            ZStack(alignment: .topTrailing) {
+
+                Image(systemName: systemImage)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(
+                        selectedTab == tab
+                        ? .accentColor
+                        : .secondary
+                    )
+                    .frame(width: 44, height: 44)
+                    .background(
+                        Circle()
+                            .fill(.ultraThinMaterial)
+                    )
+                    .shadow(
+                        color: .black.opacity(0.18),
+                        radius: 6,
+                        y: 4
+                    )
+
+                if badge > 0 {
+                    Text("\(badge)")
+                        .font(.caption2.bold())
+                        .foregroundColor(.white)
+                        .padding(4)
+                        .background(Color.red)
+                        .clipShape(Circle())
+                        .offset(x: 6, y: -6)
+                }
+            }
+        }
+    }
+}
+
 
 
 

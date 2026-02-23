@@ -103,11 +103,14 @@ struct FinalOnboardingCTASlide: View {
             .padding(.horizontal, 28)
         }
         .fullScreenCover(isPresented: $showPaywall) {
-            PremiumUpgradeSheet()
-                .environmentObject(PremiumStoreViewModel.shared)
-                .onDisappear {
-                    hasSeenOnboarding = true
-                }
+            PremiumUpgradeSheet(
+                preselectProductID: "com.SamCorp.EasySchedule.premium.yearly",
+                autoPurchase: false   // đổi true nếu muốn auto mua
+            )
+            .environmentObject(PremiumStoreViewModel.shared)
+            .onDisappear {
+                hasSeenOnboarding = true
+            }
         }
 
 

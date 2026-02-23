@@ -54,17 +54,27 @@ struct PartnerCalendarTabView: View {
         !linkText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isLoading
     }
 
+    @State private var didCopy = false
     
     var body: some View {
         NavigationStack {
             ZStack {
                 mainContent
-
-                if guideManager.isActive(.partnersIntro) {
-                    partnersIntroOverlay
-                }
             }
-         
+            .safeAreaInset(edge: .top) {
+                HStack {
+
+                    partnerHeaderView
+
+                    Spacer()
+
+                    floatingAddButton
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 6)
+                .padding(.bottom, 6)
+                .background(Color(.systemBackground))
+            }
         }
         .toolbar(.hidden, for: .navigationBar)
         // ✅ LOAD BADGE KHI VIEW XUẤT HIỆN
@@ -72,249 +82,18 @@ struct PartnerCalendarTabView: View {
             guard let uid = Auth.auth().currentUser?.uid else { return }
             accessBadgeVM.load(ownerUid: uid)
         }
-    }
-
-
-    private var partnerHeaderView: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 8) {
-                Text(String(localized: "title_partner1"))
-                    .foregroundColor(uiAccent.color)
-
-                Text(String(localized: "title_calendar1"))
-                    .foregroundColor(.primary)
-            }
-            .font(.system(size: 34, weight: .bold, design: .rounded))
-            .modifier(TitleShadow.primary(colorScheme))
-
-            Text(String(localized: "partner_calendar_description"))
-                .font(.system(size: 15, weight: .medium))
-                .foregroundColor(.secondary)
-                .shadow(
-                    color: colorScheme == .dark
-                    ? Color.white.opacity(0.15)
-                    : Color.black.opacity(0.10),
-                    radius: 1,
-                    y: 1
-                )
-        }
-        .padding(.horizontal)
-        .padding(.top, 16)
-    }
-
-    private var floatingAddButton: some View {
-        Button {
-            guard !isLoading else { return }
-            addAppointmentPressed()
-        } label: {
-            Image(systemName: "plus")
-                .font(.system(size: 22, weight: .bold))     // ⭐ CÙNG SIZE
-                .foregroundColor(uiAccent.color)
-                .frame(width: 52, height: 52)               // ⭐ CÙNG KÍCH THƯỚC
-                .background(
-                    Circle()
-                        .fill(Color(.systemBackground))
-                )
-                .shadow(
-                    color: colorScheme == .dark
-                        ? Color.white.opacity(0.35)         // ⭐ DARK MODE
-                        : Color.black.opacity(0.25),        // ⭐ LIGHT MODE
-                    radius: 6,
-                    y: 3
-                )
-        }
-        .accessibilityLabel(String(localized: "add_appointment"))
-    }
- 
-
-    // MARK: - Subviews
-    private var mainContent: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                
-                
-                if !network.isOnline {
-                    OfflineBannerView()
-                        .padding(.horizontal)
-                }
-                // ================================
-                // MARK: INPUT UID AREA
-                // ================================
-                inputArea
-                    .padding(.horizontal)
-                
-                
-                // ================================
-                // MARK: ACTION BUTTONS
-                // ================================
-                VStack(alignment: .leading, spacing: 12) {
-                    
-                    Text(String(localized: "manage_sharing"))
-                        .font(.headline)
-                        .padding(.leading, 4)
-                    
-                    VStack(spacing: 0) {
-                        
-                        manageRow(
-                            icon: "clock.arrow.circlepath",
-                            title: String(localized: "viewed_history")
-                        ) {
-                            activeSheet = .history
-                        }
-                        
-                        Divider()
-                        
-                        manageRow(
-                            icon: "person.crop.circle.badge.plus",
-                            title: String(localized: "created_for_others")
-                        ) {
-                            activeSheet = .createdEvents
-                        }
-                        
-                        Divider()
-                        
-                        manageRow(
-                            icon: "person.2.fill",
-                            title: String(localized: "manage_access"),
-                            badgeCount: accessBadgeVM.pendingCount
-                        ) {
-                            activeSheet = .manageAccess
-                        }
-                        
-                    }
-                    .background(Color(.systemBackground))
-                    .cornerRadius(14)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14)
-                            .stroke(Color.gray.opacity(0.12))
-                    )
-                    .shadow(
-                        color: colorScheme == .dark
-                        ? Color.white.opacity(0.12)
-                        : Color.black.opacity(0.18),
-                        radius: 8,
-                        y: 4
-                    )
-                    .shadow(
-                        color: colorScheme == .dark
-                        ? Color.white.opacity(0.06)
-                        : Color.black.opacity(0.08),
-                        radius: 3,
-                        y: 1
-                    )
-                }
-                .padding(.horizontal)
-                
-                
-                
-                // ================================
-                // MARK: UID INFO
-                // ================================
-                // userNames[uid]:
-                // - nil        → unknown_user (UID không tồn tại)
-                // - "No name"  → user chưa đặt tên
-                // - "ABC"      → user có tên
-                
-                VStack(alignment: .leading, spacing: 6) {
-                    if let uid = parsedUID {
-                        HStack(spacing: 8) {
-                            Image(systemName: "person.crop.circle")
-                                .foregroundColor(uiAccent.color)
-                            
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(eventManager.userNames[uid] ?? String(localized: "unknown_user"))
-                                    .font(.headline)
-                                
-                                Text(shortUID(uid))
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                            
-                            Spacer()
-                            
-                            Text(String(localized: "account_active"))
-                                .foregroundColor(.green)
-                                .font(.caption)
-                        }
-                    }
-                    
-                }
-                .padding(.horizontal)
-                
-                
-                // ================================
-                // MARK: ERROR AREA
-                // ================================
-                if let error = errorMessage, !error.isEmpty {
-                    Text(error)
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundColor(.red)
-                        .padding(.horizontal)
-                }
-                
-                
-                // ================================
-                // MARK: CONTENT AREA (DANH SÁCH LỊCH)
-                // ================================
-                contentArea
-                    .padding(.top, 12)
-                
-            
-            }
-            .padding(.top, 12)
-        }
-        .safeAreaInset(edge: .top, spacing: 0) {
-            HStack(alignment: .center) {
-
-                // ===== HEADER BÊN TRÁI =====
-                partnerHeaderView
-
-                Spacer()
-
-                // ===== FLOATING + BÊN PHẢI =====
-                floatingAddButton
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.horizontal, 16)
-            .padding(.top, 4)
-            .padding(.bottom, 4)
-            .background(Color(.systemBackground))
-        }
-
-        // ================================
-        // MARK: TITLE + TOOLBAR
-        // ================================
-        .navigationTitle("")            // hoặc bỏ luôn
-        .navigationBarTitleDisplayMode(.inline)
-
-
-
-        // ================================
-        // MARK: SHEETS
-        // ================================
-        .sheet(item: $activeSheet, onDismiss: {
-            // 🔁 reload badge sau khi đóng Manage Access
-            if let uid = Auth.auth().currentUser?.uid {
-                accessBadgeVM.load(ownerUid: uid)
-            }
-        }) { sheet in
-
+        .sheet(item: $activeSheet) { sheet in
             switch sheet {
 
             case .history:
                 NavigationStack {
                     HistoryLinksView { uid in
-                        linkText = uid
-                        parsedUID = uid
-                        parseAndLoad()
+                        selectedSharedUserId = uid
+                        checkAccessAndOpen(uid: uid)
                         activeSheet = nil
                     }
                     .environmentObject(eventManager)
                 }
-
-            case .createdEvents:
-                MyCreatedEventsView()
-                    .environmentObject(eventManager)
 
             case .manageAccess:
                 NavigationStack {
@@ -334,21 +113,181 @@ struct PartnerCalendarTabView: View {
                 )
                 .environmentObject(eventManager)
                 .environmentObject(session)
+
+            case .addPartner:     // ⭐ QUAN TRỌNG
+                AddPartnerSheet(
+                    isPresented: Binding(
+                        get: { activeSheet == .addPartner },
+                        set: { if !$0 { activeSheet = nil } }
+                    )
+                )
+                .environmentObject(eventManager)
             }
         }
+    }
 
 
+    private var partnerHeaderView: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
 
-        // ================================
-        // MARK: ALERT
-        // ================================
-        .alert(
-            String(localized: "unable_to_proceed"),
-            isPresented: $showAlert
-        ) {
-            Button(String(localized: "close"), role: .cancel) {}
-        } message: {
-            Text(alertMessage)
+            (
+                Text(String(localized: "title_partner1"))
+                    .foregroundColor(uiAccent.color)
+                +
+                Text(" ")
+                +
+                Text(String(localized: "title_calendar1"))
+                    .foregroundColor(.primary)
+            )
+            .font(.system(size: 36, weight: .bold, design: .rounded))
+            .tracking(-0.4)
+            .lineLimit(1)                // ⭐ ép 1 dòng
+            .minimumScaleFactor(0.75)    // ⭐ thu nhỏ nếu thiếu chỗ
+            .allowsTightening(true)      // ⭐ nén ký tự nếu cần
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .modifier(TitleShadow.primary(colorScheme))
+
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+    }
+    
+    private var invitationCard: some View {
+        
+        
+        VStack(alignment: .leading, spacing: 12) {
+
+            HStack {
+                Label(String(localized: "partner.invitation_title"), systemImage: "qrcode")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                Spacer()
+            }
+
+            if let code = eventManager.invitationCode {
+
+                HStack {
+                    Text(code)
+                        .font(.system(size: 24, weight: .bold, design: .monospaced))
+                        .foregroundColor(uiAccent.color)
+
+                    Spacer()
+
+                    Button {
+                        UIPasteboard.general.string = code
+
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                            didCopy = true
+                        }
+
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                didCopy = false
+                            }
+                        }
+
+                    } label: {
+                        Image(systemName: didCopy ? "checkmark.circle.fill" : "doc.on.doc")
+                            .foregroundColor(didCopy ? .green : uiAccent.color)
+                            .scaleEffect(didCopy ? 1.2 : 1.0)
+                    }
+                }
+
+            } else {
+                ProgressView()
+            }
+
+            Text(String(localized: "partner.invitation_subtitle"))
+                .font(.caption2)
+                .foregroundColor(.secondary)
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 20)
+                .fill(
+                    colorScheme == .dark
+                    ? Color(.secondarySystemBackground)
+                    : Color.white
+                )
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 20)
+                .stroke(uiAccent.color.opacity(0.15), lineWidth: 1)
+        )
+        .shadow(
+            color: uiAccent.color.opacity(0.15),
+            radius: 12,
+            y: 6
+        )
+    }
+   
+    private func formattedCode(_ code: String) -> String {
+        code
+    }
+    
+    private var floatingAddButton: some View {
+        Button {
+            activeSheet = .addPartner
+        } label: {
+            Image(systemName: "person.badge.plus")
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundColor(.white)
+                .frame(width: 46, height: 46)
+                .background(
+                    Circle()
+                        .fill(uiAccent.color)
+                )
+                .shadow(
+                    color: uiAccent.color.opacity(0.35),
+                    radius: 10,
+                    y: 4
+                )
+        }
+    }
+ 
+    private var manageSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+
+            Text(String(localized: "access.title"))
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .padding(.horizontal, 4)
+
+            manageRow(
+                icon: "person.2.fill",
+                title: String(localized: "access.manage"),
+                badgeCount: accessBadgeVM.pendingCount
+            ) {
+                activeSheet = .manageAccess
+            }
+            .background(
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(Color(.secondarySystemBackground))
+            )
+        }
+    }
+    
+    // MARK: - Subviews
+    private var mainContent: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 28) {
+
+                invitationCard
+                    .padding(.horizontal, 16)
+
+                manageSection
+                    .padding(.horizontal, 16)
+
+                SharedLinksListView { uid in
+                    selectedSharedUserId = uid
+                    checkAccessAndOpen(uid: uid)
+                }
+                .environmentObject(eventManager)
+                .padding(.horizontal, 16)
+            }
+            .padding(.top, 16)
         }
     }
 
@@ -591,7 +530,9 @@ struct PartnerCalendarTabView: View {
 
     // MARK: - Actions & Helpers
     private func addAppointmentPressed() {
-        let input = linkText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let input = linkText
+            .components(separatedBy: .whitespacesAndNewlines)
+            .joined()
 
         // 1️⃣ Chưa nhập gì
         guard !input.isEmpty else {
@@ -810,3 +751,47 @@ struct PartnerCalendarTabView: View {
 }
 
 
+struct PartnerRow: View {
+
+    let link: SharedLink
+    @EnvironmentObject var eventManager: EventManager
+
+    var body: some View {
+        HStack(spacing: 12) {
+
+            Circle()
+                .fill(Color.blue.opacity(0.15))
+                .frame(width: 42, height: 42)
+                .overlay(
+                    Text(initial)
+                        .font(.headline)
+                        .foregroundColor(.blue)
+                )
+
+            VStack(alignment: .leading, spacing: 4) {
+
+                Text(eventManager.displayName(for: link.uid))
+                    .font(.system(size: 16, weight: .medium))
+
+                Text(shortUID(link.uid))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            Spacer()
+
+            Image(systemName: "chevron.right")
+                .foregroundColor(.secondary)
+        }
+        .padding()
+    }
+
+    private var initial: String {
+        eventManager.displayName(for: link.uid).prefix(1).uppercased()
+    }
+
+    private func shortUID(_ uid: String) -> String {
+        guard uid.count > 8 else { return uid }
+        return uid.prefix(4) + "…" + uid.suffix(4)
+    }
+}

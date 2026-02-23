@@ -6,11 +6,21 @@
 //
 import SwiftUI
 
+struct DayCardHintBottomKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
 struct HorizontalDayPickerView: View {
 
     @Binding var selectedDate: Date
-    @EnvironmentObject var eventManager: EventManager
     let maxSelectableDate: Date
+    let onUserSelectDay: (Date) -> Void
+
+    @EnvironmentObject var eventManager: EventManager
+  
     
     
     var body: some View {
@@ -45,10 +55,15 @@ struct HorizontalDayPickerView: View {
                         .opacity(isLocked ? 0.35 : 1)
                         .allowsHitTesting(!isLocked)
                         .onTapGesture {
-                            withAnimation(.easeInOut) {
-                                selectedDate = day
-                            }
-                        }
+                                                   guard !isLocked else { return }
+
+                                                   withAnimation(.easeInOut) {
+                                                       selectedDate = day
+                                                   }
+
+                                                   // 🔥 PHÁT INTENT DUY NHẤT
+                                                   onUserSelectDay(day)
+                                               }
 
                     }
 
@@ -111,129 +126,218 @@ private struct LayoutConfig {
 
 
 struct DayCell: View {
+
     let day: Date
-     let isSelected: Bool
+    let isSelected: Bool
+    let isPastDay: Bool
+    let isOffDay: Bool
+    let isLocked: Bool
 
-     let isPastDay: Bool
-     let isOffDay: Bool
-     let isLocked: Bool
+    let unreadCount: Int
+    let hasNew: Bool
+    let width: CGFloat
 
-     let unreadCount: Int
-     let hasNew: Bool
-     let width: CGFloat
     @Environment(\.colorScheme) private var colorScheme
     @EnvironmentObject var uiAccent: UIAccentStore
-    
 
-    
+    // MARK: - Layout constants
+        private let hintSlotHeight: CGFloat = 10   // chỗ “ảo” cho hint
+
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 6) {
 
-            Text(day.formatted(.dateTime.weekday(.short)))
-                .font(.caption)
-                .foregroundColor(.secondary)
+            weekdayLabel
 
+            dayCircle
+
+            // slot cố định cho hint (KHÔNG đẩy layout)
+            Color.clear
+                .frame(height: 10)
+        }
+        .frame(width: width + 12)
+        .opacity(contentOpacity)
+    }
+
+    
+   
+    
+}
+
+private extension DayCell {
+    var weekdayLabel: some View {
+        Text(day.formatted(.dateTime.weekday(.short)))
+            .font(.caption)
+            .foregroundColor(.secondary)
+    }
+}
+
+private extension DayCell {
+
+    var dayCircle: some View {
+        ZStack {
+            // ===== MAIN DAY CIRCLE =====
             Text(day.formatted(.dateTime.day()))
                 .font(.headline.bold())
                 .foregroundColor(isSelected ? .white : .primary)
                 .frame(width: width, height: width)
-                .background(
-                    ZStack {
-                        if isSelected {
-                            Circle()
-                                .fill(uiAccent.color)
-                        } else if isOffDay {
-                            Circle()
-                                .fill(
-                                    Color.primary.opacity(
-                                        colorScheme == .dark ? 0.20 : 0.10
-                                    )
-                                )
-                        } else if isPastDay {
-                            Circle()
-                                .fill(
-                                    Color.primary.opacity(
-                                        colorScheme == .dark ? 0.12 : 0.06
-                                    )
-                                )
-                        }
-                    }
-                )
-                .overlay {
-                    if Calendar.current.isDateInToday(day) && !isSelected {
-                        Circle()
-                            .stroke(uiAccent.color, lineWidth: 1.5)
-                    }
-                }
-
-                .overlay(
-                    Group {
-                        if isSelected && colorScheme == .dark {
-                            Circle()
-                                .stroke(
-                                    LinearGradient(
-                                        colors: [
-                                            Color.white.opacity(0.35),
-                                            Color.white.opacity(0.05)
-                                        ],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    ),
-                                    lineWidth: 0.8
-                                )
-                        }
-                    }
-                )
-                .overlay(alignment: .bottomTrailing) {
-                    if isOffDay && !isSelected {
-                        Image(systemName: "bed.double.fill")
-                            .font(.caption)
-                            .foregroundColor(uiAccent.color.opacity(0.8))
-                            .offset(x: -2, y: -2)
-                    }
-                }
-
-
+                .background(circleBackground)
+                .overlay(todayRing)
+                .overlay(darkSelectedRing)
+                .overlay(offDayIcon, alignment: .bottomTrailing)
                 .dayCellShadow(
                     scheme: colorScheme,
                     isSelected: isSelected
                 )
-
-
-
-
-            if unreadCount > 0 {
-                Text("\(unreadCount)")
-                    .font(.caption2.bold())
-                    .foregroundColor(.white)
-                    .padding(4)
-                    .background(Color.red)
-                    .clipShape(Circle())
-            } else if hasNew {
-                Circle()
-                    .fill(uiAccent.color)
-                    .frame(width: 6, height: 6)
-            }
-
+                // ⭐ NEO HINT Ở ĐÂY – KHÔNG DÙNG ZSTACK BÊN NGOÀI
+                .overlay(alignment: .bottomTrailing) {
+                    hintStack
+                }
         }
-        .frame(width: width + 12)   // ⭐ tạo không gian thoáng trên iPad
-        .padding(.vertical, 6)
-        .opacity(
-            (isPastDay || isOffDay) && !isSelected ? 0.45 : 1
-        )
-       
     }
     
-    
-    
-    
-    
-    
-    
-    
-    
-    
+    @ViewBuilder
+    var hintStack: some View {
+        if unreadCount > 0 || hasNew {
+            HStack(spacing: 0) {
+
+                // ⬅️ UNREAD – BÊN TRÁI
+                if unreadCount > 0 {
+                    unreadBadge
+                }
+
+                Spacer(minLength: 0)
+
+                // ➡️ NEW EVENT – BÊN PHẢI
+                if hasNew {
+                    newEventBadge
+                }
+            }
+            .frame(width: width - 8)   // 👈 ép đúng bề rộng day
+            .offset(y: 6)              // 👈 neo sát đáy circle
+        }
+    }
+
+
 }
+
+private extension DayCell {
+
+    var unreadBadge: some View {
+        Text("\(unreadCount)")
+            .font(.caption2.weight(.semibold))
+            .foregroundColor(.white)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(
+                Capsule()
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.red,
+                                Color.red.opacity(0.85)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .shadow(color: .black.opacity(0.25), radius: 3, y: 2)
+            )
+    }
+
+
+    var newEventBadge: some View {
+        Image(systemName: "sparkles")
+            .font(.caption2)
+            .foregroundStyle(
+                LinearGradient(
+                    colors: [
+                        uiAccent.color,
+                        uiAccent.color.opacity(0.6)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
+            .padding(4)
+            .background(
+                Circle()
+                    .fill(uiAccent.color.opacity(0.18))
+                    .shadow(color: uiAccent.color.opacity(0.4), radius: 4)
+            )
+    }
+
+}
+
+
+private extension DayCell {
+    var circleBackground: some View {
+        Group {
+            if isSelected {
+                Circle().fill(uiAccent.color)
+            } else if isOffDay {
+                Circle().fill(Color.primary.opacity(colorScheme == .dark ? 0.20 : 0.10))
+            } else if isPastDay {
+                Circle().fill(Color.primary.opacity(colorScheme == .dark ? 0.12 : 0.06))
+            }
+        }
+    }
+}
+
+private extension DayCell {
+    var todayRing: some View {
+        Group {
+            if Calendar.current.isDateInToday(day) && !isSelected {
+                Circle()
+                    .stroke(uiAccent.color, lineWidth: 1.5)
+            }
+        }
+    }
+}
+
+private extension DayCell {
+    var darkSelectedRing: some View {
+        Group {
+            if isSelected && colorScheme == .dark {
+                Circle()
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.35),
+                                Color.white.opacity(0.05)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 0.8
+                    )
+            }
+        }
+    }
+}
+
+private extension DayCell {
+    var offDayIcon: some View {
+        Group {
+            if isOffDay && !isSelected {
+                Image(systemName: "bed.double.fill")
+                    .font(.caption)
+                    .foregroundColor(uiAccent.color.opacity(0.8))
+                    .offset(x: -2, y: -2)
+            }
+        }
+    }
+}
+
+
+private extension DayCell {
+    var contentOpacity: Double {
+        (isPastDay || isOffDay) && !isSelected ? 0.45 : 1
+    }
+}
+
+
+
+
 
 struct DayStatusBadgeView: View {
 

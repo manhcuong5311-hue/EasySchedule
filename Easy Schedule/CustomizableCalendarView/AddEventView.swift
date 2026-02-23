@@ -67,7 +67,9 @@ struct AddEventView: View {
     
     @State private var activeAlert: AddEventAlert?
 
-
+    @State private var showUpgradeSheet = false
+    @State private var showPremiumIntro = false
+    
     var body: some View {
         NavigationStack {
             Form {
@@ -225,8 +227,20 @@ struct AddEventView: View {
                         isSaving = true
                         
                         if let error = validateBeforeSave() {
-                            activeAlert = nil
-                            DispatchQueue.main.async {
+
+                            switch error {
+
+                            case .overBookingDays,
+                                 .overEventsPerDay:
+
+                                if PremiumIntroGate.shouldShowToday() {
+                                    PremiumIntroGate.markShown()
+                                    showPremiumIntro = true
+                                } else {
+                                    activeAlert = .save(error)
+                                }
+
+                            default:
                                 activeAlert = .save(error)
                             }
 
@@ -270,7 +284,18 @@ struct AddEventView: View {
             .alert(item: $activeAlert) { alert in
                 buildAlert(alert)
             }
-
+            .fullScreenCover(isPresented: $showPremiumIntro) {
+                PremiumIntroView(isPresented: $showPremiumIntro) {
+                    showUpgradeSheet = true
+                }
+            }
+            .sheet(isPresented: $showUpgradeSheet) {
+                PremiumUpgradeSheet(
+                    preselectProductID: nil,
+                    autoPurchase: false
+                )
+                .environmentObject(premium)
+            }
 
             
         }

@@ -255,8 +255,11 @@ struct TodoListView: View {
             .onDisappear { vm.stop()
             }
             .sheet(isPresented: $showPaywall) {
-                PremiumUpgradeSheet()
-                    .environmentObject(premium)
+                PremiumUpgradeSheet(
+                    preselectProductID: nil,
+                    autoPurchase: false
+                )
+                .environmentObject(premium)
             }
             .alert(String(localized: "delete_confirm_title"), isPresented: $showDeleteConfirm) {
                 Button(String(localized:"cancel"), role: .cancel) {}
