@@ -159,7 +159,7 @@ struct PartnerCalendarTabView: View {
         VStack(alignment: .leading, spacing: 12) {
 
             HStack {
-                Label("Your Invitation Code", systemImage: "qrcode")
+                Label(String(localized: "partner.invitation_title"), systemImage: "qrcode")
                     .font(.caption)
                     .foregroundColor(.secondary)
 
@@ -199,7 +199,7 @@ struct PartnerCalendarTabView: View {
                 ProgressView()
             }
 
-            Text("Share this code so others can add your calendar.")
+            Text(String(localized: "partner.invitation_subtitle"))
                 .font(.caption2)
                 .foregroundColor(.secondary)
         }
@@ -250,14 +250,14 @@ struct PartnerCalendarTabView: View {
     private var manageSection: some View {
         VStack(alignment: .leading, spacing: 8) {
 
-            Text("Access")
+            Text(String(localized: "access.title"))
                 .font(.caption)
                 .foregroundColor(.secondary)
                 .padding(.horizontal, 4)
 
             manageRow(
                 icon: "person.2.fill",
-                title: String(localized: "manage_access"),
+                title: String(localized: "access.manage"),
                 badgeCount: accessBadgeVM.pendingCount
             ) {
                 activeSheet = .manageAccess

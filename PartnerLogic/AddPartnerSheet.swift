@@ -21,10 +21,10 @@ struct AddPartnerSheet: View {
                         .font(.system(size: 42))
                         .foregroundColor(.accentColor)
                     
-                    Text("Add Partner")
+                    Text(String(localized: "partner.add_title"))
                         .font(.system(size: 22, weight: .bold))
                     
-                    Text("Enter your partner’s UID or invitation link")
+                    Text(String(localized: "partner.enter_uid_or_link"))
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
@@ -39,7 +39,7 @@ struct AddPartnerSheet: View {
                         Image(systemName: "link")
                             .foregroundColor(.secondary)
                         
-                        TextField("Paste link or UID", text: $input)
+                        TextField(String(localized: "partner.paste_uid_or_link"), text: $input)
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled(true)
                     }
@@ -82,7 +82,7 @@ struct AddPartnerSheet: View {
                                     .scaleEffect(0.9)
                             }
                             
-                            Text("Load")
+                            Text(String(localized: "partner.load"))
                                 .fontWeight(.semibold)
                         }
                         .frame(maxWidth: .infinity, minHeight: 50)
@@ -93,7 +93,7 @@ struct AddPartnerSheet: View {
                     
                     
                     // MARK: Helper Text
-                    Text("Ask your partner for their UID or invitation code.")
+                    Text(String(localized: "partner.ask_for_uid"))
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
@@ -110,7 +110,7 @@ struct AddPartnerSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Close") {
+                    Button(String(localized: "common.close")) {
                         isPresented = false
                     }
                 }
@@ -241,7 +241,7 @@ struct InvitationCodeCard: View {
         
         VStack(alignment: .leading, spacing: 8) {
             
-            Text("Your Invitation Code")
+            Text(String(localized: "partner.invitation_title"))
                 .font(.headline)
             
             if let code = eventManager.invitationCode {
@@ -261,7 +261,7 @@ struct InvitationCodeCard: View {
                     }
                 }
                 
-                Text("Share this code so others can add your calendar.")
+                Text(String(localized: "partner.invitation_subtitle"))
                     .font(.caption)
                     .foregroundColor(.secondary)
                 

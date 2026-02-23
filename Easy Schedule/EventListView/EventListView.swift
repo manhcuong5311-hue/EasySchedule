@@ -433,28 +433,6 @@ struct EventScrollContent: View {
             }
 
             // ===== HINT (OVERLAY – KHÔNG BAO GIỜ BỊ CHE) =====
-            VStack {
-                Capsule()
-                    .fill(Color.secondary.opacity(0.35))
-                    .frame(width: 36, height: 5)
-                    .padding(.top, isPad ? 16 : 8)
-                    .padding(.bottom, isPad ? 8 : 4)
-
-                Spacer()
-            }
-            .frame(height: hintHeight)
-            .background(
-                LinearGradient(
-                    colors: [
-                        AppBackground.card(scheme),
-                        AppBackground.card(scheme).opacity(0.9),
-                        .clear
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            )
-            .zIndex(1)
         }
         .background(
             AppBackground.card(scheme)
