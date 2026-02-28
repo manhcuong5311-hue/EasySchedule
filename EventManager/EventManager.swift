@@ -2625,19 +2625,39 @@ extension EventManager {
 
                 guard let docs = snap?.documents else { return }
 
-                let links = docs.map { doc -> SharedLink in
+                var newLinks: [SharedLink] = []
+                let group = DispatchGroup()
+
+                for doc in docs {
+
+                    group.enter()
+
+                    let otherUid = doc.documentID
                     let data = doc.data()
-                    return SharedLink(
-                        id: doc.documentID,
-                        uid: doc.documentID,
-                        url: "",
-                        createdAt: (data["createdAt"] as? Timestamp)?.dateValue() ?? Date(),
-                        status: .pending
-                    )
+                    let createdAt =
+                        (data["createdAt"] as? Timestamp)?.dateValue()
+                        ?? Date()
+
+                    AccessService.shared.isAllowed(
+                        ownerUid: otherUid,
+                        otherUid: uid
+                    ) { mutual in
+
+                        let link = SharedLink(
+                            id: otherUid,
+                            uid: otherUid,
+                            url: "",
+                            createdAt: createdAt,
+                            status: mutual ? .connected : .pending
+                        )
+
+                        newLinks.append(link)
+                        group.leave()
+                    }
                 }
 
-                DispatchQueue.main.async {
-                    self.sharedLinks = links
+                group.notify(queue: .main) {
+                    self.sharedLinks = newLinks
                 }
             }
     }

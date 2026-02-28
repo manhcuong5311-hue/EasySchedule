@@ -105,12 +105,10 @@ struct HistoryLinksView: View {
             }
         }
 
+    .onAppear {
 
+            eventManager.refreshSharedLinksStatus()
 
-        .onAppear {
-            if eventManager.sharedLinks.contains(where: { $0.status == .pending }) {
-                eventManager.refreshSharedLinksStatus()
-            }
         }
 
 
@@ -138,10 +136,11 @@ struct HistoryLinksView: View {
 
                         guard let myUid = eventManager.currentUserId else { return }
                         loadingUID = link.uid
-                        
+
                         let ownerUid = link.uid
                         let requesterUid = myUid
 
+                        // 1️⃣ Check mình đã được owner allow chưa
                         AccessService.shared.isAllowed(
                             ownerUid: ownerUid,
                             otherUid: requesterUid
@@ -150,57 +149,28 @@ struct HistoryLinksView: View {
                             DispatchQueue.main.async {
 
                                 if allowed {
-                                    loadingUID = nil   // ✅ thêm
+                                    // ✔ Mutual → mở calendar
+                                    loadingUID = nil
                                     onSelect(ownerUid)
                                     return
                                 }
 
-                                let requestRef = Firestore.firestore()
-                                    .collection("calendarAccess")
-                                    .document(ownerUid)
-                                    .collection("requests")
-                                    .document(requesterUid)
+                                // 2️⃣ Chưa mutual → gửi reverse request
+                                let requesterName =
+                                    eventManager.displayName(for: requesterUid)
 
-                                requestRef.getDocument { snapshot, error in
+                                AccessService.shared.createRequest(
+                                    owner: ownerUid,
+                                    requester: requesterUid,
+                                    requesterName: requesterName
+                                )
 
-                                    DispatchQueue.main.async {
+                                pendingUserName =
+                                    nameCache[ownerUid]
+                                    ?? eventManager.displayName(for: ownerUid)
 
-                                        if error != nil {
-                                            loadingUID = nil
-                                            return
-                                        }
-
-                                        if snapshot?.exists == true {
-
-                                            loadingUID = nil
-
-                                            pendingUserName =
-                                                nameCache[ownerUid]
-                                                ?? eventManager.displayName(for: ownerUid)
-
-                                            showPendingAlert = true
-
-                                        } else {
-
-                                            let requesterName =
-                                                eventManager.displayName(for: requesterUid)
-
-                                            AccessService.shared.createRequest(
-                                                owner: ownerUid,
-                                                requester: requesterUid,
-                                                requesterName: requesterName
-                                            )
-
-                                            loadingUID = nil
-
-                                            pendingUserName =
-                                                nameCache[ownerUid]
-                                                ?? eventManager.displayName(for: ownerUid)
-
-                                            showPendingAlert = true
-                                        }
-                                    }
-                                }
+                                showPendingAlert = true
+                                loadingUID = nil
                             }
                         }
                     }

@@ -72,7 +72,10 @@ class AccessService {
 
             print("✅ Allow success (1-way)")
 
-            EventManager.shared.markSharedLinkConnected(uid: otherUid)
+            EventManager.shared.addSharedLink(
+                for: ownerUid,
+                otherUid: otherUid
+            )
 
             completion(true)
         }
@@ -251,12 +254,33 @@ class AllowAccessViewModel: ObservableObject {
 
         // Fetch allowed list and sort alphabetically (by name or uid)
         service.fetchAllowedList(ownerUid: ownerUid) { allowed in
-            let sorted = allowed.sorted {
-                let a = ($0.name ?? $0.uid).localizedLowercase
-                let b = ($1.name ?? $1.uid).localizedLowercase
-                return a < b
+
+            var enriched: [AllowedUser] = []
+            let group = DispatchGroup()
+
+            for user in allowed {
+                group.enter()
+
+                self.service.isAllowed(
+                    ownerUid: user.uid,
+                    otherUid: self.ownerUid
+                ) { mutual in
+
+                    var updated = user
+                    updated.isMutual = mutual
+                    enriched.append(updated)
+
+                    group.leave()
+                }
             }
-            DispatchQueue.main.async {
+
+            group.notify(queue: .main) {
+
+                let sorted = enriched.sorted {
+                    ($0.name ?? $0.uid).localizedLowercase <
+                    ($1.name ?? $1.uid).localizedLowercase
+                }
+
                 self.allowedUsers = sorted
             }
         }
@@ -400,7 +424,6 @@ struct AccessManagementView: View {
         }
         .onAppear { vm.loadAll() }
 
-        .onAppear { vm.loadAll() }
     }
 
     // MARK: - Requests Section
@@ -469,13 +492,34 @@ struct AccessManagementView: View {
             } else {
                 ForEach(vm.filteredAllowedUsers) { user in
                     HStack {
-                        Text(vm.showName ? (user.name ?? user.uid) : user.uid)
+                        VStack(alignment: .leading) {
+
+                            Text(vm.showName ? (user.name ?? user.uid) : user.uid)
+
+                            if !user.isMutual {
+                                Text("Pending")
+                                    .font(.caption2)
+                                    .foregroundColor(.orange)
+                            }
+                        }
                             .lineLimit(1)
 
                         Spacer()
                     }
                     .contentShape(Rectangle()) // ⭐ cho swipe + long press toàn row
+                    // ✅ THÊM ĐOẠN NÀY Ở ĐÂY
+                     .onTapGesture {
+                         if !user.isMutual {
 
+                             AccessService.shared.createRequest(
+                                 owner: user.uid,
+                                 requester: vm.ownerUid,
+                                 requesterName: user.name
+                             )
+
+                             print("🔁 Sent reverse request to \(user.uid)")
+                         }
+                     }
                     // 👉 HOLD (long press) → COPY UID
                     .contextMenu {
                         Button {
@@ -512,6 +556,7 @@ struct AllowedUser: Identifiable {
     var id: String { uid }
     let uid: String
     let name: String?
+    var isMutual: Bool = false
 }
 
 
