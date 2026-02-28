@@ -42,14 +42,12 @@ struct AccessRequestBadge: View {
 enum ActiveSheet: Identifiable {
     case history
     case manageAccess
-    case addAppointment
     case addPartner   // ⭐ THÊM DÒNG NÀY
     
     var id: String {
         switch self {
         case .history: return "history"
         case .manageAccess: return "manageAccess"
-        case .addAppointment: return "addAppointment"
         case .addPartner: return "addPartner"   // ⭐ THÊM
         }
     }

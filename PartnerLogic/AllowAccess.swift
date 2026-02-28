@@ -35,31 +35,50 @@ class AccessService {
     }
 
     // ⭐ ALLOW (A cho phép B)
-    func allowUser(ownerUid: String, otherUid: String, otherUserName: String?, completion: @escaping (Bool) -> Void) {
+    func allowUser(ownerUid: String,
+                   otherUid: String,
+                   otherUserName: String?,
+                   completion: @escaping (Bool) -> Void) {
+
+        let ownerAllowedRef = db
+            .collection("calendarAccess")
+            .document(ownerUid)
+            .collection("allowed")
+            .document(otherUid)
+
+        let requestRef = db
+            .collection("calendarAccess")
+            .document(ownerUid)
+            .collection("requests")
+            .document(otherUid)
 
         var data: [String: Any] = [
             "allowed": true,
             "allowedAt": FieldValue.serverTimestamp()
         ]
 
-        if let name = otherUserName { data["name"] = name }
+        if let name = otherUserName {
+            data["name"] = name
+        }
 
-        db.collection("calendarAccess")
-            .document(ownerUid)
-            .collection("allowed")
-            .document(otherUid)
-            .setData(data) { error in
-                if let error = error {
-                    print("❌ Allow failed:", error.localizedDescription)
-                    completion(false)
-                } else {
-                    self.clearLocalAccessCache()
-
-                    print("✅ ALLOW SUCCESS: \(ownerUid) allowed \(otherUid)")
-                    completion(true)
-                    self.removeRequest(ownerUid: ownerUid, requesterUid: otherUid)
-                }
+        ownerAllowedRef.setData(data) { error in
+            if let error = error {
+                print("❌ Allow failed:", error.localizedDescription)
+                completion(false)
+                return
             }
+
+            requestRef.delete()
+
+            print("✅ Allow success (1-way)")
+
+            EventManager.shared.addSharedLink(
+                for: ownerUid,
+                otherUid: otherUid
+            )
+
+            completion(true)
+        }
     }
 
 
@@ -110,21 +129,27 @@ class AccessService {
                    otherUid: String,
                    completion: @escaping (Bool) -> Void) {
 
-        let key = "allow_\(ownerUid)_\(otherUid)"
-
-        db.collection("calendarAccess")
+        let ownerRef = db.collection("calendarAccess")
             .document(ownerUid)
             .collection("allowed")
             .document(otherUid)
-            .getDocument { snap, error in
 
-                let allowed = snap?.exists ?? false
-
-                // Sync lại cache cho cả A và B
-                UserDefaults.standard.set(allowed, forKey: key)
-
-                completion(allowed)
+        ownerRef.getDocument { snap, _ in
+            if snap?.exists == true {
+                completion(true)
+                return
             }
+
+            // check reverse direction
+            let reverseRef = self.db.collection("calendarAccess")
+                .document(otherUid)
+                .collection("allowed")
+                .document(ownerUid)
+
+            reverseRef.getDocument { snap2, _ in
+                completion(snap2?.exists == true)
+            }
+        }
     }
 
 
@@ -229,12 +254,33 @@ class AllowAccessViewModel: ObservableObject {
 
         // Fetch allowed list and sort alphabetically (by name or uid)
         service.fetchAllowedList(ownerUid: ownerUid) { allowed in
-            let sorted = allowed.sorted {
-                let a = ($0.name ?? $0.uid).localizedLowercase
-                let b = ($1.name ?? $1.uid).localizedLowercase
-                return a < b
+
+            var enriched: [AllowedUser] = []
+            let group = DispatchGroup()
+
+            for user in allowed {
+                group.enter()
+
+                self.service.isAllowed(
+                    ownerUid: user.uid,
+                    otherUid: self.ownerUid
+                ) { mutual in
+
+                    var updated = user
+                    updated.isMutual = mutual
+                    enriched.append(updated)
+
+                    group.leave()
+                }
             }
-            DispatchQueue.main.async {
+
+            group.notify(queue: .main) {
+
+                let sorted = enriched.sorted {
+                    ($0.name ?? $0.uid).localizedLowercase <
+                    ($1.name ?? $1.uid).localizedLowercase
+                }
+
                 self.allowedUsers = sorted
             }
         }
@@ -378,7 +424,6 @@ struct AccessManagementView: View {
         }
         .onAppear { vm.loadAll() }
 
-        .onAppear { vm.loadAll() }
     }
 
     // MARK: - Requests Section
@@ -447,13 +492,34 @@ struct AccessManagementView: View {
             } else {
                 ForEach(vm.filteredAllowedUsers) { user in
                     HStack {
-                        Text(vm.showName ? (user.name ?? user.uid) : user.uid)
+                        VStack(alignment: .leading) {
+
+                            Text(vm.showName ? (user.name ?? user.uid) : user.uid)
+
+                            if !user.isMutual {
+                                Text("Pending")
+                                    .font(.caption2)
+                                    .foregroundColor(.orange)
+                            }
+                        }
                             .lineLimit(1)
 
                         Spacer()
                     }
                     .contentShape(Rectangle()) // ⭐ cho swipe + long press toàn row
+                    // ✅ THÊM ĐOẠN NÀY Ở ĐÂY
+                     .onTapGesture {
+                         if !user.isMutual {
 
+                             AccessService.shared.createRequest(
+                                 owner: user.uid,
+                                 requester: vm.ownerUid,
+                                 requesterName: user.name
+                             )
+
+                             print("🔁 Sent reverse request to \(user.uid)")
+                         }
+                     }
                     // 👉 HOLD (long press) → COPY UID
                     .contextMenu {
                         Button {
@@ -490,6 +556,7 @@ struct AllowedUser: Identifiable {
     var id: String { uid }
     let uid: String
     let name: String?
+    var isMutual: Bool = false
 }
 
 

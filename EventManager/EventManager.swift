@@ -2026,6 +2026,7 @@ extension EventManager {
         listenToMyManualBusySlots()
         // (tuỳ chọn nhưng nên có)
         listenToEvents()
+        listenSharedLinks()
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
                self.rescheduleLocalNotifications()
            }
@@ -2052,6 +2053,7 @@ extension EventManager {
         saveSharedLinks()
         print("💾 saveSharedLinks CALLED")
     }
+    
     func refreshSharedLinksStatus() {
         guard let myUid = Auth.auth().currentUser?.uid else { return }
 
@@ -2062,13 +2064,31 @@ extension EventManager {
             group.enter()
 
             AccessService.shared.isAllowed(
-                ownerUid: link.uid,   // 🔥 SỬA Ở ĐÂY
+                ownerUid: link.uid,
                 otherUid: myUid
             ) { allowed in
+
                 DispatchQueue.main.async {
+
                     if let index = self.sharedLinks.firstIndex(where: { $0.id == link.id }) {
-                        self.sharedLinks[index].status = allowed ? .connected : .pending
+
+                        let oldStatus = self.sharedLinks[index].status
+                        let newStatus = allowed ? LinkStatus.connected : LinkStatus.pending
+                        // ⭐ Chỉ update khi status thay đổi
+                        if oldStatus != newStatus {
+                            self.sharedLinks[index].status = newStatus
+                        }
+
+                        // ⭐ CHỈ GHI FIRESTORE NẾU:
+                        // - allowed == true
+                        // - link chưa tồn tại (tránh spam)
+                        if allowed &&
+                           !self.linkExistsInFirestore(uid: myUid, otherUid: link.uid) {
+
+                            self.addSharedLink(for: myUid, otherUid: link.uid)
+                        }
                     }
+
                     group.leave()
                 }
             }
@@ -2077,6 +2097,10 @@ extension EventManager {
         group.notify(queue: .main) {
             self.saveSharedLinks()
         }
+    }
+    
+    private func linkExistsInFirestore(uid: String, otherUid: String) -> Bool {
+        return sharedLinks.contains(where: { $0.uid == otherUid })
     }
 
     func removePublicCalendarBusySlot(
@@ -2508,23 +2532,22 @@ extension EventManager {
         attempt()
     }
     
-    
     func resolveUid(
         from input: String,
         completion: @escaping (String?) -> Void
     ) {
 
-        // 1️⃣ Remove ALL whitespace
-        let cleaned = input
-            .components(separatedBy: .whitespacesAndNewlines)
-            .joined()
+        // 1️⃣ Trim chuẩn
+        let cleaned = input.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )
 
         guard !cleaned.isEmpty else {
             completion(nil)
             return
         }
 
-        // 2️⃣ Nếu là full URL → lấy path component cuối
+        // 2️⃣ Nếu là URL → lấy last path
         var candidate = cleaned
 
         if let url = URL(string: cleaned),
@@ -2533,34 +2556,40 @@ extension EventManager {
             candidate = last
         }
 
-        // 3️⃣ Nếu đúng format Firebase UID → trả luôn
-        if isValidUIDFormat(candidate) {
-            completion(candidate)
-            return
-        }
+        let upper = candidate.uppercased()
 
-        // 4️⃣ Nếu 6 ký tự → treat as invitationCode
-        if candidate.count == 6 {
+        print("🔎 Resolve input:", cleaned)
+        print("🔎 Candidate:", candidate)
+        print("🔎 Upper:", upper)
 
-            db.collection("users")
-                .whereField("invitationCode",
-                            isEqualTo: candidate.uppercased())
-                .limit(to: 1)
-                .getDocuments { snapshot, _ in
+        // 3️⃣ 🔥 LUÔN THỬ INVITATION CODE TRƯỚC
+        db.collection("users")
+            .whereField("invitationCode", isEqualTo: upper)
+            .limit(to: 1)
+            .getDocuments { snapshot, error in
 
-                    let uid = snapshot?
-                        .documents
-                        .first?
-                        .documentID
-
-                    completion(uid)
+                if let error = error {
+                    print("❌ Firestore error:", error.localizedDescription)
                 }
 
-            return
-        }
+                print("📦 Invite query count:", snapshot?.documents.count ?? 0)
 
-        // 5️⃣ Không hợp lệ
-        completion(nil)
+                // ✅ Nếu tìm thấy bằng invite code
+                if let doc = snapshot?.documents.first {
+                    print("✅ Found by invitationCode:", doc.documentID)
+                    completion(doc.documentID)
+                    return
+                }
+
+                // 4️⃣ Nếu không phải invite → thử treat như UID
+                if self.isValidUIDFormat(candidate) {
+                    print("✅ Treat as UID")
+                    completion(candidate)
+                } else {
+                    print("❌ Not valid UID or invite")
+                    completion(nil)
+                }
+            }
     }
 
     private func isValidUIDFormat(_ uid: String) -> Bool {
@@ -2569,8 +2598,69 @@ extension EventManager {
             .evaluate(with: uid)
     }
     
+    func addSharedLink(for ownerUid: String, otherUid: String) {
+
+        guard let myUid = Auth.auth().currentUser?.uid else { return }
+        guard myUid == ownerUid else { return }   // 🔒 chỉ ghi cho chính mình
+
+        let ref = db.collection("sharedLinks")
+            .document(ownerUid)
+            .collection("links")
+            .document(otherUid)
+
+        ref.setData([
+            "uid": otherUid,
+            "createdAt": FieldValue.serverTimestamp()
+        ], merge: true)
+    }
     
-    
+    func listenSharedLinks() {
+
+        guard let uid = currentUserId else { return }
+
+        db.collection("sharedLinks")
+            .document(uid)
+            .collection("links")
+            .addSnapshotListener { snap, _ in
+
+                guard let docs = snap?.documents else { return }
+
+                var newLinks: [SharedLink] = []
+                let group = DispatchGroup()
+
+                for doc in docs {
+
+                    group.enter()
+
+                    let otherUid = doc.documentID
+                    let data = doc.data()
+                    let createdAt =
+                        (data["createdAt"] as? Timestamp)?.dateValue()
+                        ?? Date()
+
+                    AccessService.shared.isAllowed(
+                        ownerUid: otherUid,
+                        otherUid: uid
+                    ) { mutual in
+
+                        let link = SharedLink(
+                            id: otherUid,
+                            uid: otherUid,
+                            url: "",
+                            createdAt: createdAt,
+                            status: mutual ? .connected : .pending
+                        )
+
+                        newLinks.append(link)
+                        group.leave()
+                    }
+                }
+
+                group.notify(queue: .main) {
+                    self.sharedLinks = newLinks
+                }
+            }
+    }
     
 }
 

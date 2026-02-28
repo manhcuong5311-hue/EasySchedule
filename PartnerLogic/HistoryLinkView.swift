@@ -5,17 +5,20 @@
 //  Created by Sam Manh Cuong on 2/1/26.
 //
 import SwiftUI
+import FirebaseFirestore
 
 struct HistoryLinksView: View {
     @EnvironmentObject var eventManager: EventManager
     var onSelect: (String) -> Void
 
-   
+    @State private var loadingUID: String?
     @State private var showConfirmClear = false
     @State private var searchText: String = ""
     @State private var copiedMessage: String?
     @State private var nameCache: [String: String] = [:]
-
+    @State private var showPendingAlert = false
+    @State private var pendingUserName: String?
+ 
     
     var sortedLinks: [SharedLink] {
         eventManager.sharedLinks.sorted(by: { $0.createdAt > $1.createdAt })
@@ -61,7 +64,19 @@ struct HistoryLinksView: View {
         } message: {
             Text(String(localized: "clear_history_confirm"))
         }
-
+        .alert(
+            String(localized: "request_pending_title"),
+            isPresented: $showPendingAlert
+        ) {
+            Button(String(localized: "ok"), role: .cancel) {}
+        } message: {
+            Text(
+                String(
+                    format: String(localized: "request_pending_message"),
+                    pendingUserName ?? ""
+                )
+            )
+        }
 
         .navigationTitle(String(localized: "viewed_history"))
         .searchable(text: $searchText,
@@ -90,12 +105,10 @@ struct HistoryLinksView: View {
             }
         }
 
+    .onAppear {
 
+            eventManager.refreshSharedLinksStatus()
 
-        .onAppear {
-            if eventManager.sharedLinks.contains(where: { $0.status == .pending }) {
-                eventManager.refreshSharedLinksStatus()
-            }
         }
 
 
@@ -115,11 +128,54 @@ struct HistoryLinksView: View {
                 HistoryLinkRow(
                     link: link,
                     displayName: nameCache[link.uid]
-                        ?? eventManager.displayName(for: link.uid)
-,
+                        ?? eventManager.displayName(for: link.uid),
+                    
+                    isLoading: loadingUID == link.uid,
+                    
                     onSelect: {
-                        onSelect(link.uid)
-                    },
+
+                        guard let myUid = eventManager.currentUserId else { return }
+                        loadingUID = link.uid
+
+                        let ownerUid = link.uid
+                        let requesterUid = myUid
+
+                        // 1️⃣ Check mình đã được owner allow chưa
+                        AccessService.shared.isAllowed(
+                            ownerUid: ownerUid,
+                            otherUid: requesterUid
+                        ) { allowed in
+
+                            DispatchQueue.main.async {
+
+                                if allowed {
+                                    // ✔ Mutual → mở calendar
+                                    loadingUID = nil
+                                    onSelect(ownerUid)
+                                    return
+                                }
+
+                                // 2️⃣ Chưa mutual → gửi reverse request
+                                let requesterName =
+                                    eventManager.displayName(for: requesterUid)
+
+                                AccessService.shared.createRequest(
+                                    owner: ownerUid,
+                                    requester: requesterUid,
+                                    requesterName: requesterName
+                                )
+
+                                pendingUserName =
+                                    nameCache[ownerUid]
+                                    ?? eventManager.displayName(for: ownerUid)
+
+                                showPendingAlert = true
+                                loadingUID = nil
+                            }
+                        }
+                    }
+                    
+                    ,
                     onCopyLink: {
                         UIPasteboard.general.string = link.url
                         copiedMessage = String(localized: "link_copied")
@@ -167,6 +223,7 @@ struct HistoryLinksView: View {
 struct HistoryLinkRow: View {
     let link: SharedLink
     let displayName: String
+    let isLoading: Bool
     let onSelect: () -> Void
     let onCopyLink: () -> Void
     let onCopyUID: () -> Void
@@ -206,7 +263,14 @@ struct HistoryLinkRow: View {
         }
         .padding(.vertical, 6)
         .contentShape(Rectangle())
-        .onTapGesture { onSelect() }
+        
+        .onTapGesture {
+            if !isLoading {
+                onSelect()
+            }
+        }
+        .allowsHitTesting(!isLoading)
+        
         .contextMenu {
             Button {
                 UIPasteboard.general.string = link.uid
@@ -243,18 +307,24 @@ struct HistoryLinkRow: View {
 
     @ViewBuilder
     private var statusView: some View {
-        switch link.status {
-        case .connected:
-            Label(String(localized: "connected"),
-                  systemImage: "checkmark.circle.fill")
-                .font(.caption2)
-                .foregroundColor(.green)
 
-        case .pending:
-            Label(String(localized: "pending"),
-                  systemImage: "clock.fill")
-                .font(.caption2)
-                .foregroundColor(.orange)
+        if isLoading {
+            ProgressView()
+                .scaleEffect(0.8)
+        } else {
+            switch link.status {
+            case .connected:
+                Label(String(localized: "connected"),
+                      systemImage: "checkmark.circle.fill")
+                    .font(.caption2)
+                    .foregroundColor(.green)
+
+            case .pending:
+                Label(String(localized: "pending"),
+                      systemImage: "clock.fill")
+                    .font(.caption2)
+                    .foregroundColor(.orange)
+            }
         }
     }
 }
