@@ -2600,9 +2600,6 @@ extension EventManager {
     
     func addSharedLink(for ownerUid: String, otherUid: String) {
 
-        guard let myUid = Auth.auth().currentUser?.uid else { return }
-        guard myUid == ownerUid else { return }   // 🔒 chỉ ghi cho chính mình
-
         let ref = db.collection("sharedLinks")
             .document(ownerUid)
             .collection("links")

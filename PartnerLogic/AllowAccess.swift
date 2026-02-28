@@ -308,8 +308,8 @@ class AllowAccessViewModel: ObservableObject {
 
                     DispatchQueue.main.async {
 
-                        // ⭐ HOOK: update SharedLink (local history)
-                        EventManager.shared.markSharedLinkConnected(uid: uid)
+                  
+                    
 
                         // ===== GIỮ NGUYÊN HÀNH VI CŨ =====
                         self.loadAll()
