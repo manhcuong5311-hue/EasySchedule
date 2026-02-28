@@ -151,24 +151,22 @@ struct AppFloatingTabBar: View {
     let partnersBadge: Int
 
     var body: some View {
-           ZStack {
-               // ✅ NỀN CHE ĐÁY MÀN HÌNH
-               Rectangle()
-                   .fill(.ultraThinMaterial)
-                   .ignoresSafeArea(edges: .bottom)
 
-               HStack(spacing: 12) {
-                   tab(.events, "list.bullet.rectangle")
-                   tab(.calendar, "calendar")
-                   tab(.partners, "person.2.fill", badge: partnersBadge)
-                   tab(.settings, "gearshape")
-               }
-               .padding(.horizontal, 12)
-               .padding(.vertical, 12)
-           }
-           .frame(height: AppLayout.floatingTabBarHeight)
-       }
-    
+        HStack(spacing: 0) {
+            tab(.events, "list.bullet.rectangle")
+            tab(.calendar, "calendar")
+            tab(.partners, "person.2.fill", badge: partnersBadge)
+            tab(.settings, "gearshape")
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 4) // 👈 chiều cao thực sự nằm ở đây
+        .background(
+            Rectangle()
+                .fill(.ultraThinMaterial)
+                .ignoresSafeArea(edges: .bottom)
+        )
+    }
+
     private func tab(
         _ tab: AppTab,
         _ systemImage: String,
@@ -178,40 +176,33 @@ struct AppFloatingTabBar: View {
         Button {
             selectedTab = tab
         } label: {
+
             ZStack(alignment: .topTrailing) {
 
                 Image(systemName: systemImage)
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.system(size: 22, weight: .semibold))
                     .foregroundColor(
                         selectedTab == tab
                         ? .accentColor
                         : .secondary
                     )
-                    .frame(width: 44, height: 44)
-                    .background(
-                        Circle()
-                            .fill(.ultraThinMaterial)
-                    )
-                    .shadow(
-                        color: .black.opacity(0.18),
-                        radius: 6,
-                        y: 4
-                    )
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 44) // 👈 chiều cao nút chuẩn iOS
 
                 if badge > 0 {
                     Text("\(badge)")
                         .font(.caption2.bold())
                         .foregroundColor(.white)
-                        .padding(4)
+                        .padding(5)
                         .background(Color.red)
                         .clipShape(Circle())
-                        .offset(x: 6, y: -6)
+                        .offset(x: -16, y: -6)
                 }
             }
         }
+        .buttonStyle(.plain)
     }
 }
-
 
 
 
