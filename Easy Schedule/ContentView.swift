@@ -102,14 +102,17 @@ struct ContentView: View {
             // =========================
             // FLOATING TAB BAR
             // =========================
-            AppFloatingTabBar(
-                selectedTab: $selectedTab,
-                partnersBadge: accessBadgeVM.pendingCount
-            )
+            if openChatEventId == nil {
+                AppFloatingTabBar(
+                    selectedTab: $selectedTab,
+                    partnersBadge: accessBadgeVM.pendingCount
+                )
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
         }
         // ⭐ CHÌA KHÓA CUỐI CÙNG
         .ignoresSafeArea(edges: .bottom)
-
+        .animation(.easeInOut(duration: 0.25), value: openChatEventId)
         // =========================
         // LIFECYCLE – GIỮ NGUYÊN
         // =========================
