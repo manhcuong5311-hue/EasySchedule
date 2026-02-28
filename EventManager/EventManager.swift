@@ -2026,6 +2026,7 @@ extension EventManager {
         listenToMyManualBusySlots()
         // (tuỳ chọn nhưng nên có)
         listenToEvents()
+        listenSharedLinks()
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
                self.rescheduleLocalNotifications()
            }
@@ -2052,6 +2053,7 @@ extension EventManager {
         saveSharedLinks()
         print("💾 saveSharedLinks CALLED")
     }
+    
     func refreshSharedLinksStatus() {
         guard let myUid = Auth.auth().currentUser?.uid else { return }
 
@@ -2062,13 +2064,31 @@ extension EventManager {
             group.enter()
 
             AccessService.shared.isAllowed(
-                ownerUid: link.uid,   // 🔥 SỬA Ở ĐÂY
+                ownerUid: link.uid,
                 otherUid: myUid
             ) { allowed in
+
                 DispatchQueue.main.async {
+
                     if let index = self.sharedLinks.firstIndex(where: { $0.id == link.id }) {
-                        self.sharedLinks[index].status = allowed ? .connected : .pending
+
+                        let oldStatus = self.sharedLinks[index].status
+                        let newStatus = allowed ? LinkStatus.connected : LinkStatus.pending
+                        // ⭐ Chỉ update khi status thay đổi
+                        if oldStatus != newStatus {
+                            self.sharedLinks[index].status = newStatus
+                        }
+
+                        // ⭐ CHỈ GHI FIRESTORE NẾU:
+                        // - allowed == true
+                        // - link chưa tồn tại (tránh spam)
+                        if allowed &&
+                           !self.linkExistsInFirestore(uid: myUid, otherUid: link.uid) {
+
+                            self.addSharedLink(for: myUid, otherUid: link.uid)
+                        }
                     }
+
                     group.leave()
                 }
             }
@@ -2077,6 +2097,10 @@ extension EventManager {
         group.notify(queue: .main) {
             self.saveSharedLinks()
         }
+    }
+    
+    private func linkExistsInFirestore(uid: String, otherUid: String) -> Bool {
+        return sharedLinks.contains(where: { $0.uid == otherUid })
     }
 
     func removePublicCalendarBusySlot(
@@ -2574,8 +2598,49 @@ extension EventManager {
             .evaluate(with: uid)
     }
     
+    func addSharedLink(for ownerUid: String, otherUid: String) {
+
+        guard let myUid = Auth.auth().currentUser?.uid else { return }
+        guard myUid == ownerUid else { return }   // 🔒 chỉ ghi cho chính mình
+
+        let ref = db.collection("sharedLinks")
+            .document(ownerUid)
+            .collection("links")
+            .document(otherUid)
+
+        ref.setData([
+            "uid": otherUid,
+            "createdAt": FieldValue.serverTimestamp()
+        ], merge: true)
+    }
     
-    
+    func listenSharedLinks() {
+
+        guard let uid = currentUserId else { return }
+
+        db.collection("sharedLinks")
+            .document(uid)
+            .collection("links")
+            .addSnapshotListener { snap, _ in
+
+                guard let docs = snap?.documents else { return }
+
+                let links = docs.map { doc -> SharedLink in
+                    let data = doc.data()
+                    return SharedLink(
+                        id: doc.documentID,
+                        uid: doc.documentID,
+                        url: "",
+                        createdAt: (data["createdAt"] as? Timestamp)?.dateValue() ?? Date(),
+                        status: .pending
+                    )
+                }
+
+                DispatchQueue.main.async {
+                    self.sharedLinks = links
+                }
+            }
+    }
     
 }
 

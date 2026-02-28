@@ -58,6 +58,12 @@ class AccessService {
                     print("✅ ALLOW SUCCESS: \(ownerUid) allowed \(otherUid)")
                     completion(true)
                     self.removeRequest(ownerUid: ownerUid, requesterUid: otherUid)
+
+                    // 🔥 NEW: đảm bảo 2 bên có SharedLink
+                    EventManager.shared.addSharedLink(
+                        for: ownerUid,
+                        otherUid: otherUid
+                    )
                 }
             }
     }

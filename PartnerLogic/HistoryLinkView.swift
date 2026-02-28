@@ -5,6 +5,7 @@
 //  Created by Sam Manh Cuong on 2/1/26.
 //
 import SwiftUI
+import FirebaseFirestore
 
 struct HistoryLinksView: View {
     @EnvironmentObject var eventManager: EventManager
@@ -15,7 +16,8 @@ struct HistoryLinksView: View {
     @State private var searchText: String = ""
     @State private var copiedMessage: String?
     @State private var nameCache: [String: String] = [:]
-
+    @State private var showPendingAlert = false
+    @State private var pendingUserName: String?
     
     var sortedLinks: [SharedLink] {
         eventManager.sharedLinks.sorted(by: { $0.createdAt > $1.createdAt })
@@ -61,7 +63,19 @@ struct HistoryLinksView: View {
         } message: {
             Text(String(localized: "clear_history_confirm"))
         }
-
+        .alert(
+            String(localized: "request_pending_title"),
+            isPresented: $showPendingAlert
+        ) {
+            Button(String(localized: "ok"), role: .cancel) {}
+        } message: {
+            Text(
+                String(
+                    format: String(localized: "request_pending_message"),
+                    pendingUserName ?? ""
+                )
+            )
+        }
 
         .navigationTitle(String(localized: "viewed_history"))
         .searchable(text: $searchText,
@@ -118,8 +132,70 @@ struct HistoryLinksView: View {
                         ?? eventManager.displayName(for: link.uid)
 ,
                     onSelect: {
-                        onSelect(link.uid)
-                    },
+
+                        guard let myUid = eventManager.currentUserId else { return }
+
+                        let ownerUid = link.uid
+                        let requesterUid = myUid
+
+                        AccessService.shared.isAllowed(
+                            ownerUid: ownerUid,
+                            otherUid: requesterUid
+                        ) { allowed in
+
+                            DispatchQueue.main.async {
+
+                                if allowed {
+                                    onSelect(ownerUid)
+                                    return
+                                }
+
+                                let requestRef = Firestore.firestore()
+                                    .collection("calendarAccess")
+                                    .document(ownerUid)
+                                    .collection("requests")
+                                    .document(requesterUid)
+
+                                requestRef.getDocument { snapshot, _ in
+
+                                    DispatchQueue.main.async {
+
+                                        if snapshot?.exists == true {
+
+                                            // Đã có request
+                                            pendingUserName =
+                                                nameCache[ownerUid]
+                                                ?? eventManager.displayName(for: ownerUid)
+
+                                            showPendingAlert = true
+
+                                        } else {
+
+                                            // Gửi request
+                                            let requesterName =
+                                                eventManager.displayName(for: requesterUid)
+
+                                            AccessService.shared.createRequest(
+                                                owner: ownerUid,
+                                                requester: requesterUid,
+                                                requesterName: requesterName
+                                            )
+
+                                            print("📩 SENT REQUEST FROM \(requesterUid) TO \(ownerUid)")
+
+                                            pendingUserName =
+                                                nameCache[ownerUid]
+                                                ?? eventManager.displayName(for: ownerUid)
+
+                                            showPendingAlert = true
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    ,
                     onCopyLink: {
                         UIPasteboard.general.string = link.url
                         copiedMessage = String(localized: "link_copied")
@@ -206,7 +282,9 @@ struct HistoryLinkRow: View {
         }
         .padding(.vertical, 6)
         .contentShape(Rectangle())
-        .onTapGesture { onSelect() }
+        .onTapGesture {
+            onSelect()
+        }
         .contextMenu {
             Button {
                 UIPasteboard.general.string = link.uid
