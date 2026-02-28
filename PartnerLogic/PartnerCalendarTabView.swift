@@ -9,6 +9,10 @@ import SwiftUI
 import FirebaseAuth
 import FirebaseFirestore
 
+struct SelectedUser: Identifiable {
+    let id: String
+}
+
 struct PartnerCalendarTabView: View {
     @EnvironmentObject var eventManager: EventManager
     
@@ -23,7 +27,7 @@ struct PartnerCalendarTabView: View {
     @State private var fetchedEvents: [CalendarEvent] = []
 
     // Sheet for creating appointment
-    @State private var selectedSharedUserId: String?
+    @State private var selectedUser: SelectedUser?
     @State private var activeSheet: ActiveSheet? = nil
 
     // Alert
@@ -82,15 +86,15 @@ struct PartnerCalendarTabView: View {
             guard let uid = Auth.auth().currentUser?.uid else { return }
             accessBadgeVM.load(ownerUid: uid)
         }
+        
         .sheet(item: $activeSheet) { sheet in
             switch sheet {
 
             case .history:
                 NavigationStack {
                     HistoryLinksView { uid in
-                        selectedSharedUserId = uid
-                        checkAccessAndOpen(uid: uid)
                         activeSheet = nil
+                        checkAccessAndOpen(uid: uid)
                     }
                     .environmentObject(eventManager)
                 }
@@ -101,19 +105,7 @@ struct PartnerCalendarTabView: View {
                         .environmentObject(eventManager)
                         .environmentObject(session)
                 }
-
-            case .addAppointment:
-                AppointmentProSheet(
-                    isPresented: Binding(
-                        get: { activeSheet == .addAppointment },
-                        set: { if !$0 { activeSheet = nil } }
-                    ),
-                    sharedUserId: selectedSharedUserId,
-                    sharedUserName: eventManager.userNames[selectedSharedUserId ?? ""]
-                )
-                .environmentObject(eventManager)
-                .environmentObject(session)
-
+                
             case .addPartner:     // ⭐ QUAN TRỌNG
                 AddPartnerSheet(
                     isPresented: Binding(
@@ -123,6 +115,18 @@ struct PartnerCalendarTabView: View {
                 )
                 .environmentObject(eventManager)
             }
+        }
+        .sheet(item: $selectedUser) { user in
+            AppointmentProSheet(
+                isPresented: Binding(
+                    get: { selectedUser != nil },
+                    set: { if !$0 { selectedUser = nil } }
+                ),
+                sharedUserId: user.id,
+                sharedUserName: eventManager.userNames[user.id]
+            )
+            .environmentObject(eventManager)
+            .environmentObject(session)
         }
     }
 
@@ -281,7 +285,6 @@ struct PartnerCalendarTabView: View {
                     .padding(.horizontal, 16)
 
                 SharedLinksListView { uid in
-                    selectedSharedUserId = uid
                     checkAccessAndOpen(uid: uid)
                 }
                 .environmentObject(eventManager)
@@ -466,10 +469,7 @@ struct PartnerCalendarTabView: View {
                 } else {
                     // ensure uid is set before opening sheet
                     if let uid = parsedUID {
-                        selectedSharedUserId = uid
-                        // open pro sheet (your AppointmentProSheet should read sharedUserId)
                         checkAccessAndOpen(uid: uid)
-
                     } else {
                         alertMessage = String(localized: "uid_required")
                         showAlert = true
@@ -493,8 +493,7 @@ struct PartnerCalendarTabView: View {
 
         // Owner tự book cho mình
         if uid == me {
-            selectedSharedUserId = uid
-            activeSheet = .addAppointment
+            selectedUser = SelectedUser(id: uid)
             return
         }
 
@@ -505,8 +504,7 @@ struct PartnerCalendarTabView: View {
                 self.isLoading = false
 
                 if allowed {
-                    self.selectedSharedUserId = uid
-                    self.activeSheet = .addAppointment
+                    self.selectedUser = SelectedUser(id: uid)
                 } else {
                     // ⭐ FIX: TẠO REQUEST
                     let requesterName =

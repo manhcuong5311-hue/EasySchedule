@@ -11,13 +11,14 @@ struct HistoryLinksView: View {
     @EnvironmentObject var eventManager: EventManager
     var onSelect: (String) -> Void
 
-   
+    @State private var loadingUID: String?
     @State private var showConfirmClear = false
     @State private var searchText: String = ""
     @State private var copiedMessage: String?
     @State private var nameCache: [String: String] = [:]
     @State private var showPendingAlert = false
     @State private var pendingUserName: String?
+ 
     
     var sortedLinks: [SharedLink] {
         eventManager.sharedLinks.sorted(by: { $0.createdAt > $1.createdAt })
@@ -129,12 +130,15 @@ struct HistoryLinksView: View {
                 HistoryLinkRow(
                     link: link,
                     displayName: nameCache[link.uid]
-                        ?? eventManager.displayName(for: link.uid)
-,
+                        ?? eventManager.displayName(for: link.uid),
+                    
+                    isLoading: loadingUID == link.uid,
+                    
                     onSelect: {
 
                         guard let myUid = eventManager.currentUserId else { return }
-
+                        loadingUID = link.uid
+                        
                         let ownerUid = link.uid
                         let requesterUid = myUid
 
@@ -146,6 +150,7 @@ struct HistoryLinksView: View {
                             DispatchQueue.main.async {
 
                                 if allowed {
+                                    loadingUID = nil   // ✅ thêm
                                     onSelect(ownerUid)
                                     return
                                 }
@@ -156,13 +161,19 @@ struct HistoryLinksView: View {
                                     .collection("requests")
                                     .document(requesterUid)
 
-                                requestRef.getDocument { snapshot, _ in
+                                requestRef.getDocument { snapshot, error in
 
                                     DispatchQueue.main.async {
 
+                                        if error != nil {
+                                            loadingUID = nil
+                                            return
+                                        }
+
                                         if snapshot?.exists == true {
 
-                                            // Đã có request
+                                            loadingUID = nil
+
                                             pendingUserName =
                                                 nameCache[ownerUid]
                                                 ?? eventManager.displayName(for: ownerUid)
@@ -171,7 +182,6 @@ struct HistoryLinksView: View {
 
                                         } else {
 
-                                            // Gửi request
                                             let requesterName =
                                                 eventManager.displayName(for: requesterUid)
 
@@ -181,7 +191,7 @@ struct HistoryLinksView: View {
                                                 requesterName: requesterName
                                             )
 
-                                            print("📩 SENT REQUEST FROM \(requesterUid) TO \(ownerUid)")
+                                            loadingUID = nil
 
                                             pendingUserName =
                                                 nameCache[ownerUid]
@@ -243,6 +253,7 @@ struct HistoryLinksView: View {
 struct HistoryLinkRow: View {
     let link: SharedLink
     let displayName: String
+    let isLoading: Bool
     let onSelect: () -> Void
     let onCopyLink: () -> Void
     let onCopyUID: () -> Void
@@ -282,9 +293,14 @@ struct HistoryLinkRow: View {
         }
         .padding(.vertical, 6)
         .contentShape(Rectangle())
+        
         .onTapGesture {
-            onSelect()
+            if !isLoading {
+                onSelect()
+            }
         }
+        .allowsHitTesting(!isLoading)
+        
         .contextMenu {
             Button {
                 UIPasteboard.general.string = link.uid
@@ -321,18 +337,24 @@ struct HistoryLinkRow: View {
 
     @ViewBuilder
     private var statusView: some View {
-        switch link.status {
-        case .connected:
-            Label(String(localized: "connected"),
-                  systemImage: "checkmark.circle.fill")
-                .font(.caption2)
-                .foregroundColor(.green)
 
-        case .pending:
-            Label(String(localized: "pending"),
-                  systemImage: "clock.fill")
-                .font(.caption2)
-                .foregroundColor(.orange)
+        if isLoading {
+            ProgressView()
+                .scaleEffect(0.8)
+        } else {
+            switch link.status {
+            case .connected:
+                Label(String(localized: "connected"),
+                      systemImage: "checkmark.circle.fill")
+                    .font(.caption2)
+                    .foregroundColor(.green)
+
+            case .pending:
+                Label(String(localized: "pending"),
+                      systemImage: "clock.fill")
+                    .font(.caption2)
+                    .foregroundColor(.orange)
+            }
         }
     }
 }

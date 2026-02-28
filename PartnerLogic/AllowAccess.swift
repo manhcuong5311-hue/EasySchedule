@@ -35,37 +35,47 @@ class AccessService {
     }
 
     // ⭐ ALLOW (A cho phép B)
-    func allowUser(ownerUid: String, otherUid: String, otherUserName: String?, completion: @escaping (Bool) -> Void) {
+    func allowUser(ownerUid: String,
+                   otherUid: String,
+                   otherUserName: String?,
+                   completion: @escaping (Bool) -> Void) {
+
+        let ownerAllowedRef = db
+            .collection("calendarAccess")
+            .document(ownerUid)
+            .collection("allowed")
+            .document(otherUid)
+
+        let requestRef = db
+            .collection("calendarAccess")
+            .document(ownerUid)
+            .collection("requests")
+            .document(otherUid)
 
         var data: [String: Any] = [
             "allowed": true,
             "allowedAt": FieldValue.serverTimestamp()
         ]
 
-        if let name = otherUserName { data["name"] = name }
+        if let name = otherUserName {
+            data["name"] = name
+        }
 
-        db.collection("calendarAccess")
-            .document(ownerUid)
-            .collection("allowed")
-            .document(otherUid)
-            .setData(data) { error in
-                if let error = error {
-                    print("❌ Allow failed:", error.localizedDescription)
-                    completion(false)
-                } else {
-                    self.clearLocalAccessCache()
-
-                    print("✅ ALLOW SUCCESS: \(ownerUid) allowed \(otherUid)")
-                    completion(true)
-                    self.removeRequest(ownerUid: ownerUid, requesterUid: otherUid)
-
-                    // 🔥 NEW: đảm bảo 2 bên có SharedLink
-                    EventManager.shared.addSharedLink(
-                        for: ownerUid,
-                        otherUid: otherUid
-                    )
-                }
+        ownerAllowedRef.setData(data) { error in
+            if let error = error {
+                print("❌ Allow failed:", error.localizedDescription)
+                completion(false)
+                return
             }
+
+            requestRef.delete()
+
+            print("✅ Allow success (1-way)")
+
+            EventManager.shared.markSharedLinkConnected(uid: otherUid)
+
+            completion(true)
+        }
     }
 
 
@@ -116,21 +126,27 @@ class AccessService {
                    otherUid: String,
                    completion: @escaping (Bool) -> Void) {
 
-        let key = "allow_\(ownerUid)_\(otherUid)"
-
-        db.collection("calendarAccess")
+        let ownerRef = db.collection("calendarAccess")
             .document(ownerUid)
             .collection("allowed")
             .document(otherUid)
-            .getDocument { snap, error in
 
-                let allowed = snap?.exists ?? false
-
-                // Sync lại cache cho cả A và B
-                UserDefaults.standard.set(allowed, forKey: key)
-
-                completion(allowed)
+        ownerRef.getDocument { snap, _ in
+            if snap?.exists == true {
+                completion(true)
+                return
             }
+
+            // check reverse direction
+            let reverseRef = self.db.collection("calendarAccess")
+                .document(otherUid)
+                .collection("allowed")
+                .document(ownerUid)
+
+            reverseRef.getDocument { snap2, _ in
+                completion(snap2?.exists == true)
+            }
+        }
     }
 
 
