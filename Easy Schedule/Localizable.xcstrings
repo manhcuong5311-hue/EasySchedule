@@ -16585,25 +16585,25 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "After the trial, about $0.06 per day (billed yearly)."
+            "value" : "After the trial, about $0.03 per day (billed yearly)"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "トライアル後は、1日あたり約9円（年払い）です。"
+            "value" : "無料トライアル後は、1日あたり約¥4（年額請求）"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "체험 기간 이후에는 하루 약 70원(연간 결제)입니다."
+            "value" : "무료 체험 후, 하루 약 ₩38 (연간 결제)"
           }
         },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sau thời gian dùng thử, khoảng 1.400₫ mỗi ngày (thanh toán theo năm)."
+            "value" : "Sau thời gian dùng thử, khoảng 680 ₫ mỗi ngày (thanh toán hàng năm)"
           }
         }
       }

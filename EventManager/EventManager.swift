@@ -2508,23 +2508,22 @@ extension EventManager {
         attempt()
     }
     
-    
     func resolveUid(
         from input: String,
         completion: @escaping (String?) -> Void
     ) {
 
-        // 1️⃣ Remove ALL whitespace
-        let cleaned = input
-            .components(separatedBy: .whitespacesAndNewlines)
-            .joined()
+        // 1️⃣ Trim chuẩn
+        let cleaned = input.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )
 
         guard !cleaned.isEmpty else {
             completion(nil)
             return
         }
 
-        // 2️⃣ Nếu là full URL → lấy path component cuối
+        // 2️⃣ Nếu là URL → lấy last path
         var candidate = cleaned
 
         if let url = URL(string: cleaned),
@@ -2533,34 +2532,40 @@ extension EventManager {
             candidate = last
         }
 
-        // 3️⃣ Nếu đúng format Firebase UID → trả luôn
-        if isValidUIDFormat(candidate) {
-            completion(candidate)
-            return
-        }
+        let upper = candidate.uppercased()
 
-        // 4️⃣ Nếu 6 ký tự → treat as invitationCode
-        if candidate.count == 6 {
+        print("🔎 Resolve input:", cleaned)
+        print("🔎 Candidate:", candidate)
+        print("🔎 Upper:", upper)
 
-            db.collection("users")
-                .whereField("invitationCode",
-                            isEqualTo: candidate.uppercased())
-                .limit(to: 1)
-                .getDocuments { snapshot, _ in
+        // 3️⃣ 🔥 LUÔN THỬ INVITATION CODE TRƯỚC
+        db.collection("users")
+            .whereField("invitationCode", isEqualTo: upper)
+            .limit(to: 1)
+            .getDocuments { snapshot, error in
 
-                    let uid = snapshot?
-                        .documents
-                        .first?
-                        .documentID
-
-                    completion(uid)
+                if let error = error {
+                    print("❌ Firestore error:", error.localizedDescription)
                 }
 
-            return
-        }
+                print("📦 Invite query count:", snapshot?.documents.count ?? 0)
 
-        // 5️⃣ Không hợp lệ
-        completion(nil)
+                // ✅ Nếu tìm thấy bằng invite code
+                if let doc = snapshot?.documents.first {
+                    print("✅ Found by invitationCode:", doc.documentID)
+                    completion(doc.documentID)
+                    return
+                }
+
+                // 4️⃣ Nếu không phải invite → thử treat như UID
+                if self.isValidUIDFormat(candidate) {
+                    print("✅ Treat as UID")
+                    completion(candidate)
+                } else {
+                    print("❌ Not valid UID or invite")
+                    completion(nil)
+                }
+            }
     }
 
     private func isValidUIDFormat(_ uid: String) -> Bool {
