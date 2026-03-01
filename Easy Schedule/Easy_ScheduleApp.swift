@@ -131,7 +131,7 @@ struct RootView: View {
     @EnvironmentObject var guideManager: GuideManager
 
     @StateObject private var uiAccent = UIAccentStore()
-
+    @Environment(\.requestReview) private var requestReview
 
     var body: some View {
         Group {
@@ -141,16 +141,17 @@ struct RootView: View {
                 ContentView()
                     
                     .onAppear {
-                        guideManager.startIfNeeded() 
-                              // ⭐⭐⭐ DÒNG QUAN TRỌNG NHẤT ⭐⭐⭐
-                              if let uid = session.currentUserId {
-                                  eventManager.configureForUser(uid: uid)
-                                  eventManager.preloadUsersIfNeeded() 
-                              }
+                        guideManager.startIfNeeded()
 
-                              Task { await premium.refresh() }
-                            
-                          }
+                        if let uid = session.currentUserId {
+                            eventManager.configureForUser(uid: uid)
+                            eventManager.preloadUsersIfNeeded()
+                        }
+
+                        Task { await premium.refresh() }
+
+                        ReviewManager.shared.tryRequestReview(requestReview)
+                    }
                     .onChange(of: premium.tier) { _, tier in
                         guard premium.isLoaded else { return }
 

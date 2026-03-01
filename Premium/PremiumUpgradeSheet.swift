@@ -17,7 +17,8 @@ struct PremiumUpgradeSheet: View {
 
     @State private var purchaseError: String? = nil
     @State private var isLoading = false
-
+    @Environment(\.requestReview) private var requestReview
+    
     // Apple standard EULA URL (default)
     private let appleEULAURL = URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!
 
@@ -325,7 +326,14 @@ struct PremiumUpgradeSheet: View {
                 let success = await premium.buy(product)
                 isLoading = false
 
-                if success { dismiss() }
+                if success {
+
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                        ReviewManager.shared.requestAfterPremiumUpgrade(requestReview)
+                    }
+
+                    dismiss()
+                }
                 else { purchaseError = String(localized: "payment_failed") }
             }
         } label: {

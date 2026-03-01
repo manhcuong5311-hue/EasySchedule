@@ -69,6 +69,8 @@ struct AddEventView: View {
 
     @State private var showUpgradeSheet = false
     @State private var showPremiumIntro = false
+    @Environment(\.requestReview) private var requestReview
+    
     
     var body: some View {
         NavigationStack {
@@ -261,6 +263,11 @@ struct AddEventView: View {
                         )
                         
                         if success {
+                            
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                                ReviewManager.shared.requestAfterEventSuccess(requestReview)
+                            }
+                            
                             dismiss()
                         } else {
                             activeAlert = nil
