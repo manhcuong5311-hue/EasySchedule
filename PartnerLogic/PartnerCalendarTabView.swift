@@ -664,17 +664,9 @@ struct PartnerCalendarTabView: View {
                 // ===============================
                 // SHARED LINK (GIỮ NGUYÊN)
                 // ===============================
-                if !self.eventManager.sharedLinks.contains(where: { $0.uid == uid }) {
-                    self.eventManager.sharedLinks.append(
-                        SharedLink(
-                            id: UUID().uuidString,
-                            uid: uid,
-                            url: linkText,
-                            createdAt: Date(),
-                            displayName: self.eventManager.userNames[uid]
-                        )
-                    )
-                    self.eventManager.saveSharedLinks()
+                if let me = Auth.auth().currentUser?.uid {
+                    self.eventManager.addSharedLink(for: me, otherUid: uid)
+                    self.eventManager.addSharedLink(for: uid, otherUid: me)
                 }
             }
         }

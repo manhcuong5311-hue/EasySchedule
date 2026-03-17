@@ -2598,8 +2598,7 @@ extension EventManager {
             .evaluate(with: uid)
     }
     
-    func addSharedLink(for ownerUid: String, otherUid: String) {
-
+    func addSharedLink(for ownerUid: String, otherUid: String, url: String = "") {
         let ref = db.collection("sharedLinks")
             .document(ownerUid)
             .collection("links")
@@ -2607,12 +2606,13 @@ extension EventManager {
 
         ref.setData([
             "uid": otherUid,
+            "url": url,
             "createdAt": FieldValue.serverTimestamp()
         ], merge: true)
     }
     
+    
     func listenSharedLinks() {
-
         guard let uid = currentUserId else { return }
 
         db.collection("sharedLinks")
@@ -2626,38 +2626,55 @@ extension EventManager {
                 let group = DispatchGroup()
 
                 for doc in docs {
-
                     group.enter()
 
                     let otherUid = doc.documentID
                     let data = doc.data()
-                    let createdAt =
-                        (data["createdAt"] as? Timestamp)?.dateValue()
-                        ?? Date()
+                    let createdAt = (data["createdAt"] as? Timestamp)?.dateValue() ?? Date()
+                    let url = data["url"] as? String ?? ""
+
+                    self.fetchUserNameIfNeeded(uid: otherUid)
 
                     AccessService.shared.isAllowed(
                         ownerUid: otherUid,
                         otherUid: uid
                     ) { mutual in
-
                         let link = SharedLink(
-                            id: otherUid,
+                            id: otherUid,          // ⭐ dùng otherUid làm id, nhất quán
                             uid: otherUid,
-                            url: "",
+                            url: url,
                             createdAt: createdAt,
                             status: mutual ? .connected : .pending
                         )
-
                         newLinks.append(link)
                         group.leave()
                     }
                 }
 
                 group.notify(queue: .main) {
-                    self.sharedLinks = newLinks
+                    // ⭐ REPLACE hoàn toàn — xoá = listener tự dọn
+                    self.sharedLinks = newLinks.sorted { $0.createdAt > $1.createdAt }
+                    self.saveSharedLinks()
                 }
             }
     }
+    
+    func deleteSharedLinkFromFirestore(myUid: String, otherUid: String) {
+        db.collection("sharedLinks")
+            .document(myUid)
+            .collection("links")
+            .document(otherUid)
+            .delete()
+    }
+    
+    
+    
+    
+    
+    
+    
+    
+    
     
 }
 
@@ -2670,4 +2687,73 @@ struct SelectedEvent: Identifiable {
     
     
     
+}
+
+
+// EventManager+Contacts.swift
+
+
+
+extension EventManager {
+
+    
+
+    // MARK: - Firestore contact path
+    private func contactsRef(for uid: String) -> CollectionReference {
+        db.collection("users").document(uid).collection("contacts")
+    }
+
+    // MARK: - Ghi 1 contact lên Firestore (1 phía)
+    func writeContactToFirestore(ownerUid: String, contactUid: String, url: String = "") {
+        let data: [String: Any] = [
+            "uid": contactUid,
+            "url": url,
+            "addedAt": FieldValue.serverTimestamp()
+        ]
+        contactsRef(for: ownerUid)
+            .document(contactUid)
+            .setData(data, merge: true)
+    }
+
+    // MARK: - Ghi 2 chiều (A add B → cả 2 đều có)
+    func writeContactBidirectional(myUid: String, otherUid: String, url: String = "") {
+        writeContactToFirestore(ownerUid: myUid,    contactUid: otherUid, url: url)
+        writeContactToFirestore(ownerUid: otherUid, contactUid: myUid,    url: "")
+    }
+
+    // MARK: - Load contacts từ Firestore về local
+    func loadContactsFromFirestore(completion: (() -> Void)? = nil) {
+        guard let myUid = Auth.auth().currentUser?.uid else { return }
+
+        contactsRef(for: myUid).getDocuments { [weak self] snap, error in
+            guard let self, let docs = snap?.documents, error == nil else { return }
+
+            DispatchQueue.main.async {
+                for doc in docs {
+                    let uid = doc.documentID
+                    let url = doc.data()["url"] as? String ?? ""
+                    let addedAt = (doc.data()["addedAt"] as? Timestamp)?.dateValue() ?? Date()
+
+                    // Chỉ thêm nếu chưa có trong local list
+                    if !self.sharedLinks.contains(where: { $0.uid == uid }) {
+                        self.sharedLinks.append(SharedLink(
+                            id: UUID().uuidString,
+                            uid: uid,
+                            url: url,
+                            createdAt: addedAt,
+                            displayName: self.userNames[uid]
+                        ))
+                    }
+                }
+
+                self.saveSharedLinks() // sync lại UserDefaults
+                completion?()
+            }
+        }
+    }
+
+    // MARK: - Xoá contact khỏi Firestore khi user xoá local
+    func deleteContactFromFirestore(myUid: String, contactUid: String) {
+        contactsRef(for: myUid).document(contactUid).delete()
+    }
 }
