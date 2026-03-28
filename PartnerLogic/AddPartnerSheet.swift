@@ -169,21 +169,10 @@ extension AddPartnerSheet {
                             return
                         }
                         
-                        // Thêm vào sharedLinks nếu chưa có
-                        if !self.eventManager.sharedLinks.contains(where: { $0.uid == uid }) {
-                            
-                            self.eventManager.sharedLinks.append(
-                                SharedLink(
-                                    id: UUID().uuidString,
-                                    uid: uid,
-                                    url: trimmed,
-                                    createdAt: Date(),
-                                    displayName: self.eventManager.userNames[uid]
-                                )
-                            )
-                            
-                            self.eventManager.saveSharedLinks()
-                        }
+                    
+                        // ⭐ THÊM: Ghi 2 chiều lên Firestore
+                        self.eventManager.addSharedLink(for: me, otherUid: uid)   // A có B
+                        self.eventManager.addSharedLink(for: uid, otherUid: me)   // B có A ← QUAN TRỌNG
                         
                         // Check Access
                         AccessService.shared.isAllowed(ownerUid: uid, otherUid: me) { allowed in

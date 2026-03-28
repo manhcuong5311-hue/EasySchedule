@@ -48,7 +48,9 @@ struct AddEventView: View {
     
     @EnvironmentObject var eventManager: EventManager
     @Environment(\.dismiss) private var dismiss
-    @State private var selectedColor: Color = .blue // ✅ màu mặc định
+    @State private var selectedColor: Color = .blue
+    @State private var selectedIcon: String = ""
+    @State private var showIconPicker = false
     // Pre-fill date if user selected a date in calendar
     let prefillDate: Date?
     let offDays: Set<Date>        // ✅ THÊM MỚI — danh sách ngày nghỉ truyền từ ngoài vào
@@ -200,8 +202,40 @@ struct AddEventView: View {
                     DatePicker( String(localized: "end_label"), selection: $endTime, displayedComponents: .hourAndMinute)
                 }
                 Section(header: Text(String(localized: "event_color_section"))) {
-                    
                     ColorPicker(String(localized: "pick_color"), selection: $selectedColor, supportsOpacity: false)
+
+                    Button {
+                        showIconPicker = true
+                    } label: {
+                        HStack {
+                            Label {
+                                Text("Icon")
+                            } icon: {
+                                ZStack {
+                                    Circle()
+                                        .fill(selectedColor.opacity(0.18))
+                                        .frame(width: 30, height: 30)
+                                    Image(systemName: selectedIcon.isEmpty ? "square.grid.2x2" : selectedIcon)
+                                        .font(.system(size: 15, weight: .medium))
+                                        .foregroundStyle(selectedColor)
+                                }
+                            }
+                            Spacer()
+                            if !selectedIcon.isEmpty {
+                                Text(String(localized: "change"))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                Text(String(localized: "choose_icon_title"))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Image(systemName: "chevron.right")
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
+                    .foregroundStyle(.primary)
                 }
                 
                 
@@ -253,7 +287,7 @@ struct AddEventView: View {
                         let start = combine(date: date, time: startTime)
                         let end   = combine(date: date, time: endTime)
                         
-                        let success = eventManager.addEvent(
+                        let newEventId = eventManager.addEvent(
                             title: title,
                             ownerName: session.currentUserName,
                             date: date,
@@ -261,13 +295,17 @@ struct AddEventView: View {
                             endTime: end,
                             colorHex: selectedColor.toHex() ?? "#007AFF"
                         )
-                        
-                        if success {
-                            
+
+                        if let eventId = newEventId {
+                            // Save icon locally (UserDefaults only, never sent to Firestore)
+                            if !selectedIcon.isEmpty {
+                                EventIconStore.shared.setIcon(selectedIcon, for: eventId)
+                            }
+
                             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                                 ReviewManager.shared.requestAfterEventSuccess(requestReview)
                             }
-                            
+
                             dismiss()
                         } else {
                             activeAlert = nil
@@ -303,8 +341,12 @@ struct AddEventView: View {
                 )
                 .environmentObject(premium)
             }
+            .sheet(isPresented: $showIconPicker) {
+                IconPicker(icon: $selectedIcon, color: $selectedColor)
+                    .environmentObject(premium)
+            }
 
-            
+
         }
     }
     private func validateBeforeSave() -> SaveEventAlert? {

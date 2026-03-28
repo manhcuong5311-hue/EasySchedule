@@ -681,13 +681,12 @@ private struct DaySectionView: View {
                 switch cardLayout {
 
                 case .timeline:
-                    TimelineDayView(
+                    DragDropTimelineDayView(
                         date: day,
-                        events: dayEvents,
-                        manualBusySlots: manualBusySlotsOfDay,
-                        timeDisplayMode: timeDisplayMode
+                        events: dayEvents
                     )
                     .padding(.top, 8)
+                    .padding(.horizontal, 16)
 
                 case .normal, .compact:
                     VStack(alignment: .leading, spacing: 6) {

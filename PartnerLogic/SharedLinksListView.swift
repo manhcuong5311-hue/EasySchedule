@@ -158,10 +158,15 @@ struct SharedLinkCard: View {
 
         // ✅ HOLD MENU
         .contextMenu {
-
-            Button(role: .destructive) {
+            Button {
                 withAnimation {
-                    eventManager.sharedLinks.removeAll { $0.id == link.id }
+                    if let myUid = eventManager.currentUserId {
+                        eventManager.deleteSharedLinkFromFirestore(
+                            myUid: myUid,
+                            otherUid: link.uid
+                        )
+                    }
+                    eventManager.sharedLinks.removeAll { $0.uid == link.uid }
                     eventManager.saveSharedLinks()
                 }
             } label: {
@@ -169,6 +174,7 @@ struct SharedLinkCard: View {
                     String(localized: "delete"),
                     systemImage: "trash"
                 )
+                .foregroundColor(.red)
             }
         }
     }

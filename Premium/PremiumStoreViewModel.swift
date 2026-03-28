@@ -45,6 +45,11 @@ final class PremiumStoreViewModel: ObservableObject {
         PremiumLimits.limits(for: tier)
     }
 
+    /// How many icons from a category to show (free users get first 8, paid users get all).
+    func visibleIconCount(total: Int) -> Int {
+        isPremium ? total : min(total, PremiumLimits.maxFreeIconsPerCategory)
+    }
+
     private func resolveTier(from entitlements: Set<String>) -> PremiumTier {
 
         // Ưu tiên Pro
@@ -173,6 +178,8 @@ struct PremiumLimits {
     let maxBookingDaysAhead: Int
     let maxChatMessagesPerEvent: Int
     let maxTodosPerEvent: Int
+
+    static let maxFreeIconsPerCategory = 8
 
     static func limits(for tier: PremiumTier) -> PremiumLimits {
         switch tier {
