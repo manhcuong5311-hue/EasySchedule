@@ -80,7 +80,49 @@ struct AddEventView: View {
                 Section(header: Text(String(localized: "info_section"))) {
                     TextField(String(localized: "title_placeholder"), text: $title)
                 }
-                
+
+                // ── Icon Picker ──
+                Section {
+                    Button {
+                        showIconPicker = true
+                    } label: {
+                        HStack(spacing: 16) {
+                            ZStack {
+                                Circle()
+                                    .fill(Color.accentColor.opacity(0.12))
+                                    .frame(width: 56, height: 56)
+                                Circle()
+                                    .stroke(Color.accentColor.opacity(selectedIcon.isEmpty ? 0.25 : 0.55), lineWidth: 1.5)
+                                    .frame(width: 56, height: 56)
+                                Image(systemName: selectedIcon.isEmpty ? "face.smiling" : selectedIcon)
+                                    .font(.system(size: 26, weight: .medium))
+                                    .foregroundStyle(Color.accentColor)
+                            }
+
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(selectedIcon.isEmpty
+                                     ? String(localized: "choose_icon_title")
+                                     : String(localized: "change"))
+                                    .font(.headline)
+                                    .foregroundStyle(.primary)
+                                Text(selectedIcon.isEmpty
+                                     ? "Pick an icon for your event"
+                                     : selectedIcon)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                            }
+
+                            Spacer()
+
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(.tertiary)
+                        }
+                        .padding(.vertical, 6)
+                    }
+                }
+
                 Section(header: Text(String(localized: "date_time_section"))) {
                     DatePicker(
                         String(localized: "date_label"),
@@ -200,42 +242,6 @@ struct AddEventView: View {
                     
                     DatePicker( String(localized: "start_label"), selection: $startTime, displayedComponents: .hourAndMinute)
                     DatePicker( String(localized: "end_label"), selection: $endTime, displayedComponents: .hourAndMinute)
-                }
-                Section(header: Text(String(localized: "event_color_section"))) {
-                    ColorPicker(String(localized: "pick_color"), selection: $selectedColor, supportsOpacity: false)
-
-                    Button {
-                        showIconPicker = true
-                    } label: {
-                        HStack {
-                            Label {
-                                Text("Icon")
-                            } icon: {
-                                ZStack {
-                                    Circle()
-                                        .fill(selectedColor.opacity(0.18))
-                                        .frame(width: 30, height: 30)
-                                    Image(systemName: selectedIcon.isEmpty ? "square.grid.2x2" : selectedIcon)
-                                        .font(.system(size: 15, weight: .medium))
-                                        .foregroundStyle(selectedColor)
-                                }
-                            }
-                            Spacer()
-                            if !selectedIcon.isEmpty {
-                                Text(String(localized: "change"))
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            } else {
-                                Text(String(localized: "choose_icon_title"))
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Image(systemName: "chevron.right")
-                                .font(.caption2)
-                                .foregroundStyle(.tertiary)
-                        }
-                    }
-                    .foregroundStyle(.primary)
                 }
                 
                 

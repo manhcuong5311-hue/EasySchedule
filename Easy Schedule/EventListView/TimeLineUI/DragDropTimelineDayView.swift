@@ -289,6 +289,11 @@ struct DDDraggableEventRow: View {
     @State private var lastSwapTime: Date = .distantPast
     @State private var lastHapticSnap = -1
 
+    // Resize state
+    @State private var resizeBaseDuration: Int? = nil
+    @State private var durationPreview: String? = nil
+    @State private var lastResizeHapticStep = -1
+
     private let haptic = UIImpactFeedbackGenerator(style: .rigid)
     private let wakeID  = DragDropLayoutEngine.wakeID
     private let sleepID = DragDropLayoutEngine.sleepID
@@ -305,7 +310,18 @@ struct DDDraggableEventRow: View {
             event: event,
             isHolding: isHolding,
             isSystemEvent: isSystemEvent,
-            nearSwap: abs(dragOffsetY) > 80 && isReordering && !isSystemEvent
+            nearSwap: abs(dragOffsetY) > 80 && isReordering && !isSystemEvent,
+            durationPreview: durationPreview,
+            onResizeEnd: { translation in handleResize(translation: translation) },
+            onResizeFinal: { _ in
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                durationPreview = nil
+                resizeBaseDuration = nil
+                lastResizeHapticStep = -1
+                isDragging = false
+                isHolding = false
+                onDragEnded(event.id)
+            }
         )
         .opacity(isDragging && !isHolding ? 0.55 : 1)
         .opacity(isPast() ? 0.5 : 1)
@@ -391,6 +407,36 @@ struct DDDraggableEventRow: View {
         }
     }
 
+    // MARK: Resize drag (end-time label — regular events only)
+
+    private func handleResize(translation: CGFloat) {
+        if resizeBaseDuration == nil {
+            resizeBaseDuration = event.durationMinutes
+        }
+        guard let base = resizeBaseDuration,
+              let idx = events.firstIndex(where: { $0.id == event.id }) else { return }
+
+        isDragging = true
+        let minuteDelta = Int(translation / 12)
+        let raw = base + minuteDelta
+        let snapped = max(5, (raw / 5) * 5)
+
+        let step = snapped / 5
+        if step != lastResizeHapticStep {
+            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+            lastResizeHapticStep = step
+        }
+
+        let newEndMinutes = events[idx].startMinutes + snapped
+        let dayStart = Calendar.current.startOfDay(for: events[idx].startTime)
+        events[idx].endTime = dayStart.addingTimeInterval(TimeInterval(newEndMinutes * 60))
+
+        let h = snapped / 60, m = snapped % 60
+        if h > 0 && m > 0 { durationPreview = "\(h)h \(m)m" }
+        else if h > 0     { durationPreview = "\(h)h" }
+        else              { durationPreview = "\(m)m" }
+    }
+
     // MARK: Reorder drag (horizontal — regular events only)
 
     private func handleReorder(dragY: CGFloat) {
@@ -444,6 +490,9 @@ private struct DDEventCard: View {
     let isHolding: Bool
     let isSystemEvent: Bool
     let nearSwap: Bool
+    var durationPreview: String? = nil
+    var onResizeEnd: ((CGFloat) -> Void)? = nil
+    var onResizeFinal: ((CGFloat) -> Void)? = nil
 
     @Environment(\.colorScheme) private var scheme
 
@@ -474,11 +523,45 @@ private struct DDEventCard: View {
                     .foregroundStyle(isSystemEvent ? event.eventColor : .primary)
 
                 if !isSystemEvent {
-                    Text(event.formattedEndTime)
-                        .font(.system(size: 12, weight: .regular))
-                        .monospacedDigit()
-                        .foregroundStyle(.secondary)
-                        .frame(maxHeight: .infinity, alignment: .bottom)
+                    HStack(spacing: 2) {
+                        Text(durationPreview ?? event.formattedEndTime)
+                            .font(.system(size: 12, weight: isHolding ? .semibold : .regular))
+                            .monospacedDigit()
+                            .foregroundStyle(
+                                durationPreview != nil
+                                    ? event.eventColor
+                                    : (isHolding ? event.eventColor : Color.secondary)
+                            )
+                        if isHolding && durationPreview == nil {
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 8, weight: .bold))
+                                .foregroundStyle(event.eventColor.opacity(0.8))
+                        }
+                    }
+                    .padding(.horizontal, isHolding ? 5 : 0)
+                    .padding(.vertical, isHolding ? 2 : 0)
+                    .background(
+                        Capsule()
+                            .fill(event.eventColor.opacity(isHolding ? 0.12 : 0))
+                    )
+                    .overlay(
+                        Capsule()
+                            .stroke(event.eventColor.opacity(isHolding ? 0.3 : 0), lineWidth: 0.8)
+                    )
+                    .scaleEffect(durationPreview != nil ? 1.08 : 1, anchor: .bottomLeading)
+                    .frame(maxHeight: .infinity, alignment: .bottom)
+                    .animation(.spring(response: 0.25, dampingFraction: 0.75), value: isHolding)
+                    .animation(.spring(response: 0.2, dampingFraction: 0.8), value: durationPreview)
+                    .gesture(
+                        isHolding ?
+                        DragGesture(minimumDistance: 2)
+                            .onChanged { v in onResizeEnd?(v.translation.height) }
+                            .onEnded { v in
+                                onResizeEnd?(v.translation.height)
+                                onResizeFinal?(v.translation.height)
+                            }
+                        : nil
+                    )
                 }
             }
             .frame(width: isPad ? 75 : 58, height: pillH, alignment: .topLeading)
@@ -536,7 +619,10 @@ private struct DDEventCard: View {
                     HStack(spacing: 6) {
                         Text(event.formattedStartTime)
                             .font(.caption).monospacedDigit().foregroundStyle(.secondary)
-                        if event.durationMinutes > 0 {
+                        if let preview = durationPreview {
+                            Text("• \(preview)")
+                                .font(.caption).monospacedDigit().foregroundStyle(event.eventColor)
+                        } else if event.durationMinutes > 0 {
                             Text("• \(durationText)")
                                 .font(.caption).monospacedDigit().foregroundStyle(.secondary)
                         }
