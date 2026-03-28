@@ -495,6 +495,22 @@ private struct DDEventCard: View {
     var onResizeFinal: ((CGFloat) -> Void)? = nil
 
     @Environment(\.colorScheme) private var scheme
+    @EnvironmentObject var eventManager: EventManager
+    @EnvironmentObject var session: SessionStore
+
+    private var myUid: String? { session.currentUserId }
+    private var isMyEvent: Bool { event.createdBy == event.owner }
+    private var ownerUID: String {
+        event.origin == .iCreatedForOther ? event.owner : event.createdBy
+    }
+    private var ownerLabelIcon: String {
+        event.origin == .iCreatedForOther ? "arrow.right.circle.fill" : "person.fill"
+    }
+    private var shouldShowOwner: Bool {
+        guard !isSystemEvent else { return false }
+        guard let uid = myUid else { return false }
+        return event.createdBy != uid || event.owner != uid
+    }
 
     private let wakeID  = DragDropLayoutEngine.wakeID
     private let sleepID = DragDropLayoutEngine.sleepID
@@ -614,6 +630,18 @@ private struct DDEventCard: View {
                     .font(isPad ? .title3.weight(.semibold) : .headline)
                     .foregroundStyle(isSystemEvent ? event.eventColor : .primary)
                     .lineLimit(1)
+
+                if shouldShowOwner {
+                    HStack(spacing: 4) {
+                        Image(systemName: ownerLabelIcon)
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(event.eventColor.opacity(0.75))
+                        Text(eventManager.displayName(for: ownerUID))
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                }
 
                 if !isSystemEvent {
                     HStack(spacing: 6) {

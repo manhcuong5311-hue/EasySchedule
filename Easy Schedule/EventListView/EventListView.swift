@@ -330,7 +330,7 @@ struct EventScrollContent: View {
     let onUserSelectDay: () -> Void
 
     private let headerHeight: CGFloat = 56
-    private let dayPickerHeight: CGFloat = 92
+    private let dayPickerHeight: CGFloat = 102
     private let topSpacing: CGFloat = 40
     private var dayCardInset: CGFloat {
         isPad ? 12 : 8

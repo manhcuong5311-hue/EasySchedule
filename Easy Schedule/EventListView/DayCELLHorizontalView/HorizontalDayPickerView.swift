@@ -13,6 +13,8 @@ struct DayCardHintBottomKey: PreferenceKey {
     }
 }
 
+// MARK: - HorizontalDayPickerView (swipe-based week strip)
+
 struct HorizontalDayPickerView: View {
 
     @Binding var selectedDate: Date
@@ -20,110 +22,133 @@ struct HorizontalDayPickerView: View {
     let onUserSelectDay: (Date) -> Void
 
     @EnvironmentObject var eventManager: EventManager
-  
-    
-    
-    var body: some View {
-        GeometryReader { geo in
-            let config = LayoutConfig(availableWidth: geo.size.width)
+    @EnvironmentObject var uiAccent: UIAccentStore
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: config.spacing) {
+    // MARK: Swipe state
+    @State private var dragOffset: CGFloat = 0
+    @State private var isDragging = false
+    private let swipeThreshold: CGFloat = 50
 
-                    ForEach(config.days(around: selectedDate), id: \.self) { day in
-                        let key = Calendar.current.startOfDay(for: day)
-                        let dayStart = Calendar.current.startOfDay(for: day)
-                        let today = Calendar.current.startOfDay(for: Date())
-
-                        let isPast = dayStart < today
-                        let isOutOfRange = dayStart > maxSelectableDate
-                        let isLocked = isPast || isOutOfRange
-
-                        DayCell(
-                            day: day,
-                            isSelected: Calendar.current.isDate(day, inSameDayAs: selectedDate),
-
-                            isPastDay: isPast,
-                            isOffDay: eventManager.isOffDay(day),
-                            isLocked: isLocked,
-
-                            unreadCount: eventManager.unreadCountByDay[key] ?? 0,
-                            hasNew: eventManager.hasNewByDay[key] ?? false,
-                            width: config.cellWidth
-                        )
-
-                        .opacity(isLocked ? 0.35 : 1)
-                        .allowsHitTesting(!isLocked)
-                        .onTapGesture {
-                                                   guard !isLocked else { return }
-
-                                                   withAnimation(.easeInOut) {
-                                                       selectedDate = day
-                                                   }
-
-                                                   // 🔥 PHÁT INTENT DUY NHẤT
-                                                   onUserSelectDay(day)
-                                               }
-
-                    }
-
-                }
-                .padding(.horizontal, config.horizontalPadding)
-            }
-        }
-        .frame(height: 92)
-    }
-
-}
-
-
-private struct LayoutConfig {
-
-    let availableWidth: CGFloat
-
-    let spacing: CGFloat = 14
-    let horizontalPadding: CGFloat = 16
-
-    var cellWidth: CGFloat {
+    private var cellWidth: CGFloat {
         UIDevice.current.userInterfaceIdiom == .pad ? 64 : 44
     }
 
-    private var cellTotalWidth: CGFloat {
-        cellWidth + spacing
+    // Strict 7-day week containing the given date
+    private func weekDates(for date: Date) -> [Date] {
+        var cal = Calendar.current
+        cal.firstWeekday = 2 // Monday first, consistent with rest of app
+        let start = cal.dateInterval(of: .weekOfYear, for: date)?.start ?? date
+        return (0..<7).compactMap { cal.date(byAdding: .day, value: $0, to: start) }
     }
 
-    private var visibleCount: Int {
-        max(7, Int((availableWidth - horizontalPadding * 2) / cellTotalWidth))
-    }
+    var body: some View {
+        GeometryReader { geo in
+            ZStack {
+                // Previous week (left)
+                weekRow(offsetWeeks: -1, width: geo.size.width)
+                    .offset(x: -geo.size.width + dragOffset)
 
-    func days(around center: Date) -> [Date] {
-        let calendar = Calendar.current
-        let total = visibleCount
+                // Current week (center)
+                weekRow(offsetWeeks: 0, width: geo.size.width)
+                    .offset(x: dragOffset)
 
-        let today = calendar.startOfDay(for: Date())
-        let centerDay = calendar.startOfDay(for: center)
+                // Next week (right)
+                weekRow(offsetWeeks: 1, width: geo.size.width)
+                    .offset(x: geo.size.width + dragOffset)
+            }
+            .clipped()
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 20, coordinateSpace: .local)
+                    .onChanged { value in
+                        guard abs(value.translation.width) > abs(value.translation.height) else { return }
+                        isDragging = true
+                        dragOffset = value.translation.width
+                    }
+                    .onEnded { value in
+                        guard isDragging else { return }
+                        isDragging = false
+                        let velocity = value.predictedEndTranslation.width
+                        let shouldSwipe = abs(dragOffset) > swipeThreshold || abs(velocity) > 300
 
-        // 🔑 Nếu user đang ở quá khứ → cân bằng hơn
-        let isPastMode = centerDay < today
-
-        let pastCount: Int
-        if isPastMode {
-            pastCount = total / 2        // cân bằng khi ở quá khứ
-        } else {
-            pastCount = 1                // GIỮ NGUYÊN hành vi hiện tại
+                        if shouldSwipe {
+                            if dragOffset < 0 {
+                                // Swipe left → next week
+                                withAnimation(.easeOut(duration: 0.25)) { dragOffset = -geo.size.width }
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                                    if let next = Calendar.current.date(byAdding: .weekOfYear, value: 1, to: selectedDate) {
+                                        selectedDate = next
+                                    }
+                                    dragOffset = 0
+                                }
+                            } else {
+                                // Swipe right → previous week
+                                withAnimation(.easeOut(duration: 0.25)) { dragOffset = geo.size.width }
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                                    if let prev = Calendar.current.date(byAdding: .weekOfYear, value: -1, to: selectedDate) {
+                                        selectedDate = prev
+                                    }
+                                    dragOffset = 0
+                                }
+                            }
+                        } else {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { dragOffset = 0 }
+                        }
+                    }
+            )
         }
-
-        let futureCount = total - pastCount - 1   // -1 cho center
-
-        return (-pastCount...futureCount).compactMap {
-            calendar.date(byAdding: .day, value: $0, to: center)
-        }
+        .frame(height: 102)
     }
 
+    // MARK: Week Row
 
-    
+    private func weekRow(offsetWeeks: Int, width: CGFloat) -> some View {
+        let baseDate = Calendar.current.date(byAdding: .weekOfYear, value: offsetWeeks, to: selectedDate)!
+        let dates = weekDates(for: baseDate)
+
+        return HStack(spacing: 0) {
+            ForEach(dates, id: \.self) { date in
+                let dayStart  = Calendar.current.startOfDay(for: date)
+                let today     = Calendar.current.startOfDay(for: Date())
+                let isPast    = dayStart < today
+                let isOut     = dayStart > maxSelectableDate
+                let isLocked  = isPast || isOut
+                let key       = dayStart
+
+                let dayEvents = eventManager.events(for: date)
+                    .filter { $0.origin != .busySlot }
+                    .sorted { $0.startTime < $1.startTime }
+
+                DayCell(
+                    day: date,
+                    isSelected: Calendar.current.isDate(date, inSameDayAs: selectedDate),
+                    isPastDay: isPast,
+                    isOffDay: eventManager.isOffDay(date),
+                    isLocked: isLocked,
+                    unreadCount: eventManager.unreadCountByDay[key] ?? 0,
+                    hasNew: eventManager.hasNewByDay[key] ?? false,
+                    width: cellWidth,
+                    dayEvents: dayEvents
+                )
+                .opacity(isLocked ? 0.35 : 1)
+                .allowsHitTesting(!isLocked)
+                .onTapGesture {
+                    guard !isLocked else { return }
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                        selectedDate = date
+                    }
+                    onUserSelectDay(date)
+                }
+                .frame(maxWidth: .infinity)
+            }
+        }
+        .padding(.horizontal, 8)
+        .frame(width: width, alignment: .center)
+    }
 }
 
+// MARK: - Day Cell
 
 struct DayCell: View {
 
@@ -132,36 +157,147 @@ struct DayCell: View {
     let isPastDay: Bool
     let isOffDay: Bool
     let isLocked: Bool
-
     let unreadCount: Int
     let hasNew: Bool
     let width: CGFloat
+    var dayEvents: [CalendarEvent] = []
 
     @Environment(\.colorScheme) private var colorScheme
     @EnvironmentObject var uiAccent: UIAccentStore
-
-    // MARK: - Layout constants
-        private let hintSlotHeight: CGFloat = 10   // chỗ “ảo” cho hint
+    @State private var isPulsing = false
 
     var body: some View {
-        VStack(spacing: 6) {
-
+        VStack(spacing: 4) {
             weekdayLabel
-
             dayCircle
-
-            // slot cố định cho hint (KHÔNG đẩy layout)
-            Color.clear
-                .frame(height: 10)
+            eventIconRow
         }
         .frame(width: width + 12)
         .opacity(contentOpacity)
     }
-
-    
-   
-    
 }
+
+// MARK: - Event Icon Row
+
+private extension DayCell {
+
+    /// Primary event: for today pick the active/next-upcoming; for other days pick the first.
+    var primaryEvent: CalendarEvent? {
+        guard !dayEvents.isEmpty else { return nil }
+        if Calendar.current.isDateInToday(day) {
+            let nowMins = Calendar.current.component(.hour, from: Date()) * 60
+                        + Calendar.current.component(.minute, from: Date())
+            if let active = dayEvents.first(where: {
+                $0.startMinutes <= nowMins && $0.endMinutes >= nowMins
+            }) { return active }
+            return dayEvents.first(where: { $0.startMinutes >= nowMins }) ?? dayEvents.first
+        }
+        return dayEvents.first
+    }
+
+    var eventIconRow: some View {
+        Group {
+            if let primary = primaryEvent {
+                let others = dayEvents
+                    .filter { $0.id != primary.id }
+                    .prefix(2)
+                let left  = others.count > 0 ? others[0] : nil
+                let right = others.count > 1 ? others[1] : nil
+                let isToday = Calendar.current.isDateInToday(day)
+
+                HStack(alignment: .center, spacing: 3) {
+
+                    // Left side — smaller
+                    if let l = left {
+                        sideIcon(l)
+                    } else {
+                        Color.clear.frame(width: 14, height: 14)
+                    }
+
+                    // Center — primary, larger + pulse on today
+                    primaryIcon(primary, pulse: isToday)
+                        .onAppear {
+                            if isToday { isPulsing = true }
+                        }
+
+                    // Right side — smaller
+                    if let r = right {
+                        sideIcon(r)
+                    } else {
+                        Color.clear.frame(width: 14, height: 14)
+                    }
+                }
+                .frame(height: 20)
+
+            } else {
+                Color.clear.frame(height: 20)
+            }
+        }
+    }
+
+    // Small flanking icon
+    func sideIcon(_ event: CalendarEvent) -> some View {
+        let size: CGFloat = 14
+        let icon = EventIconStore.shared.icon(for: event.id) ?? event.originIcon
+        return ZStack {
+            Circle()
+                .fill(event.eventColor.opacity(colorScheme == .dark ? 0.25 : 0.15))
+                .frame(width: size, height: size)
+            Image(systemName: icon)
+                .font(.system(size: 7, weight: .medium))
+                .foregroundStyle(event.eventColor.opacity(0.85))
+        }
+        .shadow(color: event.eventColor.opacity(0.15), radius: 2)
+    }
+
+    // Large center icon, pulses on today
+    func primaryIcon(_ event: CalendarEvent, pulse: Bool) -> some View {
+        let size: CGFloat = 20
+        let icon = EventIconStore.shared.icon(for: event.id) ?? event.originIcon
+        return ZStack {
+            // Glow ring
+            Circle()
+                .fill(event.eventColor.opacity(colorScheme == .dark ? 0.2 : 0.12))
+                .frame(width: size + 6, height: size + 6)
+                .blur(radius: pulse ? 4 : 2)
+                .opacity(pulse ? (isPulsing ? 0.9 : 0.4) : 0.5)
+                .animation(
+                    pulse
+                        ? .easeInOut(duration: 1.4).repeatForever(autoreverses: true)
+                        : .default,
+                    value: isPulsing
+                )
+
+            // Main circle
+            Circle()
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            event.eventColor.opacity(0.85),
+                            event.eventColor.opacity(0.55)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: size, height: size)
+                .shadow(color: event.eventColor.opacity(0.4), radius: pulse ? 5 : 3, y: 1)
+
+            Image(systemName: icon)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.white)
+        }
+        .scaleEffect(pulse && isPulsing ? 1.12 : 1.0)
+        .animation(
+            pulse
+                ? .easeInOut(duration: 1.4).repeatForever(autoreverses: true)
+                : .default,
+            value: isPulsing
+        )
+    }
+}
+
+// MARK: - Weekday Label
 
 private extension DayCell {
     var weekdayLabel: some View {
@@ -171,11 +307,12 @@ private extension DayCell {
     }
 }
 
+// MARK: - Day Circle
+
 private extension DayCell {
 
     var dayCircle: some View {
         ZStack {
-            // ===== MAIN DAY CIRCLE =====
             Text(day.formatted(.dateTime.day()))
                 .font(.headline.bold())
                 .foregroundColor(isSelected ? .white : .primary)
@@ -184,41 +321,28 @@ private extension DayCell {
                 .overlay(todayRing)
                 .overlay(darkSelectedRing)
                 .overlay(offDayIcon, alignment: .bottomTrailing)
-                .dayCellShadow(
-                    scheme: colorScheme,
-                    isSelected: isSelected
-                )
-                // ⭐ NEO HINT Ở ĐÂY – KHÔNG DÙNG ZSTACK BÊN NGOÀI
+                .dayCellShadow(scheme: colorScheme, isSelected: isSelected)
                 .overlay(alignment: .bottomTrailing) {
                     hintStack
                 }
         }
     }
-    
+
     @ViewBuilder
     var hintStack: some View {
         if unreadCount > 0 || hasNew {
             HStack(spacing: 0) {
-
-                // ⬅️ UNREAD – BÊN TRÁI
-                if unreadCount > 0 {
-                    unreadBadge
-                }
-
+                if unreadCount > 0 { unreadBadge }
                 Spacer(minLength: 0)
-
-                // ➡️ NEW EVENT – BÊN PHẢI
-                if hasNew {
-                    newEventBadge
-                }
+                if hasNew { newEventBadge }
             }
-            .frame(width: width - 8)   // 👈 ép đúng bề rộng day
-            .offset(y: 6)              // 👈 neo sát đáy circle
+            .frame(width: width - 8)
+            .offset(y: 6)
         }
     }
-
-
 }
+
+// MARK: - Badges
 
 private extension DayCell {
 
@@ -232,30 +356,21 @@ private extension DayCell {
                 Capsule()
                     .fill(
                         LinearGradient(
-                            colors: [
-                                Color.red,
-                                Color.red.opacity(0.85)
-                            ],
-                            startPoint: .top,
-                            endPoint: .bottom
+                            colors: [Color.red, Color.red.opacity(0.85)],
+                            startPoint: .top, endPoint: .bottom
                         )
                     )
                     .shadow(color: .black.opacity(0.25), radius: 3, y: 2)
             )
     }
 
-
     var newEventBadge: some View {
         Image(systemName: "sparkles")
             .font(.caption2)
             .foregroundStyle(
                 LinearGradient(
-                    colors: [
-                        uiAccent.color,
-                        uiAccent.color.opacity(0.6)
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
+                    colors: [uiAccent.color, uiAccent.color.opacity(0.6)],
+                    startPoint: .top, endPoint: .bottom
                 )
             )
             .padding(4)
@@ -265,9 +380,9 @@ private extension DayCell {
                     .shadow(color: uiAccent.color.opacity(0.4), radius: 4)
             )
     }
-
 }
 
+// MARK: - Circle backgrounds / decorations
 
 private extension DayCell {
     var circleBackground: some View {
@@ -281,41 +396,30 @@ private extension DayCell {
             }
         }
     }
-}
 
-private extension DayCell {
     var todayRing: some View {
         Group {
             if Calendar.current.isDateInToday(day) && !isSelected {
-                Circle()
-                    .stroke(uiAccent.color, lineWidth: 1.5)
+                Circle().stroke(uiAccent.color, lineWidth: 1.5)
             }
         }
     }
-}
 
-private extension DayCell {
     var darkSelectedRing: some View {
         Group {
             if isSelected && colorScheme == .dark {
                 Circle()
                     .stroke(
                         LinearGradient(
-                            colors: [
-                                Color.white.opacity(0.35),
-                                Color.white.opacity(0.05)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
+                            colors: [Color.white.opacity(0.35), Color.white.opacity(0.05)],
+                            startPoint: .topLeading, endPoint: .bottomTrailing
                         ),
                         lineWidth: 0.8
                     )
             }
         }
     }
-}
 
-private extension DayCell {
     var offDayIcon: some View {
         Group {
             if isOffDay && !isSelected {
@@ -326,44 +430,31 @@ private extension DayCell {
             }
         }
     }
-}
 
-
-private extension DayCell {
     var contentOpacity: Double {
         (isPastDay || isOffDay) && !isSelected ? 0.45 : 1
     }
 }
 
-
-
-
+// MARK: - Day Status Badge (kept for compatibility)
 
 struct DayStatusBadgeView: View {
 
     let unreadCount: Int
     let hasNew: Bool
     @EnvironmentObject var uiAccent: UIAccentStore
-    
-    
+
     private var text: String {
         if unreadCount > 0 && hasNew {
-            return String(
-                format: String(localized: "day_badge_new_with_count"),
-                unreadCount
-            )
+            return String(format: String(localized: "day_badge_new_with_count"), unreadCount)
         }
-        if unreadCount > 0 {
-            return "\(unreadCount)"
-        }
+        if unreadCount > 0 { return "\(unreadCount)" }
         return String(localized: "day_badge_new")
     }
-
 
     private var backgroundColor: Color {
         unreadCount > 0 ? .red : uiAccent.color
     }
-
 
     var body: some View {
         Text(text)
@@ -375,4 +466,3 @@ struct DayStatusBadgeView: View {
             .clipShape(Capsule())
     }
 }
-
