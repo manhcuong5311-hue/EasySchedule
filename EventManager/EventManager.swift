@@ -748,22 +748,23 @@ final class EventManager: ObservableObject {
 
 // MARK: CRUD + Firestore
 extension EventManager {
+    /// Returns the new event's ID on success, or nil on failure.
     @discardableResult
     func addEvent(title: String,
                   ownerName: String,
                   date: Date,
                   startTime: Date,
                   endTime: Date,
-                  colorHex: String = "#007AFF") -> Bool {
+                  colorHex: String = "#007AFF") -> String? {
 
-        guard let uid = currentUserId else { return false }
-       
+        guard let uid = currentUserId else { return nil }
+
         let now = Date()
 
         // ANTI-SPAM CLICK (2 giây trong app)
         if let last = lastEventCreateTime, now.timeIntervalSince(last) < 5 {
             print("🚫 BLOCK: Too fast!")
-            return false
+            return nil
         }
         lastEventCreateTime = now
 
@@ -771,7 +772,7 @@ extension EventManager {
         if endTime < now {
             self.alertMessage = String(localized: "cant_create_events_in_the_past")
             self.showAlert = true
-            return false
+            return nil
         }
 
         // CHECK TRÙNG LỊCH FULL
@@ -784,7 +785,7 @@ extension EventManager {
         if exactDuplicate {
             self.alertMessage = String(localized: "event_already_exists")
             self.showAlert = true
-            return false
+            return nil
         }
 
         // CHECK OVERLAP
@@ -804,7 +805,7 @@ extension EventManager {
             if isConflict {
                 self.alertMessage = String(localized: "time_slot_taken!")
                 self.showAlert = true
-                return false
+                return nil
             }
         }
 
@@ -819,7 +820,7 @@ extension EventManager {
         guard eventsSameDay.count < limits.maxEventsPerDay else {
             self.alertMessage = String(localized: "event_limit_reached")
             self.showAlert = true
-            return false
+            return nil
         }
 
 
@@ -862,10 +863,10 @@ extension EventManager {
                }
            } catch {
                print("❌ Encode error:", error)
-               return false
+               return nil
            }
 
-           return true
+           return newEvent.id   // ← caller uses this to save local icon
        }
 
 
