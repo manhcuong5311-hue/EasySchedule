@@ -494,7 +494,7 @@ class ChatViewModel: ObservableObject {
                     forDocument: chatRef
                 )
 
-                batch.commit()
+                if hasUpdates { batch.commit() }
             }
     }
 

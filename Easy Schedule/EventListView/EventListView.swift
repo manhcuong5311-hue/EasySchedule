@@ -321,11 +321,7 @@ struct EventScrollContent: View {
     }
    
     @AppStorage("event_card_layout")
-    private var cardLayoutRaw: String = EventCardLayout.normal.rawValue
-
-    private var cardLayout: EventCardLayout {
-        EventCardLayout(rawValue: cardLayoutRaw) ?? .normal
-    }
+    private var cardLayoutRaw: String = EventCardLayout.timeline.rawValue
 
     let onUserSelectDay: () -> Void
 
@@ -649,12 +645,10 @@ private struct DaySectionView: View {
     }
 
     
+    // Timeline is the only layout. The AppStorage key is kept for compatibility
+    // but the rendered layout is always .timeline.
     @AppStorage("event_card_layout")
-    private var cardLayoutRaw: String = EventCardLayout.normal.rawValue
-
-    private var cardLayout: EventCardLayout {
-        EventCardLayout(rawValue: cardLayoutRaw) ?? .normal
-    }
+    private var cardLayoutRaw: String = EventCardLayout.timeline.rawValue
 
     private var manualBusySlotsOfDay: [CalendarEvent] {
         eventManager.myManualBusySlots.filter {
@@ -676,50 +670,13 @@ private struct DaySectionView: View {
             )
             
 
-            VStack(alignment: .leading, spacing: 6) {
-
-                switch cardLayout {
-
-                case .timeline:
-                    DragDropTimelineDayView(
-                        date: day,
-                        events: dayEvents
-                    )
-                    .padding(.top, 8)
-                    .padding(.horizontal, 16)
-
-                case .normal, .compact:
-                    VStack(alignment: .leading, spacing: 6) {
-                        ForEach(dayEvents) { event in
-                            switch cardLayout {
-
-                            case .normal:
-                                EventRowView(
-                                    event: event,
-                                    showOwnerLabel: showOwnerLabel,
-                                    
-                                    expandedEvents: $expandedEvents,
-                                    chatMeta: eventManager.chatMeta(for: event.id),
-                                    timeDisplayMode: timeDisplayMode
-                                )
-
-                            case .compact:
-                                CompactEventRowView(
-                                    event: event,
-                                    timeFontSize: timeFontSize,
-                                    timeDisplayMode: timeDisplayMode,
-                                    expandedEvents: $expandedEvents,
-                                    chatMeta: eventManager.chatMeta(for: event.id)
-                                )
-
-                            default:
-                                EmptyView()
-                            }
-                        }
-                    }
-                    .padding(.leading, 16)
-                }
-            }
+            // Always render the timeline view
+            DragDropTimelineDayView(
+                date: day,
+                events: dayEvents
+            )
+            .padding(.top, 8)
+            .padding(.horizontal, 16)
 
             
     // ===== < 4 EVENTS SUGGESTION (BOTTOM) =====

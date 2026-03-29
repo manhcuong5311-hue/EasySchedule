@@ -6,26 +6,20 @@ struct AddPartnerSheet: View {
     @EnvironmentObject var eventManager: EventManager
     @Binding var isPresented: Bool
 
-    @State private var input: String = ""
-    @State private var isLoading = false
-    @State private var errorMessage: String?
-    @State private var successMessage: String?
-    @State private var copiedCode = false
+    @State private var input:           String  = ""
+    @State private var isLoading:       Bool    = false
+    @State private var errorMessage:    String? = nil
+    @State private var successMessage:  String? = nil
+    @State private var copiedCode:      Bool    = false
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
-
-                    // ── Header ────────────────────────────────────────────
                     headerSection
-
-                    // ── Step 1: Connect ───────────────────────────────────
+                    howItWorksCard
                     connectCard
-
-                    // ── Step 2: Share your code ───────────────────────────
                     yourCodeCard
-
                     Spacer(minLength: 32)
                 }
                 .padding()
@@ -51,14 +45,14 @@ struct AddPartnerSheet: View {
                 Circle()
                     .fill(
                         LinearGradient(
-                            colors: [Color.accentColor.opacity(0.20), Color.accentColor.opacity(0.07)],
+                            colors: [Color.accentColor.opacity(0.20), Color.accentColor.opacity(0.06)],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
                     )
                     .frame(width: 84, height: 84)
                 Image(systemName: "person.2.fill")
-                    .font(.system(size: 34, weight: .semibold))
+                    .font(.system(size: 32, weight: .semibold))
                     .foregroundStyle(Color.accentColor)
             }
 
@@ -66,7 +60,7 @@ struct AddPartnerSheet: View {
                 Text(String(localized: "partner.add_title"))
                     .font(.title2.weight(.bold))
 
-                Text("Connect your calendar with someone to schedule appointments together.")
+                Text("Link your calendar with a partner to see availability and book time together.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -75,15 +69,59 @@ struct AddPartnerSheet: View {
         .padding(.top, 4)
     }
 
+    // MARK: – How it works
+
+    private var howItWorksCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+
+            Label("How it works", systemImage: "info.circle")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .textCase(.uppercase)
+
+            VStack(spacing: 8) {
+                howItWorksRow(
+                    icon: "1.circle.fill",
+                    color: Color.accentColor,
+                    text: "Enter your partner's invitation code or UID below."
+                )
+                howItWorksRow(
+                    icon: "2.circle.fill",
+                    color: .orange,
+                    text: "Share your own code so they can add you back."
+                )
+                howItWorksRow(
+                    icon: "3.circle.fill",
+                    color: .green,
+                    text: "Once both sides connect, you can book appointments on each other's calendar."
+                )
+            }
+        }
+        .padding(16)
+        .background(Color(.secondarySystemGroupedBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+
+    private func howItWorksRow(icon: String, color: Color, text: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: icon)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(color)
+                .frame(width: 22)
+            Text(text)
+                .font(.subheadline)
+                .foregroundStyle(.primary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
     // MARK: – Step 1: Connect card
 
     private var connectCard: some View {
         VStack(alignment: .leading, spacing: 16) {
 
-            // Step label
             stepLabel(number: "1", title: "Add a partner", color: .accentColor)
 
-            // Input field
             VStack(alignment: .leading, spacing: 8) {
                 Text(String(localized: "partner.enter_uid_or_link"))
                     .font(.caption)
@@ -112,14 +150,14 @@ struct AddPartnerSheet: View {
                     }
                 }
                 .padding(14)
-                .background(Color(.secondarySystemGroupedBackground))
+                .background(Color(.tertiarySystemGroupedBackground))
                 .clipShape(RoundedRectangle(cornerRadius: 14))
                 .overlay(
                     RoundedRectangle(cornerRadius: 14)
                         .strokeBorder(
-                            errorMessage != nil   ? Color.red.opacity(0.50)
-                            : successMessage != nil ? Color.green.opacity(0.50)
-                            : Color.gray.opacity(0.15),
+                            errorMessage   != nil ? Color.red.opacity(0.50)
+                          : successMessage != nil ? Color.green.opacity(0.50)
+                          : Color.gray.opacity(0.15),
                             lineWidth: 1
                         )
                 )
@@ -130,7 +168,6 @@ struct AddPartnerSheet: View {
                 statusBanner(text: error, icon: "exclamationmark.circle.fill", color: .red)
                     .transition(.move(edge: .top).combined(with: .opacity))
             }
-
             if let success = successMessage {
                 statusBanner(text: success, icon: "checkmark.circle.fill", color: .green)
                     .transition(.move(edge: .top).combined(with: .opacity))
@@ -141,10 +178,10 @@ struct AddPartnerSheet: View {
                 HStack(spacing: 8) {
                     if isLoading {
                         ProgressView().tint(.white).scaleEffect(0.9)
+                    } else {
+                        Image(systemName: "arrow.right.circle.fill")
                     }
-                    Text(isLoading
-                         ? "Connecting…"
-                         : String(localized: "partner.load"))
+                    Text(isLoading ? "Connecting…" : String(localized: "partner.load"))
                         .fontWeight(.semibold)
                 }
                 .frame(maxWidth: .infinity, minHeight: 50)
@@ -154,11 +191,15 @@ struct AddPartnerSheet: View {
             .disabled(isLoading || input.trimmingCharacters(in: .whitespaces).isEmpty)
 
             // Helper hint
-            Text(String(localized: "partner.ask_for_uid"))
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: .infinity)
+            HStack(spacing: 6) {
+                Image(systemName: "lightbulb")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text(String(localized: "partner.ask_for_uid"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.leading)
+            }
         }
         .padding(18)
         .background(Color(.secondarySystemGroupedBackground))
@@ -182,8 +223,8 @@ struct AddPartnerSheet: View {
                 VStack(spacing: 12) {
                     HStack(alignment: .center) {
                         Text(code)
-                            .font(.system(size: 32, weight: .bold, design: .monospaced))
-                            .tracking(6)
+                            .font(.system(size: 30, weight: .bold, design: .monospaced))
+                            .tracking(5)
                             .foregroundStyle(.primary)
                             .minimumScaleFactor(0.7)
                             .lineLimit(1)
@@ -208,8 +249,8 @@ struct AddPartnerSheet: View {
                             .padding(.vertical, 9)
                             .background(
                                 copiedCode
-                                ? Color.green.opacity(0.14)
-                                : Color.accentColor.opacity(0.12)
+                                    ? Color.green.opacity(0.12)
+                                    : Color.accentColor.opacity(0.12)
                             )
                             .foregroundStyle(copiedCode ? .green : .accentColor)
                             .clipShape(RoundedRectangle(cornerRadius: 10))
@@ -220,9 +261,14 @@ struct AddPartnerSheet: View {
 
                     Divider()
 
-                    Text(String(localized: "partner.invitation_subtitle"))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    HStack(spacing: 6) {
+                        Image(systemName: "info.circle")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                        Text(String(localized: "partner.invitation_subtitle"))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             } else {
                 HStack(spacing: 10) {
@@ -245,7 +291,7 @@ struct AddPartnerSheet: View {
     private func stepLabel(number: String, title: String, color: Color) -> some View {
         HStack(spacing: 10) {
             ZStack {
-                Circle().fill(color).frame(width: 24, height: 24)
+                Circle().fill(color).frame(width: 26, height: 26)
                 Text(number)
                     .font(.caption.weight(.bold))
                     .foregroundStyle(.white)
@@ -257,12 +303,12 @@ struct AddPartnerSheet: View {
 
     private func statusBanner(text: String, icon: String, color: Color) -> some View {
         HStack(spacing: 8) {
-            Image(systemName: icon)
-                .foregroundStyle(color)
+            Image(systemName: icon).foregroundStyle(color)
             Text(text)
                 .font(.caption)
                 .foregroundStyle(color)
                 .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 9)
@@ -316,6 +362,7 @@ extension AddPartnerSheet {
                             return
                         }
 
+                        // Save connection history on both sides
                         self.eventManager.addSharedLink(for: me,  otherUid: uid)
                         self.eventManager.addSharedLink(for: uid, otherUid: me)
 
@@ -324,8 +371,9 @@ extension AddPartnerSheet {
                                 self.isLoading = false
 
                                 if allowed {
+                                    UINotificationFeedbackGenerator().notificationOccurred(.success)
                                     self.successMessage = String(localized: "connected_success")
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
                                         self.isPresented = false
                                     }
                                 } else {
@@ -346,11 +394,6 @@ extension AddPartnerSheet {
                 }
             }
         }
-    }
-
-    private func isValidUIDFormat(_ uid: String) -> Bool {
-        let regex = "^[A-Za-z0-9_-]{20,}$"
-        return NSPredicate(format: "SELF MATCHES %@", regex).evaluate(with: uid)
     }
 }
 

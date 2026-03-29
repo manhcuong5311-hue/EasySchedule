@@ -371,13 +371,13 @@ class AllowAccessViewModel: ObservableObject {
 
 struct AccessManagementView: View {
     @StateObject private var vm = AllowAccessViewModel()
-    @State private var selectedTab: AccessTab = .requests
-    @State private var showBlockConfirm = false
-    @State private var userToBlock: AllowedUser?
+    @State private var selectedTab:    AccessTab   = .requests
+    @State private var showBlockConfirm             = false
+    @State private var userToBlock:    AllowedUser? = nil
 
     var body: some View {
-        VStack {
-            // ⭐ Segmented Picker
+        VStack(spacing: 0) {
+            // ── Tab picker ───────────────────────────────────────────────
             Picker("", selection: $selectedTab) {
                 Text(String(localized: "requests_section_title"))
                     .tag(AccessTab.requests)
@@ -385,17 +385,21 @@ struct AccessManagementView: View {
                     .tag(AccessTab.allowed)
             }
             .pickerStyle(.segmented)
-            .padding()
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
 
-            // ⭐ Nội dung tùy theo Tab
-            List {
-                if selectedTab == .requests {
-                    requestsSection
-                } else {
-                    allowedUsersSection
-                }
+            // ── Content ─────────────────────────────────────────────────
+            if vm.isLoading {
+                Spacer()
+                ProgressView()
+                Spacer()
+            } else if selectedTab == .requests {
+                requestsView
+            } else {
+                allowedUsersView
             }
         }
+        .background(Color(.systemGroupedBackground))
         .navigationTitle(String(localized: "manage_access_title"))
         .confirmationDialog(
             String(localized: "remove_access_confirm_title"),
@@ -403,151 +407,246 @@ struct AccessManagementView: View {
             titleVisibility: .visible
         ) {
             Button(String(localized: "remove_access"), role: .destructive) {
-                if let user = userToBlock {
-                    vm.deny(user.uid)
-                    userToBlock = nil
-                }
+                if let user = userToBlock { vm.deny(user.uid); userToBlock = nil }
             }
-
-            Button(String(localized: "cancel"), role: .cancel) {
-                userToBlock = nil
-            }
+            Button(String(localized: "cancel"), role: .cancel) { userToBlock = nil }
         } message: {
             if let user = userToBlock {
-                Text(
-                    String(
-                        format: String(localized: "remove_access_confirm_message"),
-                        vm.showName ? (user.name ?? user.uid) : user.uid
-                    )
-                )
+                Text(String(
+                    format: String(localized: "remove_access_confirm_message"),
+                    vm.showName ? (user.name ?? user.uid) : user.uid
+                ))
             }
         }
         .onAppear { vm.loadAll() }
-
     }
 
-    // MARK: - Requests Section
-    private var requestsSection: some View {
-        Section {
-            // Search
-            HStack {
-                Image(systemName: "magnifyingglass")
-                    .foregroundColor(.secondary)
-                TextField(String(localized: "search_by_name"), text: $vm.requestSearch)
-            }
-            .padding(.vertical, 6)
+    // MARK: – Requests tab
 
-            if vm.filteredRequests.isEmpty {
-                Text(String(localized: "no_requests"))
-                    .foregroundColor(.secondary)
-            } else {
-                ForEach(vm.filteredRequests) { req in
-                    HStack {
-                        VStack(alignment: .leading) {
-                            Text(req.name.isEmpty ? req.uid : req.name)
+    private var requestsView: some View {
+        ScrollView {
+            VStack(spacing: 12) {
+                // Search bar
+                searchBar(text: $vm.requestSearch, placeholder: String(localized: "search_by_name"))
+                    .padding(.horizontal, 16)
 
-                            if let time = req.requestedAt {
-                                Text(time.formatted(.dateTime.hour().minute().month().day().year()))
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
+                if vm.filteredRequests.isEmpty {
+                    emptyState(
+                        icon: "bell.slash",
+                        title: String(localized: "no_requests"),
+                        hint: "Access requests from others will appear here."
+                    )
+                    .padding(.top, 40)
+                } else {
+                    VStack(spacing: 10) {
+                        ForEach(vm.filteredRequests) { req in
+                            requestCard(req)
                         }
-
-                        Spacer()
-
-                        Button(String(localized: "allow_button")) {
-                            vm.allow(req.uid)
-                        }
-                        .buttonStyle(.borderedProminent)
-
-                        Button(String(localized: "deny_button")) {
-                            vm.deny(req.uid)
-                        }
-                        .foregroundColor(.red)
                     }
-                    .padding(.vertical, 6)
+                    .padding(.horizontal, 16)
                 }
+            }
+            .padding(.top, 8)
+            .padding(.bottom, 32)
+        }
+    }
+
+    private func requestCard(_ req: AccessRequest) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 12) {
+                // Avatar
+                ZStack {
+                    Circle()
+                        .fill(Color.accentColor.opacity(0.12))
+                        .frame(width: 42, height: 42)
+                    Text(req.name.isEmpty ? "?" : req.name.prefix(1).uppercased())
+                        .font(.headline)
+                        .foregroundStyle(Color.accentColor)
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(req.name.isEmpty ? req.uid : req.name)
+                        .font(.system(size: 15, weight: .semibold))
+                        .lineLimit(1)
+
+                    if let time = req.requestedAt {
+                        HStack(spacing: 4) {
+                            Image(systemName: "clock")
+                                .font(.caption2)
+                            Text(time.formatted(.dateTime.hour().minute().month().day()))
+                                .font(.caption)
+                        }
+                        .foregroundStyle(.secondary)
+                    }
+                }
+
+                Spacer()
+            }
+
+            // Action buttons
+            HStack(spacing: 10) {
+                Button {
+                    vm.deny(req.uid)
+                } label: {
+                    Text(String(localized: "deny_button"))
+                        .font(.subheadline.weight(.medium))
+                        .frame(maxWidth: .infinity, minHeight: 36)
+                        .background(Color(.tertiarySystemGroupedBackground))
+                        .foregroundStyle(.red)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    vm.allow(req.uid)
+                } label: {
+                    Text(String(localized: "allow_button"))
+                        .font(.subheadline.weight(.semibold))
+                        .frame(maxWidth: .infinity, minHeight: 36)
+                        .background(Color.accentColor)
+                        .foregroundStyle(.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(14)
+        .background(Color(.secondarySystemGroupedBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+
+    // MARK: – Allowed users tab
+
+    private var allowedUsersView: some View {
+        ScrollView {
+            VStack(spacing: 12) {
+                // Search bar
+                searchBar(text: $vm.allowedSearch, placeholder: String(localized: "search_by_name"))
+                    .padding(.horizontal, 16)
+
+                if vm.filteredAllowedUsers.isEmpty {
+                    emptyState(
+                        icon: "person.2.slash",
+                        title: String(localized: "no_allowed_users"),
+                        hint: "Users you've approved will appear here."
+                    )
+                    .padding(.top, 40)
+                } else {
+                    VStack(spacing: 10) {
+                        ForEach(vm.filteredAllowedUsers) { user in
+                            allowedUserCard(user)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                }
+            }
+            .padding(.top, 8)
+            .padding(.bottom, 32)
+        }
+    }
+
+    private func allowedUserCard(_ user: AllowedUser) -> some View {
+        HStack(spacing: 12) {
+            // Avatar
+            ZStack {
+                Circle()
+                    .fill(user.isMutual
+                        ? Color.green.opacity(0.12)
+                        : Color.orange.opacity(0.12))
+                    .frame(width: 42, height: 42)
+                Text((user.name ?? user.uid).prefix(1).uppercased())
+                    .font(.headline)
+                    .foregroundStyle(user.isMutual ? .green : .orange)
+            }
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(vm.showName ? (user.name ?? user.uid) : shortUID(user.uid))
+                    .font(.system(size: 15, weight: .medium))
+                    .lineLimit(1)
+
+                HStack(spacing: 4) {
+                    Circle()
+                        .fill(user.isMutual ? Color.green : Color.orange)
+                        .frame(width: 6, height: 6)
+                    Text(user.isMutual ? "Mutual access" : "One-way — tap to request back")
+                        .font(.caption)
+                        .foregroundStyle(user.isMutual ? .green : .orange)
+                }
+            }
+
+            Spacer()
+        }
+        .padding(14)
+        .background(Color(.secondarySystemGroupedBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if !user.isMutual {
+                AccessService.shared.createRequest(
+                    owner: user.uid,
+                    requester: vm.ownerUid,
+                    requesterName: user.name
+                )
+            }
+        }
+        .contextMenu {
+            Button {
+                UIPasteboard.general.string = user.uid
+            } label: {
+                Label(String(localized: "copy_uid"), systemImage: "doc.on.doc")
+            }
+        }
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            Button(role: .destructive) {
+                userToBlock = user
+                showBlockConfirm = true
+            } label: {
+                Label(String(localized: "remove_access_button"), systemImage: "trash")
             }
         }
     }
 
-    // MARK: - Allowed Users Section
-    private var allowedUsersSection: some View {
-        Section {
+    // MARK: – Shared helpers
 
-            // Search
-            HStack {
-                Image(systemName: "magnifyingglass")
-                    .foregroundColor(.secondary)
-                TextField(String(localized: "search_by_name"), text: $vm.allowedSearch)
-            }
-            .padding(.vertical, 6)
-
-            // Toggle
-            Toggle(String(localized:"show_names"), isOn: $vm.showName)
-
-            if vm.filteredAllowedUsers.isEmpty {
-                Text(String(localized: "no_allowed_users"))
-                    .foregroundColor(.secondary)
-            } else {
-                ForEach(vm.filteredAllowedUsers) { user in
-                    HStack {
-                        VStack(alignment: .leading) {
-
-                            Text(vm.showName ? (user.name ?? user.uid) : user.uid)
-
-                            if !user.isMutual {
-                                Text("Pending")
-                                    .font(.caption2)
-                                    .foregroundColor(.orange)
-                            }
-                        }
-                            .lineLimit(1)
-
-                        Spacer()
-                    }
-                    .contentShape(Rectangle()) // ⭐ cho swipe + long press toàn row
-                    // ✅ THÊM ĐOẠN NÀY Ở ĐÂY
-                     .onTapGesture {
-                         if !user.isMutual {
-
-                             AccessService.shared.createRequest(
-                                 owner: user.uid,
-                                 requester: vm.ownerUid,
-                                 requesterName: user.name
-                             )
-
-                             print("🔁 Sent reverse request to \(user.uid)")
-                         }
-                     }
-                    // 👉 HOLD (long press) → COPY UID
-                    .contextMenu {
-                        Button {
-                            UIPasteboard.general.string = user.uid
-                        } label: {
-                            Label(
-                                String(localized: "copy_uid"),
-                                systemImage: "doc.on.doc"
-                            )
-                        }
-                    }
-
-                    // 👉 SWIPE LEFT → REMOVE
-                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                        Button(role: .destructive) {
-                            userToBlock = user
-                            showBlockConfirm = true
-                        } label: {
-                            Label(
-                                String(localized: "remove_access_button"),
-                                systemImage: "trash"
-                            )
-                        }
-                    }
+    private func searchBar(text: Binding<String>, placeholder: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(.secondary)
+            TextField(placeholder, text: text)
+                .autocorrectionDisabled(true)
+                .textInputAutocapitalization(.never)
+            if !text.wrappedValue.isEmpty {
+                Button { text.wrappedValue = "" } label: {
+                    Image(systemName: "xmark.circle.fill").foregroundStyle(Color(.systemGray3))
                 }
-
+                .buttonStyle(.plain)
             }
         }
+        .padding(10)
+        .background(Color(.secondarySystemGroupedBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+
+    private func emptyState(icon: String, title: String, hint: String) -> some View {
+        VStack(spacing: 10) {
+            Image(systemName: icon)
+                .font(.system(size: 36))
+                .foregroundStyle(Color(.systemGray3))
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+            Text(hint)
+                .font(.caption)
+                .foregroundStyle(Color(.tertiaryLabel))
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 32)
+    }
+
+    private func shortUID(_ uid: String) -> String {
+        guard uid.count > 8 else { return uid }
+        return uid.prefix(4) + "…" + uid.suffix(4)
     }
 }
 

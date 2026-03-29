@@ -302,7 +302,14 @@ final class EventManager: ObservableObject {
 
     // MARK: - Name Resolver (SOURCE OF TRUTH)
     func displayName(for uid: String) -> String {
-        userNames[uid] ?? uid
+        if let name = userNames[uid], !name.isEmpty {
+            return name
+        }
+        // Trigger an async fetch so the view updates once the name arrives
+        fetchUserNameIfNeeded(uid: uid)
+        // Show a short placeholder while loading — never expose the raw UID
+        let prefix = uid.prefix(4)
+        return uid.count > 4 ? "\(prefix)…" : uid
     }
 
     func name(for uid: String, completion: @escaping (String) -> Void) {

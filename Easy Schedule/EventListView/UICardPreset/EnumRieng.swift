@@ -7,7 +7,7 @@
 import SwiftUI
 
 enum AppLayout {
-    static let floatingTabBarHeight: CGFloat = 96
+    static let floatingTabBarHeight: CGFloat = 84
     static let headerHeight: CGFloat = 108   // 👈 THÊM DÒNG NÀY
 }
 

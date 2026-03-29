@@ -1,6 +1,6 @@
 //
 // AppointmentProSheet.swift
-// Easy schedule
+// Easy Schedule
 //
 
 import SwiftUI
@@ -10,28 +10,34 @@ import FirebaseFirestore
 
 struct AppointmentProSheet: View {
     @EnvironmentObject var eventManager: EventManager
+    @EnvironmentObject var session: SessionStore
+    @EnvironmentObject var network: NetworkMonitor
 
     @Binding var isPresented: Bool
-    let sharedUserId: String?
+    let sharedUserId:   String?
     let sharedUserName: String?
 
-    @State private var showSuccessAlert  = false
-    @State private var selectedDate: Date = Date()
-    @State private var selectedSlot: ProSlot? = nil
-    @State private var busySlots: [CalendarEvent] = []
-    @State private var loading: Bool = true
-    @State private var errorMessage: String? = nil
-    @State private var partnerOffDays: Set<Date> = []
-    @State private var partnerTier: PremiumTier = .free
-    @State private var showPremiumAlert = false
-    @EnvironmentObject var network: NetworkMonitor
-    @State private var busyIntervals: [(Date, Date)] = []
-    @State private var customStart: Date = Date()
-    @State private var customEnd: Date = Date()
-    @State private var useCustomTime: Bool = false
+    // Data
+    @State private var selectedDate:    Date     = Date()
+    @State private var selectedSlot:    ProSlot? = nil
+    @State private var busySlots:       [CalendarEvent] = []
+    @State private var partnerOffDays:  Set<Date> = []
+    @State private var partnerTier:     PremiumTier = .free
+    @State private var busyIntervals:   [(Date, Date)] = []
+    @State private var loading:         Bool = true
+
+    // Custom time
+    @State private var useCustomTime: Bool  = false
+    @State private var customStart:   Date  = Date()
+    @State private var customEnd:     Date  = Date()
+
+    // Input
     @State private var titleText: String = String(localized: "default_event_title")
 
-    @EnvironmentObject var session: SessionStore
+    // Alerts
+    @State private var errorMessage:     String? = nil
+    @State private var showSuccessAlert: Bool    = false
+    @State private var showPremiumAlert: Bool    = false
 
     private var cal: Calendar {
         var c = Calendar.current
@@ -45,29 +51,14 @@ struct AppointmentProSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
-
-                    // ── Partner info ──────────────────────────────────────
                     partnerHeaderCard
-
-                    // ── Mini calendar ─────────────────────────────────────
                     calendarCard
-
-                    // ── Off-day warning ───────────────────────────────────
                     if partnerOffDays.contains(Calendar.current.startOfDay(for: selectedDate)) {
                         offDayBanner
                     }
-
-                    // ── Title ─────────────────────────────────────────────
                     titleCard
-
-                    // ── Custom time ───────────────────────────────────────
                     customTimeCard
-
-                    // ── 30-min slots ──────────────────────────────────────
-                    if !useCustomTime {
-                        slotsCard
-                    }
-
+                    if !useCustomTime { slotsCard }
                     Spacer(minLength: 24)
                 }
                 .padding()
@@ -88,11 +79,11 @@ struct AppointmentProSheet: View {
                         }
                     }
                     .disabled(
-                        eventManager.isAdding ||
-                        (!useCustomTime && selectedSlot == nil) ||
-                        sharedUserId == nil ||
-                        !NetworkMonitor.shared.isOnline ||
-                        loading
+                        eventManager.isAdding
+                        || (!useCustomTime && selectedSlot == nil)
+                        || sharedUserId == nil
+                        || !NetworkMonitor.shared.isOnline
+                        || loading
                     )
                 }
             }
@@ -103,6 +94,7 @@ struct AppointmentProSheet: View {
                 if newValue != nil { loadBusy() }
             }
             .onChange(of: selectedDate) { _, newDate in
+                // Clear slot selection if the new date is out of range
                 guard let maxDate = cal.date(
                     byAdding: .day, value: partnerMaxBookingDays, to: Date()
                 ) else { return }
@@ -110,12 +102,12 @@ struct AppointmentProSheet: View {
             }
             // Error alert
             .alert(item: Binding(
-                get: { errorMessage.map { SimpleError(id: 0, message: $0) } },
-                set: { _ in errorMessage = nil }
+                get:  { errorMessage.map { SimpleError(id: 0, message: $0) } },
+                set:  { _ in errorMessage = nil }
             )) { err in
                 Alert(
-                    title: Text(String(localized: "cant_book_title")),
-                    message: Text(err.message),
+                    title:         Text(String(localized: "cant_book_title")),
+                    message:       Text(err.message),
                     dismissButton: .default(Text(String(localized: "close")))
                 )
             }
@@ -138,22 +130,34 @@ struct AppointmentProSheet: View {
 
     private var partnerHeaderCard: some View {
         HStack(spacing: 14) {
+
+            // Avatar with initials
             ZStack {
                 Circle()
-                    .fill(Color.accentColor.opacity(0.15))
-                    .frame(width: 46, height: 46)
-                Image(systemName: "person.fill")
-                    .font(.system(size: 20, weight: .medium))
+                    .fill(
+                        LinearGradient(
+                            colors: [Color.accentColor.opacity(0.22), Color.accentColor.opacity(0.08)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 50, height: 50)
+
+                Text(partnerInitials)
+                    .font(.system(size: 18, weight: .semibold, design: .rounded))
                     .foregroundStyle(Color.accentColor)
             }
 
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(String(localized: "recipient"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Text(sharedUserName ?? sharedUserId ?? String(localized: "no_name"))
                     .font(.subheadline.weight(.semibold))
                     .lineLimit(1)
+
+                // Tier badge
+                tierBadge
             }
 
             Spacer()
@@ -161,8 +165,8 @@ struct AppointmentProSheet: View {
             if loading {
                 HStack(spacing: 6) {
                     ProgressView().scaleEffect(0.85)
-                    Text("Loading…")
-                        .font(.caption)
+                    Text("Loading slots…")
+                        .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
             }
@@ -172,14 +176,67 @@ struct AppointmentProSheet: View {
         .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 
+    @ViewBuilder
+    private var tierBadge: some View {
+        if !loading {
+            HStack(spacing: 4) {
+                Circle()
+                    .fill(tierColor)
+                    .frame(width: 6, height: 6)
+                Text(tierLabel)
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(tierColor)
+            }
+        }
+    }
+
+    private var tierColor: Color {
+        switch partnerTier {
+        case .free:    return .secondary
+        case .premium: return Color(hex: "#F5A623")
+        case .pro:     return Color(hex: "#7B68EE")
+        }
+    }
+
+    private var tierLabel: String {
+        switch partnerTier {
+        case .free:    return "Free · Book up to \(partnerMaxBookingDays) days ahead"
+        case .premium: return "Premium · Book up to \(partnerMaxBookingDays) days ahead"
+        case .pro:     return "Pro · Book up to \(partnerMaxBookingDays) days ahead"
+        }
+    }
+
+    private var partnerInitials: String {
+        let name = sharedUserName ?? sharedUserId ?? "?"
+        let parts = name.split(separator: " ")
+        if parts.count >= 2 {
+            return (parts[0].prefix(1) + parts[1].prefix(1)).uppercased()
+        }
+        return name.prefix(2).uppercased()
+    }
+
     private var calendarCard: some View {
-        CalendarMiniView(
-            selectedDate: $selectedDate,
-            busySlots: busySlots,
-            offDays: partnerOffDays,
-            maxBookingDays: partnerMaxBookingDays
-        )
-        .frame(height: 260)
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 6) {
+                Image(systemName: "calendar")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Text("Select a date")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .textCase(.uppercase)
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 14)
+            .padding(.bottom, 6)
+
+            CalendarMiniView(
+                selectedDate: $selectedDate,
+                busySlots: busySlots,
+                offDays: partnerOffDays,
+                maxBookingDays: partnerMaxBookingDays
+            )
+        }
         .background(Color(.secondarySystemGroupedBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
     }
@@ -190,9 +247,9 @@ struct AppointmentProSheet: View {
                 .foregroundStyle(.orange)
             VStack(alignment: .leading, spacing: 2) {
                 Text(String(localized: "owner_day_off"))
-                    .font(.subheadline.weight(.medium))
+                    .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.orange)
-                Text("No appointments can be booked on this day.")
+                Text("This person marked the day as unavailable. Pick a different date.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -220,7 +277,7 @@ struct AppointmentProSheet: View {
             .background(Color(.tertiarySystemGroupedBackground))
             .clipShape(RoundedRectangle(cornerRadius: 12))
 
-            Text("Give the appointment a descriptive name so the recipient knows what it's for.")
+            Text("Give the appointment a clear name so the recipient knows what it's for.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -244,18 +301,18 @@ struct AppointmentProSheet: View {
 
                 VStack(spacing: 0) {
                     HStack {
-                        Text(String(localized: "start_time"))
+                        Label(String(localized: "start_time"), systemImage: "clock")
                             .font(.subheadline)
                         Spacer()
                         DatePicker("", selection: $customStart, displayedComponents: .hourAndMinute)
                             .labelsHidden()
                     }
-                    .padding(.vertical, 6)
+                    .padding(.vertical, 8)
 
                     Divider()
 
                     HStack {
-                        Text(String(localized: "end_time"))
+                        Label(String(localized: "end_time"), systemImage: "clock.badge.checkmark")
                             .font(.subheadline)
                         Spacer()
                         DatePicker("", selection: $customEnd, displayedComponents: .hourAndMinute)
@@ -268,7 +325,7 @@ struct AppointmentProSheet: View {
                                 }
                             }
                     }
-                    .padding(.vertical, 6)
+                    .padding(.vertical, 8)
                 }
 
                 let previewSlot = ProSlot(
@@ -283,13 +340,12 @@ struct AppointmentProSheet: View {
                             .font(.caption)
                             .foregroundStyle(.red)
                     }
-                    .padding(.top, 4)
+                    .padding(.top, 2)
                 }
 
-                Text("Choose a specific start and end time instead of a preset 30-minute slot.")
+                Text("Choose a custom window if preset 30-min slots don't fit your needs.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                    .padding(.top, 2)
             }
         }
         .padding(16)
@@ -309,49 +365,45 @@ struct AppointmentProSheet: View {
                 HStack(spacing: 8) {
                     Image(systemName: "calendar.badge.exclamationmark")
                         .foregroundStyle(.orange)
-                    Text("This date is outside the partner's booking window.")
+                    Text("Outside the partner's booking window. Choose an earlier date.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
                 .padding(.vertical, 4)
             } else {
                 LazyVGrid(
-                    columns: Array(repeating: GridItem(.flexible()), count: 4),
+                    columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 4),
                     spacing: 8
                 ) {
                     ForEach(slotsForSelectedDate, id: \.self) { slot in
-                        let pastSlot = isPastSlot(slot)
-                        let busy     = checkBusy(slot)
-                        let blocked  = isDayBlocked || pastSlot
+                        let pastSlot   = isPastSlot(slot)
+                        let busy       = checkBusy(slot)
+                        let blocked    = isDayBlocked || pastSlot
                         let isSelected = selectedSlot == slot
 
-                        slotCell(
-                            slot:       slot,
-                            isBusy:     busy,
-                            isPast:     pastSlot,
-                            isSelected: isSelected
-                        )
-                        .opacity(blocked ? 0.35 : 1.0)
-                        .allowsHitTesting(!blocked)
-                        .onTapGesture {
-                            guard !isDayBlocked, !busy, !pastSlot else { return }
-                            withAnimation(.spring(response: 0.22)) {
-                                selectedSlot = (selectedSlot == slot) ? nil : slot
+                        slotCell(slot: slot, isBusy: busy, isPast: pastSlot, isSelected: isSelected)
+                            .opacity(blocked ? 0.32 : 1.0)
+                            .allowsHitTesting(!blocked)
+                            .onTapGesture {
+                                guard !isDayBlocked, !busy, !pastSlot else { return }
+                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                withAnimation(.spring(response: 0.22)) {
+                                    selectedSlot = (selectedSlot == slot) ? nil : slot
+                                }
                             }
-                        }
                     }
                 }
 
                 // Legend
-                HStack(spacing: 14) {
-                    legendDot(color: Color(.systemGray4),      label: "Available")
-                    legendDot(color: .red.opacity(0.55),       label: "Busy")
-                    legendDot(color: Color.accentColor.opacity(0.8), label: "Selected")
+                HStack(spacing: 16) {
+                    legendDot(color: Color(.systemGray4),          label: "Available")
+                    legendDot(color: .red.opacity(0.55),           label: "Busy")
+                    legendDot(color: Color.accentColor.opacity(0.85), label: "Selected")
                 }
                 .font(.caption2)
                 .padding(.top, 4)
 
-                Text("Tap a slot to select it. Busy and past slots cannot be booked.")
+                Text("Tap an available slot to select it. Busy and past slots cannot be booked.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .padding(.top, 2)
@@ -364,24 +416,24 @@ struct AppointmentProSheet: View {
 
     @ViewBuilder
     private func slotCell(slot: ProSlot, isBusy: Bool, isPast: Bool, isSelected: Bool) -> some View {
-        let start = slot.start.formatted(date: .omitted, time: .shortened)
-        let bgColor: Color = isSelected ? Color.accentColor.opacity(0.85)
-                           : isBusy    ? Color.red.opacity(0.16)
+        let label = slot.start.formatted(date: .omitted, time: .shortened)
+        let bgColor: Color = isSelected ? Color.accentColor.opacity(0.88)
+                           : isBusy    ? Color.red.opacity(0.14)
                            : isPast    ? Color(.systemGray5)
                            : Color(.systemGray6)
         let fgColor: Color = isSelected ? .white
-                           : isBusy    ? .red.opacity(0.75)
+                           : isBusy    ? .red.opacity(0.80)
                            : isPast    ? Color(.systemGray3)
                            : .primary
 
-        Text(start)
+        Text(label)
             .font(.system(size: 11, weight: isSelected ? .bold : .regular, design: .monospaced))
             .frame(maxWidth: .infinity)
             .padding(.vertical, 9)
             .background(RoundedRectangle(cornerRadius: 9).fill(bgColor))
             .overlay(
                 RoundedRectangle(cornerRadius: 9)
-                    .strokeBorder(isSelected ? Color.accentColor : .clear, lineWidth: 1.5)
+                    .strokeBorder(isSelected ? Color.accentColor : Color.clear, lineWidth: 1.5)
             )
             .foregroundStyle(fgColor)
     }
@@ -415,16 +467,13 @@ struct AppointmentProSheet: View {
 
     private func loadBusy() {
         guard NetworkMonitor.shared.isOnline else {
-            loading        = false
-            busySlots      = []
-            partnerOffDays = []
-            errorMessage   = String(localized: "no_internet_connection")
-            return
-        }
-
-        guard let uid = sharedUserId else {
             loading      = false
             busySlots    = []
+            errorMessage = String(localized: "no_internet_connection")
+            return
+        }
+        guard let uid = sharedUserId else {
+            loading      = false
             errorMessage = String(localized: "unknown_uid")
             return
         }
@@ -433,9 +482,9 @@ struct AppointmentProSheet: View {
 
         eventManager.fetchBusySlots(for: uid, forceRefresh: true) { slots, tier in
             DispatchQueue.main.async {
-                self.busySlots      = slots
-                self.partnerTier    = tier
-                self.busyIntervals  = slots.map { ($0.startTime, $0.endTime) }
+                self.busySlots     = slots
+                self.partnerTier   = tier
+                self.busyIntervals = slots.map { ($0.startTime, $0.endTime) }
             }
         }
 
@@ -451,7 +500,7 @@ struct AppointmentProSheet: View {
 
     private func handleCreate() {
 
-        // ── Custom time: validate, check past, then set selectedSlot ──
+        // ── Custom time: validate & set selectedSlot ──────────────────
         if useCustomTime {
             guard customEnd > customStart else {
                 errorMessage = String(localized: "invalid_time_range")
@@ -469,7 +518,7 @@ struct AppointmentProSheet: View {
             selectedSlot = ProSlot(start: start, end: end)
         }
 
-        // ── Past date check ───────────────────────────────────────────
+        // ── Past date guard ────────────────────────────────────────────
         let startOfSelected = Calendar.current.startOfDay(for: selectedDate)
         let today           = Calendar.current.startOfDay(for: Date())
 
@@ -478,13 +527,13 @@ struct AppointmentProSheet: View {
             return
         }
 
-        // ── Off-day check ─────────────────────────────────────────────
+        // ── Off-day guard ──────────────────────────────────────────────
         if partnerOffDays.contains(startOfSelected) {
             errorMessage = String(localized: "owner_day_off_no_booking")
             return
         }
 
-        // ── Booking range limit ───────────────────────────────────────
+        // ── Booking range guard ────────────────────────────────────────
         let maxDate = cal.date(byAdding: .day, value: partnerMaxBookingDays, to: Date())!
         if selectedDate > maxDate {
             switch partnerTier {
@@ -495,8 +544,8 @@ struct AppointmentProSheet: View {
             return
         }
 
-        // ── Per-day event limit (for the requester) ───────────────────
-        let creatorUid  = Auth.auth().currentUser?.uid ?? ""
+        // ── Daily event limit (creator) ───────────────────────────────
+        let creatorUid    = Auth.auth().currentUser?.uid ?? ""
         let myEventsToday = eventManager.events.filter {
             $0.createdBy == creatorUid &&
             Calendar.current.isDate($0.startTime, inSameDayAs: selectedDate)
@@ -507,43 +556,42 @@ struct AppointmentProSheet: View {
             return
         }
 
-        // ── Network ───────────────────────────────────────────────────
+        // ── Network guard ──────────────────────────────────────────────
         guard NetworkMonitor.shared.isOnline else {
             errorMessage = String(localized: "no_internet_connection")
             return
         }
 
         // ── Required fields ───────────────────────────────────────────
-        guard let uid  = sharedUserId else {
-            errorMessage = String(localized: "unknown_uid")
-            return
-        }
-        guard let slot = selectedSlot else {
-            errorMessage = String(localized: "no_time_slot_selected")
-            return
-        }
-        guard Auth.auth().currentUser != nil else {
-            errorMessage = String(localized: "login_required")
-            return
-        }
+        guard let uid  = sharedUserId  else { errorMessage = String(localized: "unknown_uid");           return }
+        guard let slot = selectedSlot  else { errorMessage = String(localized: "no_time_slot_selected"); return }
+        guard Auth.auth().currentUser != nil else { errorMessage = String(localized: "login_required"); return }
 
-        // ── Own calendar conflict ─────────────────────────────────────
+        // ── Own-calendar conflict ─────────────────────────────────────
         if checkMyOwnConflict(slot) {
             errorMessage = String(localized: "you_have_event_this_time")
             return
         }
 
-        // ── Create ────────────────────────────────────────────────────
+        // ── Haptic feedback ───────────────────────────────────────────
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+
+        // ── Create booking ────────────────────────────────────────────
         eventManager.addAppointment(
             forSharedUser: uid,
-            title: titleText,
-            start: slot.start,
-            end:   slot.end
+            title:         titleText,
+            start:         slot.start,
+            end:           slot.end
         ) { success, msg in
             DispatchQueue.main.async {
                 if success {
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                    // Reload busy slots so the newly booked slot shows red
+                    self.loadBusy()
+                    self.selectedSlot = nil
                     self.showSuccessAlert = true
                 } else {
+                    UINotificationFeedbackGenerator().notificationOccurred(.error)
                     if let msg = msg,
                        msg.contains("granted access") || msg.contains("permission") {
                         self.errorMessage = String(localized: "booking_permission_required")
@@ -606,8 +654,8 @@ struct AppointmentProSheet_Previews: PreviewProvider {
     static var previews: some View {
         NavigationStack {
             AppointmentProSheet(
-                isPresented: .constant(true),
-                sharedUserId: "demoUID",
+                isPresented:    .constant(true),
+                sharedUserId:   "demoUID",
                 sharedUserName: "Demo User"
             )
             .environmentObject(EventManager.shared)
@@ -633,40 +681,40 @@ extension CalendarEvent {
         let colorHex   = data["colorHex"]   as? String ?? "#007AFF"
 
         var participants: [String] = []
-        if let arr = data["participants"] as? [String]     { participants = arr }
-        else if let arr = data["participants"] as? [Any]   { participants = arr.compactMap { $0 as? String } }
+        if let arr = data["participants"] as? [String]   { participants = arr }
+        else if let arr = data["participants"] as? [Any] { participants = arr.compactMap { $0 as? String } }
 
         var admins: [String]? = nil
-        if let arr = data["admins"] as? [String]           { admins = arr }
-        else if let arr = data["admins"] as? [Any]         { admins = arr.compactMap { $0 as? String } }
+        if let arr = data["admins"] as? [String]         { admins = arr }
+        else if let arr = data["admins"] as? [Any]       { admins = arr.compactMap { $0 as? String } }
 
         let participantNames = data["participantNames"] as? [String: String] ?? [:]
         let creatorName      = data["creatorName"]      as? String ?? ""
 
-        let current      = Auth.auth().currentUser?.uid ?? ""
-        let isMyCalendar = (owner == current)
+        let current       = Auth.auth().currentUser?.uid ?? ""
+        let isMyCalendar  = (owner == current)
         let isCreatedByMe = (createdBy == current)
 
         let origin: EventOrigin = isMyCalendar
-            ? (isCreatedByMe ? .myEvent      : .createdForMe)
+            ? (isCreatedByMe ? .myEvent       : .createdForMe)
             : (isCreatedByMe ? .iCreatedForOther : .createdForMe)
 
         return CalendarEvent(
-            id: doc.documentID,
-            title: title,
-            date: Calendar.current.startOfDay(for: s),
-            startTime: s,
-            endTime: e,
-            owner: owner,
-            sharedUser: sharedUser,
-            createdBy: createdBy,
-            participants: participants,
-            admins: admins,
+            id:               doc.documentID,
+            title:            title,
+            date:             Calendar.current.startOfDay(for: s),
+            startTime:        s,
+            endTime:          e,
+            owner:            owner,
+            sharedUser:       sharedUser,
+            createdBy:        createdBy,
+            participants:     participants,
+            admins:           admins,
             participantNames: participantNames,
-            creatorName: creatorName,
-            colorHex: colorHex,
-            pendingDelete: false,
-            origin: origin
+            creatorName:      creatorName,
+            colorHex:         colorHex,
+            pendingDelete:    false,
+            origin:           origin
         )
     }
 

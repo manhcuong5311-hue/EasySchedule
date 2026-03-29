@@ -2,22 +2,21 @@
 //  SignUpView.swift
 //  Easy Schedule
 //
-//  Created by Sam Manh Cuong on 2/1/26.
-//
-
 
 import SwiftUI
 import FirebaseAuth
+import FirebaseFirestore
 
 struct SignUpView: View {
     @Environment(\.dismiss) var dismiss
 
-    @State private var email = ""
-    @State private var password = ""
+    @State private var name            = ""
+    @State private var email           = ""
+    @State private var password        = ""
     @State private var confirmPassword = ""
-    @State private var errorMessage: String?
-    @State private var isLoading = false
-    @State private var success = false
+    @State private var errorMessage:   String?
+    @State private var isLoading       = false
+    @State private var success         = false
 
     var body: some View {
         VStack(spacing: 20) {
@@ -25,6 +24,22 @@ struct SignUpView: View {
                 .font(.largeTitle)
                 .bold()
 
+            // ── Name (required) ──────────────────────────────────────
+            VStack(alignment: .leading, spacing: 4) {
+                TextField(String(localized: "name_placeholder"), text: $name)
+                    .textContentType(.name)
+                    .autocapitalization(.words)
+                    .padding()
+                    .background(Color(.systemGray6))
+                    .cornerRadius(10)
+
+                Text("This is how partners will see you in the app.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 4)
+            }
+
+            // ── Email ────────────────────────────────────────────────
             TextField(String(localized: "email_placeholder"), text: $email)
                 .keyboardType(.emailAddress)
                 .autocapitalization(.none)
@@ -32,6 +47,7 @@ struct SignUpView: View {
                 .background(Color(.systemGray6))
                 .cornerRadius(10)
 
+            // ── Password ─────────────────────────────────────────────
             SecureField(String(localized: "password_placeholder"), text: $password)
                 .padding()
                 .background(Color(.systemGray6))
@@ -43,8 +59,7 @@ struct SignUpView: View {
                 .cornerRadius(10)
 
             if let error = errorMessage {
-                Text(error)
-                    .foregroundColor(.red)
+                Text(error).foregroundColor(.red)
             }
 
             if isLoading {
@@ -64,7 +79,7 @@ struct SignUpView: View {
         }
         .padding()
         .alert(String(localized: "account_created_title"), isPresented: $success) {
-            Button(String(localized:"ok")) { dismiss() }
+            Button(String(localized: "ok")) { dismiss() }
         } message: {
             Text(String(localized: "account_created_message"))
         }
@@ -73,16 +88,21 @@ struct SignUpView: View {
 
     private func signUp() {
         errorMessage = nil
-        
-        if !email.contains("@") {
+
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty else {
+            errorMessage = String(localized: "name_required_error")
+            return
+        }
+        guard email.contains("@") else {
             errorMessage = String(localized: "invalid_email_error")
             return
         }
-        if password.count < 6 {
+        guard password.count >= 6 else {
             errorMessage = String(localized: "password_short_error")
             return
         }
-        if password != confirmPassword {
+        guard password == confirmPassword else {
             errorMessage = String(localized: "password_not_match_error")
             return
         }
@@ -90,16 +110,44 @@ struct SignUpView: View {
         isLoading = true
 
         Auth.auth().createUser(withEmail: email, password: password) { result, error in
-            isLoading = false
-
             if let error = error {
-                errorMessage = error.localizedDescription
+                DispatchQueue.main.async {
+                    self.isLoading    = false
+                    self.errorMessage = error.localizedDescription
+                }
                 return
             }
 
-            result?.user.sendEmailVerification { _ in }
-            success = true
+            guard let user = result?.user else {
+                DispatchQueue.main.async {
+                    self.isLoading    = false
+                    self.errorMessage = String(localized: "create_event_failed")
+                }
+                return
+            }
+
+            // Update Firebase Auth display name
+            let changeRequest = user.createProfileChangeRequest()
+            changeRequest.displayName = trimmedName
+            changeRequest.commitChanges { _ in }
+
+            // Write name to Firestore immediately so partners can resolve it
+            Firestore.firestore()
+                .collection("users")
+                .document(user.uid)
+                .setData([
+                    "name":      trimmedName,
+                    "email":     user.email ?? "",
+                    "createdAt": FieldValue.serverTimestamp()
+                ], merge: true)
+
+            // Send verification email
+            user.sendEmailVerification { _ in }
+
+            DispatchQueue.main.async {
+                self.isLoading = false
+                self.success   = true
+            }
         }
     }
 }
-

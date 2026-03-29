@@ -107,11 +107,11 @@ struct ContentView: View {
                     selectedTab: $selectedTab,
                     partnersBadge: accessBadgeVM.pendingCount
                 )
+                .padding(.horizontal, 24)
+                .padding(.bottom, 12)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
-        // ⭐ CHÌA KHÓA CUỐI CÙNG
-        .ignoresSafeArea(edges: .bottom)
         .animation(.easeInOut(duration: 0.25), value: openChatEventId)
         // =========================
         // LIFECYCLE – GIỮ NGUYÊN
@@ -178,18 +178,12 @@ struct AppFloatingTabBar: View {
             }
         }
         .padding(.horizontal, 8)
-        .padding(.top, 10)
-        .padding(.bottom, 10)
+        .padding(.vertical, 10)
         .background(
-            Rectangle()
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
                 .fill(.ultraThinMaterial)
-                .ignoresSafeArea(edges: .bottom)
-                .overlay(alignment: .top) {
-                    // Subtle top divider
-                    Rectangle()
-                        .fill(.primary.opacity(0.07))
-                        .frame(height: 0.5)
-                }
+                .shadow(color: .black.opacity(0.13), radius: 20, x: 0, y: 6)
+                .shadow(color: .black.opacity(0.06), radius: 4, x: 0, y: 1)
         )
     }
 
@@ -209,15 +203,15 @@ struct AppFloatingTabBar: View {
                     ZStack {
                         if isSelected {
                             Capsule()
-                                .fill(Color.accentColor.opacity(0.13))
-                                .frame(width: 54, height: 30)
+                                .fill(Color.accentColor.opacity(0.15))
+                                .frame(width: 52, height: 32)
                         }
                         Image(systemName: icon)
                             .font(.system(size: 20, weight: isSelected ? .semibold : .regular))
                             .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
                             .symbolEffect(.bounce, value: isSelected)
                     }
-                    .frame(height: 30)
+                    .frame(height: 32)
                     .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
 
                     Text(label)
