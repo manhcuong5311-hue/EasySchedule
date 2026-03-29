@@ -845,11 +845,14 @@ private struct DDEventCard: View {
 
     private func isRunning() -> Bool {
         guard !isSystemEvent else { return false }
+        // Must be today — time-of-day comparison alone would match events on other days
+        guard Calendar.current.isDateInToday(event.startTime) else { return false }
         let now = DragDropLayoutEngine.currentMinutes()
         return now >= event.startMinutes && now <= event.endMinutes
     }
 
     private var progressFraction: CGFloat {
+        guard Calendar.current.isDateInToday(event.startTime) else { return 0 }
         let now = DragDropLayoutEngine.currentMinutes()
         let s = event.startMinutes, e = event.endMinutes
         guard e > s else { return 0 }

@@ -159,53 +159,82 @@ struct AppFloatingTabBar: View {
     @Binding var selectedTab: AppTab
     let partnersBadge: Int
 
-    var body: some View {
+    private let items: [(AppTab, String, String)] = [
+        (.events,   "calendar.badge.clock",  "Schedule"),
+        (.calendar, "calendar",              "Calendar"),
+        (.partners, "person.2.fill",         "Partners"),
+        (.settings, "gearshape.fill",        "Settings"),
+    ]
 
+    var body: some View {
         HStack(spacing: 0) {
-            tab(.events, "list.bullet.rectangle")
-            tab(.calendar, "calendar")
-            tab(.partners, "person.2.fill", badge: partnersBadge)
-            tab(.settings, "gearshape")
+            ForEach(items, id: \.0) { appTab, icon, label in
+                tabItem(
+                    tab: appTab,
+                    icon: icon,
+                    label: label,
+                    badge: appTab == .partners ? partnersBadge : 0
+                )
+            }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 4) // 👈 chiều cao thực sự nằm ở đây
+        .padding(.horizontal, 8)
+        .padding(.top, 10)
+        .padding(.bottom, 10)
         .background(
             Rectangle()
                 .fill(.ultraThinMaterial)
                 .ignoresSafeArea(edges: .bottom)
+                .overlay(alignment: .top) {
+                    // Subtle top divider
+                    Rectangle()
+                        .fill(.primary.opacity(0.07))
+                        .frame(height: 0.5)
+                }
         )
     }
 
-    private func tab(
-        _ tab: AppTab,
-        _ systemImage: String,
-        badge: Int = 0
-    ) -> some View {
+    @ViewBuilder
+    private func tabItem(tab: AppTab, icon: String, label: String, badge: Int) -> some View {
+        let isSelected = selectedTab == tab
 
         Button {
-            selectedTab = tab
+            withAnimation(.spring(response: 0.32, dampingFraction: 0.72)) {
+                selectedTab = tab
+            }
+            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
         } label: {
-
             ZStack(alignment: .topTrailing) {
+                VStack(spacing: 4) {
+                    // Icon with selection pill
+                    ZStack {
+                        if isSelected {
+                            Capsule()
+                                .fill(Color.accentColor.opacity(0.13))
+                                .frame(width: 54, height: 30)
+                        }
+                        Image(systemName: icon)
+                            .font(.system(size: 20, weight: isSelected ? .semibold : .regular))
+                            .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
+                            .symbolEffect(.bounce, value: isSelected)
+                    }
+                    .frame(height: 30)
+                    .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
 
-                Image(systemName: systemImage)
-                    .font(.system(size: 22, weight: .semibold))
-                    .foregroundColor(
-                        selectedTab == tab
-                        ? .accentColor
-                        : .secondary
-                    )
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 44) // 👈 chiều cao nút chuẩn iOS
+                    Text(label)
+                        .font(.system(size: 10, weight: isSelected ? .semibold : .regular))
+                        .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
+                }
+                .frame(maxWidth: .infinity)
 
+                // Badge
                 if badge > 0 {
-                    Text("\(badge)")
-                        .font(.caption2.bold())
-                        .foregroundColor(.white)
-                        .padding(5)
-                        .background(Color.red)
-                        .clipShape(Circle())
-                        .offset(x: -16, y: -6)
+                    Text(badge > 9 ? "9+" : "\(badge)")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 2)
+                        .background(Capsule().fill(Color.red))
+                        .offset(x: -10, y: -2)
                 }
             }
         }

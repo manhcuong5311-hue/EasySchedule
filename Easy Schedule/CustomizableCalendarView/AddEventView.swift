@@ -5,6 +5,7 @@
 //  Created by Sam Manh Cuong on 2/1/26.
 //
 import SwiftUI
+
 enum SaveEventAlert: Identifiable {
     case offDay(Date)
     case emptyTitle
@@ -14,6 +15,7 @@ enum SaveEventAlert: Identifiable {
     case overBookingDays(Int)
     case overEventsPerDay
     case cannotCreate
+    case endBeforeStart
 
     var id: String {
         String(describing: self)
@@ -29,84 +31,109 @@ enum SlotInfoAlert: Identifiable {
         String(describing: self)
     }
 }
+
 enum AddEventAlert: Identifiable {
     case save(SaveEventAlert)
     case slot(SlotInfoAlert)
 
     var id: String {
         switch self {
-        case .save(let alert):
-            return "save-\(alert.id)"
-        case .slot(let alert):
-            return "slot-\(alert.id)"
+        case .save(let alert):  return "save-\(alert.id)"
+        case .slot(let alert):  return "slot-\(alert.id)"
         }
     }
 }
 
 
 struct AddEventView: View {
-    
+
     @EnvironmentObject var eventManager: EventManager
     @Environment(\.dismiss) private var dismiss
+
     @State private var selectedColor: Color = .blue
+    @State private var selectedColorIndex: Int = 0
     @State private var selectedIcon: String = ""
     @State private var showIconPicker = false
-    // Pre-fill date if user selected a date in calendar
+
     let prefillDate: Date?
-    let offDays: Set<Date>        // ✅ THÊM MỚI — danh sách ngày nghỉ truyền từ ngoài vào
+    let offDays: Set<Date>
     let busyHours: [(Date, Date)]
-   
-    
+
     @State private var title: String = ""
     @State private var date: Date = Date()
     @State private var startTime: Date = Date()
-    @State private var endTime: Date = Date().addingTimeInterval(1800) // default +1h
-    // ✅ THÊM MỚI — biến trạng thái popup
+    @State private var endTime: Date = Date().addingTimeInterval(1800)
+
     @EnvironmentObject var premium: PremiumStoreViewModel
     @EnvironmentObject var session: SessionStore
     @State private var hasSelectedSlot = false
     @State private var isSaving = false
-    
-    @State private var activeAlert: AddEventAlert?
 
+    /// Wraps `date` so changing the calendar selection also resets the hour grid.
+    private var dateBinding: Binding<Date> {
+        Binding(
+            get: { date },
+            set: { newDate in
+                date = newDate
+                hasSelectedSlot = false
+            }
+        )
+    }
+
+    @State private var activeAlert: AddEventAlert?
     @State private var showUpgradeSheet = false
     @State private var showPremiumIntro = false
     @Environment(\.requestReview) private var requestReview
-    
-    
+
+    private let paletteColors: [Color] = [
+        .blue, .indigo, .purple, .pink, .red, .orange, .yellow, .green, .teal
+    ]
+
+    // MARK: – Body
+
     var body: some View {
         NavigationStack {
             Form {
-                Section(header: Text(String(localized: "info_section"))) {
-                    TextField(String(localized: "title_placeholder"), text: $title)
+
+                // ── 1. Title ───────────────────────────────────────────────
+                Section {
+                    HStack(spacing: 12) {
+                        Image(systemName: "pencil")
+                            .foregroundStyle(.secondary)
+                            .frame(width: 18)
+                        TextField(String(localized: "title_placeholder"), text: $title)
+                    }
+                } header: {
+                    sectionHeader(String(localized: "info_section"), icon: "doc.text")
+                } footer: {
+                    Text("A clear title helps you identify this event at a glance.")
                 }
 
-                // ── Icon Picker ──
+                // ── 2. Appearance ─────────────────────────────────────────
                 Section {
-                    Button {
-                        showIconPicker = true
-                    } label: {
-                        HStack(spacing: 16) {
+                    // Icon picker row
+                    Button { showIconPicker = true } label: {
+                        HStack(spacing: 14) {
                             ZStack {
                                 Circle()
-                                    .fill(Color.accentColor.opacity(0.12))
-                                    .frame(width: 56, height: 56)
+                                    .fill(selectedColor.opacity(0.15))
+                                    .frame(width: 48, height: 48)
                                 Circle()
-                                    .stroke(Color.accentColor.opacity(selectedIcon.isEmpty ? 0.25 : 0.55), lineWidth: 1.5)
-                                    .frame(width: 56, height: 56)
+                                    .strokeBorder(selectedColor.opacity(0.40), lineWidth: 1.5)
+                                    .frame(width: 48, height: 48)
                                 Image(systemName: selectedIcon.isEmpty ? "face.smiling" : selectedIcon)
-                                    .font(.system(size: 26, weight: .medium))
-                                    .foregroundStyle(Color.accentColor)
+                                    .font(.system(size: 22, weight: .medium))
+                                    .foregroundStyle(selectedColor)
                             }
 
                             VStack(alignment: .leading, spacing: 3) {
                                 Text(selectedIcon.isEmpty
                                      ? String(localized: "choose_icon_title")
                                      : String(localized: "change"))
-                                    .font(.headline)
+                                    .font(.subheadline.weight(.medium))
                                     .foregroundStyle(.primary)
                                 Text(selectedIcon.isEmpty
-                                     ? "Pick an icon for your event"
+                                     ? "Tap to pick an icon for this event"
                                      : selectedIcon)
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
@@ -116,183 +143,181 @@ struct AddEventView: View {
                             Spacer()
 
                             Image(systemName: "chevron.right")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.caption.weight(.semibold))
                                 .foregroundStyle(.tertiary)
                         }
-                        .padding(.vertical, 6)
+                        .padding(.vertical, 4)
                     }
-                }
 
-                Section(header: Text(String(localized: "date_time_section"))) {
-                    DatePicker(
-                        String(localized: "date_label"),
-                        selection: $date,
-                        displayedComponents: .date
-                    )
-                    .onChange(of: date) { _, _ in
-                        hasSelectedSlot = false
-                    }
-                    
-                    Section(String(localized: "select_time_section")) {
-                        let hours = Array(0..<24)
-                        let eventsToday = eventManager.events(for: date)
-                        
-                        // Kiểm tra ngày nghỉ
-                        let isOffDay = offDays.contains {
-                            Calendar.current.isDate($0, inSameDayAs: date)
-                        }
-                        
-                        
-                        LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 10) {
-                            
-                            ForEach(hours, id: \.self) { hour in
-                                
-                                let slotStart = Calendar.current.date(bySettingHour: hour, minute: 0, second: 0, of: date)!
-                                let slotEnd   = slotStart.addingTimeInterval(3600)
-                                // ✅ CHECK SLOT ĐÃ QUA (CHỈ ÁP DỤNG CHO HÔM NAY)
-                                let isToday = Calendar.current.isDateInToday(date)
-                                let now = Date()
-                                
-                                let isPastSlot =
-                                isToday &&
-                                slotEnd <= now
-                                
-                                // Check giờ bận
-                                // 1️⃣ Busy do EVENT
-                                let busyEvent = eventsToday.first {
-                                    $0.startTime < slotEnd && $0.endTime > slotStart
-                                }
-                                
-                                // 2️⃣ Busy do BUSY HOURS
-                                let busyHour = busyHours.first {
-                                    $0.0 < slotEnd && $0.1 > slotStart
-                                }
-                                
-                                // 3️⃣ Tổng hợp
-                                let isBusy =
-                                (busyEvent != nil) ||
-                                (busyHour != nil) ||
-                                isOffDay ||
-                                isPastSlot
-                                
-                                
-                                
-                                // Check giờ được chọn
-                                let selectedHour = Calendar.current.component(.hour, from: startTime)
-                                let isSelected = hasSelectedSlot && (hour == selectedHour)
-                                
-                                // Màu nền
-                                let bgColor: Color = {
-                                    if isSelected {
-                                        return .blue.opacity(0.7)
+                    // Color palette
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Event Color")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+
+                        HStack(spacing: 10) {
+                            ForEach(paletteColors.indices, id: \.self) { idx in
+                                Button {
+                                    withAnimation(.spring(response: 0.28, dampingFraction: 0.7)) {
+                                        selectedColor = paletteColors[idx]
+                                        selectedColorIndex = idx
                                     }
-                                    if isPastSlot {
-                                        return .gray.opacity(0.25)
-                                    }
-                                    if isBusy {
-                                        return .red.opacity(0.40)
-                                    }
-                                    return .gray.opacity(0.15)
-                                }()
-                                
-                                
-                                
-                                Text(String(format: "%02d:00", hour))
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 10)
-                                    .background(bgColor)
-                                    .foregroundColor(isBusy ? .white : .primary)
-                                    .cornerRadius(8)
-                                    .contentShape(Rectangle())
-                                
-                                // TAP để chọn giờ
-                                    .onTapGesture {
-                                        if !isBusy {
-                                            hasSelectedSlot = true
-                                            startTime = slotStart
-                                            endTime = slotStart.addingTimeInterval(1800)
+                                } label: {
+                                    ZStack {
+                                        Circle()
+                                            .fill(paletteColors[idx])
+                                            .frame(width: 30, height: 30)
+                                            .shadow(
+                                                color: paletteColors[idx].opacity(0.5),
+                                                radius: selectedColorIndex == idx ? 5 : 0,
+                                                y: 2
+                                            )
+
+                                        if selectedColorIndex == idx {
+                                            Image(systemName: "checkmark")
+                                                .font(.system(size: 11, weight: .bold))
+                                                .foregroundStyle(.white)
                                         }
                                     }
-                                // LONG PRESS để xem giờ bận
-                                    .simultaneousGesture(
-                                        LongPressGesture(minimumDuration: 0.4)
-                                            .onEnded { _ in
-                                                // 🔑 RESET TRƯỚC
-                                                activeAlert = nil
-
-                                                DispatchQueue.main.async {
-                                                    if let ev = busyEvent {
-                                                        activeAlert = .slot(.event(ev))
-
-                                                    } else if busyHour != nil {
-                                                        activeAlert = .slot(.busyHours)
-
-                                                    } else if isOffDay {
-                                                        activeAlert = .slot(.offDay)
-                                                    }
-                                                }
-                                            }
-                                    )
-
-
+                                    .scaleEffect(selectedColorIndex == idx ? 1.18 : 1.0)
+                                }
+                                .buttonStyle(.plain)
                             }
+                            Spacer()
                         }
-                        .padding(.vertical, 6)
                     }
-                    
-                    DatePicker( String(localized: "start_label"), selection: $startTime, displayedComponents: .hourAndMinute)
-                    DatePicker( String(localized: "end_label"), selection: $endTime, displayedComponents: .hourAndMinute)
+                    .padding(.vertical, 4)
+
+                } header: {
+                    sectionHeader("Appearance", icon: "paintpalette")
+                } footer: {
+                    Text("Color helps your event stand out on the calendar.")
                 }
-                
-                
-            }
+
+                // ── 3. Date (mini calendar) ───────────────────────────────
+                Section {
+                    CalendarMiniView(
+                        selectedDate: dateBinding,
+                        busySlots: eventManager.events,
+                        offDays: offDays,
+                        maxBookingDays: PremiumLimits.limits(for: premium.tier).maxBookingDaysAhead
+                    )
+                    .padding(.vertical, 6)
+                } header: {
+                    sectionHeader(String(localized: "date_time_section"), icon: "calendar")
+                } footer: {
+                    HStack(spacing: 14) {
+                        legendDot(color: .blue.opacity(0.55),   label: "Today")
+                        legendDot(color: .red.opacity(0.55),    label: "Has event")
+                        legendDot(color: .orange.opacity(0.65), label: "Day off")
+                    }
+                    .font(.caption)
+                }
+
+                // ── 4. Hour grid ──────────────────────────────────────────
+                Section {
+                    let hours        = Array(0..<24)
+                    let eventsToday  = eventManager.events(for: date)
+                    let isOffDay     = offDays.contains {
+                        Calendar.current.isDate($0, inSameDayAs: date)
+                    }
+
+                    if isOffDay {
+                        HStack(spacing: 8) {
+                            Image(systemName: "moon.zzz.fill")
+                                .foregroundStyle(.orange)
+                            Text("This day is marked as a day off — no bookings allowed.")
+                                .font(.caption)
+                                .foregroundStyle(.orange)
+                        }
+                        .padding(.vertical, 4)
+                    }
+
+                    LazyVGrid(
+                        columns: Array(repeating: GridItem(.flexible()), count: 4),
+                        spacing: 8
+                    ) {
+                        ForEach(hours, id: \.self) { hour in
+                            hourCell(
+                                hour: hour,
+                                isOffDay: isOffDay,
+                                eventsToday: eventsToday
+                            )
+                        }
+                    }
+                    .padding(.vertical, 6)
+
+                } header: {
+                    sectionHeader(String(localized: "select_time_section"), icon: "clock")
+                } footer: {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Tap a block to quick-select that hour. Long-press to see what's booked.")
+                        HStack(spacing: 14) {
+                            legendDot(color: Color(.systemGray4), label: "Available")
+                            legendDot(color: .red.opacity(0.55),  label: "Busy")
+                            legendDot(color: Color(.systemGray3), label: "Past")
+                        }
+                        .padding(.top, 2)
+                    }
+                    .font(.caption)
+                }
+
+                // ── 5. Fine-tune time ─────────────────────────────────────
+                Section {
+                    DatePicker(
+                        String(localized: "start_label"),
+                        selection: $startTime,
+                        displayedComponents: .hourAndMinute
+                    )
+                    DatePicker(
+                        String(localized: "end_label"),
+                        selection: $endTime,
+                        displayedComponents: .hourAndMinute
+                    )
+                } header: {
+                    sectionHeader("Fine-tune Time", icon: "slider.horizontal.3")
+                } footer: {
+                    Text("Adjust the exact start and end times. End time must be after start time.")
+                }
+
+            } // Form
             .onAppear {
                 if let d = prefillDate {
                     date = d
-                    // set startTime/endTime to that day same hour as current
                     let comps = Calendar.current.dateComponents([.year, .month, .day], from: d)
                     if let dayStart = Calendar.current.date(from: comps) {
-                        // keep times (only change date portion)
                         startTime = combine(date: dayStart, time: startTime)
-                        endTime = combine(date: dayStart, time: endTime)
+                        endTime   = combine(date: dayStart, time: endTime)
                     }
                 }
             }
-            
             .navigationTitle(String(localized: "add_event_title"))
-            
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button(String(localized: "save")) {
-                        
                         guard !isSaving else { return }
                         isSaving = true
-                        
+
                         if let error = validateBeforeSave() {
-
                             switch error {
-
-                            case .overBookingDays,
-                                 .overEventsPerDay:
-
+                            case .overBookingDays, .overEventsPerDay:
                                 if PremiumIntroGate.shouldShowToday() {
                                     PremiumIntroGate.markShown()
                                     showPremiumIntro = true
                                 } else {
                                     activeAlert = .save(error)
                                 }
-
                             default:
                                 activeAlert = .save(error)
                             }
-
                             isSaving = false
                             return
                         }
-                        
+
                         let start = combine(date: date, time: startTime)
                         let end   = combine(date: date, time: endTime)
-                        
+
                         let newEventId = eventManager.addEvent(
                             title: title,
                             ownerName: session.currentUserName,
@@ -303,15 +328,12 @@ struct AddEventView: View {
                         )
 
                         if let eventId = newEventId {
-                            // Save icon locally (UserDefaults only, never sent to Firestore)
                             if !selectedIcon.isEmpty {
                                 EventIconStore.shared.setIcon(selectedIcon, for: eventId)
                             }
-
                             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                                 ReviewManager.shared.requestAfterEventSuccess(requestReview)
                             }
-
                             dismiss()
                         } else {
                             activeAlert = nil
@@ -320,47 +342,113 @@ struct AddEventView: View {
                             }
                         }
 
-                        
                         isSaving = false
                     }
-                    .disabled(isSaving)   // ⭐ CỰC KỲ QUAN TRỌNG CHO APPLE
+                    .disabled(isSaving)
                 }
-                
+
                 ToolbarItem(placement: .cancellationAction) {
                     Button(String(localized: "cancel")) { dismiss() }
                 }
             }
-            // ✅ THÊM MỚI — popup cảnh báo
-            // OFFDAY popup
-            .alert(item: $activeAlert) { alert in
-                buildAlert(alert)
-            }
+            .alert(item: $activeAlert) { buildAlert($0) }
             .fullScreenCover(isPresented: $showPremiumIntro) {
                 PremiumIntroView(isPresented: $showPremiumIntro) {
                     showUpgradeSheet = true
                 }
             }
             .sheet(isPresented: $showUpgradeSheet) {
-                PremiumUpgradeSheet(
-                    preselectProductID: nil,
-                    autoPurchase: false
-                )
-                .environmentObject(premium)
+                PremiumUpgradeSheet(preselectProductID: nil, autoPurchase: false)
+                    .environmentObject(premium)
             }
             .sheet(isPresented: $showIconPicker) {
                 IconPicker(icon: $selectedIcon, color: $selectedColor)
                     .environmentObject(premium)
             }
-
-
         }
     }
+
+    // MARK: – Subviews
+
+    @ViewBuilder
+    private func hourCell(hour: Int, isOffDay: Bool, eventsToday: [CalendarEvent]) -> some View {
+        let slotStart    = Calendar.current.date(bySettingHour: hour, minute: 0, second: 0, of: date)!
+        let slotEnd      = slotStart.addingTimeInterval(3600)
+        let isToday      = Calendar.current.isDateInToday(date)
+        let isDayPast    = !isToday && Calendar.current.startOfDay(for: date) < Calendar.current.startOfDay(for: Date())
+        // Past if: entire day is past, OR it's today and this hour has already ended
+        let isPastSlot   = isDayPast || (isToday && slotEnd <= Date())
+
+        let busyEvent = eventsToday.first { $0.startTime < slotEnd && $0.endTime > slotStart }
+        let busyHour  = busyHours.first   { $0.0 < slotEnd && $0.1 > slotStart }
+        let isBusy    = (busyEvent != nil) || (busyHour != nil) || isOffDay || isPastSlot
+
+        let selectedHour = Calendar.current.component(.hour, from: startTime)
+        let isSelected   = hasSelectedSlot && (hour == selectedHour)
+
+        let bgColor: Color = isSelected  ? selectedColor.opacity(0.85)
+                           : isPastSlot  ? Color(.systemGray5)
+                           : isBusy      ? Color.red.opacity(0.18)
+                           : Color(.systemGray6)
+
+        let fgColor: Color = isSelected  ? .white
+                           : isPastSlot  ? Color(.systemGray3)
+                           : isBusy      ? .red.opacity(0.75)
+                           : .primary
+
+        Text(String(format: "%02d:00", hour))
+            .font(.system(size: 13, weight: isSelected ? .bold : .regular, design: .monospaced))
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(bgColor)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .strokeBorder(isSelected ? selectedColor : .clear, lineWidth: 1.5)
+            )
+            .foregroundStyle(fgColor)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                guard !isBusy else { return }
+                withAnimation(.spring(response: 0.25)) {
+                    hasSelectedSlot = true
+                    startTime = slotStart
+                    endTime   = slotStart.addingTimeInterval(1800)
+                }
+            }
+            .simultaneousGesture(
+                LongPressGesture(minimumDuration: 0.4).onEnded { _ in
+                    activeAlert = nil
+                    DispatchQueue.main.async {
+                        if let ev = busyEvent        { activeAlert = .slot(.event(ev)) }
+                        else if busyHour != nil      { activeAlert = .slot(.busyHours) }
+                        else if isOffDay             { activeAlert = .slot(.offDay) }
+                    }
+                }
+            )
+    }
+
+    private func legendDot(color: Color, label: String) -> some View {
+        HStack(spacing: 4) {
+            Circle().fill(color).frame(width: 8, height: 8)
+            Text(label).foregroundStyle(.secondary)
+        }
+    }
+
+    private func sectionHeader(_ title: String, icon: String) -> some View {
+        Label(title, systemImage: icon)
+            .textCase(nil)
+            .font(.subheadline.weight(.semibold))
+    }
+
+    // MARK: – Validation
+
     private func validateBeforeSave() -> SaveEventAlert? {
-
         let calendar = Calendar.current
-        let now = Date()
+        let now      = Date()
 
-        // 1️⃣ EMPTY TITLE
         if title.trimmingCharacters(in: .whitespaces).isEmpty {
             return .emptyTitle
         }
@@ -368,128 +456,101 @@ struct AddEventView: View {
         let start = combine(date: date, time: startTime)
         let end   = combine(date: date, time: endTime)
 
-        // 2️⃣ PAST TIME
-        if Calendar.current.isDateInToday(date) && start < now {
+        // End must be strictly after start
+        if end <= start {
+            return .endBeforeStart
+        }
+
+        if calendar.isDateInToday(date) && start < now {
             return .pastTime
         }
 
-
-        // 3️⃣ OFF DAY
         if offDays.contains(where: { calendar.isDate($0, inSameDayAs: date) }) {
             return .offDay(date)
         }
 
-        // 4️⃣ BUSY HOURS (manual)
-        let busyHourConflict = busyHours.contains {
-            $0.0 < end && $0.1 > start
-        }
-        if busyHourConflict {
-            return .busyHours
-        }
+        let busyHourConflict = busyHours.contains { $0.0 < end && $0.1 > start }
+        if busyHourConflict { return .busyHours }
 
-        // 5️⃣ EVENT CONFLICT
         let eventConflict = eventManager.events.contains {
             calendar.isDate($0.date, inSameDayAs: date) &&
-            $0.startTime < end &&
-            $0.endTime > start
+            $0.startTime < end && $0.endTime > start
         }
-        if eventConflict {
-            return .conflict
-        }
+        if eventConflict { return .conflict }
 
-        // 6️⃣ LIMIT DAYS AHEAD
         let limits = PremiumLimits.limits(for: premium.tier)
-        if let maxDate = calendar.date(
-            byAdding: .day,
-            value: limits.maxBookingDaysAhead,
-            to: now
-        ), date > maxDate {
+        if let maxDate = calendar.date(byAdding: .day, value: limits.maxBookingDaysAhead, to: now),
+           date > maxDate {
             return .overBookingDays(limits.maxBookingDaysAhead)
         }
 
-        // 7️⃣ LIMIT EVENTS PER DAY
         let sameDayEvents = eventManager.events.filter {
             calendar.isDate($0.date, inSameDayAs: date)
         }
-        if sameDayEvents.count >= limits.maxEventsPerDay {
-            return .overEventsPerDay
-        }
+        if sameDayEvents.count >= limits.maxEventsPerDay { return .overEventsPerDay }
 
         return nil
     }
-    
+
+    // MARK: – Alert builders
+
     private func buildAlert(_ alert: AddEventAlert) -> Alert {
         switch alert {
-
-        case .save(let save):
-            return buildSaveAlert(save)
-
-        case .slot(let slot):
-            return buildSlotAlert(slot)
+        case .save(let s): return buildSaveAlert(s)
+        case .slot(let s): return buildSlotAlert(s)
         }
     }
+
     private func buildSaveAlert(_ alert: SaveEventAlert) -> Alert {
         switch alert {
-
         case .emptyTitle:
             return Alert(
                 title: Text(String(localized: "missing_info")),
                 message: Text(String(localized: "empty_title")),
                 dismissButton: okDismiss
             )
-
+        case .endBeforeStart:
+            return Alert(
+                title: Text(String(localized: "invalid_time")),
+                message: Text("End time must be after start time. Please adjust your selection."),
+                dismissButton: okDismiss
+            )
         case .pastTime:
             return Alert(
                 title: Text(String(localized: "invalid_time")),
                 message: Text(String(localized: "cannot_book_in_past")),
                 dismissButton: okDismiss
             )
-
         case .offDay(let date):
             return Alert(
                 title: Text(String(localized: "cannot_book")),
-                message: Text(
-                    String(
-                        format: String(localized: "off_day_full_message"),
-                        formattedDate(date)
-                    )
-                ),
+                message: Text(String(format: String(localized: "off_day_full_message"), formattedDate(date))),
                 dismissButton: okDismiss
             )
-
         case .busyHours:
             return Alert(
                 title: Text(String(localized: "busy_time")),
                 message: Text(String(localized: "busy_hours")),
                 dismissButton: okDismiss
             )
-
         case .conflict:
             return Alert(
                 title: Text(String(localized: "time_conflict")),
                 message: Text(String(localized: "event_conflict")),
                 dismissButton: okDismiss
             )
-
         case .overBookingDays(let days):
             return Alert(
                 title: Text(String(localized: "limit_reached")),
-                message: Text(
-                    String(
-                        format: String(localized: "limit_days_format"),
-                        days
-                    )
-                ),
+                message: Text(String(format: String(localized: "limit_days_format"), days)),
                 dismissButton: okDismiss
             )
-
         case .overEventsPerDay:
             return Alert(
                 title: Text(String(localized: "limit_reached")),
                 message: Text(String(localized: "event_limit_reached")),
                 dismissButton: okDismiss
             )
-
         case .cannotCreate:
             return Alert(
                 title: Text(String(localized: "error")),
@@ -498,26 +559,21 @@ struct AddEventView: View {
             )
         }
     }
-    
+
     private func buildSlotAlert(_ alert: SlotInfoAlert) -> Alert {
         switch alert {
-
         case .event(let ev):
             return Alert(
                 title: Text(String(localized: "busy_time")),
-                message: Text(
-                    "\(ev.title)\n\(formattedTime(ev.startTime)) – \(formattedTime(ev.endTime))"
-                ),
+                message: Text("\(ev.title)\n\(formattedTime(ev.startTime)) – \(formattedTime(ev.endTime))"),
                 dismissButton: okDismiss
             )
-
         case .busyHours:
             return Alert(
                 title: Text(String(localized: "busy_time")),
                 message: Text(String(localized: "busy_hours")),
                 dismissButton: okDismiss
             )
-
         case .offDay:
             return Alert(
                 title: Text(String(localized: "cannot_book")),
@@ -528,34 +584,30 @@ struct AddEventView: View {
     }
 
     private var okDismiss: Alert.Button {
-        .default(Text(String(localized: "ok"))) {
-            activeAlert = nil
-        }
+        .default(Text(String(localized: "ok"))) { activeAlert = nil }
     }
 
-    // Helper: combine date portion of `date` with time portion of `time`
+    // MARK: – Helpers
+
     private func combine(date: Date, time: Date) -> Date {
-        let cal = Calendar.current
+        let cal   = Calendar.current
         let dComp = cal.dateComponents([.year, .month, .day], from: date)
         let tComp = cal.dateComponents([.hour, .minute, .second], from: time)
         var comps = DateComponents()
-        comps.year = dComp.year
-        comps.month = dComp.month
-        comps.day = dComp.day
-        comps.hour = tComp.hour
+        comps.year   = dComp.year
+        comps.month  = dComp.month
+        comps.day    = dComp.day
+        comps.hour   = tComp.hour
         comps.minute = tComp.minute
         comps.second = tComp.second ?? 0
         return cal.date(from: comps) ?? date
     }
-    
+
     func formattedTime(_ date: Date) -> String {
         date.formatted(date: .omitted, time: .shortened)
     }
-    
-    
-    // ✅ THÊM MỚI — định dạng ngày hiển thị trong popup
+
     private func formattedDate(_ date: Date) -> String {
         date.formatted(.dateTime.day().month().year())
     }
-    
 }
