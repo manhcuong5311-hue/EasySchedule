@@ -281,6 +281,8 @@ struct DDDraggableEventRow: View {
     let systemConstraint: ClosedRange<Int>?
     let onDragEnded: (String) -> Void
 
+    @EnvironmentObject var eventManager: EventManager
+
     @State private var isHolding      = false
     @State private var dragOffsetY: CGFloat = 0
     @State private var dragOffsetX: CGFloat = 0
@@ -294,9 +296,16 @@ struct DDDraggableEventRow: View {
     @State private var durationPreview: String? = nil
     @State private var lastResizeHapticStep = -1
 
+    // Tap → open chat / todo
+    @State private var showActionSheet = false
+
     private let haptic = UIImpactFeedbackGenerator(style: .rigid)
     private let wakeID  = DragDropLayoutEngine.wakeID
     private let sleepID = DragDropLayoutEngine.sleepID
+
+    private var isPersonalEvent: Bool {
+        event.participants.count == 1
+    }
 
     private func isPast() -> Bool {
         guard isToday, !isSystemEvent else { return false }
@@ -370,6 +379,30 @@ struct DDDraggableEventRow: View {
                     onDragEnded(id)
                 }
         )
+        // Tap → open chat / todo (skip system events)
+        .onTapGesture {
+            guard !isSystemEvent else { return }
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            showActionSheet = true
+        }
+        .confirmationDialog(event.title, isPresented: $showActionSheet, titleVisibility: .visible) {
+            if isPersonalEvent {
+                Button(String(localized: "open_todo")) {
+                    eventManager.openEvent(eventId: event.id)
+                }
+            } else {
+                Button(String(localized: "open_chat")) {
+                    eventManager.openChat(eventId: event.id)
+                }
+            }
+            Button(String(localized: "cancel"), role: .cancel) {}
+        }
+        .sheet(item: $eventManager.selectedEventWrapper) { wrapper in
+            if let event = eventManager.event(for: wrapper) {
+                EventDetailView(event: event)
+                    .environmentObject(eventManager)
+            }
+        }
     }
 
     // MARK: Time-change drag
@@ -677,6 +710,23 @@ private struct DDEventCard: View {
             }
 
             Spacer()
+
+            // ── Unread chat hint (shared events only) ──
+            if !isSystemEvent && event.participants.count > 1 {
+                let meta = eventManager.chatMeta(for: event.id)
+                if meta.unread && !meta.lastMessage.isEmpty {
+                    Text(meta.lastMessage)
+                        .font(.caption2)
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(
+                            Capsule().fill(Color.red.opacity(0.85))
+                        )
+                        .transition(.opacity.combined(with: .scale(scale: 0.85)))
+                }
+            }
 
             // ── Reorder hint (regular events only) ──
             if isHolding && !isSystemEvent {

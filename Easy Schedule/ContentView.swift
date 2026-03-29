@@ -128,9 +128,15 @@ struct ContentView: View {
         // 🔔 CHAT PUSH – GIỮ NGUYÊN
         .onChange(of: eventManager.selectedChatEventId) { _, id in
             guard let id else { return }
-            pendingChatEventId = id
             selectedTab = .events
             eventManager.selectedChatEventId = nil
+            // Delay so the .events NavigationStack is in the hierarchy
+            // before pendingChatEventId changes — otherwise onChange on
+            // the newly-mounted stack won't fire (SwiftUI only detects
+            // changes after a view is already present, not the initial value).
+            DispatchQueue.main.async {
+                pendingChatEventId = id
+            }
         }
     }
 

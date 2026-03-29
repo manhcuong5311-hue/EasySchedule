@@ -322,9 +322,6 @@ private extension DayCell {
                 .overlay(darkSelectedRing)
                 .overlay(offDayIcon, alignment: .bottomTrailing)
                 .dayCellShadow(scheme: colorScheme, isSelected: isSelected)
-                .overlay(alignment: .bottomTrailing) {
-                    hintStack
-                }
         }
     }
 

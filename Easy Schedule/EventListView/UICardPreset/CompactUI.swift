@@ -91,7 +91,6 @@ struct CompactEventRowView: View {
 
     @State private var showAddMemberSheet = false
 
-    @State private var showActionSheet = false
 
     // ===== BODY =====
     var body: some View {
@@ -129,33 +128,10 @@ struct CompactEventRowView: View {
         }
         .onLongPressGesture {
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-            showActionSheet = true
         }
-
 
         .onAppear {
             chatMeta.startListening()
-        }
-        .confirmationDialog(
-            String(localized: "event_open_action"),
-            isPresented: $showActionSheet
-        ) {
-            Button {
-                toggleExpand()
-            } label: {
-                Label(
-                    String(localized: isExpanded ? "close_todo" : "open_todo"),
-                    systemImage: isExpanded ? "chevron.up" : "checklist"
-                )
-            }
-
-
-
-            Button(String(localized: "open_chat")) {
-                openChat()
-            }
-
-            Button(String(localized: "cancel"), role: .cancel) {}
         }
 
 
@@ -210,7 +186,7 @@ struct CompactEventRowView: View {
             if isPersonalEvent {
                 toggleExpand()
             } else {
-                showActionSheet = true
+                openChat()
             }
         }
 
@@ -331,6 +307,18 @@ struct CompactEventRowView: View {
             }
             else if !isPersonalEvent && hasAnyTodoHint {
                 todoHintDot
+            }
+
+            if isPersonalEvent && canDeleteEvent {
+                Button {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    showAddMemberSheet = true
+                } label: {
+                    Image(systemName: "person.badge.plus")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(uiAccent.color.opacity(0.75))
+                }
+                .buttonStyle(.plain)
             }
 
         }

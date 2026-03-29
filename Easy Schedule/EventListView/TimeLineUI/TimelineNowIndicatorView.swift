@@ -98,6 +98,7 @@ struct TimelineNowIndicatorView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .offset(y: offsetY)
+            .allowsHitTesting(false)
         }
     }
 

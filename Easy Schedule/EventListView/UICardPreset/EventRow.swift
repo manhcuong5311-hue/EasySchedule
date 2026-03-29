@@ -85,8 +85,6 @@ struct EventRowView: View {
 
     @State private var showAddMemberSheet = false
 
-    @State private var showActionSheet = false
-
     private var hasAnyTodoHint: Bool {
         if isPersonalEvent {
             return unfinishedTodoCount > 0
@@ -139,7 +137,6 @@ struct EventRowView: View {
                 Spacer()
 
                 // ===== TRAILING =====
-                // ===== TRAILING =====
                 HStack(spacing: 8) {
 
                     // 🔴 UNREAD CHAT
@@ -147,6 +144,19 @@ struct EventRowView: View {
                         Circle()
                             .fill(Color.red)
                             .frame(width: 8, height: 8)
+                    }
+
+                    // ➕ ADD PEOPLE (personal events, owner/admin only)
+                    if isPersonalEvent && canDeleteEvent {
+                        Button {
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            showAddMemberSheet = true
+                        } label: {
+                            Image(systemName: "person.badge.plus")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(uiAccent.color.opacity(0.75))
+                        }
+                        .buttonStyle(.plain)
                     }
 
                     // 🔵 TODO COUNT (MY EVENT)
@@ -268,27 +278,6 @@ struct EventRowView: View {
         .onLongPressGesture(minimumDuration: 0.3) {
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         }
-        .confirmationDialog(
-            String(localized: "event_open_action"),
-            isPresented: $showActionSheet
-        ) {
-            Button {
-                toggleExpand()
-            } label: {
-                Label(
-                    String(localized: isExpanded ? "close_todo" : "open_todo"),
-                    systemImage: isExpanded ? "chevron.up" : "checklist"
-                )
-            }
-
-            Button(String(localized: "open_chat")) {
-                openChat()
-            }
-
-            Button(String(localized: "cancel"), role: .cancel) {}
-        }
-
-
         .onAppear {
             chatMeta.startListening()
         }
@@ -330,15 +319,11 @@ struct EventRowView: View {
     
     
     private func handleEventTap() {
-
-        // Event cá nhân → tap mở todo (giữ UX cũ)
         if isPersonalEvent {
             toggleExpand()
-            return
+        } else {
+            openChat()
         }
-
-        // Event nhóm → cho user chọn Chat
-        showActionSheet = true
     }
 
 

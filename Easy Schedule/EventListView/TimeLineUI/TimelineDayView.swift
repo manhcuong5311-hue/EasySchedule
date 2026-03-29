@@ -1,4 +1,5 @@
 import SwiftUI
+import FirebaseAuth
 
 struct TimelineDayView: View {
 
@@ -117,12 +118,20 @@ struct TimelineDayView: View {
     
 }
 
-import SwiftUI
-
-import Combine
-
 struct EventDetailView: View {
     let event: CalendarEvent
+
+    @EnvironmentObject var eventManager: EventManager
+    @State private var showAddMemberSheet = false
+
+    private var myUid: String? { Auth.auth().currentUser?.uid }
+
+    private var canManage: Bool {
+        guard let uid = myUid else { return false }
+        return uid == event.owner ||
+               uid == event.createdBy ||
+               event.admins?.contains(uid) == true
+    }
 
     var body: some View {
         ScrollView {
@@ -153,7 +162,6 @@ struct EventDetailView: View {
                         String(localized: "tasks"),
                         systemImage: "checklist"
                     )
-                
                         .font(.headline)
 
                     LocalTodoListView(eventId: event.id)
@@ -167,9 +175,22 @@ struct EventDetailView: View {
             }
             .padding()
         }
-        .navigationTitle(
-            String(localized: "event_navigation_title")
-        )
+        .navigationTitle(String(localized: "event_navigation_title"))
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if canManage {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        showAddMemberSheet = true
+                    } label: {
+                        Image(systemName: "person.badge.plus")
+                    }
+                }
+            }
+        }
+        .sheet(isPresented: $showAddMemberSheet) {
+            AddMemberSheet(event: event)
+                .environmentObject(eventManager)
+        }
     }
 }
