@@ -33,7 +33,7 @@ struct SignUpView: View {
                     .background(Color(.systemGray6))
                     .cornerRadius(10)
 
-                Text("This is how partners will see you in the app.")
+                Text(String(localized: "profile_display_name_hint"))
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 4)

@@ -568,7 +568,11 @@ struct AccessManagementView: View {
                     Circle()
                         .fill(user.isMutual ? Color.green : Color.orange)
                         .frame(width: 6, height: 6)
-                    Text(user.isMutual ? "Mutual access" : "One-way — tap to request back")
+                    Text(
+                        user.isMutual
+                        ? String(localized: "access_mutual")
+                        : String(localized: "access_one_way_request")
+                    )
                         .font(.caption)
                         .foregroundStyle(user.isMutual ? .green : .orange)
                 }

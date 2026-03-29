@@ -60,7 +60,7 @@ struct AddPartnerSheet: View {
                 Text(String(localized: "partner.add_title"))
                     .font(.title2.weight(.bold))
 
-                Text("Link your calendar with a partner to see availability and book time together.")
+                Text(String(localized: "partner.header_description"))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -74,26 +74,29 @@ struct AddPartnerSheet: View {
     private var howItWorksCard: some View {
         VStack(alignment: .leading, spacing: 12) {
 
-            Label("How it works", systemImage: "info.circle")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .textCase(.uppercase)
+            Label(
+                String(localized: "how_it_works_title"),
+                systemImage: "info.circle"
+            )
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .textCase(.uppercase)
 
             VStack(spacing: 8) {
                 howItWorksRow(
                     icon: "1.circle.fill",
                     color: Color.accentColor,
-                    text: "Enter your partner's invitation code or UID below."
+                    text: String(localized: "how_it_works_step_1")
                 )
                 howItWorksRow(
                     icon: "2.circle.fill",
                     color: .orange,
-                    text: "Share your own code so they can add you back."
+                    text: String(localized: "how_it_works_step_2")
                 )
                 howItWorksRow(
                     icon: "3.circle.fill",
                     color: .green,
-                    text: "Once both sides connect, you can book appointments on each other's calendar."
+                    text: String(localized: "how_it_works_step_3")
                 )
             }
         }
@@ -120,7 +123,11 @@ struct AddPartnerSheet: View {
     private var connectCard: some View {
         VStack(alignment: .leading, spacing: 16) {
 
-            stepLabel(number: "1", title: "Add a partner", color: .accentColor)
+            stepLabel(
+                number: "1",
+                title: "step_add_partner",
+                color: .accentColor
+            )
 
             VStack(alignment: .leading, spacing: 8) {
                 Text(String(localized: "partner.enter_uid_or_link"))
@@ -181,7 +188,7 @@ struct AddPartnerSheet: View {
                     } else {
                         Image(systemName: "arrow.right.circle.fill")
                     }
-                    Text(isLoading ? "Connecting…" : String(localized: "partner.load"))
+                    Text(isLoading ? String(localized: "connecting") : String(localized: "partner.load"))
                         .fontWeight(.semibold)
                 }
                 .frame(maxWidth: .infinity, minHeight: 50)
@@ -213,9 +220,13 @@ struct AddPartnerSheet: View {
     private var yourCodeCard: some View {
         VStack(alignment: .leading, spacing: 16) {
 
-            stepLabel(number: "2", title: "Share your invitation code", color: .orange)
+            stepLabel(
+                number: "2",
+                title: "share_invitation_code",
+                color: .orange
+            )
 
-            Text("Give this code to anyone who wants to add you as a partner.")
+            Text("share_code_description")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
@@ -273,7 +284,7 @@ struct AddPartnerSheet: View {
             } else {
                 HStack(spacing: 10) {
                     ProgressView()
-                    Text("Generating your code…")
+                    Text("generating_code")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
@@ -288,7 +299,11 @@ struct AddPartnerSheet: View {
 
     // MARK: – Helpers
 
-    private func stepLabel(number: String, title: String, color: Color) -> some View {
+    private func stepLabel(
+        number: String,
+        title: LocalizedStringKey,
+        color: Color
+    ) -> some View {
         HStack(spacing: 10) {
             ZStack {
                 Circle().fill(color).frame(width: 26, height: 26)
@@ -296,6 +311,7 @@ struct AddPartnerSheet: View {
                     .font(.caption.weight(.bold))
                     .foregroundStyle(.white)
             }
+
             Text(title)
                 .font(.subheadline.weight(.semibold))
         }
@@ -448,7 +464,7 @@ struct InvitationCodeCard: View {
             } else {
                 HStack(spacing: 8) {
                     ProgressView()
-                    Text("Generating…")
+                    Text("generating_short")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

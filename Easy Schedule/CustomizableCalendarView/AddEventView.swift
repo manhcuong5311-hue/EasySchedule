@@ -106,7 +106,7 @@ struct AddEventView: View {
                 } header: {
                     sectionHeader(String(localized: "info_section"), icon: "doc.text")
                 } footer: {
-                    Text("A clear title helps you identify this event at a glance.")
+                    Text("event_title_hint")
                 }
 
                 // ── 2. Appearance ─────────────────────────────────────────
@@ -151,7 +151,7 @@ struct AddEventView: View {
 
                     // Color palette
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("Event Color")
+                        Text("event_color")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
 
@@ -191,7 +191,7 @@ struct AddEventView: View {
                 } header: {
                     sectionHeader("Appearance", icon: "paintpalette")
                 } footer: {
-                    Text("Color helps your event stand out on the calendar.")
+                    Text(String(localized: "event_color_hint"))
                 }
 
                 // ── 3. Date (mini calendar) ───────────────────────────────
@@ -226,7 +226,7 @@ struct AddEventView: View {
                         HStack(spacing: 8) {
                             Image(systemName: "moon.zzz.fill")
                                 .foregroundStyle(.orange)
-                            Text("This day is marked as a day off — no bookings allowed.")
+                            Text(String(localized: "day_off_no_booking"))
                                 .font(.caption)
                                 .foregroundStyle(.orange)
                         }
@@ -251,11 +251,21 @@ struct AddEventView: View {
                     sectionHeader(String(localized: "select_time_section"), icon: "clock")
                 } footer: {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("Tap a block to quick-select that hour. Long-press to see what's booked.")
+                        Text(String(localized: "tap_block_quick_select_hint"))
+
                         HStack(spacing: 14) {
-                            legendDot(color: Color(.systemGray4), label: "Available")
-                            legendDot(color: .red.opacity(0.55),  label: "Busy")
-                            legendDot(color: Color(.systemGray3), label: "Past")
+                            legendDot(
+                                color: Color(.systemGray4),
+                                label: String(localized: "availability_available")
+                            )
+                            legendDot(
+                                color: .red.opacity(0.55),
+                                label: String(localized: "availability_busy")
+                            )
+                            legendDot(
+                                color: Color(.systemGray3),
+                                label: String(localized: "availability_past")
+                            )
                         }
                         .padding(.top, 2)
                     }
@@ -275,9 +285,12 @@ struct AddEventView: View {
                         displayedComponents: .hourAndMinute
                     )
                 } header: {
-                    sectionHeader("Fine-tune Time", icon: "slider.horizontal.3")
+                    sectionHeader(
+                        String(localized: "fine_tune_time"),
+                        icon: "slider.horizontal.3"
+                    )
                 } footer: {
-                    Text("Adjust the exact start and end times. End time must be after start time.")
+                    Text("adjust_time_hint")
                 }
 
             } // Form
@@ -512,7 +525,7 @@ struct AddEventView: View {
         case .endBeforeStart:
             return Alert(
                 title: Text(String(localized: "invalid_time")),
-                message: Text("End time must be after start time. Please adjust your selection."),
+                message: Text("end_time_validation_error"),
                 dismissButton: okDismiss
             )
         case .pastTime:

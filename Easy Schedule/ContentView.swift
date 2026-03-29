@@ -98,6 +98,7 @@ struct ContentView: View {
             }
             // ⭐ QUAN TRỌNG: cho content ăn full màn hình
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .ignoresSafeArea(edges: .bottom)
 
             // =========================
             // FLOATING TAB BAR

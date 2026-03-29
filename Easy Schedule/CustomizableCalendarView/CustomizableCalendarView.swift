@@ -457,7 +457,7 @@ struct CustomizableCalendarView: View {
                             )
                         }
                         if daySlots.count > 3 {
-                            Text("+\(daySlots.count - 3) more")
+                            Text("more_slots_format \(daySlots.count - 3)")
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                                 .padding(.leading, 2)

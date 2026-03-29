@@ -372,6 +372,7 @@ struct EventScrollContent: View {
                     .ignoresSafeArea()
             )
         }
+        .ignoresSafeArea(edges: .bottom)
     }
 
 

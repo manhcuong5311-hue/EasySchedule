@@ -165,7 +165,7 @@ struct AppointmentProSheet: View {
             if loading {
                 HStack(spacing: 6) {
                     ProgressView().scaleEffect(0.85)
-                    Text("Loading slots…")
+                    Text(String(localized: "loading_slots"))
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
@@ -221,7 +221,7 @@ struct AppointmentProSheet: View {
                 Image(systemName: "calendar")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
-                Text("Select a date")
+                Text(String(localized: "select_date"))
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
                     .textCase(.uppercase)
@@ -249,7 +249,7 @@ struct AppointmentProSheet: View {
                 Text(String(localized: "owner_day_off"))
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.orange)
-                Text("This person marked the day as unavailable. Pick a different date.")
+                Text(String(localized: "partner_day_unavailable"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -277,7 +277,7 @@ struct AppointmentProSheet: View {
             .background(Color(.tertiarySystemGroupedBackground))
             .clipShape(RoundedRectangle(cornerRadius: 12))
 
-            Text("Give the appointment a clear name so the recipient knows what it's for.")
+            Text("appointment_name_hint")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -343,7 +343,7 @@ struct AppointmentProSheet: View {
                     .padding(.top, 2)
                 }
 
-                Text("Choose a custom window if preset 30-min slots don't fit your needs.")
+                Text("custom_window_hint")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -365,7 +365,7 @@ struct AppointmentProSheet: View {
                 HStack(spacing: 8) {
                     Image(systemName: "calendar.badge.exclamationmark")
                         .foregroundStyle(.orange)
-                    Text("Outside the partner's booking window. Choose an earlier date.")
+                    Text(String(localized: "outside_booking_window"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -403,7 +403,7 @@ struct AppointmentProSheet: View {
                 .font(.caption2)
                 .padding(.top, 4)
 
-                Text("Tap an available slot to select it. Busy and past slots cannot be booked.")
+                Text(String(localized: "slot_selection_hint"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .padding(.top, 2)

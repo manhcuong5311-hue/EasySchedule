@@ -228,7 +228,7 @@ struct PartnerCalendarTabView: View {
             } else {
                 HStack(spacing: 10) {
                     ProgressView().scaleEffect(0.85)
-                    Text("Generating…")
+                    Text("generating_short")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }

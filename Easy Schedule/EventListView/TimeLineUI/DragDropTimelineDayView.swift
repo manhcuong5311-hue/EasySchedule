@@ -104,23 +104,29 @@ struct DragDropTimelineDayView: View {
         .onReceive(timer) { _ in nowMinutes = DragDropLayoutEngine.currentMinutes() }
         // ── System event confirmation dialog ──
         .confirmationDialog(
-            pendingSystemID == wakeID ? "Morning Start" : "Night Sleep",
+            pendingSystemID == wakeID
+            ? "morning_start_title"
+            : "night_sleep_title",
             isPresented: $showSystemDialog,
             titleVisibility: .visible
         ) {
-            Button("Apply to All Days") {
+            Button("apply_all_days") {
                 commitSystemChange(allDays: true)
             }
-            Button("Today Only") {
+            
+            Button("today_only") {
                 commitSystemChange(allDays: false)
             }
-            Button("Cancel", role: .cancel) {
-                loadLocal()   // revert to stored values
+            
+            Button("cancel", role: .cancel) {
+                loadLocal()
             }
         } message: {
-            Text(pendingSystemID == wakeID
-                 ? "Update Morning Start for all days or just today?"
-                 : "Update Night Sleep for all days or just today?")
+            Text(
+                pendingSystemID == wakeID
+                ? "morning_message"
+                : "night_message"
+            )
         }
         // ── Move conflict dialog ──
         .confirmationDialog(

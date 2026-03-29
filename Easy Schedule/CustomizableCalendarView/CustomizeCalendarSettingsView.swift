@@ -47,7 +47,7 @@ struct CustomizeCalendarSettingsView: View {
                     HStack {
                         Text(String(localized: "size_label"))
                         Spacer()
-                        Text("\(Int(timeFontSize)) pt")
+                        Text("time_font_size_format \(Int(timeFontSize))")
                             .foregroundColor(.secondary)
                     }
 
