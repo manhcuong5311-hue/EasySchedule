@@ -25,6 +25,16 @@ struct DragDropTimelineDayView: View {
     @State private var pendingSystemID      = ""
     @State private var pendingSystemMinutes = 0
 
+    // Conflict detection when moving shared events
+    private struct PendingMove {
+        let event:    CalendarEvent
+        let newStart: Date
+        let newEnd:   Date
+    }
+    @State private var pendingMove:     PendingMove?
+    @State private var moveConflicts:   [EventMoveConflict] = []
+    @State private var showConflictDialog = false
+
     private let timer = Timer.publish(every: 30, on: .main, in: .common).autoconnect()
     private let wakeID  = DragDropLayoutEngine.wakeID
     private let sleepID = DragDropLayoutEngine.sleepID
@@ -112,6 +122,43 @@ struct DragDropTimelineDayView: View {
                  ? "Update Morning Start for all days or just today?"
                  : "Update Night Sleep for all days or just today?")
         }
+        // ── Move conflict dialog ──
+        .confirmationDialog(
+            String(localized: "move_conflict_title"),
+            isPresented: $showConflictDialog,
+            titleVisibility: .visible
+        ) {
+            Button(String(localized: "move_anyway"), role: .destructive) {
+                if let m = pendingMove {
+                    eventManager.updateEvent(
+                        m.event, newTitle: m.event.title,
+                        newDate: m.newStart, newStart: m.newStart,
+                        newEnd: m.newEnd, newColorHex: m.event.colorHex
+                    )
+                }
+                pendingMove   = nil
+                moveConflicts = []
+            }
+            Button(String(localized: "cancel"), role: .cancel) {
+                pendingMove   = nil
+                moveConflicts = []
+                loadLocal()   // revert drag
+            }
+        } message: {
+            Text(conflictMessage)
+        }
+    }
+
+    // Builds a human-readable summary of who has a conflict and when.
+    private var conflictMessage: String {
+        guard !moveConflicts.isEmpty else { return "" }
+        let lines = moveConflicts.prefix(3).map { c in
+            let fmt = DateFormatter()
+            fmt.timeStyle = .short
+            let range = "\(fmt.string(from: c.conflictingStart))–\(fmt.string(from: c.conflictingEnd))"
+            return "\(c.participantName): \"\(c.conflictingEventTitle)\" \(range)"
+        }
+        return lines.joined(separator: "\n")
     }
 
     // MARK: - Helpers
@@ -122,12 +169,30 @@ struct DragDropTimelineDayView: View {
             .filter { $0.origin != .busySlot }
             .sorted { $0.startTime < $1.startTime }
 
+        // Auto-expand: push wake earlier if an event starts before it,
+        // push sleep later if an event ends after it.
+        let effectiveWake: Int = {
+            guard let earliest = src.min(by: { $0.startMinutes < $1.startMinutes }) else {
+                return storedWake
+            }
+            // Give a 15-min buffer before the earliest event
+            return min(storedWake, max(0, earliest.startMinutes - 15))
+        }()
+
+        let effectiveSleep: Int = {
+            guard let latest = src.max(by: { $0.endMinutes < $1.endMinutes }) else {
+                return storedSleep
+            }
+            // Give a 15-min buffer after the latest event end
+            return max(storedSleep, min(1439, latest.endMinutes + 15))
+        }()
+
         var result: [CalendarEvent] = []
         result.append(buildSystemEvent(id: wakeID,  label: "Morning Start",
-                                       hex: "#F4A261", minutes: storedWake))
+                                       hex: "#F4A261", minutes: effectiveWake))
         result.append(contentsOf: src)
         result.append(buildSystemEvent(id: sleepID, label: "Night Sleep",
-                                       hex: "#6C7AA6", minutes: storedSleep))
+                                       hex: "#6C7AA6", minutes: effectiveSleep))
         localEvents = result
     }
 
@@ -188,6 +253,24 @@ struct DragDropTimelineDayView: View {
             guard e.id != wakeID && e.id != sleepID else { continue }
             guard let original = events.first(where: { $0.id == e.id }) else { continue }
             guard original.startTime != e.startTime || original.endTime != e.endTime else { continue }
+
+            // For shared events, check if the new time clashes with any participant's
+            // existing events before committing to Firestore.
+            if e.participants.count > 1 {
+                let conflicts = eventManager.moveConflicts(
+                    for: original,
+                    newStart: e.startTime,
+                    newEnd: e.endTime
+                )
+                if !conflicts.isEmpty {
+                    // Surface the conflict to the user; hold the move in pendingMove.
+                    pendingMove   = PendingMove(event: original, newStart: e.startTime, newEnd: e.endTime)
+                    moveConflicts = conflicts
+                    showConflictDialog = true
+                    return  // Don't persist anything yet; revert happens if user cancels
+                }
+            }
+
             eventManager.updateEvent(original, newTitle: e.title, newDate: e.date,
                                      newStart: e.startTime, newEnd: e.endTime,
                                      newColorHex: e.colorHex)
@@ -281,6 +364,8 @@ struct DDDraggableEventRow: View {
     let systemConstraint: ClosedRange<Int>?
     let onDragEnded: (String) -> Void
 
+    @EnvironmentObject var eventManager: EventManager
+
     @State private var isHolding      = false
     @State private var dragOffsetY: CGFloat = 0
     @State private var dragOffsetX: CGFloat = 0
@@ -289,9 +374,21 @@ struct DDDraggableEventRow: View {
     @State private var lastSwapTime: Date = .distantPast
     @State private var lastHapticSnap = -1
 
+    // Resize state
+    @State private var resizeBaseDuration: Int? = nil
+    @State private var durationPreview: String? = nil
+    @State private var lastResizeHapticStep = -1
+
+    // Tap → open chat / todo
+    @State private var showActionSheet = false
+
     private let haptic = UIImpactFeedbackGenerator(style: .rigid)
     private let wakeID  = DragDropLayoutEngine.wakeID
     private let sleepID = DragDropLayoutEngine.sleepID
+
+    private var isPersonalEvent: Bool {
+        event.participants.count == 1
+    }
 
     private func isPast() -> Bool {
         guard isToday, !isSystemEvent else { return false }
@@ -305,7 +402,18 @@ struct DDDraggableEventRow: View {
             event: event,
             isHolding: isHolding,
             isSystemEvent: isSystemEvent,
-            nearSwap: abs(dragOffsetY) > 80 && isReordering && !isSystemEvent
+            nearSwap: abs(dragOffsetY) > 80 && isReordering && !isSystemEvent,
+            durationPreview: durationPreview,
+            onResizeEnd: { translation in handleResize(translation: translation) },
+            onResizeFinal: { _ in
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                durationPreview = nil
+                resizeBaseDuration = nil
+                lastResizeHapticStep = -1
+                isDragging = false
+                isHolding = false
+                onDragEnded(event.id)
+            }
         )
         .opacity(isDragging && !isHolding ? 0.55 : 1)
         .opacity(isPast() ? 0.5 : 1)
@@ -354,6 +462,30 @@ struct DDDraggableEventRow: View {
                     onDragEnded(id)
                 }
         )
+        // Tap → open chat / todo (skip system events)
+        .onTapGesture {
+            guard !isSystemEvent else { return }
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            showActionSheet = true
+        }
+        .confirmationDialog(event.title, isPresented: $showActionSheet, titleVisibility: .visible) {
+            if isPersonalEvent {
+                Button(String(localized: "open_todo")) {
+                    eventManager.openEvent(eventId: event.id)
+                }
+            } else {
+                Button(String(localized: "open_chat")) {
+                    eventManager.openChat(eventId: event.id)
+                }
+            }
+            Button(String(localized: "cancel"), role: .cancel) {}
+        }
+        .sheet(item: $eventManager.selectedEventWrapper) { wrapper in
+            if let event = eventManager.event(for: wrapper) {
+                EventDetailView(event: event)
+                    .environmentObject(eventManager)
+            }
+        }
     }
 
     // MARK: Time-change drag
@@ -389,6 +521,36 @@ struct DDDraggableEventRow: View {
         if !isSystemEvent {
             DragDropLayoutEngine.autoPush(events: &events, movedID: event.id)
         }
+    }
+
+    // MARK: Resize drag (end-time label — regular events only)
+
+    private func handleResize(translation: CGFloat) {
+        if resizeBaseDuration == nil {
+            resizeBaseDuration = event.durationMinutes
+        }
+        guard let base = resizeBaseDuration,
+              let idx = events.firstIndex(where: { $0.id == event.id }) else { return }
+
+        isDragging = true
+        let minuteDelta = Int(translation / 12)
+        let raw = base + minuteDelta
+        let snapped = max(5, (raw / 5) * 5)
+
+        let step = snapped / 5
+        if step != lastResizeHapticStep {
+            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+            lastResizeHapticStep = step
+        }
+
+        let newEndMinutes = events[idx].startMinutes + snapped
+        let dayStart = Calendar.current.startOfDay(for: events[idx].startTime)
+        events[idx].endTime = dayStart.addingTimeInterval(TimeInterval(newEndMinutes * 60))
+
+        let h = snapped / 60, m = snapped % 60
+        if h > 0 && m > 0 { durationPreview = "\(h)h \(m)m" }
+        else if h > 0     { durationPreview = "\(h)h" }
+        else              { durationPreview = "\(m)m" }
     }
 
     // MARK: Reorder drag (horizontal — regular events only)
@@ -444,8 +606,28 @@ private struct DDEventCard: View {
     let isHolding: Bool
     let isSystemEvent: Bool
     let nearSwap: Bool
+    var durationPreview: String? = nil
+    var onResizeEnd: ((CGFloat) -> Void)? = nil
+    var onResizeFinal: ((CGFloat) -> Void)? = nil
 
     @Environment(\.colorScheme) private var scheme
+    @EnvironmentObject var eventManager: EventManager
+    @EnvironmentObject var session: SessionStore
+    @ObservedObject private var todoStore = LocalTodoStore.shared
+
+    private var myUid: String? { session.currentUserId }
+    private var isMyEvent: Bool { event.createdBy == event.owner }
+    private var ownerUID: String {
+        event.origin == .iCreatedForOther ? event.owner : event.createdBy
+    }
+    private var ownerLabelIcon: String {
+        event.origin == .iCreatedForOther ? "arrow.right.circle.fill" : "person.fill"
+    }
+    private var shouldShowOwner: Bool {
+        guard !isSystemEvent else { return false }
+        guard let uid = myUid else { return false }
+        return event.createdBy != uid || event.owner != uid
+    }
 
     private let wakeID  = DragDropLayoutEngine.wakeID
     private let sleepID = DragDropLayoutEngine.sleepID
@@ -474,11 +656,45 @@ private struct DDEventCard: View {
                     .foregroundStyle(isSystemEvent ? event.eventColor : .primary)
 
                 if !isSystemEvent {
-                    Text(event.formattedEndTime)
-                        .font(.system(size: 12, weight: .regular))
-                        .monospacedDigit()
-                        .foregroundStyle(.secondary)
-                        .frame(maxHeight: .infinity, alignment: .bottom)
+                    HStack(spacing: 2) {
+                        Text(durationPreview ?? event.formattedEndTime)
+                            .font(.system(size: 12, weight: isHolding ? .semibold : .regular))
+                            .monospacedDigit()
+                            .foregroundStyle(
+                                durationPreview != nil
+                                    ? event.eventColor
+                                    : (isHolding ? event.eventColor : Color.secondary)
+                            )
+                        if isHolding && durationPreview == nil {
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 8, weight: .bold))
+                                .foregroundStyle(event.eventColor.opacity(0.8))
+                        }
+                    }
+                    .padding(.horizontal, isHolding ? 5 : 0)
+                    .padding(.vertical, isHolding ? 2 : 0)
+                    .background(
+                        Capsule()
+                            .fill(event.eventColor.opacity(isHolding ? 0.12 : 0))
+                    )
+                    .overlay(
+                        Capsule()
+                            .stroke(event.eventColor.opacity(isHolding ? 0.3 : 0), lineWidth: 0.8)
+                    )
+                    .scaleEffect(durationPreview != nil ? 1.08 : 1, anchor: .bottomLeading)
+                    .frame(maxHeight: .infinity, alignment: .bottom)
+                    .animation(.spring(response: 0.25, dampingFraction: 0.75), value: isHolding)
+                    .animation(.spring(response: 0.2, dampingFraction: 0.8), value: durationPreview)
+                    .gesture(
+                        isHolding ?
+                        DragGesture(minimumDistance: 2)
+                            .onChanged { v in onResizeEnd?(v.translation.height) }
+                            .onEnded { v in
+                                onResizeEnd?(v.translation.height)
+                                onResizeFinal?(v.translation.height)
+                            }
+                        : nil
+                    )
                 }
             }
             .frame(width: isPad ? 75 : 58, height: pillH, alignment: .topLeading)
@@ -532,11 +748,26 @@ private struct DDEventCard: View {
                     .foregroundStyle(isSystemEvent ? event.eventColor : .primary)
                     .lineLimit(1)
 
+                if shouldShowOwner {
+                    HStack(spacing: 4) {
+                        Image(systemName: ownerLabelIcon)
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(event.eventColor.opacity(0.75))
+                        Text(eventManager.displayName(for: ownerUID))
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                }
+
                 if !isSystemEvent {
                     HStack(spacing: 6) {
                         Text(event.formattedStartTime)
                             .font(.caption).monospacedDigit().foregroundStyle(.secondary)
-                        if event.durationMinutes > 0 {
+                        if let preview = durationPreview {
+                            Text("• \(preview)")
+                                .font(.caption).monospacedDigit().foregroundStyle(event.eventColor)
+                        } else if event.durationMinutes > 0 {
                             Text("• \(durationText)")
                                 .font(.caption).monospacedDigit().foregroundStyle(.secondary)
                         }
@@ -564,6 +795,39 @@ private struct DDEventCard: View {
 
             Spacer()
 
+            // ── Undone todo hint (personal events only) ──
+            if !isSystemEvent && event.participants.count == 1 {
+                let count = todoStore.unfinishedCount(for: event.id)
+                if count > 0 {
+                    HStack(spacing: 3) {
+                        Image(systemName: "checklist")
+                            .font(.system(size: 9, weight: .semibold))
+                        Text("\(count)")
+                            .font(.caption2.weight(.semibold))
+                    }
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(Capsule().fill(Color.orange.opacity(0.85)))
+                    .transition(.opacity.combined(with: .scale(scale: 0.85)))
+                }
+            }
+
+            // ── Unread chat hint (shared events only) ──
+            if !isSystemEvent && event.participants.count > 1 {
+                let meta = eventManager.chatMeta(for: event.id)
+                if meta.unread && !meta.lastMessage.isEmpty {
+                    Text(meta.lastMessage)
+                        .font(.caption2)
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(Capsule().fill(Color.red.opacity(0.85)))
+                        .transition(.opacity.combined(with: .scale(scale: 0.85)))
+                }
+            }
+
             // ── Reorder hint (regular events only) ──
             if isHolding && !isSystemEvent {
                 VStack(spacing: 6) {
@@ -581,11 +845,14 @@ private struct DDEventCard: View {
 
     private func isRunning() -> Bool {
         guard !isSystemEvent else { return false }
+        // Must be today — time-of-day comparison alone would match events on other days
+        guard Calendar.current.isDateInToday(event.startTime) else { return false }
         let now = DragDropLayoutEngine.currentMinutes()
         return now >= event.startMinutes && now <= event.endMinutes
     }
 
     private var progressFraction: CGFloat {
+        guard Calendar.current.isDateInToday(event.startTime) else { return 0 }
         let now = DragDropLayoutEngine.currentMinutes()
         let s = event.startMinutes, e = event.endMinutes
         guard e > s else { return 0 }

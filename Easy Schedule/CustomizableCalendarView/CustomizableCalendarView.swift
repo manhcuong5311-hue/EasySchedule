@@ -2,191 +2,86 @@
 //  CustomizableCalendarView.swift
 //  Easy Schedule
 //
-//  Created by Sam Manh Cuong on 24/12/25.
-//
 import SwiftUI
 import Combine
 import FirebaseAuth
 
+// MARK: - Style helpers (logic unchanged)
+
 enum BusyHoursStyle {
-
-    /// Màu semantic cho trạng thái "có busy hours"
-    static let activeColor = Color(hex: "#FFB020")   // amber, KHÔNG trùng accent iOS
-
-    /// Background nhẹ cho trạng thái active
+    static let activeColor      = Color(hex: "#FFB020")
     static let activeBackground = Color(hex: "#FFB020").opacity(0.15)
-
-    /// Icon khi chưa có busy hours → dùng accent
-    static func iconColor(
-        hasBusy: Bool,
-        accent: Color
-    ) -> Color {
+    static func iconColor(hasBusy: Bool, accent: Color) -> Color {
         hasBusy ? activeColor : accent
     }
 }
 
-
 private struct BusyKey: Hashable {
-    let start: Date
-    let end: Date
-
-    init(_ start: Date, _ end: Date) {
-        self.start = start
-        self.end = end
-    }
+    let start: Date; let end: Date
+    init(_ start: Date, _ end: Date) { self.start = start; self.end = end }
 }
 
+// MARK: - Main view
+
 struct CustomizableCalendarView: View {
+
+    // ── Environment ──────────────────────────────────────────────
     @EnvironmentObject var eventManager: EventManager
     @EnvironmentObject var guideManager: GuideManager
-
-    @State private var selectedDate: Date? = nil
-    @State private var showAddSheet: Bool = false
-    @State private var showDeleteAlert = false
-    @State private var eventToDelete: CalendarEvent? = nil
-    @State private var showShareSheet = false
-    @State private var shareItem: ShareItem?
-    @State private var isTogglingOffDay = false
-    @State private var isCooldown = false
-    @State private var toggleCount = 0
-    @State private var showCooldownToast = false
-    @State private var cooldownRemaining = 0
-    @State private var isLoadingOffDays = false
-    @State private var showOffDayAlert = false
-    @State private var offDayAlertMessage = ""
-    @State private var showBusyHoursSheet = false
     @EnvironmentObject var network: NetworkMonitor
-    @State private var localBusyIntervals: [(Date, Date)] = []   // CHỈ busy hours
-    @State private var eventBusyIntervals: [(Date, Date)] = []   // event
-    @State private var showConfirmOffDayAlert = false
-    @State private var pendingOffDayDate: Date? = nil
-    @State private var showCalendarGuide = false
-//NEWWWWWWWWWW
     @EnvironmentObject var uiAccent: UIAccentStore
     @Environment(\.colorScheme) private var colorScheme
 
+    // ── State (all original, untouched) ──────────────────────────
+    @State private var selectedDate: Date? = nil
+    @State private var showAddSheet         = false
+    @State private var showDeleteAlert      = false
+    @State private var eventToDelete: CalendarEvent? = nil
+    @State private var showShareSheet       = false
+    @State private var shareItem: ShareItem?
+    @State private var isTogglingOffDay     = false
+    @State private var isCooldown           = false
+    @State private var toggleCount          = 0
+    @State private var showCooldownToast    = false
+    @State private var cooldownRemaining    = 0
+    @State private var isLoadingOffDays     = false
+    @State private var showOffDayAlert      = false
+    @State private var offDayAlertMessage   = ""
+    @State private var showBusyHoursSheet   = false
+    @State private var localBusyIntervals: [(Date, Date)] = []
+    @State private var eventBusyIntervals: [(Date, Date)] = []
+    @State private var showConfirmOffDayAlert = false
+    @State private var pendingOffDayDate: Date? = nil
+    @State private var showCalendarGuide    = false
 
     @State private var offDays: Set<Date> = [] {
-        didSet {
-            guard !isLoadingOffDays else { return }
-            saveOffDaysToLocal()
-        }
+        didSet { guard !isLoadingOffDays else { return }; saveOffDaysToLocal() }
     }
 
-    private func hasEventOrBusy(on date: Date) -> Bool {
-        let dayStart = calendar.startOfDay(for: date)
-        let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart)!
-
-        let hasEvent =
-            !eventManager.events(for: dayStart).isEmpty
-
-        let hasBusy =
-            localBusyIntervals.contains { interval in
-                interval.0 < dayEnd && interval.1 > dayStart
-            }
-
-        return hasEvent || hasBusy
-    }
-    private func hasBusyHours(on date: Date) -> Bool {
-        let dayStart = calendar.startOfDay(for: date)
-        let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart)!
-
-        return localBusyIntervals.contains { interval in
-            interval.0 < dayEnd && interval.1 > dayStart
-        }
-    }
-
-
-    private func saveOffDaysToLocal() {
-        let timestamps = offDays.map { $0.timeIntervalSince1970 }
-        UserDefaults.standard.set(timestamps, forKey: "offDays")
-    }
-
-    private func loadOffDaysFromLocal() {
-        isLoadingOffDays = true
-
-        let timestamps =
-            UserDefaults.standard.array(forKey: "offDays") as? [Double] ?? []
-
-        let dates = timestamps.map { Date(timeIntervalSince1970: $0) }
-        offDays = Set(dates)
-
-        isLoadingOffDays = false
-    }
-
-    private func cleanPastOffDays() {
-        let today = calendar.startOfDay(for: Date())
-
-        let cleaned = offDays.filter {
-            calendar.startOfDay(for: $0) >= today
-        }
-
-        guard cleaned != offDays else { return }
-
-        isLoadingOffDays = true
-        offDays = cleaned
-        isLoadingOffDays = false
-
-        eventManager.syncOffDaysToFirebase(offDays: offDays)
-    }
-    private func isPastDay(_ date: Date) -> Bool {
-        calendar.startOfDay(for: date) < calendar.startOfDay(for: Date())
-    }
-
-
-    private var calendar: Calendar {
-        var cal = Calendar.current
-        cal.firstWeekday = 2
-        return cal
-    }
-
-    private func showDeleteConfirmation(for event: CalendarEvent) {
-        eventToDelete = event
-        showDeleteAlert = true
-    }
+    // MARK: body
     var body: some View {
         NavigationStack {
-            calendarContentWithGuide
+            ZStack {
+                mainContent
+                if guideManager.isActive(.calendarIntro) { calendarIntroOverlay }
+            }
         }
     }
 
-
+    // MARK: - Main content
     private var mainContent: some View {
-        ZStack {
+        ZStack(alignment: .bottomTrailing) {
 
             ScrollView {
-                VStack(spacing: 12) {
-                    VStack(alignment: .leading, spacing: 6) {
+                VStack(spacing: 0) {
 
-                        HStack(spacing: 8) {
-                            Text(String(localized: "title_my"))
-                                .foregroundColor(uiAccent.color)
-
-                            Text(String(localized: "title_calendar"))
-                                .foregroundColor(.primary)
-                        }
-
-                        .font(.system(size: 36, weight: .bold, design: .rounded))
-                        .tracking(-0.4)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .modifier(TitleShadow.primary(colorScheme))   // ⭐ NEW
-
-
-                        Text(String(localized: "view_and_manage_your_calendar"))
-                            .font(.system(size: 15, weight: .medium))
-                            .foregroundColor(.secondary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .shadow(
-                                color: colorScheme == .dark
-                                    ? Color.white.opacity(0.15)
-                                    : Color.black.opacity(0.10),
-                                radius: 1,
-                                y: 1
-                            )
-
+                    HStack(alignment: .top) {
+                        headerSection
+                        Spacer()
+                        fab
                     }
-                    .padding(.horizontal)
                     .padding(.top, 16)
+                    .padding(.horizontal)
 
                     CalendarGridView(
                         selectedDate: $selectedDate,
@@ -197,240 +92,508 @@ struct CustomizableCalendarView: View {
                             .limits(for: PremiumStoreViewModel.shared.tier)
                             .maxBookingDaysAhead
                     )
-
                     .padding(.top, 8)
 
-                    allowConflictToggle
+                    // ── Settings cards ──
+                    settingsSection
+                        .padding(.top, 20)
+                        .padding(.horizontal)
 
-                    Divider()
-
-                    shareCalendarButton
-
-                    selectedDaySection
-
-                    Spacer(minLength: 40)
-                }
-            }
-
-            cooldownToast
-            // ⭐⭐ NÚT + FLOATING (TO – RÕ – PREMIUM) ⭐⭐
-            VStack {
-                HStack {
-                    Spacer()
-
-                    Button {
-                        showAddSheet = true
-                    } label: {
-                        Image(systemName: "plus")
-                            .font(.system(size: 22, weight: .bold))   // ⭐ TO RÕ HƠN
-                            .foregroundColor(uiAccent.color)
-                            .frame(width: 52, height: 52)             // ⭐ KÍCH THƯỚC NÚT
-                            .background(
-                                Circle()
-                                    .fill(Color(.systemBackground))
-                            )
-                            .shadow(
-                                color: colorScheme == .dark
-                                    ? Color.white.opacity(0.35)
-                                    : Color.black.opacity(0.25),
-                                radius: 6,
-                                y: 3
-                            )
+                    // ── Selected day panel ──
+                    if let date = selectedDate {
+                        selectedDayPanel(date: date)
+                            .padding(.top, 20)
+                            .padding(.horizontal)
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
-                }
-                .padding(.trailing, 16)
-                .padding(.top, 10)
 
-                Spacer()
+                    Spacer(minLength: 100)
+                }
+                .animation(.spring(response: 0.38, dampingFraction: 0.82), value: selectedDate)
             }
 
+            // ── Cooldown toast ──
+            cooldownToast
         }
         .toolbar(.hidden, for: .navigationBar)
-
-        .sheet(isPresented: $showAddSheet) { addEventSheet }
-        .sheet(isPresented: $showBusyHoursSheet) { busyHoursSheet }
-        .alert(String(localized: "delete_event_title"), isPresented: $showDeleteAlert) {
-            deleteAlertButtons
-        } message: {
-            deleteAlertMessage
-        }
-        .alert(String(localized: "off_day_title"), isPresented: $showOffDayAlert) {
-            Button(String(localized: "ok")) { }
-        } message: {
-            Text(offDayAlertMessage)
-        }
-        .alert(
-            String(localized: "off_day_warning_title"),
-            isPresented: $showConfirmOffDayAlert
-        ) {
-            Button(String(localized: "confirm"), role: .destructive) {
-                if let date = pendingOffDayDate {
-                    toggleOffDay(for: date)
-                    eventManager.syncOffDaysToFirebase(offDays: offDays)
-                }
-                pendingOffDayDate = nil
-            }
-
-            Button(String(localized: "cancel"), role: .cancel) {
-                pendingOffDayDate = nil
-
-                // 🔁 RESTORE BUSY HOURS UI
-                if let uid = eventManager.currentUserId,
-                   let date = selectedDate {
-
-                    let dayStart = calendar.startOfDay(for: date)
-                    let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart)!
-
-                    localBusyIntervals =
-                        eventManager.partnerBusySlots[uid]?
-                            .filter { slot in
-                                slot.colorHex == "#FFA500" &&
-                                slot.startTime < dayEnd &&
-                                slot.endTime > dayStart
-                            }
-                            .map { ($0.startTime, $0.endTime) } ?? []
-                }
-
-            }
-
-        } message: {
-            Text(String(localized: "off_day_warning_message"))
-        }
-
-        .onAppear {
-            loadOffDaysFromLocal()
-            cleanPastOffDays()
-        }
-        .onChange(of: selectedDate, initial: false) { _, newValue in
-            handleDateChange(newValue)
-        }
-        .onChange(of: showConfirmOffDayAlert) { _, isShown in
-            if !isShown {
-                handleDateChange(selectedDate)
-            }
-        }
-
+        .sheet(isPresented: $showAddSheet)      { addEventSheet }
+        .sheet(isPresented: $showBusyHoursSheet){ busyHoursSheet }
+        .sheet(item: $shareItem)                { ActivityView(activityItems: [$0.url]) }
+        .alert(String(localized: "delete_event_title"),     isPresented: $showDeleteAlert)      { deleteAlertButtons }   message: { deleteAlertMessage }
+        .alert(String(localized: "off_day_title"),          isPresented: $showOffDayAlert)       { Button(String(localized: "ok")) {} }  message: { Text(offDayAlertMessage) }
+        .alert(String(localized: "off_day_warning_title"),  isPresented: $showConfirmOffDayAlert){ offDayWarningButtons } message: { Text(String(localized: "off_day_warning_message")) }
+        .onAppear { loadOffDaysFromLocal(); cleanPastOffDays() }
+        .onChange(of: selectedDate, initial: false) { _, v in handleDateChange(v) }
+        .onChange(of: showConfirmOffDayAlert) { _, shown in if !shown { handleDateChange(selectedDate) } }
     }
 
-    private var calendarContentWithGuide: some View {
-        ZStack {
-            mainContent
-
-            if guideManager.isActive(.calendarIntro) {
-                calendarIntroOverlay
-            }
-        }
-    }
-
-    private var allowConflictToggle: some View {
-        Toggle(
-            String(localized: "allow_conflict"),
-            isOn: Binding(
-                get: { eventManager.allowDuplicateEvents },
-                set: { eventManager.allowDuplicateEvents = $0 }
-            )
-        )
-        .padding(.horizontal)
-    }
-
-    private var shareCalendarButton: some View {
-        Button {
-            if let uid = Auth.auth().currentUser?.uid,
-               let url = URL(string: "https://easyschedule-ce98a.web.app/calendar/\(uid)") {
-                shareItem = ShareItem(url: url)
-            }
-        } label: {
-            HStack(spacing: 10) {
-                Image(systemName: "square.and.arrow.up")
+    // MARK: - Header
+    private var headerSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Text(String(localized: "title_my"))
                     .foregroundColor(uiAccent.color)
-
-                Text(String(localized: "share_calendar"))
-                    .font(.body.weight(.semibold))
+                Text(String(localized: "title_calendar"))
+                    .foregroundColor(.primary)
             }
+            .font(.system(size: 34, weight: .bold, design: .rounded))
+            .tracking(-0.4)
+            .modifier(TitleShadow.primary(colorScheme))
+
+            Text(String(localized: "view_and_manage_your_calendar"))
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(.secondary)
         }
-        .calendarActionStyle()
-        .padding(.horizontal)
-        .modifier(ActionButtonShadow.primary(colorScheme))
-        .sheet(item: $shareItem) { item in
-            ActivityView(activityItems: [item.url])
-        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    // MARK: - Settings section
+    private var settingsSection: some View {
+        VStack(spacing: 10) {
 
-    private var deleteAlertButtons: some View {
-        Group {
-            Button(String(localized: "ok"), role: .destructive) {
-                if let e = eventToDelete {
-                    eventManager.deleteEvent(e)
+            // Allow overlap toggle card
+            HStack(spacing: 14) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(uiAccent.color.opacity(0.14))
+                        .frame(width: 40, height: 40)
+                    Image(systemName: "arrow.triangle.2.circlepath")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(uiAccent.color)
                 }
-                eventToDelete = nil
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(String(localized: "allow_conflict"))
+                        .font(.subheadline.weight(.semibold))
+                    Text(String(localized: "allow_conflict_hint"))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                Toggle("", isOn: Binding(
+                    get: { eventManager.allowDuplicateEvents },
+                    set: { eventManager.allowDuplicateEvents = $0 }
+                ))
+                .labelsHidden()
+                .tint(uiAccent.color)
             }
+            .padding(14)
+            .background(settingsCardBackground)
+            .modifier(ActionButtonShadow.primary(colorScheme))
 
-            Button(String(localized: "cancel"), role: .cancel) {
-                eventToDelete = nil
-            }
-        }
-    }
-    private var deleteAlertMessage: some View {
-        Text(
-            String(
-                format: String(localized: "delete_event_full"),
-                eventToDelete?.title ?? ""
-            )
-        )
+            // Share calendar card
+            Button {
+                if let uid = Auth.auth().currentUser?.uid,
+                   let url = URL(string: "https://easyschedule-ce98a.web.app/calendar/\(uid)") {
+                    shareItem = ShareItem(url: url)
+                }
+            } label: {
+                HStack(spacing: 14) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(Color.blue.opacity(0.14))
+                            .frame(width: 40, height: 40)
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(Color.blue)
+                    }
 
-    }
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(String(localized: "share_calendar"))
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.primary)
+                        Text(String(localized: "share_calendar_hint"))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
 
-    private var cooldownToast: some View {
-        Group {
-            if showCooldownToast {
-                VStack {
                     Spacer()
-                    Text(
-                        String(
-                            format: String(localized: "cooldown_message"),
-                            cooldownRemaining
-                        )
-                    )
-                        .padding()
-                        .background(Color.black.opacity(0.85))
-                        .foregroundColor(.white)
-                        .cornerRadius(12)
-                        .padding(.bottom, 60)
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.tertiary)
                 }
+                .padding(14)
+                .background(settingsCardBackground)
+            }
+            .buttonStyle(.plain)
+            .modifier(ActionButtonShadow.primary(colorScheme))
+        }
+    }
+
+    private var settingsCardBackground: some View {
+        RoundedRectangle(cornerRadius: 16, style: .continuous)
+            .fill(Color(.systemGray6))
+    }
+
+    // MARK: - Selected day panel
+    private func selectedDayPanel(date: Date) -> some View {
+        VStack(spacing: 12) {
+
+            // Day header
+            dayHeaderCard(date: date)
+
+            // Action tiles (2-column grid)
+            HStack(spacing: 12) {
+                dayOffTile(date: date)
+                busyHoursTile(date: date)
+            }
+
+            // Mini event list for this day
+            let dayEvents = eventManager.events(for: date).filter { $0.origin != .busySlot }
+            if !dayEvents.isEmpty {
+                dayEventsPreview(events: dayEvents)
             }
         }
     }
-   
-    private var addEventSheet: some View {
-        AddEventView(
-            prefillDate: selectedDate,
-            offDays: offDays,
-            busyHours: localBusyIntervals   // 👈 TRUYỀN VÀO
+
+    // ── Day header card ──
+    private func dayHeaderCard(date: Date) -> some View {
+        let eventCount = eventManager.events(for: date).filter { $0.origin != .busySlot }.count
+        let hasBusy    = hasBusyHours(on: date)
+        let off        = isOffDay(date)
+
+        return HStack(spacing: 12) {
+            // Large date badge
+            VStack(spacing: 0) {
+                Text(date.formatted(.dateTime.weekday(.abbreviated)))
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(uiAccent.color)
+                Text(date.formatted(.dateTime.day()))
+                    .font(.system(size: 28, weight: .bold, design: .rounded))
+                    .foregroundStyle(.primary)
+            }
+            .frame(width: 52, height: 52)
+            .background(
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(uiAccent.color.opacity(0.1))
+            )
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(date.formatted(.dateTime.month(.wide).year()))
+                    .font(.subheadline.weight(.semibold))
+
+                HStack(spacing: 6) {
+                    if eventCount > 0 {
+                        Label("\(eventCount)", systemImage: "calendar")
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(.secondary)
+                    }
+                    if hasBusy {
+                        Label(String(localized: "busy_hours"), systemImage: "clock.fill")
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(BusyHoursStyle.activeColor)
+                    }
+                    if off {
+                        Label(String(localized: "day_off_badge"), systemImage: "moon.zzz.fill")
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(.secondary)
+                    }
+                    if eventCount == 0 && !hasBusy && !off {
+                        Text(String(localized: "no_events_today"))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+
+            Spacer()
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color(.systemGray6))
         )
-        .environmentObject(eventManager)
+        .modifier(ActionButtonShadow.primary(colorScheme))
     }
-    
+
+    // ── Day Off tile ──
+    private func dayOffTile(date: Date) -> some View {
+        let off        = isOffDay(date)
+        let isPast     = isPastDay(date)
+        let tileColor  = off ? Color.secondary : uiAccent.color
+
+        return Button {
+            guard !isPast else {
+                offDayAlertMessage = String(localized: "cannot_set_offday_in_past")
+                showOffDayAlert = true
+                return
+            }
+            guard !isCooldown else { showCooldownMessage(); return }
+
+            if !off && hasEventOrBusy(on: date) {
+                pendingOffDayDate = date
+                showConfirmOffDayAlert = true
+                return
+            }
+
+            toggleCount += 1
+            if toggleCount >= 3 { startCooldown(seconds: 5); return }
+            toggleOffDay(for: date)
+            eventManager.syncOffDaysToFirebase(offDays: offDays)
+        } label: {
+            VStack(alignment: .leading, spacing: 10) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(tileColor.opacity(0.14))
+                        .frame(width: 38, height: 38)
+                    Image(systemName: off ? "xmark.circle.fill" : "bed.double.fill")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(tileColor)
+                }
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(off
+                         ? String(localized: "reopen_day")
+                         : String(localized: "set_day_off"))
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(isPast ? .secondary : .primary)
+
+                    Text(off
+                         ? String(localized: "day_off_tile_hint_active")
+                         : String(localized: "day_off_tile_hint"))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(off
+                          ? tileColor.opacity(0.08)
+                          : Color(.systemGray6))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .stroke(off ? tileColor.opacity(0.3) : Color.clear, lineWidth: 1)
+                    )
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(isPast || isCooldown)
+        .modifier(ActionButtonShadow.primary(colorScheme))
+    }
+
+    // ── Busy Hours tile ──
+    private func busyHoursTile(date: Date) -> some View {
+        let hasBusy    = hasBusyHours(on: date)
+        let off        = isOffDay(date)
+        let tileColor  = hasBusy ? BusyHoursStyle.activeColor : uiAccent.color
+
+        // Count blocked slots for subtitle
+        let blockedCount = localBusyIntervals.filter {
+            Calendar.current.isDate($0.0, inSameDayAs: date)
+        }.count
+
+        // Slots for this day, sorted by start time
+        let daySlots = localBusyIntervals
+            .filter { Calendar.current.isDate($0.0, inSameDayAs: date) }
+            .sorted { $0.0 < $1.0 }
+
+        return Button {
+            guard !off else {
+                offDayAlertMessage = String(localized: "busy_hours_disabled_off_day")
+                showOffDayAlert = true
+                return
+            }
+            showBusyHoursSheet = true
+        } label: {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(tileColor.opacity(off ? 0.06 : 0.14))
+                            .frame(width: 38, height: 38)
+                        Image(systemName: hasBusy ? "clock.badge.exclamationmark.fill" : "clock.fill")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(tileColor.opacity(off ? 0.4 : 1))
+                    }
+
+                    if hasBusy && !off {
+                        Text("\(blockedCount) \(String(localized: "slots_blocked"))")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 3)
+                            .background(Capsule().fill(BusyHoursStyle.activeColor))
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(String(localized: "busy_hours"))
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(off ? .secondary : .primary)
+
+                    Text(off
+                         ? String(localized: "busy_hours_off_day_hint")
+                         : (hasBusy
+                            ? String(localized: "busy_hours_tile_hint_active")
+                            : String(localized: "busy_hours_tile_hint")))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                // ── Time chips: show up to 3 slots inline ──
+                if hasBusy && !off && !daySlots.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(Array(daySlots.prefix(3).enumerated()), id: \.offset) { _, slot in
+                            HStack(spacing: 4) {
+                                Image(systemName: "minus")
+                                    .font(.system(size: 8, weight: .bold))
+                                    .foregroundStyle(BusyHoursStyle.activeColor.opacity(0.8))
+                                Text("\(formattedTime(slot.0)) – \(formattedTime(slot.1))")
+                                    .font(.caption2.weight(.medium))
+                                    .foregroundStyle(BusyHoursStyle.activeColor)
+                            }
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 3)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(BusyHoursStyle.activeColor.opacity(0.12))
+                            )
+                        }
+                        if daySlots.count > 3 {
+                            Text("+\(daySlots.count - 3) more")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .padding(.leading, 2)
+                        }
+                    }
+                }
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(hasBusy && !off
+                          ? BusyHoursStyle.activeBackground
+                          : Color(.systemGray6))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .stroke(hasBusy && !off ? BusyHoursStyle.activeColor.opacity(0.35) : Color.clear, lineWidth: 1)
+                    )
+            )
+        }
+        .buttonStyle(.plain)
+        .modifier(ActionButtonShadow.primary(colorScheme))
+    }
+
+    // ── Mini event list ──
+    private func dayEventsPreview(events: [CalendarEvent]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(String(localized: "events_on_this_day"))
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 4)
+
+            ForEach(events.prefix(3)) { event in
+                HStack(spacing: 10) {
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(event.eventColor)
+                        .frame(width: 3, height: 36)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(event.title)
+                            .font(.subheadline.weight(.medium))
+                            .lineLimit(1)
+                        Text("\(event.formattedStartTime) – \(event.formattedEndTime)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Spacer()
+
+                    Image(systemName: event.participants.count > 1 ? "person.2.fill" : "person.fill")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(Color(.systemGray6))
+                )
+            }
+
+            if events.count > 3 {
+                Text(String(format: String(localized: "and_more_events"), events.count - 3))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 4)
+            }
+        }
+    }
+
+    // MARK: - Floating Action Button
+    private var fab: some View {
+        Button {
+            showAddSheet = true
+        } label: {
+            Circle()
+                .fill(
+                    LinearGradient(
+                        colors: [uiAccent.color, uiAccent.color.opacity(0.75)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: 52, height: 52)
+                .shadow(
+                    color: uiAccent.color.opacity(colorScheme == .dark ? 0.5 : 0.4),
+                    radius: 10, y: 5
+                )
+                .overlay(
+                    Image(systemName: "plus")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundStyle(.white)
+                )
+        }
+    }
+
+    // MARK: - Cooldown toast
+    private var cooldownToast: some View {
+        VStack {
+            Spacer()
+            if showCooldownToast {
+                HStack(spacing: 8) {
+                    Image(systemName: "timer")
+                        .foregroundStyle(.white.opacity(0.8))
+                    Text(String(format: String(localized: "cooldown_message"), cooldownRemaining))
+                        .foregroundStyle(.white)
+                        .font(.subheadline.weight(.medium))
+                }
+                .padding(.horizontal, 18)
+                .padding(.vertical, 12)
+                .background(
+                    Capsule()
+                        .fill(.ultraThinMaterial)
+                        .background(Capsule().fill(Color.black.opacity(0.78)))
+                )
+                .padding(.bottom, 100)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: showCooldownToast)
+    }
+
+    // MARK: - Guide overlay
     private var calendarIntroOverlay: some View {
         GeometryReader { geo in
             ZStack {
                 Color.black.opacity(0.35)
                     .ignoresSafeArea()
-                    .onTapGesture {
-                        guideManager.complete(.calendarIntro)
-                    }
+                    .onTapGesture { guideManager.complete(.calendarIntro) }
 
                 VStack {
                     GuideBubble(
                         textKey: "calendar_intro_text",
-                        onNext: {
-                            guideManager.complete(.calendarIntro)
-                        },
-                        onDoNotShowAgain: {
-                            guideManager.disablePermanently(.calendarIntro)
-                        }
+                        onNext: { guideManager.complete(.calendarIntro) },
+                        onDoNotShowAgain: { guideManager.disablePermanently(.calendarIntro) }
                     )
-
                     .frame(maxWidth: min(420, geo.size.width * 0.9))
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -439,49 +602,27 @@ struct CustomizableCalendarView: View {
         }
     }
 
+    // MARK: - Sheets
+    private var addEventSheet: some View {
+        AddEventView(prefillDate: selectedDate, offDays: offDays, busyHours: localBusyIntervals)
+            .environmentObject(eventManager)
+    }
 
     private var busyHoursSheet: some View {
         Group {
             if let date = selectedDate {
-
-                // 1️⃣ Busy do EVENT (read-only, không undo)
-                let eventBusyIntervals: [(Date, Date)] =
-                    eventManager.events(for: date)
-                        .map { ($0.startTime, $0.endTime) }
-
+                let eventBusy: [(Date, Date)] = eventManager.events(for: date).map { ($0.startTime, $0.endTime) }
                 BusyHoursPickerView(
                     date: date,
-                    eventBusyIntervals: eventBusyIntervals,
+                    eventBusyIntervals: eventBusy,
                     busyHourIntervals: localBusyIntervals,
-                    onSave: { addedSlots, removedSlots in
+                    onSave: { added, removed in
                         guard let uid = eventManager.currentUserId else { return }
-
-                        // ➕ Firebase
-                        if !addedSlots.isEmpty {
-                            eventManager.addBusyHoursForDay(
-                                userId: uid,
-                                slots: addedSlots
-                            )
-                        }
-
-                        if !removedSlots.isEmpty {
-                            eventManager.removeManualBusySlots(
-                                userId: uid,
-                                slots: removedSlots
-                            )
-                        }
-
-                        // ✅ OPTIMISTIC UI UPDATE (QUAN TRỌNG)
-                        let addedIntervals = addedSlots.map { ($0.start, $0.end) }
-                        let removedIntervals = removedSlots.map { ($0.start, $0.end) }
-
-                        localBusyIntervals.append(contentsOf: addedIntervals)
-                        localBusyIntervals.removeAll { interval in
-                            removedIntervals.contains {
-                                $0.0 == interval.0 && $0.1 == interval.1
-                            }
-                        }
-
+                        if !added.isEmpty   { eventManager.addBusyHoursForDay(userId: uid, slots: added) }
+                        if !removed.isEmpty { eventManager.removeManualBusySlots(userId: uid, slots: removed) }
+                        localBusyIntervals.append(contentsOf: added.map { ($0.start, $0.end) })
+                        let removedPairs = removed.map { ($0.start, $0.end) }
+                        localBusyIntervals.removeAll { i in removedPairs.contains { $0.0 == i.0 && $0.1 == i.1 } }
                         showBusyHoursSheet = false
                     }
                 )
@@ -490,232 +631,131 @@ struct CustomizableCalendarView: View {
         }
     }
 
-
-
-
-
-    private func handleDateChange(_ newDate: Date?) {
-        guard let date = newDate else { return }
-
-        // 1️⃣ Event busy
-        eventBusyIntervals = eventManager.events(for: date)
-            .map { ($0.startTime, $0.endTime) }
-
-        // 2️⃣ Manual busy – OWNER (NGUỒN CHUẨN)
-        localBusyIntervals =
-            eventManager.myManualBusySlots
-                .filter {
-                    Calendar.current.isDate($0.startTime, inSameDayAs: date)
-                }
-                .map { ($0.startTime, $0.endTime) }
+    // MARK: - Alert content
+    private var deleteAlertButtons: some View {
+        Group {
+            Button(String(localized: "ok"), role: .destructive) {
+                if let e = eventToDelete { eventManager.deleteEvent(e) }
+                eventToDelete = nil
+            }
+            Button(String(localized: "cancel"), role: .cancel) { eventToDelete = nil }
+        }
     }
-
-
-
-
-
-    
-    
-    func startCooldown(seconds: Int) {
-        isCooldown = true
-        cooldownRemaining = seconds
-        showCooldownToast = true
-
-        // Timer mỗi 1 giây
-        Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { timer in
-            cooldownRemaining -= 1
-            
-            if cooldownRemaining <= 0 {
-                timer.invalidate()
-                isCooldown = false
-                showCooldownToast = false
-                toggleCount = 0
+    private var deleteAlertMessage: some View {
+        Text(String(format: String(localized: "delete_event_full"), eventToDelete?.title ?? ""))
+    }
+    private var offDayWarningButtons: some View {
+        Group {
+            Button(String(localized: "confirm"), role: .destructive) {
+                if let date = pendingOffDayDate {
+                    toggleOffDay(for: date)
+                    eventManager.syncOffDaysToFirebase(offDays: offDays)
+                }
+                pendingOffDayDate = nil
+            }
+            Button(String(localized: "cancel"), role: .cancel) {
+                pendingOffDayDate = nil
+                if let uid = eventManager.currentUserId, let date = selectedDate {
+                    let dayStart = calendar.startOfDay(for: date)
+                    let dayEnd   = calendar.date(byAdding: .day, value: 1, to: dayStart)!
+                    localBusyIntervals = eventManager.partnerBusySlots[uid]?
+                        .filter { $0.colorHex == "#FFA500" && $0.startTime < dayEnd && $0.endTime > dayStart }
+                        .map { ($0.startTime, $0.endTime) } ?? []
+                }
             }
         }
     }
 
-    func showCooldownMessage() {
-        showCooldownToast = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-            showCooldownToast = false
-        }
-    }
+    // MARK: - Business logic (all original, untouched)
 
-    // MARK: - SUPPORT
+    private var calendar: Calendar {
+        var cal = Calendar.current; cal.firstWeekday = 2; return cal
+    }
+    private func hasEventOrBusy(on date: Date) -> Bool {
+        let s = calendar.startOfDay(for: date)
+        let e = calendar.date(byAdding: .day, value: 1, to: s)!
+        return !eventManager.events(for: s).isEmpty ||
+               localBusyIntervals.contains { $0.0 < e && $0.1 > s }
+    }
+    private func hasBusyHours(on date: Date) -> Bool {
+        let s = calendar.startOfDay(for: date)
+        let e = calendar.date(byAdding: .day, value: 1, to: s)!
+        return localBusyIntervals.contains { $0.0 < e && $0.1 > s }
+    }
+    private func saveOffDaysToLocal() {
+        UserDefaults.standard.set(offDays.map { $0.timeIntervalSince1970 }, forKey: "offDays")
+    }
+    private func loadOffDaysFromLocal() {
+        isLoadingOffDays = true
+        let ts = UserDefaults.standard.array(forKey: "offDays") as? [Double] ?? []
+        offDays = Set(ts.map { Date(timeIntervalSince1970: $0) })
+        isLoadingOffDays = false
+    }
+    private func cleanPastOffDays() {
+        let today   = calendar.startOfDay(for: Date())
+        let cleaned = offDays.filter { calendar.startOfDay(for: $0) >= today }
+        guard cleaned != offDays else { return }
+        isLoadingOffDays = true; offDays = cleaned; isLoadingOffDays = false
+        eventManager.syncOffDaysToFirebase(offDays: offDays)
+    }
+    private func isPastDay(_ date: Date) -> Bool {
+        calendar.startOfDay(for: date) < calendar.startOfDay(for: Date())
+    }
     private func toggleOffDay(for date: Date) {
         let key = calendar.startOfDay(for: date)
-        if offDays.contains(key) {
-            offDays.remove(key)
-        } else {
-            offDays.insert(key)
-        }
+        if offDays.contains(key) { offDays.remove(key) } else { offDays.insert(key) }
     }
-
     private func isOffDay(_ date: Date) -> Bool {
         offDays.contains(calendar.startOfDay(for: date))
     }
-
     func formattedTime(_ date: Date) -> String {
         date.formatted(date: .omitted, time: .shortened)
     }
-    private var selectedDaySection: some View {
-        Group {
-            if let date = selectedDate {
-                selectedDayView(date: date)
-            } else {
-                EmptyView()   // 👈 THAY DÒNG TEXT
+    private func handleDateChange(_ newDate: Date?) {
+        guard let date = newDate else { return }
+        eventBusyIntervals = eventManager.events(for: date).map { ($0.startTime, $0.endTime) }
+        localBusyIntervals = eventManager.myManualBusySlots
+            .filter { Calendar.current.isDate($0.startTime, inSameDayAs: date) }
+            .map { ($0.startTime, $0.endTime) }
+    }
+    func startCooldown(seconds: Int) {
+        isCooldown = true; cooldownRemaining = seconds; showCooldownToast = true
+        Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { timer in
+            self.cooldownRemaining -= 1
+            if self.cooldownRemaining <= 0 {
+                timer.invalidate()
+                self.isCooldown = false; self.showCooldownToast = false; self.toggleCount = 0
             }
         }
     }
-
-    private func selectedDayView(date: Date) -> some View {
-        VStack(spacing: 12) {
-            // ===== DAY OFF =====
-            Button {
-                // ❗ KHÔNG CHO QUÁ KHỨ
-                guard !isPastDay(date) else {
-                    offDayAlertMessage = String(localized: "cannot_set_offday_in_past")
-                    showOffDayAlert = true
-                    return
-                }
-
-                // 🔒 COOLDOWN
-                guard !isCooldown else {
-                    showCooldownMessage()
-                    return
-                }
-
-                // ⚠️ CẢNH BÁO NẾU CÓ EVENT / BUSY
-                if !isOffDay(date) && hasEventOrBusy(on: date) {
-                    pendingOffDayDate = date
-                    showConfirmOffDayAlert = true
-                    return
-                }
-
-                // ⏱️ COOLDOWN COUNT
-                toggleCount += 1
-                if toggleCount >= 3 {
-                    startCooldown(seconds: 5)
-                    return
-                }
-
-                toggleOffDay(for: date)
-                eventManager.syncOffDaysToFirebase(offDays: offDays)
-
-            } label: {
-
-                // ===== UI CHUẨN HOÁ =====
-                HStack(spacing: 10) {
-                       Image(
-                           systemName: isOffDay(date)
-                           ? "xmark.circle"
-                           : "bed.double"
-                       )
-                       .foregroundColor(uiAccent.color)
-
-                       Text(
-                           isOffDay(date)
-                           ? String(localized: "reopen_day")
-                           : String(localized: "set_day_off")
-                       )
-                       .font(.body.weight(.semibold))
-                   }
-               }
-               .calendarActionStyle()
-               .padding(.horizontal)
-               .modifier(ActionButtonShadow.primary(colorScheme))
-               .disabled(isCooldown)
-            // ===== BUSY HOURS =====
-            let hasBusy = hasBusyHours(on: date)
-
-            Button {
-                if isOffDay(date) {
-                    offDayAlertMessage = String(
-                        localized: "busy_hours_disabled_off_day"
-                    )
-                    showOffDayAlert = true
-                    return
-                }
-                showBusyHoursSheet = true
-            } label: {
-                HStack(spacing: 10) {
-                    Image(systemName: hasBusy ? "clock.badge.exclamationmark" : "clock")
-                        .foregroundColor(
-                            BusyHoursStyle.iconColor(
-                                hasBusy: hasBusy,
-                                accent: uiAccent.color
-                            )
-                        )
-
-                    Text(String(localized: "busy_hours"))
-                        .font(.body.weight(.semibold))
-                }
-            }
-            .calendarActionStyle(
-                showsHint: isOffDay(date),
-                hintText: nil
-            )
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(
-                        hasBusy
-                        ? BusyHoursStyle.activeBackground
-                        : Color.clear
-                    )
-            )
-            .modifier(ActionButtonShadow.primary(colorScheme))
-            .overlay(alignment: .topTrailing) {
-                if hasBusy {
-                    Circle()
-                        .fill(BusyHoursStyle.activeColor)
-                        .frame(width: 6, height: 6)
-                        .offset(x: -6, y: 6)
-                }
-            }
-
-            .padding(.horizontal)
-
-
-
-        }
+    func showCooldownMessage() {
+        showCooldownToast = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { self.showCooldownToast = false }
     }
-    
-    
+    private func showDeleteConfirmation(for event: CalendarEvent) {
+        eventToDelete = event; showDeleteAlert = true
+    }
 }
 
-struct ActionButtonShadow {
+// MARK: - Shared shadow modifier (unchanged)
 
+struct ActionButtonShadow {
     static func primary(_ scheme: ColorScheme) -> some ViewModifier {
         ShadowModifier(
-            main: scheme == .dark
-                ? Color.white.opacity(0.12)
-                : Color.black.opacity(0.18),
-            mainRadius: 8,
-            mainY: 4,
-            secondary: scheme == .dark
-                ? Color.white.opacity(0.06)
-                : Color.black.opacity(0.08),
-            secondaryRadius: 3,
-            secondaryY: 1
+            main:            scheme == .dark ? Color.white.opacity(0.12) : Color.black.opacity(0.18),
+            mainRadius:      8, mainY: 4,
+            secondary:       scheme == .dark ? Color.white.opacity(0.06) : Color.black.opacity(0.08),
+            secondaryRadius: 3, secondaryY: 1
         )
     }
 }
 
 private struct ShadowModifier: ViewModifier {
-    let main: Color
-    let mainRadius: CGFloat
-    let mainY: CGFloat
-    let secondary: Color
-    let secondaryRadius: CGFloat
-    let secondaryY: CGFloat
-
+    let main: Color; let mainRadius: CGFloat; let mainY: CGFloat
+    let secondary: Color; let secondaryRadius: CGFloat; let secondaryY: CGFloat
     func body(content: Content) -> some View {
         content
-            .shadow(color: main, radius: mainRadius, y: mainY)
+            .shadow(color: main,      radius: mainRadius,      y: mainY)
             .shadow(color: secondary, radius: secondaryRadius, y: secondaryY)
     }
 }
-
-
-
-

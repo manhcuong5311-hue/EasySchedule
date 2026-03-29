@@ -340,16 +340,11 @@ struct ChatView: View {
                     )
             }
 
-            // 3️⃣ Đảm bảo chat tồn tại → listen messages
+            // 3️⃣ Ensure chat document exists (listener already started in init)
             Task {
                 do {
                     try await vm.ensureChatExists(eventEndTime: eventEndTime)
-                    try? await Task.sleep(nanoseconds: 300_000_000)
-                    vm.listenMessages()
-
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        eventManager.markEventSeen(eventId)
-                    }
+                    eventManager.markEventSeen(eventId)
                 } catch {
                     print("❌ ensureChatExists failed:", error)
                 }

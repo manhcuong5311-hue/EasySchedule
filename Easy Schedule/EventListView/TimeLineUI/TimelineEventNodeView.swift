@@ -155,10 +155,6 @@ struct TimelineEventNodeView: View {
         event.participants.count == 1
     }
 
-    private var isTodoOpen: Bool {
-        eventManager.selectedEventId == event.id
-    }
-
     @ObservedObject private var todoHintStore =
         LocalEventTodoHintStore.shared
 
@@ -198,150 +194,82 @@ struct TimelineEventNodeView: View {
 
     
     
-//Content
-    
+    // MARK: - Content
+
     private var content: some View {
         HStack(alignment: .top, spacing: 0) {
 
             // ===== DOT COLUMN =====
-            ZStack(alignment: .topTrailing) {
-
-                // Main dot
-                ZStack {
-        
-                    Image(systemName: isPersonalEvent ? "person.fill" : "person.2.fill")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(.primary)
-
-                }
-            }
-            .frame(width: TimelineLayout.dotColumnWidth)
-            .padding(.top, 12)
-
+            Image(systemName: isPersonalEvent ? "person.fill" : "person.2.fill")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(.primary)
+                .frame(width: TimelineLayout.dotColumnWidth)
+                .padding(.top, 12)
 
             // ===== CARD COLUMN =====
             eventCard
-            .padding(.leading, 4)
+                .padding(.leading, 4)
         }
         .padding(.leading, 6)
         .offset(y: offsetY)
         .zIndex(event.origin == .busySlot ? 0.5 : 1)
-        .onTapGesture {
-            handleTap()
-        }
-        .onLongPressGesture(minimumDuration: 0.35) {
-            guard event.origin != .busySlot else { return }
-            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-
-            // Owner / Creator / Admin → full action
-            if canDeleteEvent || canLeaveEvent {
-                showActionSheet = true
-            }
-        }
-
-        .confirmationDialog(
-            String(localized: "event_open_action"),
-            isPresented: $showActionSheet
-        ) {
-
-            // 📌 Open
-            Button(
-                String(localized: "open_todo")
-            ) {
-                // ⭐️ set hint cho event nhóm
-                if !isPersonalEvent {
-                    LocalEventTodoHintStore.shared
-                        .markHasTodo(eventId: event.id)
-                }
-
-                eventManager.openEvent(eventId: event.id)
-            }
-
-
-            Button(String(localized: "open_chat")) {
-                eventManager.openChat(eventId: event.id)
-            }
-
-            // 👥 Add member (Owner / Creator / Admin)
-            if canDeleteEvent {
-                Button(String(localized: "add_member_title")) {
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                    showAddMemberSheet = true
-                }
-            }
-
-            // ❌ Delete event
-            if canDeleteEvent {
-                Button(String(localized: "delete"), role: .destructive) {
-                    showDeleteConfirm = true
-                }
-            }
-
-            // 🚪 Leave event
-            if canLeaveEvent {
-                Button(String(localized: "leave_event"), role: .destructive) {
-                    showLeaveConfirm = true
-                }
-            }
-
-            Button(String(localized: "cancel"), role: .cancel) {}
-        }
-
-
-
         .sheet(isPresented: $showAddMemberSheet) {
             AddMemberSheet(event: event)
                 .environmentObject(eventManager)
         }
-
-        
-        .alert(
-            String(localized: "leave_event"),
-            isPresented: $showLeaveConfirm
-        ) {
+        .alert(String(localized: "leave_event"), isPresented: $showLeaveConfirm) {
             Button(String(localized: "close"), role: .cancel) {}
         } message: {
             Text(String(localized: "leave_event_not_allowed"))
         }
-
-        .alert(
-            String(localized: "delete_event"),
-            isPresented: $showDeleteConfirm
-        ) {
-            Button(String(localized: "delete"), role: .destructive) {
-                deleteEvent()
-            }
+        .alert(String(localized: "delete_event"), isPresented: $showDeleteConfirm) {
+            Button(String(localized: "delete"), role: .destructive) { deleteEvent() }
             Button(String(localized: "cancel"), role: .cancel) {}
         } message: {
             Text(String(localized: "delete_event_confirm"))
         }
-
     }
 
+    // MARK: - Card (self-contained tap + action sheet)
 
     private var eventCard: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        HStack(spacing: 6) {
 
-            HStack(spacing: 6) {
-                Text(event.title)
-                    .font(.subheadline)
+            // ===== LEFT: title + indicators =====
+            VStack(alignment: .leading, spacing: 2) {
 
-                if isPersonalEvent && hasUnfinishedTodo {
-                    Image(systemName: "checklist")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+                HStack(spacing: 4) {
+                    Text(event.title)
+                        .font(.subheadline)
+                        .lineLimit(1)
+
+                    if isPersonalEvent && hasUnfinishedTodo {
+                        Image(systemName: "checklist")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    } else if !isPersonalEvent && hasAnyTodoHint {
+                        todoHintDot
+                    }
+
+                    if hasUnreadChat {
+                        Circle()
+                            .fill(Color.red)
+                            .frame(width: 5, height: 5)
+                    }
                 }
-                else if !isPersonalEvent && hasAnyTodoHint {
-                    todoHintDot
-                }
+
+                Text(timeDisplayMode.primaryText(for: event))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
 
+            Spacer(minLength: 0)
 
-            Text(timeDisplayMode.primaryText(for: event))
-                .font(.caption)
-                .foregroundColor(.secondary)
+            // ===== RIGHT: chevron =====
+            Image(systemName: "chevron.right")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.tertiary)
         }
-
         .padding(.vertical, 8)
         .padding(.horizontal, 10)
         .background(
@@ -355,31 +283,42 @@ struct TimelineEventNodeView: View {
                     lineWidth: 1
                 )
         )
-
-    }
-
-
-    private var indicators: some View {
-        HStack(spacing: 4) {
-            if hasUnfinishedTodo {
-                Image(systemName: "checklist")
-            }
-          
+        .contentShape(Rectangle())
+        .onTapGesture {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            showActionSheet = true
         }
-        .font(.caption2)
-        .foregroundStyle(.secondary)
-    }
+        .confirmationDialog(event.title, isPresented: $showActionSheet, titleVisibility: .visible) {
 
-    
-    // MARK: - Tap behavior
+            // ── Navigation ──
+            if isPersonalEvent {
+                Button(String(localized: "open_todo")) {
+                    eventManager.openEvent(eventId: event.id)
+                }
+            } else {
+                Button(String(localized: "open_chat")) {
+                    eventManager.openChat(eventId: event.id)
+                }
+            }
 
-    private func handleTap() {
-        guard event.origin != .busySlot else { return }
+            // ── Management ──
+            if canDeleteEvent {
+                Button(String(localized: "add_member_title")) {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    showAddMemberSheet = true
+                }
+                Button(String(localized: "delete"), role: .destructive) {
+                    showDeleteConfirm = true
+                }
+            }
 
-        if event.participants.count > 1 {
-            eventManager.openChat(eventId: event.id)
-        } else {
-            eventManager.openEvent(eventId: event.id)
+            if canLeaveEvent {
+                Button(String(localized: "leave_event"), role: .destructive) {
+                    showLeaveConfirm = true
+                }
+            }
+
+            Button(String(localized: "cancel"), role: .cancel) {}
         }
     }
 

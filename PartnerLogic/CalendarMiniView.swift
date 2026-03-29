@@ -32,10 +32,12 @@ struct CalendarMiniView: View {
         VStack(spacing: 8) {
             HStack {
                 Button { changeMonth(by: -1) } label: { Image(systemName: "chevron.left") }
+                    .buttonStyle(.plain)
                 Spacer()
                 Text(formattedMonth(month)).font(.headline)
                 Spacer()
                 Button { changeMonth(by: 1) } label: { Image(systemName: "chevron.right") }
+                    .buttonStyle(.plain)
             }
             .padding(.horizontal)
 
@@ -90,10 +92,10 @@ struct CalendarMiniView: View {
                     .opacity(isPast || isOutOfRange ? 0.35 : 1.0)
 
                     .contentShape(Rectangle())
-                    .onTapGesture {
+                    .simultaneousGesture(TapGesture().onEnded {
                         guard !isPast && !isOutOfRange else { return }
                         selectedDate = day
-                    }
+                    })
 
                 }
             }

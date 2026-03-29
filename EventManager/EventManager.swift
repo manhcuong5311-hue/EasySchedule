@@ -19,6 +19,15 @@ enum EventOrigin: String, Codable {
     case iCreatedForOther
     case busySlot
 }
+/// Describes a time-conflict that would result from moving an event.
+struct EventMoveConflict {
+    let participantUID: String
+    let participantName: String
+    let conflictingEventTitle: String
+    let conflictingStart: Date
+    let conflictingEnd: Date
+}
+
 struct CalendarEvent: Identifiable, Hashable, Codable {
 
     // MARK: - Core fields
@@ -514,33 +523,42 @@ final class EventManager: ObservableObject {
     func addBusySlot(for uid: String, event: CalendarEvent) {
         let docRef = db.collection("publicCalendar").document(uid)
 
-        docRef.getDocument { snap, err in
-            var slots = snap?.data()?["busySlots"] as? [[String: Any]] ?? []
+        // Use a transaction to make the read-modify-write atomic.
+        // Prevents race conditions when syncBusySlots is called for multiple
+        // participants simultaneously, or when updateEvent fires rapidly during drag.
+        db.runTransaction({ transaction, errorPointer -> Any? in
+            let snap: DocumentSnapshot
+            do {
+                snap = try transaction.getDocument(docRef)
+            } catch let fetchError as NSError {
+                errorPointer?.pointee = fetchError
+                return nil
+            }
 
-            // Remove old slot nếu trùng ID
+            var slots = snap.data()?["busySlots"] as? [[String: Any]] ?? []
+
+            // Remove stale slot with same eventId so there are no duplicates
             slots.removeAll {
                 ($0["id"] as? String) == event.id &&
                 ($0["source"] as? String) == "event"
             }
 
-
-            let start = event.startTime.timeIntervalSince1970
-            let end = event.endTime.timeIntervalSince1970
-
-            // ⭐ timestamp ALWAYS in seconds
             let newSlot: [String: Any] = [
-                "id": event.id,
-                "source": "event",          // ⭐ BẮT BUỘC
-                "title": event.title,
-                "owner": uid,
-                "start": Double(start),
-                "end": Double(end)
+                "id":     event.id,
+                "source": "event",
+                "title":  event.title,
+                "owner":  uid,
+                "start":  event.startTime.timeIntervalSince1970,
+                "end":    event.endTime.timeIntervalSince1970
             ]
-
-
             slots.append(newSlot)
 
-            docRef.setData(["busySlots": slots], merge: true)
+            transaction.setData(["busySlots": slots], forDocument: docRef, merge: true)
+            return nil
+        }) { _, error in
+            if let error = error {
+                print("❌ addBusySlot transaction error:", error.localizedDescription)
+            }
         }
     }
 
@@ -1049,27 +1067,30 @@ extension EventManager {
 
     
   
-    // ⭐ Remove busySlot của 1 user bị kick
-    private func removeBusySlotForUser(
-        eventId: String,
-        uid: String
-    ) {
-
+    // Remove busySlot for one user atomically
+    private func removeBusySlotForUser(eventId: String, uid: String) {
         let doc = db.collection("publicCalendar").document(uid)
 
-        doc.getDocument { snap, _ in
+        db.runTransaction({ transaction, errorPointer -> Any? in
+            let snap: DocumentSnapshot
+            do {
+                snap = try transaction.getDocument(doc)
+            } catch let e as NSError {
+                errorPointer?.pointee = e
+                return nil
+            }
 
-            guard var slots =
-                    snap?.data()?["busySlots"] as? [[String: Any]]
-            else { return }
-
-            // ❗ Chỉ remove slot của event này
+            var slots = snap.data()?["busySlots"] as? [[String: Any]] ?? []
             slots.removeAll {
                 ($0["id"] as? String) == eventId &&
                 ($0["source"] as? String) == "event"
             }
-
-            doc.setData(["busySlots": slots], merge: true)
+            transaction.setData(["busySlots": slots], forDocument: doc, merge: true)
+            return nil
+        }) { _, error in
+            if let error = error {
+                print("❌ removeBusySlotForUser transaction error:", error.localizedDescription)
+            }
         }
     }
 
@@ -1080,6 +1101,34 @@ extension EventManager {
     
     
     
+    /// Returns conflicts that would occur if `event` is moved to [newStart, newEnd].
+    /// Uses the real-time `partnerBusySlots` cache — always up to date via listeners.
+    func moveConflicts(
+        for event: CalendarEvent,
+        newStart: Date,
+        newEnd: Date
+    ) -> [EventMoveConflict] {
+        guard let myUid = currentUserId else { return [] }
+        var result: [EventMoveConflict] = []
+
+        for uid in event.participants where uid != myUid {
+            guard let slots = partnerBusySlots[uid] else { continue }
+            for slot in slots where slot.id != event.id {
+                // Strict overlap (touching edges is OK)
+                if slot.startTime < newEnd && slot.endTime > newStart {
+                    result.append(EventMoveConflict(
+                        participantUID:         uid,
+                        participantName:        userNames[uid] ?? uid,
+                        conflictingEventTitle:  slot.title,
+                        conflictingStart:       slot.startTime,
+                        conflictingEnd:         slot.endTime
+                    ))
+                }
+            }
+        }
+        return result
+    }
+
     func updateEvent(_ event: CalendarEvent,
                      newTitle: String,
                      newDate: Date,
@@ -1089,45 +1138,41 @@ extension EventManager {
 
         guard let idx = events.firstIndex(where: { $0.id == event.id }) else { return }
 
-        // Update local
-        events[idx].title = newTitle
-        events[idx].date = newDate
+        // Optimistic local update
+        events[idx].title    = newTitle
+        events[idx].date     = newDate
         events[idx].startTime = newStart
-        events[idx].endTime = newEnd
+        events[idx].endTime  = newEnd
         events[idx].colorHex = newColorHex
 
-        // ⭐ Cập nhật Firestore
-        if !event.id.isEmpty {
-            db.collection("events").document(event.id).updateData([
-                "title": newTitle,
-                "date": Timestamp(date: newDate),
-                "startTime": Timestamp(date: newStart),
-                "endTime": Timestamp(date: newEnd),
-                "colorHex": newColorHex
-            ]) { error in
-                
-                // ⭐⭐ ĐẶT ĐOẠN UPDATE BUSYSLOT TRONG NÀY (đúng scope)
-                guard error == nil else { return }
+        guard !event.id.isEmpty else { return }
 
-                // Tạo event mới dựa trên thông tin đã update
-                let updatedEvent = CalendarEvent(
-                    id: event.id,
-                    title: newTitle,
-                    date: newDate,
-                    startTime: newStart,
-                    endTime: newEnd,
-                    owner: event.owner,
-                    sharedUser: event.sharedUser,
-                    createdBy: event.createdBy,
-                    participants: event.participants,
-                    admins: event.admins,
-                    colorHex: newColorHex,
-                    pendingDelete: false,
-                    origin: .myEvent
-                )
-            // ⭐ Ghi đè busySlot của chủ event
-                self.syncBusySlots(for: updatedEvent)
-            }
+        db.collection("events").document(event.id).updateData([
+            "title":     newTitle,
+            "date":      Timestamp(date: newDate),
+            "startTime": Timestamp(date: newStart),
+            "endTime":   Timestamp(date: newEnd),
+            "colorHex":  newColorHex
+        ]) { error in
+            guard error == nil else { return }
+
+            // Rebuild event preserving all original fields (especially origin)
+            let updatedEvent = CalendarEvent(
+                id:           event.id,
+                title:        newTitle,
+                date:         newDate,
+                startTime:    newStart,
+                endTime:      newEnd,
+                owner:        event.owner,
+                sharedUser:   event.sharedUser,
+                createdBy:    event.createdBy,
+                participants: event.participants,
+                admins:       event.admins,
+                colorHex:     newColorHex,
+                pendingDelete: false,
+                origin:       event.origin   // preserve — was wrongly hardcoded .myEvent
+            )
+            self.syncBusySlots(for: updatedEvent)
         }
     }
 
@@ -1609,9 +1654,11 @@ extension EventManager {
             }
             // ===============================
             // 🔒 4.5️⃣ CHECK TRÙNG GIỜ CỦA CREATOR (B)
+            // Must check participants.contains — creator B could be a participant
+            // in events originally created by A, so checking createdBy alone misses those.
             // ===============================
             let myConflict = self.events.contains {
-                $0.createdBy == currentUid &&
+                $0.participants.contains(currentUid) &&
                 $0.startTime < end &&
                 $0.endTime > start
             }
@@ -1816,11 +1863,12 @@ extension EventManager {
                         }
                     }
 
-                    // 5) Listen busySlots cho participants
-                    let allUsers = Set(incoming.flatMap { $0.participants })
-                    for user in allUsers {
+                    // 5) Maintain busy-slot listeners: add new, remove stale
+                    let activeUsers = Set(incoming.flatMap { $0.participants })
+                    for user in activeUsers {
                         self.listenToBusySlots(sharedUserId: user)
                     }
+                    self.pruneStaleListeners(keeping: activeUsers)
                 }
             }
     }
@@ -1923,9 +1971,21 @@ extension EventManager {
 
 
     // MARK: - Listeners (prevent revival)
+
+    /// Remove listeners for users who are no longer participants of any event.
+    private func pruneStaleListeners(keeping activeUsers: Set<String>) {
+        let stale = Set(busySlotListeners.keys).subtracting(activeUsers)
+        for uid in stale {
+            busySlotListeners[uid]?.remove()
+            busySlotListeners.removeValue(forKey: uid)
+            partnerBusySlots.removeValue(forKey: uid)
+        }
+    }
+
     func listenToBusySlots(sharedUserId: String) {
-        // Nếu đã có listener cho user này → bỏ listener cũ
-        busySlotListeners[sharedUserId]?.remove()
+        // If listener already active for this user, keep it — don't tear down and
+        // recreate on every event-list snapshot (would cause unnecessary churn).
+        guard busySlotListeners[sharedUserId] == nil else { return }
 
         // ⭐ preload name (non-blocking)
         fetchUserNameIfNeeded(uid: sharedUserId)

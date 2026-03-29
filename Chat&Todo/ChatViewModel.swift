@@ -98,7 +98,7 @@ class ChatViewModel: ObservableObject {
             .document(eventId)
             .collection("messages")
             .order(by: "timestamp")
-            .limit(toLast: 50)
+            .limit(toLast: 100)
             .addSnapshotListener { snap, _ in
                 guard let snap else { return }
 
@@ -154,30 +154,34 @@ class ChatViewModel: ObservableObject {
                     } + serverMessages
 
                     self.messages = merged.sorted { $0.timestamp < $1.timestamp }
-
-                    let hasPending = self.messages.contains {
-                        $0.sendStatus == .sending || $0.sendStatus == .failed
-                    }
-
-                    if !hasPending {
-                        UserDefaults.standard.removeObject(forKey: self.offlineKey)
-                    }
-
+                    self.saveOfflineMessages()
                 }
             }
     }
 
     private func saveOfflineMessages() {
-        guard let data = try? JSONEncoder().encode(messages) else { return }
+        let pending = messages.filter {
+            $0.sendStatus == .sending || $0.sendStatus == .failed
+        }
+        guard !pending.isEmpty else {
+            UserDefaults.standard.removeObject(forKey: offlineKey)
+            return
+        }
+        guard let data = try? JSONEncoder().encode(pending) else { return }
         UserDefaults.standard.set(data, forKey: offlineKey)
     }
+
     private func loadOfflineMessages() {
         guard
             let data = UserDefaults.standard.data(forKey: offlineKey),
             let cached = try? JSONDecoder().decode([ChatMessage].self, from: data)
         else { return }
-
-        self.messages = cached
+        // All cached messages are pending — mark as .sending for retry
+        self.messages = cached.map { msg in
+            var m = msg
+            m.sendStatus = .sending
+            return m
+        }
     }
     
     func retryPendingMessagesIfNeeded() {
@@ -275,14 +279,14 @@ class ChatViewModel: ObservableObject {
         let uuid = UUID().uuidString
 
         let localMessage = ChatMessage(
-            id: uuid,              // ⭐ ADD
-            clientId: uuid,        // ⭐ SAME
+            id: uuid,
+            clientId: uuid,
             text: text,
             senderId: myId,
             senderName: myName,
             timestamp: Date(),
             seenBy: [myId: true],
-            sendStatus: isOnline ? .sent : .sending
+            sendStatus: .sending
         )
 
         // ⭐ 2. APPEND NGAY → UI PHẢN HỒI LIỀN
@@ -317,18 +321,20 @@ class ChatViewModel: ObservableObject {
         ]
 
         chatRef.collection("messages")
-            .document(localMessage.id) // 🔑 QUAN TRỌNG
+            .document(localMessage.id)
             .setData(messageData, merge: true) { error in
-                if let error {
-                    print("❌ Send failed:", error)
+                DispatchQueue.main.async {
+                    guard let index = self.messages.firstIndex(where: {
+                        $0.id == localMessage.id
+                    }) else { return }
 
-                    DispatchQueue.main.async {
-                        if let index = self.messages.firstIndex(where: {
-                            $0.id == localMessage.id
-                        }) {
-                            self.messages[index].sendStatus = .failed
-                        }
+                    if let error {
+                        print("❌ Send failed:", error)
+                        self.messages[index].sendStatus = .failed
+                    } else {
+                        self.messages[index].sendStatus = .sent
                     }
+                    self.saveOfflineMessages()
                 }
             }
 
@@ -367,7 +373,7 @@ class ChatViewModel: ObservableObject {
             seenBy: [myId: true],
             latitude: lat,
             longitude: lon,
-            sendStatus: isOnline ? .sent : .sending
+            sendStatus: .sending
         )
 
         messages.append(localMessage)
@@ -403,16 +409,18 @@ class ChatViewModel: ObservableObject {
         chatRef.collection("messages")
             .document(localMessage.id)
             .setData(messageData, merge: true) { error in
-                if let error {
-                    print("❌ Send location failed:", error)
+                DispatchQueue.main.async {
+                    guard let index = self.messages.firstIndex(where: {
+                        $0.id == localMessage.id
+                    }) else { return }
 
-                    DispatchQueue.main.async {
-                        if let index = self.messages.firstIndex(where: {
-                            $0.id == localMessage.id
-                        }) {
-                            self.messages[index].sendStatus = .failed
-                        }
+                    if let error {
+                        print("❌ Send location failed:", error)
+                        self.messages[index].sendStatus = .failed
+                    } else {
+                        self.messages[index].sendStatus = .sent
                     }
+                    self.saveOfflineMessages()
                 }
             }
 
@@ -460,25 +468,27 @@ class ChatViewModel: ObservableObject {
         let chatRef = db.collection("chats").document(eventId)
 
         chatRef.collection("messages")
-            .whereField("senderId", isNotEqualTo: myId) // 🔑 CHỈ MESSAGE CỦA NGƯỜI KIA
+            .whereField("senderId", isNotEqualTo: myId)
+            .order(by: "senderId")
+            .order(by: "timestamp", descending: true)
+            .limit(to: 100)
             .getDocuments { snap, _ in
                 guard let docs = snap?.documents else { return }
 
                 let batch = self.db.batch()
+                var hasUpdates = false
 
                 for doc in docs {
                     let seenBy = doc.data()["seenBy"] as? [String: Bool] ?? [:]
-
-                    // ⭐ CHƯA SEEN → mới update
                     if seenBy[self.myId] != true {
                         batch.updateData(
                             ["seenBy.\(self.myId)": true],
                             forDocument: doc.reference
                         )
+                        hasUpdates = true
                     }
                 }
 
-                // ⭐ CLEAR UNREAD
                 batch.updateData(
                     ["unread.\(self.myId)": false],
                     forDocument: chatRef
