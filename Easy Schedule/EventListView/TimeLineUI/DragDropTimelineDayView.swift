@@ -25,6 +25,16 @@ struct DragDropTimelineDayView: View {
     @State private var pendingSystemID      = ""
     @State private var pendingSystemMinutes = 0
 
+    // Conflict detection when moving shared events
+    private struct PendingMove {
+        let event:    CalendarEvent
+        let newStart: Date
+        let newEnd:   Date
+    }
+    @State private var pendingMove:     PendingMove?
+    @State private var moveConflicts:   [EventMoveConflict] = []
+    @State private var showConflictDialog = false
+
     private let timer = Timer.publish(every: 30, on: .main, in: .common).autoconnect()
     private let wakeID  = DragDropLayoutEngine.wakeID
     private let sleepID = DragDropLayoutEngine.sleepID
@@ -112,6 +122,43 @@ struct DragDropTimelineDayView: View {
                  ? "Update Morning Start for all days or just today?"
                  : "Update Night Sleep for all days or just today?")
         }
+        // ── Move conflict dialog ──
+        .confirmationDialog(
+            String(localized: "move_conflict_title"),
+            isPresented: $showConflictDialog,
+            titleVisibility: .visible
+        ) {
+            Button(String(localized: "move_anyway"), role: .destructive) {
+                if let m = pendingMove {
+                    eventManager.updateEvent(
+                        m.event, newTitle: m.event.title,
+                        newDate: m.newStart, newStart: m.newStart,
+                        newEnd: m.newEnd, newColorHex: m.event.colorHex
+                    )
+                }
+                pendingMove   = nil
+                moveConflicts = []
+            }
+            Button(String(localized: "cancel"), role: .cancel) {
+                pendingMove   = nil
+                moveConflicts = []
+                loadLocal()   // revert drag
+            }
+        } message: {
+            Text(conflictMessage)
+        }
+    }
+
+    // Builds a human-readable summary of who has a conflict and when.
+    private var conflictMessage: String {
+        guard !moveConflicts.isEmpty else { return "" }
+        let lines = moveConflicts.prefix(3).map { c in
+            let fmt = DateFormatter()
+            fmt.timeStyle = .short
+            let range = "\(fmt.string(from: c.conflictingStart))–\(fmt.string(from: c.conflictingEnd))"
+            return "\(c.participantName): \"\(c.conflictingEventTitle)\" \(range)"
+        }
+        return lines.joined(separator: "\n")
     }
 
     // MARK: - Helpers
@@ -122,12 +169,30 @@ struct DragDropTimelineDayView: View {
             .filter { $0.origin != .busySlot }
             .sorted { $0.startTime < $1.startTime }
 
+        // Auto-expand: push wake earlier if an event starts before it,
+        // push sleep later if an event ends after it.
+        let effectiveWake: Int = {
+            guard let earliest = src.min(by: { $0.startMinutes < $1.startMinutes }) else {
+                return storedWake
+            }
+            // Give a 15-min buffer before the earliest event
+            return min(storedWake, max(0, earliest.startMinutes - 15))
+        }()
+
+        let effectiveSleep: Int = {
+            guard let latest = src.max(by: { $0.endMinutes < $1.endMinutes }) else {
+                return storedSleep
+            }
+            // Give a 15-min buffer after the latest event end
+            return max(storedSleep, min(1439, latest.endMinutes + 15))
+        }()
+
         var result: [CalendarEvent] = []
         result.append(buildSystemEvent(id: wakeID,  label: "Morning Start",
-                                       hex: "#F4A261", minutes: storedWake))
+                                       hex: "#F4A261", minutes: effectiveWake))
         result.append(contentsOf: src)
         result.append(buildSystemEvent(id: sleepID, label: "Night Sleep",
-                                       hex: "#6C7AA6", minutes: storedSleep))
+                                       hex: "#6C7AA6", minutes: effectiveSleep))
         localEvents = result
     }
 
@@ -188,6 +253,24 @@ struct DragDropTimelineDayView: View {
             guard e.id != wakeID && e.id != sleepID else { continue }
             guard let original = events.first(where: { $0.id == e.id }) else { continue }
             guard original.startTime != e.startTime || original.endTime != e.endTime else { continue }
+
+            // For shared events, check if the new time clashes with any participant's
+            // existing events before committing to Firestore.
+            if e.participants.count > 1 {
+                let conflicts = eventManager.moveConflicts(
+                    for: original,
+                    newStart: e.startTime,
+                    newEnd: e.endTime
+                )
+                if !conflicts.isEmpty {
+                    // Surface the conflict to the user; hold the move in pendingMove.
+                    pendingMove   = PendingMove(event: original, newStart: e.startTime, newEnd: e.endTime)
+                    moveConflicts = conflicts
+                    showConflictDialog = true
+                    return  // Don't persist anything yet; revert happens if user cancels
+                }
+            }
+
             eventManager.updateEvent(original, newTitle: e.title, newDate: e.date,
                                      newStart: e.startTime, newEnd: e.endTime,
                                      newColorHex: e.colorHex)
@@ -530,6 +613,7 @@ private struct DDEventCard: View {
     @Environment(\.colorScheme) private var scheme
     @EnvironmentObject var eventManager: EventManager
     @EnvironmentObject var session: SessionStore
+    @ObservedObject private var todoStore = LocalTodoStore.shared
 
     private var myUid: String? { session.currentUserId }
     private var isMyEvent: Bool { event.createdBy == event.owner }
@@ -711,6 +795,24 @@ private struct DDEventCard: View {
 
             Spacer()
 
+            // ── Undone todo hint (personal events only) ──
+            if !isSystemEvent && event.participants.count == 1 {
+                let count = todoStore.unfinishedCount(for: event.id)
+                if count > 0 {
+                    HStack(spacing: 3) {
+                        Image(systemName: "checklist")
+                            .font(.system(size: 9, weight: .semibold))
+                        Text("\(count)")
+                            .font(.caption2.weight(.semibold))
+                    }
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(Capsule().fill(Color.orange.opacity(0.85)))
+                    .transition(.opacity.combined(with: .scale(scale: 0.85)))
+                }
+            }
+
             // ── Unread chat hint (shared events only) ──
             if !isSystemEvent && event.participants.count > 1 {
                 let meta = eventManager.chatMeta(for: event.id)
@@ -721,9 +823,7 @@ private struct DDEventCard: View {
                         .lineLimit(1)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 3)
-                        .background(
-                            Capsule().fill(Color.red.opacity(0.85))
-                        )
+                        .background(Capsule().fill(Color.red.opacity(0.85)))
                         .transition(.opacity.combined(with: .scale(scale: 0.85)))
                 }
             }

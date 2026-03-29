@@ -313,6 +313,18 @@ private extension DayCell {
 
     var dayCircle: some View {
         ZStack {
+            // ── Outer rings (new event & unread chat) ──
+            if hasNew {
+                Circle()
+                    .stroke(uiAccent.color.opacity(0.55), lineWidth: 1.5)
+                    .frame(width: width + 10, height: width + 10)
+            }
+            if unreadCount > 0 {
+                Circle()
+                    .stroke(Color.red.opacity(0.7), lineWidth: 1.5)
+                    .frame(width: width + (hasNew ? 20 : 10), height: width + (hasNew ? 20 : 10))
+            }
+
             Text(day.formatted(.dateTime.day()))
                 .font(.headline.bold())
                 .foregroundColor(isSelected ? .white : .primary)
