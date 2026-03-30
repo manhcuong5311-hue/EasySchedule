@@ -97,7 +97,7 @@ struct HorizontalDayPickerView: View {
                     }
             )
         }
-        .frame(height: 102)
+        .frame(height: UIDevice.current.userInterfaceIdiom == .pad ? 134 : 118)
     }
 
     // MARK: Week Row
@@ -163,8 +163,11 @@ struct DayCell: View {
     var dayEvents: [CalendarEvent] = []
 
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.horizontalSizeClass) private var hSizeClass
     @EnvironmentObject var uiAccent: UIAccentStore
     @State private var isPulsing = false
+
+    private var isPad: Bool { hSizeClass == .regular }
 
     var body: some View {
         VStack(spacing: 4) {
@@ -230,8 +233,26 @@ private extension DayCell {
                 .frame(height: 20)
 
             } else {
-                Color.clear.frame(height: 20)
+                // No user events — show Morning + Night sleep placeholder icons
+                HStack(spacing: 6) {
+                    placeholderIcon(systemName: "sunrise.fill",   color: .orange.opacity(0.65))
+                    placeholderIcon(systemName: "moon.stars.fill", color: Color(red: 0.45, green: 0.45, blue: 0.9).opacity(0.75))
+                }
+                .frame(height: 20)
             }
+        }
+    }
+
+    // Placeholder icon shown when a day has no user events
+    func placeholderIcon(systemName: String, color: Color) -> some View {
+        let size: CGFloat = 14
+        return ZStack {
+            Circle()
+                .fill(color.opacity(0.18))
+                .frame(width: size, height: size)
+            Image(systemName: systemName)
+                .font(.system(size: 7, weight: .medium))
+                .foregroundStyle(color)
         }
     }
 
@@ -302,7 +323,7 @@ private extension DayCell {
 private extension DayCell {
     var weekdayLabel: some View {
         Text(day.formatted(.dateTime.weekday(.short)))
-            .font(.caption)
+            .font(isPad ? .subheadline : .caption)
             .foregroundColor(.secondary)
     }
 }
@@ -326,7 +347,7 @@ private extension DayCell {
             }
 
             Text(day.formatted(.dateTime.day()))
-                .font(.headline.bold())
+                .font(isPad ? .title3.bold() : .headline.bold())
                 .foregroundColor(isSelected ? .white : .primary)
                 .frame(width: width, height: width)
                 .background(circleBackground)

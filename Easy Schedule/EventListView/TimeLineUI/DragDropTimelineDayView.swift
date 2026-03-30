@@ -79,15 +79,25 @@ struct DragDropTimelineDayView: View {
                     }
                 }
                 .background(alignment: .topLeading) {
+                    let isPad = UIDevice.current.userInterfaceIdiom == .pad
+                    // iPhone: 58 (time col) + 4 (spacing) + 25 (icon radius) = 87
+                    // iPad:   75 (time col) + 8 (spacing) + 29 (icon radius) = 112
+                    let lineOffset: CGFloat = isPad ? 112 : 87
                     DDTimelineLineView(events: localEvents, isDragging: isDragging, date: date)
-                        .padding(.leading, 87)  // 58 (time col) + 4 (spacing) + 25 (icon radius)
+                        .padding(.leading, lineOffset)
                 }
                 .overlay(alignment: .topLeading) {
                     if Calendar.current.isDateInToday(date),
                        localEvents.count > 1,
                        DragDropLayoutEngine.isNowInsideTimeline(events: localEvents) {
+                        let isPad = UIDevice.current.userInterfaceIdiom == .pad
+                        // iPhone: x=0, y-center offset = -9
+                        // iPad:   shift right by time-col diff (75-58=17), nudge down to -5
                         DDTimeNowIndicator(time: formatTime(nowMinutes))
-                            .offset(y: DragDropLayoutEngine.nowY(events: localEvents) - 9)
+                            .offset(
+                                x: isPad ? 17 : 0,
+                                y: DragDropLayoutEngine.nowY(events: localEvents) + (isPad ? -5 : -9)
+                            )
                     }
                 }
                 .transaction { t in if isDragging { t.animation = nil } }
@@ -433,7 +443,6 @@ struct DDDraggableEventRow: View {
             }
         )
         .opacity(isDragging && !isHolding ? 0.55 : 1)
-        .opacity(isPast() ? 0.5 : 1)
         .offset(x: dragOffsetX, y: dragOffsetY)
         .scaleEffect(isHolding ? 1.03 : 1)
         .shadow(color: isHolding ? .black.opacity(0.22) : .clear, radius: isHolding ? 14 : 0, y: isHolding ? 8 : 0)
@@ -687,9 +696,11 @@ private struct DDEventCard: View {
         HStack(alignment: .center, spacing: isPad ? 8 : 4) {
 
             // ── Time column ──
-            ZStack(alignment: isSystemEvent ? .center : .topLeading) {
+            ZStack(alignment: .topLeading) {
                 Text(event.formattedStartTime)
-                    .font(.system(size: isPad ? 15 : 13, weight: .semibold, design: .rounded))
+                    // System events on iPhone get 15pt (same as iPad) so they
+                    // visually match the size of regular-event start times.
+                    .font(.system(size: isSystemEvent ? 15 : (isPad ? 15 : 13), weight: .semibold, design: .rounded))
                     .monospacedDigit()
                     .foregroundStyle(isSystemEvent ? event.eventColor : .primary)
 
@@ -735,7 +746,7 @@ private struct DDEventCard: View {
                     )
                 }
             }
-            .frame(width: isPad ? 75 : 58, height: pillH, alignment: isSystemEvent ? .center : .topLeading)
+            .frame(width: isPad ? 75 : 58, height: pillH, alignment: .topLeading)
             .frame(maxHeight: .infinity, alignment: .top)
 
             // ── Icon ──
@@ -783,7 +794,8 @@ private struct DDEventCard: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(event.title)
                     .font(isPad ? .title3.weight(.semibold) : .headline)
-                    .foregroundStyle(isSystemEvent ? event.eventColor : .primary)
+                    .foregroundStyle(isSystemEvent ? event.eventColor : (isCompleted ? Color.secondary : .primary))
+                    .strikethrough(isCompleted && !isSystemEvent, color: .primary.opacity(0.55))
                     .lineLimit(1)
 
                 if shouldShowOwner {
@@ -825,7 +837,7 @@ private struct DDEventCard: View {
                     }
                 } else {
                     Text(event.formattedStartTime)
-                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                        .font(.system(size: 15, weight: .medium, design: .rounded))
                         .monospacedDigit()
                         .foregroundStyle(event.eventColor.opacity(0.8))
                 }

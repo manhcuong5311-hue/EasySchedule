@@ -117,13 +117,17 @@ struct ContentView: View {
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
+        // Extend ZStack to true screen bottom so the floating bar aligns correctly
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .ignoresSafeArea(edges: .bottom)
         .background(
-            // GeometryReader here reads the ZStack's safe-area-bounded frame,
-            // giving us the true home-indicator inset on any device.
+            // ignoresSafeArea here lets the GeometryReader report the real
+            // home-indicator inset (without it the parent constraint makes it 0).
             GeometryReader { geo in
                 Color.clear
                     .onAppear { bottomSafeArea = geo.safeAreaInsets.bottom }
             }
+            .ignoresSafeArea()
         )
         .animation(.easeInOut(duration: 0.25), value: openChatEventId)
         // =========================
