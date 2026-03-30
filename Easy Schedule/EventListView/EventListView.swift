@@ -395,8 +395,22 @@ struct EventScrollContent: View {
                 VStack(spacing: 0) {
 
 
-                    if eventsOfSelectedDay.isEmpty {
+                    // Always render the timeline — DragDropTimelineDayView builds
+                    // Morning Start + Night Sleep even when dayEvents is empty.
+                    DaySectionView(
+                        day: selectedDate,
+                        dayEvents: eventsOfSelectedDay,
+                        showOwnerLabel: showOwnerLabel,
+                        timeFontSize: timeFontSize,
+                        timeDisplayMode: timeDisplayMode,
+                        onAddEvent: onAddEvent,
+                        onShareCalendar: onShareCalendar,
+                        onBookPartner: onBookPartner
+                    )
+                    .padding(.bottom, eventsOfSelectedDay.isEmpty ? 8 : 16)
 
+                    // Empty-state prompt sits below the system events
+                    if eventsOfSelectedDay.isEmpty {
                         if isOffDay {
                             OffDayEmptyStateView(
                                 date: selectedDate,
@@ -411,21 +425,12 @@ struct EventScrollContent: View {
                                 onBookPartner: onBookPartner
                             )
                         }
-
-                    } else {
-                        DaySectionView(
-                            day: selectedDate,
-                            dayEvents: eventsOfSelectedDay,
-                            showOwnerLabel: showOwnerLabel,
-                            timeFontSize: timeFontSize,
-                            timeDisplayMode: timeDisplayMode,
-                            onAddEvent: onAddEvent,
-                            onShareCalendar: onShareCalendar,
-                            onBookPartner: onBookPartner
-                        )
-                        .padding(.bottom, 16)
                     }
                 }
+                // floatingTabBarHeight + 12 (gap) + home-indicator safe area (read in ContentView)
+                // safeAreaInsets.bottom is not directly available here; use a generous constant
+                // that matches what ContentView adds (bottomSafeArea ≈ 34 on notched devices).
+                .safeAreaPadding(.bottom)
                 .padding(.bottom, AppLayout.floatingTabBarHeight + 12)
             }
 
@@ -671,10 +676,17 @@ private struct DaySectionView: View {
             )
             
 
-            // Always render the timeline view
+            // Always render the timeline view.
+            // Merge live Firestore events with locally-cached past events for this day
+            // so that events deleted from Firestore by a cloud function still appear.
+            let liveIds = Set(dayEvents.map(\.id))
+            let pastForDay = eventManager.pastEvents.filter {
+                Calendar.current.isDate($0.startTime, inSameDayAs: day) &&
+                !liveIds.contains($0.id)
+            }
             DragDropTimelineDayView(
                 date: day,
-                events: dayEvents
+                events: dayEvents + pastForDay
             )
             .padding(.top, 8)
             .padding(.horizontal, 16)

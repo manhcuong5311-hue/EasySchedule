@@ -48,6 +48,8 @@ struct ContentView: View {
     @State private var openChatEventId: String?
     @State private var pendingChatEventId: String?
     @StateObject private var accessBadgeVM = AccessBadgeViewModel()
+    /// Physical bottom safe-area inset (home indicator height). Read once on appear.
+    @State private var bottomSafeArea: CGFloat = 0
 
     var body: some View {
 
@@ -109,10 +111,20 @@ struct ContentView: View {
                     partnersBadge: accessBadgeVM.pendingCount
                 )
                 .padding(.horizontal, 24)
-                .padding(.bottom, 12)
+                // bottomSafeArea accounts for the home-indicator zone so the bar
+                // sits 12 pt above the indicator on all devices (0 on older iPhones).
+                .padding(.bottom, bottomSafeArea + 12)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
+        .background(
+            // GeometryReader here reads the ZStack's safe-area-bounded frame,
+            // giving us the true home-indicator inset on any device.
+            GeometryReader { geo in
+                Color.clear
+                    .onAppear { bottomSafeArea = geo.safeAreaInsets.bottom }
+            }
+        )
         .animation(.easeInOut(duration: 0.25), value: openChatEventId)
         // =========================
         // LIFECYCLE – GIỮ NGUYÊN

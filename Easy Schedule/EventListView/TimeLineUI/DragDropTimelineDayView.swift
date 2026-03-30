@@ -215,8 +215,13 @@ struct DragDropTimelineDayView: View {
     }
 
     private func canEdit(_ event: CalendarEvent) -> Bool {
-        // System anchors are always draggable by the user
+        // System anchors are always draggable (wake/sleep time adjustment)
         if event.id == wakeID || event.id == sleepID { return true }
+        // Events on past days are always read-only — no drag, no Firestore writes
+        let today = Calendar.current.startOfDay(for: Date())
+        guard Calendar.current.startOfDay(for: date) >= today else { return false }
+        // Events that exist only in local past cache (Firestore already deleted them) are read-only
+        guard !eventManager.pastOnlyEventIds.contains(event.id) else { return false }
         guard let uid = session.currentUserId else { return false }
         return event.createdBy == uid
             || event.owner == uid
@@ -387,6 +392,9 @@ struct DDDraggableEventRow: View {
 
     // Tap → open chat / todo
     @State private var showActionSheet = false
+    @State private var showDeleteConfirm = false
+
+    @ObservedObject private var completionStore = EventCompletionStore.shared
 
     private let haptic = UIImpactFeedbackGenerator(style: .rigid)
     private let wakeID  = DragDropLayoutEngine.wakeID
@@ -408,7 +416,10 @@ struct DDDraggableEventRow: View {
             event: event,
             isHolding: isHolding,
             isSystemEvent: isSystemEvent,
+            isToday: isToday,
             nearSwap: abs(dragOffsetY) > 80 && isReordering && !isSystemEvent,
+            isCompleted: completionStore.isCompleted(event.id),
+            onToggleTick: { completionStore.toggle(event.id) },
             durationPreview: durationPreview,
             onResizeEnd: { translation in handleResize(translation: translation) },
             onResizeFinal: { _ in
@@ -484,7 +495,25 @@ struct DDDraggableEventRow: View {
                     eventManager.openChat(eventId: event.id)
                 }
             }
+            // Only show delete for live events (past-only local events have no Firestore doc)
+            if canEdit && !eventManager.pastOnlyEventIds.contains(event.id) {
+                Button(String(localized: "delete"), role: .destructive) {
+                    showDeleteConfirm = true
+                }
+            }
             Button(String(localized: "cancel"), role: .cancel) {}
+        }
+        .alert(
+            String(localized: "delete_event"),
+            isPresented: $showDeleteConfirm
+        ) {
+            Button(String(localized: "delete"), role: .destructive) {
+                completionStore.remove(event.id)
+                withAnimation { eventManager.deleteEvent(event) }
+            }
+            Button(String(localized: "cancel"), role: .cancel) {}
+        } message: {
+            Text(String(localized: "delete_event_confirm"))
         }
         .sheet(item: $eventManager.selectedEventWrapper) { wrapper in
             if let event = eventManager.event(for: wrapper) {
@@ -611,7 +640,10 @@ private struct DDEventCard: View {
     let event: CalendarEvent
     let isHolding: Bool
     let isSystemEvent: Bool
+    let isToday: Bool
     let nearSwap: Bool
+    var isCompleted: Bool = false
+    var onToggleTick: (() -> Void)? = nil
     var durationPreview: String? = nil
     var onResizeEnd: ((CGFloat) -> Void)? = nil
     var onResizeFinal: ((CGFloat) -> Void)? = nil
@@ -655,7 +687,7 @@ private struct DDEventCard: View {
         HStack(alignment: .center, spacing: isPad ? 8 : 4) {
 
             // ── Time column ──
-            ZStack(alignment: .topLeading) {
+            ZStack(alignment: isSystemEvent ? .center : .topLeading) {
                 Text(event.formattedStartTime)
                     .font(.system(size: isPad ? 15 : 13, weight: .semibold, design: .rounded))
                     .monospacedDigit()
@@ -703,7 +735,7 @@ private struct DDEventCard: View {
                     )
                 }
             }
-            .frame(width: isPad ? 75 : 58, height: pillH, alignment: .topLeading)
+            .frame(width: isPad ? 75 : 58, height: pillH, alignment: isSystemEvent ? .center : .topLeading)
             .frame(maxHeight: .infinity, alignment: .top)
 
             // ── Icon ──
@@ -834,7 +866,7 @@ private struct DDEventCard: View {
                 }
             }
 
-            // ── Reorder hint (regular events only) ──
+            // ── Reorder hint (regular events only, shown while holding) ──
             if isHolding && !isSystemEvent {
                 VStack(spacing: 6) {
                     Image(systemName: "arrow.up")
@@ -844,6 +876,12 @@ private struct DDEventCard: View {
                 .foregroundStyle(.secondary)
                 .opacity(nearSwap ? 1 : 0.5)
                 .transition(.opacity)
+            }
+
+            // ── Completion circle (every day, hidden while holding) ──
+            if !isHolding {
+                completionCircle
+                    .padding(.leading, 2)
             }
         }
         .padding(.vertical, 4)
@@ -870,6 +908,34 @@ private struct DDEventCard: View {
         if h > 0 && m > 0 { return "\(h)h \(m)m" }
         if h > 0 { return "\(h)h" }
         return "\(m)m"
+    }
+
+    // MARK: - Completion circle
+
+    @ViewBuilder
+    private var completionCircle: some View {
+        ZStack {
+            if isCompleted {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 22, weight: .medium))
+                    .foregroundStyle(event.eventColor)
+                    .transition(.scale(scale: 0.5).combined(with: .opacity))
+            } else {
+                Circle()
+                    .strokeBorder(Color.secondary.opacity(0.28), lineWidth: 1.5)
+                    .frame(width: 22, height: 22)
+                    .transition(.opacity)
+            }
+        }
+        .frame(width: 22, height: 22)
+        .contentShape(Circle())
+        .onTapGesture {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.72)) {
+                onToggleTick?()
+            }
+        }
+        .animation(.spring(response: 0.35, dampingFraction: 0.72), value: isCompleted)
     }
 }
 

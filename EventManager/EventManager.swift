@@ -164,6 +164,12 @@ final class EventManager: ObservableObject {
 
     @Published var pastEvents: [CalendarEvent] = []
     @Published var groupedByDay: [Date: [CalendarEvent]] = [:]
+
+    /// IDs of events living only in local pastEvents (not in the live Firestore-synced array).
+    var pastOnlyEventIds: Set<String> {
+        let liveIds = Set(events.map(\.id))
+        return Set(pastEvents.map(\.id)).subtracting(liveIds)
+    }
     @Published var userNameCache: [String: String] = [:]
 
     private let db = Firestore.firestore()
@@ -415,6 +421,8 @@ final class EventManager: ObservableObject {
                 // 4️⃣ Cleanup local
                 DispatchQueue.main.async {
                     self.events.removeAll { $0.id == ev.id }
+                    self.pastEvents.removeAll { $0.id == ev.id }
+                    EventCompletionStore.shared.remove(ev.id)
                     self.saveEvents()
                     self.updateGroupedEvents()
                 }

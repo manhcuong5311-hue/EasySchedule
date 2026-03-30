@@ -132,12 +132,12 @@ struct AddEventView: View {
                                      : String(localized: "change"))
                                     .font(.subheadline.weight(.medium))
                                     .foregroundStyle(.primary)
-                                Text(selectedIcon.isEmpty
-                                     ? "Tap to pick an icon for this event"
-                                     : selectedIcon)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
+                                if selectedIcon.isEmpty {
+                                    Text("Tap to pick an icon for this event")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                }
                             }
 
                             Spacer()
