@@ -20,6 +20,10 @@ struct DragDropTimelineDayView: View {
     @State private var isDragging  = false
     @State private var nowMinutes  = DragDropLayoutEngine.currentMinutes()
 
+    // Today-only overrides: set when user picks "Today Only" so loadLocal() won't reset them
+    @State private var todayOnlyWakeMinutes:  Int? = nil
+    @State private var todayOnlySleepMinutes: Int? = nil
+
     // System-event confirmation dialog
     @State private var showSystemDialog     = false
     @State private var pendingSystemID      = ""
@@ -53,8 +57,8 @@ struct DragDropTimelineDayView: View {
                         let liveWakeMin  = localEvents.first(where: { $0.id == wakeID  })?.startMinutes ?? storedWake
                         let liveSleepMin = localEvents.first(where: { $0.id == sleepID })?.startMinutes ?? storedSleep
                         let sysRange: ClosedRange<Int>? = isWake
-                            ? (0...(liveSleepMin - 120))          // ≥ 2 h gap before sleep
-                            : (isSleep ? ((liveWakeMin + 120)...1440) : nil)  // ≥ 2 h after wake
+                            ? (0...max(0, liveSleepMin - 120))       // ≥ 2 h gap before sleep
+                            : (isSleep ? ((liveWakeMin + 120)...1439) : nil)  // ≥ 2 h after wake, capped at 23:59
 
                         DDDraggableEventRow(
                             event: event,
@@ -187,20 +191,23 @@ struct DragDropTimelineDayView: View {
 
         // Auto-expand: push wake earlier if an event starts before it,
         // push sleep later if an event ends after it.
+        let baseWake  = todayOnlyWakeMinutes  ?? storedWake
+        let baseSleep = todayOnlySleepMinutes ?? storedSleep
+
         let effectiveWake: Int = {
             guard let earliest = src.min(by: { $0.startMinutes < $1.startMinutes }) else {
-                return storedWake
+                return baseWake
             }
             // Give a 15-min buffer before the earliest event
-            return min(storedWake, max(0, earliest.startMinutes - 15))
+            return min(baseWake, max(0, earliest.startMinutes - 15))
         }()
 
         let effectiveSleep: Int = {
             guard let latest = src.max(by: { $0.endMinutes < $1.endMinutes }) else {
-                return storedSleep
+                return baseSleep
             }
             // Give a 15-min buffer after the latest event end
-            return max(storedSleep, min(1439, latest.endMinutes + 15))
+            return max(baseSleep, min(1439, latest.endMinutes + 15))
         }()
 
         var result: [CalendarEvent] = []
@@ -265,8 +272,12 @@ struct DragDropTimelineDayView: View {
         if allDays {
             if pendingSystemID == wakeID { storedWake  = pendingSystemMinutes }
             else                         { storedSleep = pendingSystemMinutes }
+        } else {
+            // "Today Only": save as a local @State override so that any loadLocal()
+            // triggered by Firestore updates won't revert the system event position.
+            if pendingSystemID == wakeID { todayOnlyWakeMinutes  = pendingSystemMinutes }
+            else                         { todayOnlySleepMinutes = pendingSystemMinutes }
         }
-        // "Today Only": localEvents already updated during drag, AppStorage unchanged.
     }
 
     private func persistRegularChanges() {
