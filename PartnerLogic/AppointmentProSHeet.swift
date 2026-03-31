@@ -8,6 +8,18 @@ import FirebaseAuth
 import FirebaseFirestore
 
 
+// MARK: - SlotHighlight
+
+/// Describes a slot's position within the currently booked time range.
+/// Drives the visual style and per-cell animation delay in the slot grid.
+private enum SlotHighlight: Equatable {
+    case outside    // not inside the selected range
+    case rangeSole  // entire booking is exactly one slot (30 min)
+    case rangeStart // first slot of a multi-slot range
+    case rangeMid   // interior slot(s) between start and end
+    case rangeEnd   // last slot of a multi-slot range
+}
+
 struct AppointmentProSheet: View {
     @EnvironmentObject var eventManager: EventManager
     @EnvironmentObject var session: SessionStore
@@ -18,18 +30,20 @@ struct AppointmentProSheet: View {
     let sharedUserName: String?
 
     // Data
-    @State private var selectedDate:    Date     = Date()
-    @State private var selectedSlot:    ProSlot? = nil
-    @State private var busySlots:       [CalendarEvent] = []
-    @State private var partnerOffDays:  Set<Date> = []
-    @State private var partnerTier:     PremiumTier = .free
-    @State private var busyIntervals:   [(Date, Date)] = []
-    @State private var loading:         Bool = true
+    @State private var selectedDate:   Date          = Date()
+    @State private var selectedSlot:   ProSlot?      = nil
+    @State private var busySlots:      [CalendarEvent] = []
+    @State private var partnerOffDays: Set<Date>     = []
+    @State private var partnerTier:    PremiumTier   = .free
+    @State private var busyIntervals:  [(Date, Date)] = []
+    @State private var loading:        Bool           = true
 
     // Custom time
-    @State private var useCustomTime: Bool  = false
-    @State private var customStart:   Date  = Date()
-    @State private var customEnd:     Date  = Date()
+    @State private var useCustomTime: Bool = false
+    @State private var customStart:   Date = Date()
+
+    // Duration — shared between slot-grid mode and custom-time mode
+    @State private var durationMinutes: Int = 30
 
     // Input
     @State private var titleText: String = String(localized: "default_event_title")
@@ -39,10 +53,102 @@ struct AppointmentProSheet: View {
     @State private var showSuccessAlert: Bool    = false
     @State private var showPremiumAlert: Bool    = false
 
+    // Day-bounds — same keys as AddEventView so settings stay in sync
+    @AppStorage("morningStartHour") private var morningStartHour: Int = 7
+    @AppStorage("nightSleepHour")   private var nightSleepHour:   Int = 22
+
     private var cal: Calendar {
         var c = Calendar.current
         c.firstWeekday = 2
         return c
+    }
+
+    // MARK: – Duration computed
+
+    /// Max bookable duration (30-min steps, capped at 8 h) before the night
+    /// boundary, relative to the currently selected start.
+    private var maxDurationMinutes: Int {
+        let start: Date
+        if useCustomTime {
+            start = customStart
+        } else if let s = selectedSlot?.start {
+            start = s
+        } else {
+            return 480
+        }
+        return computeMaxDuration(from: start)
+    }
+
+    private var durationOptions: [Int] {
+        Array(stride(from: 30, through: max(30, maxDurationMinutes), by: 30))
+    }
+
+    private func computeMaxDuration(from start: Date) -> Int {
+        let c = Calendar.current
+        let h = c.component(.hour,   from: start)
+        let m = c.component(.minute, from: start)
+        let startTotal = h * 60 + m
+        let nightTotal = nightSleepHour * 60
+        guard nightTotal > startTotal else { return 30 }
+        let available = ((nightTotal - startTotal) / 30) * 30
+        return max(30, min(available, 480))
+    }
+
+    private func clampDuration(from start: Date) {
+        let maxM = computeMaxDuration(from: start)
+        if durationMinutes > maxM {
+            durationMinutes = max(30, (maxM / 30) * 30)
+        }
+    }
+
+    /// Returns the highlight role of `slot` relative to the current effective
+    /// booking window. Only meaningful in grid mode (not custom-time mode).
+    private func slotHighlight(for slot: ProSlot) -> SlotHighlight {
+        // Custom-time mode: the grid is read-only, no range highlight.
+        guard !useCustomTime, let eff = effectiveSlot else { return .outside }
+
+        // Is this slot's start time inside [eff.start, eff.end)?
+        guard slot.start >= eff.start, slot.start < eff.end else { return .outside }
+
+        let isFirst = slot.start == eff.start
+        // A slot is "last" when its 30-min window reaches or passes eff.end.
+        let isLast  = slot.start.addingTimeInterval(1800) >= eff.end
+
+        switch (isFirst, isLast) {
+        case (true,  true):  return .rangeSole
+        case (true,  false): return .rangeStart
+        case (false, true):  return .rangeEnd
+        default:             return .rangeMid
+        }
+    }
+
+    private func syncSlotEnd() {
+        guard let start = selectedSlot?.start else { return }
+        selectedSlot = ProSlot(
+            start: start,
+            end:   start.addingTimeInterval(Double(durationMinutes) * 60)
+        )
+    }
+
+    /// The effective booking slot used in validation and saving.
+    private var effectiveSlot: ProSlot? {
+        if useCustomTime {
+            let start = combine(selectedDate, customStart)
+            let end   = start.addingTimeInterval(Double(durationMinutes) * 60)
+            return ProSlot(start: start, end: end)
+        }
+        return selectedSlot
+    }
+
+    // MARK: – Filtered slots
+
+    private var slotsForSelectedDate: [ProSlot] {
+        generateSlots(for: selectedDate).filter { slot in
+            let h = Calendar.current.component(.hour, from: slot.start)
+            // Only show hours within the user's schedule window
+            guard morningStartHour < nightSleepHour else { return true }
+            return h >= morningStartHour && h < nightSleepHour
+        }
     }
 
     // MARK: – Body
@@ -53,12 +159,13 @@ struct AppointmentProSheet: View {
                 VStack(spacing: 16) {
                     partnerHeaderCard
                     calendarCard
+
                     if partnerOffDays.contains(Calendar.current.startOfDay(for: selectedDate)) {
                         offDayBanner
                     }
+
                     titleCard
-                    customTimeCard
-                    if !useCustomTime { slotsCard }
+                    timePickerCard         // ← unified time + duration section
                     Spacer(minLength: 24)
                 }
                 .padding()
@@ -80,7 +187,7 @@ struct AppointmentProSheet: View {
                     }
                     .disabled(
                         eventManager.isAdding
-                        || (!useCustomTime && selectedSlot == nil)
+                        || (effectiveSlot == nil)
                         || sharedUserId == nil
                         || !NetworkMonitor.shared.isOnline
                         || loading
@@ -89,16 +196,22 @@ struct AppointmentProSheet: View {
             }
             .onAppear {
                 if busySlots.isEmpty { loadBusy() }
+                resetToMorningStart()
             }
             .onChange(of: sharedUserId) { _, newValue in
                 if newValue != nil { loadBusy() }
             }
             .onChange(of: selectedDate) { _, newDate in
-                // Clear slot selection if the new date is out of range
+                // Clear slot selection when date changes
+                selectedSlot = nil
                 guard let maxDate = cal.date(
                     byAdding: .day, value: partnerMaxBookingDays, to: Date()
                 ) else { return }
                 if newDate > maxDate { selectedSlot = nil }
+                resetToMorningStart()
+            }
+            .onChange(of: durationMinutes) {
+                syncSlotEnd()
             }
             // Error alert
             .alert(item: Binding(
@@ -126,12 +239,10 @@ struct AppointmentProSheet: View {
         }
     }
 
-    // MARK: – Subviews
+    // MARK: – Partner header card
 
     private var partnerHeaderCard: some View {
         HStack(spacing: 14) {
-
-            // Avatar with initials
             ZStack {
                 Circle()
                     .fill(
@@ -142,7 +253,6 @@ struct AppointmentProSheet: View {
                         )
                     )
                     .frame(width: 50, height: 50)
-
                 Text(partnerInitials)
                     .font(.system(size: 18, weight: .semibold, design: .rounded))
                     .foregroundStyle(Color.accentColor)
@@ -155,8 +265,6 @@ struct AppointmentProSheet: View {
                 Text(sharedUserName ?? sharedUserId ?? String(localized: "no_name"))
                     .font(.subheadline.weight(.semibold))
                     .lineLimit(1)
-
-                // Tier badge
                 tierBadge
             }
 
@@ -215,6 +323,8 @@ struct AppointmentProSheet: View {
         return name.prefix(2).uppercased()
     }
 
+    // MARK: – Calendar card
+
     private var calendarCard: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 6) {
@@ -232,14 +342,16 @@ struct AppointmentProSheet: View {
 
             CalendarMiniView(
                 selectedDate: $selectedDate,
-                busySlots: busySlots,
-                offDays: partnerOffDays,
+                busySlots:    busySlots,
+                offDays:      partnerOffDays,
                 maxBookingDays: partnerMaxBookingDays
             )
         }
         .background(Color(.secondarySystemGroupedBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
     }
+
+    // MARK: – Off-day banner
 
     private var offDayBanner: some View {
         HStack(spacing: 10) {
@@ -259,6 +371,8 @@ struct AppointmentProSheet: View {
         .background(Color.orange.opacity(0.09))
         .clipShape(RoundedRectangle(cornerRadius: 14))
     }
+
+    // MARK: – Title card
 
     private var titleCard: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -286,81 +400,141 @@ struct AppointmentProSheet: View {
         .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 
-    private var customTimeCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Label(String(localized: "custom_time_section"), systemImage: "slider.horizontal.3")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .textCase(.uppercase)
+    // MARK: – Unified time picker card
 
-            Toggle(String(localized: "use_custom_time"), isOn: $useCustomTime)
-                .tint(.accentColor)
+    /// One card that contains:
+    ///  • Custom-time toggle + start wheel (when toggled on)
+    ///  • Slot grid (when toggle is off)
+    ///  • Duration presets + wheel (always, below whichever picker is active)
+    private var timePickerCard: some View {
+        VStack(alignment: .leading, spacing: 0) {
+
+            // ── Section header ────────────────────────────────────────────
+            HStack(spacing: 6) {
+                Image(systemName: "clock")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Text(String(localized: "select_time_section").uppercased())
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Spacer()
+
+                // Custom-time toggle (pill style)
+                Button {
+                    withAnimation(.easeInOut(duration: 0.22)) {
+                        useCustomTime.toggle()
+                        selectedSlot = nil
+                        if useCustomTime {
+                            clampDuration(from: customStart)
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: useCustomTime ? "pencil.circle.fill" : "pencil.circle")
+                            .font(.caption)
+                        Text(useCustomTime ? "Custom" : "Grid")
+                            .font(.caption.weight(.semibold))
+                    }
+                    .foregroundStyle(useCustomTime ? Color.accentColor : .secondary)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(
+                        Capsule()
+                            .fill(useCustomTime
+                                  ? Color.accentColor.opacity(0.12)
+                                  : Color(.systemGray5))
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 14)
+            .padding(.bottom, 12)
+
+            Divider()
+                .padding(.horizontal, 16)
 
             if useCustomTime {
+                // ── Custom start time ─────────────────────────────────────
+                customStartRow
+            } else {
+                // ── 30-min slot grid ──────────────────────────────────────
+                slotGridBody
+            }
+
+            // ── Duration section (always visible once time is chosen) ─────
+            if effectiveSlot != nil || useCustomTime {
                 Divider()
+                    .padding(.horizontal, 16)
+                    .padding(.top, 4)
 
-                VStack(spacing: 0) {
-                    HStack {
-                        Label(String(localized: "start_time"), systemImage: "clock")
-                            .font(.subheadline)
-                        Spacer()
-                        DatePicker("", selection: $customStart, displayedComponents: .hourAndMinute)
-                            .labelsHidden()
+                durationBody
+            }
+        }
+        .background(Color(.secondarySystemGroupedBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .animation(.easeInOut(duration: 0.22), value: useCustomTime)
+        .animation(.easeInOut(duration: 0.18), value: selectedSlot?.start)
+    }
+
+    // MARK: – Custom start row
+
+    private var customStartRow: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 0) {
+                // LEFT: Start time wheel
+                VStack(alignment: .leading, spacing: 8) {
+                    Label {
+                        Text(String(localized: "start_time"))
+                    } icon: {
+                        Image(systemName: "clock.fill")
+                            .foregroundStyle(Color.accentColor)
                     }
-                    .padding(.vertical, 8)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
 
-                    Divider()
-
-                    HStack {
-                        Label(String(localized: "end_time"), systemImage: "clock.badge.checkmark")
-                            .font(.subheadline)
-                        Spacer()
-                        DatePicker("", selection: $customEnd, displayedComponents: .hourAndMinute)
-                            .labelsHidden()
-                            .onChange(of: customEnd) {
-                                if customEnd <= customStart {
-                                    customEnd = Calendar.current.date(
-                                        byAdding: .minute, value: 15, to: customStart
-                                    ) ?? customEnd
-                                }
-                            }
+                    DatePicker(
+                        "",
+                        selection: $customStart,
+                        displayedComponents: .hourAndMinute
+                    )
+                    .labelsHidden()
+                    .datePickerStyle(.wheel)
+                    .frame(width: 130, height: 120)
+                    .clipped()
+                    .onChange(of: customStart) {
+                        clampDuration(from: customStart)
                     }
-                    .padding(.vertical, 8)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
 
-                let previewSlot = ProSlot(
-                    start: combine(selectedDate, customStart),
-                    end:   combine(selectedDate, customEnd)
-                )
-                if checkBusy(previewSlot) {
-                    HStack(spacing: 6) {
+                // Conflict warning (right side of custom start row)
+                if let slot = effectiveSlot, checkBusy(slot) {
+                    VStack(spacing: 6) {
                         Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.title3)
                             .foregroundStyle(.red)
                         Text(String(localized: "time_unavailable"))
                             .font(.caption)
                             .foregroundStyle(.red)
+                            .multilineTextAlignment(.center)
                     }
-                    .padding(.top, 2)
+                    .frame(maxWidth: .infinity)
                 }
-
-                Text("custom_window_hint")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
+
+            Text("custom_window_hint")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
         .padding(16)
-        .background(Color(.secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .animation(.easeInOut(duration: 0.2), value: useCustomTime)
     }
 
-    private var slotsCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Label(String(localized: "time_slots_30min"), systemImage: "clock")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .textCase(.uppercase)
+    // MARK: – Slot grid body
 
+    @ViewBuilder
+    private var slotGridBody: some View {
+        VStack(alignment: .leading, spacing: 12) {
             if isDayBlocked {
                 HStack(spacing: 8) {
                     Image(systemName: "calendar.badge.exclamationmark")
@@ -369,71 +543,269 @@ struct AppointmentProSheet: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-                .padding(.vertical, 4)
+                .padding()
+            } else if slotsForSelectedDate.isEmpty {
+                HStack {
+                    Spacer()
+                    VStack(spacing: 8) {
+                        Image(systemName: "clock.badge.exclamationmark")
+                            .font(.title2)
+                            .foregroundStyle(.secondary)
+                        Text("No time slots in your schedule window.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding(.vertical, 20)
+                    Spacer()
+                }
             } else {
                 LazyVGrid(
                     columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 4),
                     spacing: 8
                 ) {
-                    ForEach(slotsForSelectedDate, id: \.self) { slot in
-                        let pastSlot   = isPastSlot(slot)
-                        let busy       = checkBusy(slot)
-                        let blocked    = isDayBlocked || pastSlot
-                        let isSelected = selectedSlot == slot
+                    // Use enumerated so we can key on start-time (stable identity)
+                    // while still having an integer offset for nothing else.
+                    ForEach(Array(slotsForSelectedDate.enumerated()), id: \.element.start) { _, slot in
+                        let pastSlot = isPastSlot(slot)
+                        let busy     = checkBusy(slot)
+                        let blocked  = isDayBlocked || pastSlot
+                        let hl       = slotHighlight(for: slot)
 
-                        slotCell(slot: slot, isBusy: busy, isPast: pastSlot, isSelected: isSelected)
-                            .opacity(blocked ? 0.32 : 1.0)
+                        // Stagger delay: slots farther from the range start
+                        // animate in slightly later, producing a cascade wave.
+                        let rangeDelay: Double = {
+                            guard hl != .outside,
+                                  let rangeStart = effectiveSlot?.start else { return 0 }
+                            let steps = slot.start.timeIntervalSince(rangeStart) / 1800
+                            return max(0, steps) * 0.045
+                        }()
+
+                        slotCell(slot: slot, isBusy: busy, isPast: pastSlot, highlight: hl)
+                            .opacity(blocked ? 0.30 : 1.0)
                             .allowsHitTesting(!blocked)
+                            // Per-cell spring with stagger — triggers whenever this
+                            // slot's highlight role changes (enter / leave / shift range).
+                            .animation(
+                                .spring(response: 0.32, dampingFraction: 0.70)
+                                    .delay(rangeDelay),
+                                value: hl
+                            )
                             .onTapGesture {
                                 guard !isDayBlocked, !busy, !pastSlot else { return }
                                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
                                 withAnimation(.spring(response: 0.22)) {
-                                    selectedSlot = (selectedSlot == slot) ? nil : slot
+                                    if selectedSlot?.start == slot.start {
+                                        // Deselect
+                                        selectedSlot = nil
+                                    } else {
+                                        // Select: anchor start, clamp + compute end
+                                        clampDuration(from: slot.start)
+                                        selectedSlot = ProSlot(
+                                            start: slot.start,
+                                            end:   slot.start.addingTimeInterval(Double(durationMinutes) * 60)
+                                        )
+                                    }
                                 }
                             }
                     }
                 }
 
                 // Legend
-                HStack(spacing: 16) {
-                    legendDot(color: Color(.systemGray4),          label: "Available")
-                    legendDot(color: .red.opacity(0.55),           label: "Busy")
-                    legendDot(color: Color.accentColor.opacity(0.85), label: "Selected")
+                HStack(spacing: 14) {
+                    legendDot(color: Color(.systemGray4),             label: "Available")
+                    legendDot(color: .red.opacity(0.55),              label: "Busy")
+                    legendDot(color: Color.accentColor.opacity(0.90), label: "Start")
+                    legendDot(color: Color.accentColor.opacity(0.50), label: "Range")
                 }
                 .font(.caption2)
                 .padding(.top, 4)
 
-                Text(String(localized: "slot_selection_hint"))
+                Text("Tap a slot to set start time. Use Duration below to extend the range.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                    .padding(.top, 2)
             }
         }
         .padding(16)
-        .background(Color(.secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 
+    // MARK: – Duration body
+
+    /// Preset chips + wheel + end-time preview.
+    /// Shown below both the slot grid and the custom start picker.
+    private var durationBody: some View {
+        VStack(alignment: .leading, spacing: 14) {
+
+            // Header row
+            HStack(spacing: 8) {
+                Image(systemName: "timer")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Color.accentColor)
+                Text("DURATION")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+
+                Spacer()
+
+                // Live end-time badge
+                if let slot = effectiveSlot {
+                    HStack(spacing: 4) {
+                        Image(systemName: "arrow.right.circle.fill")
+                            .font(.caption2)
+                        Text(slot.end.formatted(date: .omitted, time: .shortened))
+                            .font(.caption.weight(.semibold))
+                            .monospacedDigit()
+                    }
+                    .foregroundStyle(Color.accentColor)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(
+                        Capsule()
+                            .fill(Color.accentColor.opacity(0.10))
+                    )
+                }
+            }
+
+            // ── Preset chips (1 row of 4) ─────────────────────────────────
+            HStack(spacing: 8) {
+                ForEach([30, 60, 90, 120], id: \.self) { mins in
+                    durationChip(mins)
+                }
+            }
+
+            // ── Duration wheel ────────────────────────────────────────────
+            HStack(alignment: .center, spacing: 0) {
+                Spacer()
+                Picker("", selection: $durationMinutes) {
+                    ForEach(durationOptions, id: \.self) { mins in
+                        Text(formatDuration(mins)).tag(mins)
+                    }
+                }
+                .pickerStyle(.wheel)
+                .frame(width: 160, height: 96)
+                Spacer()
+            }
+
+            // ── Busy conflict warning ─────────────────────────────────────
+            if let slot = effectiveSlot, checkBusy(slot) {
+                HStack(spacing: 6) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.red)
+                    Text(String(localized: "time_unavailable"))
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
+            }
+
+            Text("Tap a preset or spin the wheel to set the appointment length.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(16)
+    }
+
+    // MARK: – Duration chip
+
     @ViewBuilder
-    private func slotCell(slot: ProSlot, isBusy: Bool, isPast: Bool, isSelected: Bool) -> some View {
+    private func durationChip(_ mins: Int) -> some View {
+        let isSelected  = durationMinutes == mins
+        let isAvailable = durationOptions.contains(mins)
+
+        Button {
+            guard isAvailable else { return }
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            withAnimation(.spring(response: 0.2, dampingFraction: 0.75)) {
+                durationMinutes = mins
+                syncSlotEnd()
+            }
+        } label: {
+            Text(formatDuration(mins))
+                .font(.caption.weight(.semibold))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+                .background(
+                    RoundedRectangle(cornerRadius: 9)
+                        .fill(
+                            isSelected
+                                ? Color.accentColor.opacity(0.88)
+                                : isAvailable
+                                    ? Color(.systemGray5)
+                                    : Color(.systemGray6)
+                        )
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 9)
+                        .strokeBorder(
+                            isSelected ? Color.accentColor : Color.clear,
+                            lineWidth: 1.5
+                        )
+                )
+                .foregroundStyle(
+                    isSelected
+                        ? .white
+                        : isAvailable ? .primary : Color(.systemGray3)
+                )
+        }
+        .buttonStyle(.plain)
+        .disabled(!isAvailable)
+    }
+
+    // MARK: – Slot cell
+
+    @ViewBuilder
+    private func slotCell(slot: ProSlot, isBusy: Bool, isPast: Bool, highlight: SlotHighlight) -> some View {
         let label = slot.start.formatted(date: .omitted, time: .shortened)
-        let bgColor: Color = isSelected ? Color.accentColor.opacity(0.88)
-                           : isBusy    ? Color.red.opacity(0.14)
-                           : isPast    ? Color(.systemGray5)
-                           : Color(.systemGray6)
-        let fgColor: Color = isSelected ? .white
-                           : isBusy    ? .red.opacity(0.80)
-                           : isPast    ? Color(.systemGray3)
-                           : .primary
+
+        // ── Background ────────────────────────────────────────────────────
+        // Opacity gradient across the range:
+        //   rangeStart / rangeSole → brightest (anchor, user-tapped slot)
+        //   rangeEnd               → medium    (visual "landing" point)
+        //   rangeMid               → softest   (continuation fills)
+        let bgColor: Color
+        switch highlight {
+        case .rangeSole, .rangeStart: bgColor = Color.accentColor.opacity(0.92)
+        case .rangeEnd:               bgColor = Color.accentColor.opacity(0.68)
+        case .rangeMid:               bgColor = Color.accentColor.opacity(0.46)
+        case .outside:
+            bgColor = isBusy ? Color.red.opacity(0.14)
+                     : isPast ? Color(.systemGray5)
+                     : Color(.systemGray6)
+        }
+
+        // ── Foreground ────────────────────────────────────────────────────
+        let fgColor: Color
+        switch highlight {
+        case .rangeSole, .rangeStart, .rangeMid, .rangeEnd:
+            fgColor = .white
+        case .outside:
+            fgColor = isBusy ? .red.opacity(0.80)
+                     : isPast ? Color(.systemGray3)
+                     : .primary
+        }
+
+        // ── Font weight ───────────────────────────────────────────────────
+        let weight: Font.Weight
+        switch highlight {
+        case .rangeSole, .rangeStart: weight = .bold
+        case .rangeEnd:               weight = .semibold
+        case .rangeMid, .outside:     weight = .regular
+        }
+
+        // Stroke border only on the anchor (start / sole) slot so the user
+        // can always see exactly where the booking begins.
+        let hasBorder = (highlight == .rangeSole || highlight == .rangeStart)
 
         Text(label)
-            .font(.system(size: 11, weight: isSelected ? .bold : .regular, design: .monospaced))
+            .font(.system(size: 11, weight: weight, design: .monospaced))
             .frame(maxWidth: .infinity)
             .padding(.vertical, 9)
             .background(RoundedRectangle(cornerRadius: 9).fill(bgColor))
             .overlay(
                 RoundedRectangle(cornerRadius: 9)
-                    .strokeBorder(isSelected ? Color.accentColor : Color.clear, lineWidth: 1.5)
+                    .strokeBorder(
+                        hasBorder ? Color.accentColor : Color.clear,
+                        lineWidth: 1.5
+                    )
             )
             .foregroundStyle(fgColor)
     }
@@ -446,8 +818,6 @@ struct AppointmentProSheet: View {
     }
 
     // MARK: – Computed
-
-    private var slotsForSelectedDate: [ProSlot] { generateSlots(for: selectedDate) }
 
     private var isDayBlocked: Bool {
         guard let maxDate = cal.date(byAdding: .day, value: partnerMaxBookingDays, to: Date())
@@ -500,40 +870,43 @@ struct AppointmentProSheet: View {
 
     private func handleCreate() {
 
-        // ── Custom time: validate & set selectedSlot ──────────────────
+        // ── Derive slot from mode ─────────────────────────────────────────
+        let slot: ProSlot
         if useCustomTime {
-            guard customEnd > customStart else {
+            let start = combine(selectedDate, customStart)
+            let end   = start.addingTimeInterval(Double(durationMinutes) * 60)
+            guard end > start else {
                 errorMessage = String(localized: "invalid_time_range")
                 return
             }
-
-            let start = combine(selectedDate, customStart)
-            let end   = combine(selectedDate, customEnd)
-
             if cal.isDateInToday(selectedDate) && start < Date() {
                 errorMessage = String(localized: "cannot_book_past_time")
                 return
             }
-
-            selectedSlot = ProSlot(start: start, end: end)
+            slot = ProSlot(start: start, end: end)
+        } else {
+            guard let s = selectedSlot else {
+                errorMessage = String(localized: "no_time_slot_selected")
+                return
+            }
+            slot = s
         }
 
-        // ── Past date guard ────────────────────────────────────────────
+        // ── Past date guard ────────────────────────────────────────────────
         let startOfSelected = Calendar.current.startOfDay(for: selectedDate)
         let today           = Calendar.current.startOfDay(for: Date())
-
         if startOfSelected < today {
             errorMessage = String(localized: "cannot_book_past_date")
             return
         }
 
-        // ── Off-day guard ──────────────────────────────────────────────
+        // ── Off-day guard ──────────────────────────────────────────────────
         if partnerOffDays.contains(startOfSelected) {
             errorMessage = String(localized: "owner_day_off_no_booking")
             return
         }
 
-        // ── Booking range guard ────────────────────────────────────────
+        // ── Booking range guard ────────────────────────────────────────────
         let maxDate = cal.date(byAdding: .day, value: partnerMaxBookingDays, to: Date())!
         if selectedDate > maxDate {
             switch partnerTier {
@@ -544,7 +917,7 @@ struct AppointmentProSheet: View {
             return
         }
 
-        // ── Daily event limit (creator) ───────────────────────────────
+        // ── Daily event limit (creator) ───────────────────────────────────
         let creatorUid    = Auth.auth().currentUser?.uid ?? ""
         let myEventsToday = eventManager.events.filter {
             $0.createdBy == creatorUid &&
@@ -556,27 +929,31 @@ struct AppointmentProSheet: View {
             return
         }
 
-        // ── Network guard ──────────────────────────────────────────────
+        // ── Network guard ──────────────────────────────────────────────────
         guard NetworkMonitor.shared.isOnline else {
             errorMessage = String(localized: "no_internet_connection")
             return
         }
 
-        // ── Required fields ───────────────────────────────────────────
-        guard let uid  = sharedUserId  else { errorMessage = String(localized: "unknown_uid");           return }
-        guard let slot = selectedSlot  else { errorMessage = String(localized: "no_time_slot_selected"); return }
-        guard Auth.auth().currentUser != nil else { errorMessage = String(localized: "login_required"); return }
+        // ── Required fields ───────────────────────────────────────────────
+        guard let uid = sharedUserId else {
+            errorMessage = String(localized: "unknown_uid")
+            return
+        }
+        guard Auth.auth().currentUser != nil else {
+            errorMessage = String(localized: "login_required")
+            return
+        }
 
-        // ── Own-calendar conflict ─────────────────────────────────────
+        // ── Own-calendar conflict ─────────────────────────────────────────
         if checkMyOwnConflict(slot) {
             errorMessage = String(localized: "you_have_event_this_time")
             return
         }
 
-        // ── Haptic feedback ───────────────────────────────────────────
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
 
-        // ── Create booking ────────────────────────────────────────────
+        // ── Create booking ────────────────────────────────────────────────
         eventManager.addAppointment(
             forSharedUser: uid,
             title:         titleText,
@@ -586,7 +963,6 @@ struct AppointmentProSheet: View {
             DispatchQueue.main.async {
                 if success {
                     UINotificationFeedbackGenerator().notificationOccurred(.success)
-                    // Reload busy slots so the newly booked slot shows red
                     self.loadBusy()
                     self.selectedSlot = nil
                     self.showSuccessAlert = true
@@ -610,6 +986,12 @@ struct AppointmentProSheet: View {
     }
 
     // MARK: – Helpers
+
+    private func resetToMorningStart() {
+        customStart = Calendar.current.date(
+            bySettingHour: morningStartHour, minute: 0, second: 0, of: selectedDate
+        ) ?? selectedDate
+    }
 
     private func combine(_ date: Date, _ time: Date) -> Date {
         let c = Calendar.current
@@ -639,6 +1021,14 @@ struct AppointmentProSheet: View {
     private func isPastSlot(_ slot: ProSlot) -> Bool {
         guard Calendar.current.isDateInToday(slot.start) else { return false }
         return slot.start < Date().addingTimeInterval(-60)
+    }
+
+    private func formatDuration(_ minutes: Int) -> String {
+        guard minutes > 0 else { return "0m" }
+        if minutes < 60 { return "\(minutes)m" }
+        let h = minutes / 60
+        let m = minutes % 60
+        return m == 0 ? "\(h)h" : "\(h)h \(m)m"
     }
 
     struct SimpleError: Identifiable {
