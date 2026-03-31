@@ -761,35 +761,39 @@ struct AppointmentProSheet: View {
         //   rangeStart / rangeSole → brightest (anchor, user-tapped slot)
         //   rangeEnd               → medium    (visual "landing" point)
         //   rangeMid               → softest   (continuation fills)
-        let bgColor: Color
-        switch highlight {
-        case .rangeSole, .rangeStart: bgColor = Color.accentColor.opacity(0.92)
-        case .rangeEnd:               bgColor = Color.accentColor.opacity(0.68)
-        case .rangeMid:               bgColor = Color.accentColor.opacity(0.46)
-        case .outside:
-            bgColor = isBusy ? Color.red.opacity(0.14)
-                     : isPast ? Color(.systemGray5)
-                     : Color(.systemGray6)
-        }
+        // Immediately-invoked closures keep imperative switch/if logic out of
+        // the @ViewBuilder result-builder context (where every statement is
+        // interpreted as a View expression, making `x = …` produce `()` which
+        // doesn't conform to View).
+        let bgColor: Color = {
+            switch highlight {
+            case .rangeSole, .rangeStart: return Color.accentColor.opacity(0.92)
+            case .rangeEnd:               return Color.accentColor.opacity(0.68)
+            case .rangeMid:               return Color.accentColor.opacity(0.46)
+            case .outside:
+                return isBusy ? Color.red.opacity(0.14)
+                      : isPast ? Color(.systemGray5)
+                      : Color(.systemGray6)
+            }
+        }()
 
-        // ── Foreground ────────────────────────────────────────────────────
-        let fgColor: Color
-        switch highlight {
-        case .rangeSole, .rangeStart, .rangeMid, .rangeEnd:
-            fgColor = .white
-        case .outside:
-            fgColor = isBusy ? .red.opacity(0.80)
-                     : isPast ? Color(.systemGray3)
-                     : .primary
-        }
+        let fgColor: Color = {
+            switch highlight {
+            case .rangeSole, .rangeStart, .rangeMid, .rangeEnd: return .white
+            case .outside:
+                return isBusy ? .red.opacity(0.80)
+                      : isPast ? Color(.systemGray3)
+                      : .primary
+            }
+        }()
 
-        // ── Font weight ───────────────────────────────────────────────────
-        let weight: Font.Weight
-        switch highlight {
-        case .rangeSole, .rangeStart: weight = .bold
-        case .rangeEnd:               weight = .semibold
-        case .rangeMid, .outside:     weight = .regular
-        }
+        let weight: Font.Weight = {
+            switch highlight {
+            case .rangeSole, .rangeStart: return .bold
+            case .rangeEnd:               return .semibold
+            case .rangeMid, .outside:     return .regular
+            }
+        }()
 
         // Stroke border only on the anchor (start / sole) slot so the user
         // can always see exactly where the booking begins.
