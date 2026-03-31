@@ -112,6 +112,11 @@ struct DragDropTimelineDayView: View {
             }
         }
         .onAppear { loadLocal() }
+        .onChange(of: date) { _, _ in
+            todayOnlyWakeMinutes  = nil
+            todayOnlySleepMinutes = nil
+            loadLocal()
+        }
         .onChange(of: events)      { _, new in loadLocal(from: new) }
         .onChange(of: storedWake)  { _, _   in if !isDragging { loadLocal() } }
         .onChange(of: storedSleep) { _, _   in if !isDragging { loadLocal() } }
@@ -270,8 +275,14 @@ struct DragDropTimelineDayView: View {
         // which would reset localEvents and lose any unsaved regular event positions.
         persistRegularChanges()
         if allDays {
-            if pendingSystemID == wakeID { storedWake  = pendingSystemMinutes }
-            else                         { storedSleep = pendingSystemMinutes }
+            // Clear any today-only override so loadLocal() reads the fresh AppStorage value
+            if pendingSystemID == wakeID {
+                todayOnlyWakeMinutes = nil
+                storedWake  = pendingSystemMinutes
+            } else {
+                todayOnlySleepMinutes = nil
+                storedSleep = pendingSystemMinutes
+            }
         } else {
             // "Today Only": save as a local @State override, then force-reload so
             // localEvents reflects the today-only position even if a Firestore update
