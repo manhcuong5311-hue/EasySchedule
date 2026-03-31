@@ -216,8 +216,10 @@ struct DragDropTimelineDayView: View {
         }()
 
         var result: [CalendarEvent] = []
-        result.append(buildSystemEvent(id: wakeID,  label: "Morning Start",
-                                       hex: "#F4A261", minutes: effectiveWake))
+        if !eventManager.isOffDay(date) {
+            result.append(buildSystemEvent(id: wakeID,  label: "Morning Start",
+                                           hex: "#F4A261", minutes: effectiveWake))
+        }
         result.append(contentsOf: src)
         result.append(buildSystemEvent(id: sleepID, label: "Night Sleep",
                                        hex: "#6C7AA6", minutes: effectiveSleep))
@@ -512,9 +514,12 @@ struct DDDraggableEventRow: View {
                     onDragEnded(id)
                 }
         )
-        // Tap → open chat / todo (skip system events)
+        // Tap → open chat / todo (skip system events and events on past days)
         .onTapGesture {
             guard !isSystemEvent else { return }
+            let today = Calendar.current.startOfDay(for: Date())
+            let eventDay = Calendar.current.startOfDay(for: event.startTime)
+            guard eventDay >= today else { return }
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
             showActionSheet = true
         }
@@ -727,6 +732,8 @@ private struct DDEventCard: View {
                     .font(.system(size: isSystemEvent ? 15 : (isPad ? 15 : 13), weight: .semibold, design: .rounded))
                     .monospacedDigit()
                     .foregroundStyle(isSystemEvent ? event.eventColor : .primary)
+                    .opacity(nowCovering(event.startMinutes) ? 0 : 1)
+                    .animation(.easeInOut(duration: 0.2), value: nowCovering(event.startMinutes))
 
                 if !isSystemEvent {
                     HStack(spacing: 2) {
@@ -738,6 +745,8 @@ private struct DDEventCard: View {
                                     ? event.eventColor
                                     : (isHolding ? event.eventColor : Color.secondary)
                             )
+                            .opacity(nowCovering(event.endMinutes) ? 0 : 1)
+                            .animation(.easeInOut(duration: 0.2), value: nowCovering(event.endMinutes))
                         if isHolding && durationPreview == nil {
                             Image(systemName: "chevron.down")
                                 .font(.system(size: 8, weight: .bold))
@@ -914,8 +923,8 @@ private struct DDEventCard: View {
                 .transition(.opacity)
             }
 
-            // ── Completion circle (every day, hidden while holding) ──
-            if !isHolding {
+            // ── Completion circle (regular events only, hidden while holding) ──
+            if !isHolding && !isSystemEvent {
                 completionCircle
                     .padding(.leading, 2)
             }
@@ -929,6 +938,14 @@ private struct DDEventCard: View {
         guard Calendar.current.isDateInToday(event.startTime) else { return false }
         let now = DragDropLayoutEngine.currentMinutes()
         return now >= event.startMinutes && now <= event.endMinutes
+    }
+
+    /// True when the now-indicator sits within 2 minutes of the given time,
+    /// so the time label fades out to avoid overlapping the indicator.
+    private func nowCovering(_ minutes: Int) -> Bool {
+        guard isToday else { return false }
+        let now = DragDropLayoutEngine.currentMinutes()
+        return abs(now - minutes) <= 2
     }
 
     private var progressFraction: CGFloat {

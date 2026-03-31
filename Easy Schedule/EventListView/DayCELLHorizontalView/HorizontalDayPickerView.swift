@@ -308,10 +308,10 @@ private extension DayCell {
                 .font(.system(size: 10, weight: .semibold))
                 .foregroundStyle(.white)
         }
-        .scaleEffect(pulse && isPulsing ? 1.12 : 1.0)
+        .scaleEffect(pulse && isPulsing ? 1.05 : 1.0, anchor: .center)
         .animation(
             pulse
-                ? .easeInOut(duration: 1.4).repeatForever(autoreverses: true)
+                ? .easeInOut(duration: 1.6).repeatForever(autoreverses: true)
                 : .default,
             value: isPulsing
         )
