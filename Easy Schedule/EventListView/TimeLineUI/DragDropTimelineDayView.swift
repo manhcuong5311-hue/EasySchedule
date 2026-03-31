@@ -273,10 +273,12 @@ struct DragDropTimelineDayView: View {
             if pendingSystemID == wakeID { storedWake  = pendingSystemMinutes }
             else                         { storedSleep = pendingSystemMinutes }
         } else {
-            // "Today Only": save as a local @State override so that any loadLocal()
-            // triggered by Firestore updates won't revert the system event position.
+            // "Today Only": save as a local @State override, then force-reload so
+            // localEvents reflects the today-only position even if a Firestore update
+            // already reset it while the confirmation dialog was showing.
             if pendingSystemID == wakeID { todayOnlyWakeMinutes  = pendingSystemMinutes }
             else                         { todayOnlySleepMinutes = pendingSystemMinutes }
+            loadLocal()
         }
     }
 
