@@ -21,5 +21,7 @@
 		<string>remote-notification</string>
 		<string>fetch</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>Used to scan a partner's QR invitation code so you can connect your calendars.</string>
 </dict>
 </plist>

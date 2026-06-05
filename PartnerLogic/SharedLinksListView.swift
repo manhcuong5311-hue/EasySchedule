@@ -9,9 +9,9 @@ import SwiftUI
 struct SharedLinksListView: View {
 
     @EnvironmentObject var eventManager: EventManager
+    @Binding var searchText: String      // driven by the search field in the Partners header
     var onSelect: (String) -> Void
 
-    @State private var searchText: String = ""
     @State private var pendingLink: SharedLink?
     @State private var showDeleteConfirm = false
     
@@ -34,36 +34,9 @@ struct SharedLinksListView: View {
 
     var body: some View {
 
-        VStack(spacing: 16) {
+        VStack(spacing: 12) {
 
-            // 🔎 Custom Search Bar
-            HStack {
-                Image(systemName: "magnifyingglass")
-                    .foregroundColor(.secondary)
-
-                TextField(
-                    String(localized: "search_name"),
-                    text: $searchText
-                )
-                .autocapitalization(.none)
-                .disableAutocorrection(true)
-
-                if !searchText.isEmpty {
-                    Button {
-                        searchText = ""
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(.secondary)
-                    }
-                }
-            }
-            .padding(10)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color(.secondarySystemBackground))
-            )
-
-            // 📋 Content
+            // 📋 Content (search field lives in the Partners header → SharedLinksListView)
             if filteredLinks.isEmpty {
 
                 if searchText.isEmpty {
@@ -134,25 +107,16 @@ struct SharedLinkCard: View {
                         .foregroundColor(color)
                 )
 
-            VStack(alignment: .leading, spacing: 4) {
-
-                Text(displayName)
-                    .font(.system(size: 16, weight: .semibold))
-
-                Text(shortUID(link.uid))
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
+            Text(displayName)
+                .font(.system(size: 16, weight: .semibold))
+                .lineLimit(1)
 
             Spacer()
 
             statusBadge
         }
         .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color(.secondarySystemBackground))
-        )
+        .partnerCardSurface()
         .contentShape(Rectangle())
         .onTapGesture { onTap() }
 
@@ -187,19 +151,15 @@ struct SharedLinkCard: View {
         displayName.prefix(1).uppercased()
     }
 
-    private func shortUID(_ uid: String) -> String {
-        guard uid.count > 8 else { return uid }
-        return uid.prefix(4) + "…" + uid.suffix(4)
-    }
-
     @ViewBuilder
     private var statusBadge: some View {
         switch link.status {
         case .connected:
-            Label(String(localized: "connected"),
-                  systemImage: "checkmark.circle.fill")
-                .font(.caption2)
-                .foregroundColor(.green)
+            // Connected is the expected state → a quiet green dot, no label.
+            Circle()
+                .fill(.green)
+                .frame(width: 9, height: 9)
+                .accessibilityLabel(Text(String(localized: "connected")))
 
         case .pending:
             Label(String(localized: "pending"),

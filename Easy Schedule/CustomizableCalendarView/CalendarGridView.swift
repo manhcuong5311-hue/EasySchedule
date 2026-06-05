@@ -18,6 +18,7 @@ struct CalendarGridView: View {
     @Binding var selectedDate: Date?
     let eventsByDay: [Date: [CalendarEvent]]
     @EnvironmentObject var eventManager: EventManager
+    @EnvironmentObject var uiAccent: UIAccentStore
     private let calendar = Calendar.current
     private let columns = Array(repeating: GridItem(.flexible()), count: 7)
     let offDays: Set<Date>
@@ -118,61 +119,55 @@ struct CalendarGridView: View {
                     let isToday = calendar.isDateInToday(date)
                     let isOffDay = offDays.contains(where: { calendar.isDate($0, inSameDayAs: date) })
 
-                    VStack(spacing: 4) {
+                    let key = calendar.startOfDay(for: date)
+                    let eventCount = (eventsByDay[key] ?? []).count
+
+                    VStack(spacing: 2) {
                         Text("\(day)")
-                            .font(.body)
-                            .foregroundColor(isLocked ? .secondary : .primary)
-                            .frame(width: 36, height: 36)
-                            .background(
-                                Circle()
-                                    .fill(
-                                        isSelected
-                                        ? Color.accentColor.opacity(0.25)
-                                        : (isOffDay
-                                            ? Color.gray.opacity(0.4)
-                                            : (isToday
-                                                ? Color.green.opacity(0.3)
-                                                : Color.clear)
-                                        )
-                                    )
-                            )
-                            .overlay(
-                                Circle()
-                                    .stroke(
-                                        isSelected ? Color.accentColor : Color.clear,
-                                        lineWidth: 1.5
-                                    )
+                            .font(.system(size: 15,
+                                          weight: isToday ? .bold : .medium,
+                                          design: .rounded))
+                            .foregroundColor(
+                                isLocked ? .secondary
+                                : (isToday ? uiAccent.color : .primary)
                             )
 
-
-
-                        let key = calendar.startOfDay(for: date)
-                        let events = eventsByDay[key] ?? []
-
-                        VStack(spacing: 2) {
-                            // Dot màu theo sự kiện đầu tiên
-                            Circle()
-                                .frame(width: 6, height: 6)
-                                .foregroundColor(events.isEmpty ? .clear : Color(hex: events.first!.colorHex))
-
-                            // Số lượng sự kiện
-                            if events.count > 1 {
-                                Text("\(events.count)")
-                                    .font(.caption2)
-                                    .foregroundColor(.secondary)
-                            }
+                        if eventCount > 0 {
+                            Text("\(eventCount)")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundColor(.secondary)
+                        } else {
+                            Color.clear.frame(height: 11)
                         }
-
-
                     }
-                    .opacity(isLocked ? 0.35 : 1.0)
-
                     .frame(maxWidth: .infinity)
-                    .contentShape(Rectangle())
+                    .frame(height: 48)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(tileFill(eventCount: eventCount, isOff: isOffDay))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(
+                                isSelected ? uiAccent.color
+                                : isToday  ? uiAccent.color.opacity(0.5)
+                                : isOffDay ? Color.secondary.opacity(0.30)
+                                : Color.clear,
+                                lineWidth: isSelected ? 2 : 1.5
+                            )
+                    )
+                    .overlay(alignment: .topTrailing) {
+                        if isOffDay {
+                            Image(systemName: "moon.zzz.fill")
+                                .font(.system(size: 8, weight: .bold))
+                                .foregroundColor(.secondary)
+                                .padding(5)
+                        }
+                    }
+                    .opacity(isLocked ? 0.4 : 1.0)
+                    .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                     .onTapGesture {
                         guard !isLocked else { return }
-
-                        let key = calendar.startOfDay(for: date)
 
                         if !isOwner, offDays.contains(key) {
                             showOffDayAlert = true
@@ -231,6 +226,18 @@ struct CalendarGridView: View {
         date.formatted(.dateTime.month(.wide).year())
     }
 
+    // MARK: - Heatmap tile fill (background intensity scales with event count)
+    private func tileFill(eventCount: Int, isOff: Bool) -> Color {
+        if isOff { return Color.secondary.opacity(0.16) }
+        switch eventCount {
+        case 0:  return Color(.systemGray6).opacity(0.5)   // free day
+        case 1:  return uiAccent.color.opacity(0.14)
+        case 2:  return uiAccent.color.opacity(0.24)
+        case 3:  return uiAccent.color.opacity(0.34)
+        case 4:  return uiAccent.color.opacity(0.44)
+        default: return uiAccent.color.opacity(0.52)       // 5+ (busiest)
+        }
+    }
 }
 
 struct WeekPagerView: View {

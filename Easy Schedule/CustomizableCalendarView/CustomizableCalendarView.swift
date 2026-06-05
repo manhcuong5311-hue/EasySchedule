@@ -25,6 +25,14 @@ private struct BusyKey: Hashable {
 
 struct CustomizableCalendarView: View {
 
+    /// When true the view is hosted inside Tab 1's "Month" mode: no own
+    /// NavigationStack and no big "My Calendar" header (Tab 1 supplies those).
+    var embedded: Bool = false
+
+    /// Host flips this to `true` to open the add-event sheet — used by the
+    /// top-right "+" that replaced the floating FAB in embedded month mode.
+    var addRequest: Binding<Bool>? = nil
+
     // ── Environment ──────────────────────────────────────────────
     @EnvironmentObject var eventManager: EventManager
     @EnvironmentObject var guideManager: GuideManager
@@ -60,10 +68,17 @@ struct CustomizableCalendarView: View {
 
     // MARK: body
     var body: some View {
-        NavigationStack {
+        if embedded {
             ZStack {
                 mainContent
                 if guideManager.isActive(.calendarIntro) { calendarIntroOverlay }
+            }
+        } else {
+            NavigationStack {
+                ZStack {
+                    mainContent
+                    if guideManager.isActive(.calendarIntro) { calendarIntroOverlay }
+                }
             }
         }
     }
@@ -75,13 +90,15 @@ struct CustomizableCalendarView: View {
             ScrollView {
                 VStack(spacing: 0) {
 
-                    HStack(alignment: .top) {
-                        headerSection
-                        Spacer()
-                        fab
+                    if !embedded {
+                        HStack(alignment: .top) {
+                            headerSection
+                            Spacer()
+                            fab
+                        }
+                        .padding(.top, 16)
+                        .padding(.horizontal)
                     }
-                    .padding(.top, 16)
-                    .padding(.horizontal)
 
                     CalendarGridView(
                         selectedDate: $selectedDate,
@@ -92,22 +109,24 @@ struct CustomizableCalendarView: View {
                             .limits(for: PremiumStoreViewModel.shared.tier)
                             .maxBookingDaysAhead
                     )
-                    .padding(.top, 8)
+                    .padding(.top, embedded ? 14 : 8)
 
-                    // ── Settings cards ──
-                    settingsSection
-                        .padding(.top, 20)
-                        .padding(.horizontal)
+                    // ── Settings cards ── (overlap + share moved to Settings when embedded)
+                    if !embedded {
+                        settingsSection
+                            .padding(.top, 20)
+                            .padding(.horizontal)
+                    }
 
                     // ── Selected day panel ──
                     if let date = selectedDate {
                         selectedDayPanel(date: date)
-                            .padding(.top, 20)
+                            .padding(.top, embedded ? 14 : 20)
                             .padding(.horizontal)
                             .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
 
-                    Spacer(minLength: 100)
+                    Spacer(minLength: embedded ? 130 : 100)
                 }
                 .animation(.spring(response: 0.38, dampingFraction: 0.82), value: selectedDate)
             }
@@ -116,6 +135,13 @@ struct CustomizableCalendarView: View {
             cooldownToast
         }
         .toolbar(.hidden, for: .navigationBar)
+        .onChange(of: addRequest?.wrappedValue ?? false) { _, requested in
+            // Top-right "+" in the host header (embedded month mode) → add sheet.
+            if requested {
+                showAddSheet = true
+                DispatchQueue.main.async { addRequest?.wrappedValue = false }
+            }
+        }
         .sheet(isPresented: $showAddSheet)      { addEventSheet }
         .sheet(isPresented: $showBusyHoursSheet){ busyHoursSheet }
         .sheet(item: $shareItem)                { ActivityView(activityItems: [$0.url]) }

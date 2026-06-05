@@ -551,7 +551,7 @@ struct AppointmentProSheet: View {
                         Image(systemName: "clock.badge.exclamationmark")
                             .font(.title2)
                             .foregroundStyle(.secondary)
-                        Text("No time slots in your schedule window.")
+                        Text("appt_no_slots")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
@@ -621,7 +621,7 @@ struct AppointmentProSheet: View {
                 .font(.caption2)
                 .padding(.top, 4)
 
-                Text("Tap a slot to set start time. Use Duration below to extend the range.")
+                Text("appt_slot_hint")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -641,7 +641,7 @@ struct AppointmentProSheet: View {
                 Image(systemName: "timer")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(Color.accentColor)
-                Text("DURATION")
+                Text("duration_label")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
 
@@ -697,7 +697,7 @@ struct AppointmentProSheet: View {
                 }
             }
 
-            Text("Tap a preset or spin the wheel to set the appointment length.")
+            Text("appt_duration_hint")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }

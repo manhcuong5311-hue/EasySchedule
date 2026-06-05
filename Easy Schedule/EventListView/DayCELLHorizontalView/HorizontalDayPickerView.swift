@@ -234,11 +234,19 @@ private extension DayCell {
 
             } else {
                 // No user events — show Morning + Night sleep placeholder icons
+                let isToday = Calendar.current.isDateInToday(day)
                 HStack(spacing: 6) {
                     placeholderIcon(systemName: "sunrise.fill",   color: .orange.opacity(0.65))
                     placeholderIcon(systemName: "moon.stars.fill", color: Color(red: 0.45, green: 0.45, blue: 0.9).opacity(0.75))
                 }
                 .frame(height: 20)
+                .offset(x: isToday ? (isPulsing ? 1.5 : -1.5) : 0)
+                .animation(
+                    isToday
+                        ? .easeInOut(duration: 2.0).repeatForever(autoreverses: true)
+                        : .default,
+                    value: isPulsing
+                )
             }
         }
     }
@@ -309,6 +317,7 @@ private extension DayCell {
                 .foregroundStyle(.white)
         }
         .scaleEffect(pulse && isPulsing ? 1.05 : 1.0, anchor: .center)
+        .offset(x: pulse ? (isPulsing ? 1.5 : -1.5) : 0)
         .animation(
             pulse
                 ? .easeInOut(duration: 1.6).repeatForever(autoreverses: true)

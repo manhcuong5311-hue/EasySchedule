@@ -229,7 +229,7 @@ struct AddMemberSheet: View {
 
         // ❌ Không add chính mình
         if newUid == myUid {
-            error = String(localized: "add_member_error_already_in_event")
+            error = String(localized: "add_member_error_user_already_joined")
             return
         }
 

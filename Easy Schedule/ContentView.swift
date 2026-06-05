@@ -35,7 +35,6 @@ struct EventRoute: Identifiable, Hashable {
 
 enum AppTab: Hashable {
     case events
-    case calendar
     case partners
     case settings
 }
@@ -76,11 +75,6 @@ struct ContentView: View {
                             openChatEventId = chatId
                             pendingChatEventId = nil
                         }
-                    }
-
-                case .calendar:
-                    NavigationStack {
-                        CustomizableCalendarView()
                     }
 
                 case .partners:
@@ -176,15 +170,21 @@ struct AppFloatingTabBar: View {
     @Binding var selectedTab: AppTab
     let partnersBadge: Int
 
+    @EnvironmentObject private var uiAccent: UIAccentStore
+    @Environment(\.colorScheme) private var scheme
+    @Namespace private var pillNS
+
+    private var accent: Color { uiAccent.color }
+
+    // Third element is a localization key (resolved via LocalizedStringKey below).
     private let items: [(AppTab, String, String)] = [
-        (.events,   "calendar.badge.clock",  "Schedule"),
-        (.calendar, "calendar",              "Calendar"),
-        (.partners, "person.2.fill",         "Partners"),
-        (.settings, "gearshape.fill",        "Settings"),
+        (.events,   "calendar.badge.clock",  "schedule"),
+        (.partners, "person.2.fill",         "partners"),
+        (.settings, "gearshape.fill",        "settings"),
     ]
 
     var body: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: 2) {
             ForEach(items, id: \.0) { appTab, icon, label in
                 tabItem(
                     tab: appTab,
@@ -195,13 +195,28 @@ struct AppFloatingTabBar: View {
             }
         }
         .padding(.horizontal, 8)
-        .padding(.vertical, 10)
+        .padding(.vertical, 8)
         .background(
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
+            RoundedRectangle(cornerRadius: 30, style: .continuous)
                 .fill(.ultraThinMaterial)
-                .shadow(color: .black.opacity(0.13), radius: 20, x: 0, y: 6)
-                .shadow(color: .black.opacity(0.06), radius: 4, x: 0, y: 1)
         )
+        .overlay(
+            // Glassy hairline rim — brighter at top, fading down.
+            RoundedRectangle(cornerRadius: 30, style: .continuous)
+                .strokeBorder(
+                    LinearGradient(
+                        colors: scheme == .dark
+                            ? [Color.white.opacity(0.14), Color.white.opacity(0.03)]
+                            : [Color.white.opacity(0.85), Color.white.opacity(0.25)],
+                        startPoint: .top, endPoint: .bottom
+                    ),
+                    lineWidth: 0.8
+                )
+        )
+        // Layered shadows: a soft accent glow + depth + a tight contact shadow.
+        .shadow(color: accent.opacity(scheme == .dark ? 0.0 : 0.12), radius: 16, y: 8)
+        .shadow(color: .black.opacity(scheme == .dark ? 0.45 : 0.12), radius: 18, y: 8)
+        .shadow(color: .black.opacity(0.05), radius: 3, y: 1)
     }
 
     @ViewBuilder
@@ -209,45 +224,55 @@ struct AppFloatingTabBar: View {
         let isSelected = selectedTab == tab
 
         Button {
-            withAnimation(.spring(response: 0.32, dampingFraction: 0.72)) {
+            guard selectedTab != tab else { return }
+            withAnimation(.spring(response: 0.38, dampingFraction: 0.74)) {
                 selectedTab = tab
             }
             UIImpactFeedbackGenerator(style: .soft).impactOccurred()
         } label: {
-            ZStack(alignment: .topTrailing) {
-                VStack(spacing: 4) {
-                    // Icon with selection pill
-                    ZStack {
-                        if isSelected {
-                            Capsule()
-                                .fill(Color.accentColor.opacity(0.15))
-                                .frame(width: 52, height: 32)
-                        }
-                        Image(systemName: icon)
-                            .font(.system(size: 20, weight: isSelected ? .semibold : .regular))
-                            .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
-                            .symbolEffect(.bounce, value: isSelected)
+            VStack(spacing: 4) {
+
+                ZStack {
+                    // Sliding selection pill (shared geometry → glides between tabs)
+                    if isSelected {
+                        Capsule(style: .continuous)
+                            .fill(accent.opacity(0.16))
+                            .overlay(
+                                Capsule(style: .continuous)
+                                    .strokeBorder(accent.opacity(0.22), lineWidth: 0.8)
+                            )
+                            .matchedGeometryEffect(id: "tabPill", in: pillNS)
                     }
-                    .frame(height: 32)
-                    .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
 
-                    Text(label)
-                        .font(.system(size: 10, weight: isSelected ? .semibold : .regular))
-                        .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
+                    Image(systemName: icon)
+                        .font(.system(size: 19, weight: isSelected ? .semibold : .regular))
+                        .foregroundStyle(
+                            isSelected ? AnyShapeStyle(accent.gradient)
+                                       : AnyShapeStyle(Color.secondary)
+                        )
+                        .scaleEffect(isSelected ? 1.06 : 1)
+                        .shadow(color: isSelected ? accent.opacity(0.35) : .clear, radius: 5, y: 2)
+                        .symbolEffect(.bounce, value: isSelected)
                 }
-                .frame(maxWidth: .infinity)
+                .frame(width: 56, height: 34)
+                .overlay(alignment: .topTrailing) {
+                    if badge > 0 {
+                        Text(badge > 9 ? "9+" : "\(badge)")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 2)
+                            .background(Capsule().fill(Color.red))
+                            .overlay(Capsule().strokeBorder(Color(.systemBackground), lineWidth: 1.5))
+                            .offset(x: 8, y: -3)
+                    }
+                }
 
-                // Badge
-                if badge > 0 {
-                    Text(badge > 9 ? "9+" : "\(badge)")
-                        .font(.system(size: 9, weight: .bold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 5)
-                        .padding(.vertical, 2)
-                        .background(Capsule().fill(Color.red))
-                        .offset(x: -10, y: -2)
-                }
+                Text(LocalizedStringKey(label))
+                    .font(.system(size: 10, weight: isSelected ? .semibold : .medium))
+                    .foregroundStyle(isSelected ? accent : Color.secondary)
             }
+            .frame(maxWidth: .infinity)
         }
         .buttonStyle(.plain)
     }

@@ -85,6 +85,9 @@ struct EventListView: View {
 //NEWWWWWW
     @State private var didUserSelectDate = false
 
+    // Prefill start time when AddEventView is opened from a free-gap tap
+    @State private var pendingPrefillMinutes: Int? = nil
+
     
     private var eventsIntroOverlay: some View {
         GeometryReader { geo in
@@ -137,6 +140,12 @@ struct EventListView: View {
                 selectedDate: $selectedDate,
 
                 onAddEvent: {
+                    pendingPrefillMinutes = nil
+                    activeSheet = .addEvent
+                },
+
+                onAddInGap: { minutes in
+                    pendingPrefillMinutes = minutes
                     activeSheet = .addEvent
                 },
 
@@ -218,7 +227,8 @@ struct EventListView: View {
                 AddEventView(
                     prefillDate: selectedDate,
                     offDays: [],
-                    busyHours: []
+                    busyHours: [],
+                    prefillStartMinutes: pendingPrefillMinutes
                 )
                 .environmentObject(eventManager)
                 .environmentObject(session)
@@ -275,8 +285,10 @@ struct EventListView: View {
 
 
 
+enum CalendarViewMode { case day, month }   // Tab 1 Day ↔ Month switch (Phase A demo)
+
 struct EventScrollContent: View {
-    
+
     let events: [CalendarEvent]
     let showOwnerLabel: Bool
     let timeFontSize: Double
@@ -284,6 +296,7 @@ struct EventScrollContent: View {
     @Binding var selectedDate: Date
     
     let onAddEvent: () -> Void
+    let onAddInGap: (Int) -> Void
     let onShareCalendar: () -> Void
     let onBookPartner: () -> Void
     let onViewSummary: (Date) -> Void
@@ -323,6 +336,9 @@ struct EventScrollContent: View {
     @AppStorage("event_card_layout")
     private var cardLayoutRaw: String = EventCardLayout.timeline.rawValue
 
+    @State private var viewMode: CalendarViewMode = .day   // Day timeline ↔ Month grid
+    @State private var requestMonthAdd = false             // top-right "+" → month add sheet
+
     let onUserSelectDay: () -> Void
 
     private var headerHeight: CGFloat { isPad ? 72 : 56 }
@@ -339,34 +355,35 @@ struct EventScrollContent: View {
     var body: some View {
         GeometryReader { geo in
 
-            let availableHeight = max(
-                0,
-                geo.size.height
-                    - headerHeight
-                    - dayPickerHeight
-            )
+            let dayAvail   = max(0, geo.size.height - headerHeight - dayPickerHeight)
+            let monthAvail = max(0, geo.size.height - headerHeight)
 
             VStack(spacing: 0) {
 
                 headerBar
                     .frame(height: headerHeight)
 
-                HorizontalDayPickerView(
-                    selectedDate: $selectedDate,
-                    maxSelectableDate: maxSelectableDate,
-                    onUserSelectDay: { _ in
-                        onUserSelectDay()
-                    }
-                )
-                .frame(height: dayPickerHeight)
-
-                dayCard
-                    .frame(
-                        maxWidth: .infinity,
-                        maxHeight: availableHeight
+                if viewMode == .day {
+                    HorizontalDayPickerView(
+                        selectedDate: $selectedDate,
+                        maxSelectableDate: maxSelectableDate,
+                        onUserSelectDay: { _ in
+                            onUserSelectDay()
+                        }
                     )
+                    .frame(height: dayPickerHeight)
+
+                    dayCard
+                        .frame(maxWidth: .infinity, maxHeight: dayAvail)
+                        .transition(.opacity)
+                } else {
+                    // Month mode = the former Tab 2 (grid + availability), embedded,
+                    // now on the same rounded card as the day timeline.
+                    monthCard
+                        .frame(maxWidth: .infinity, maxHeight: monthAvail)
+                        .transition(.opacity)
+                }
             }
-         
             .background(
                 AppBackground.settings(scheme)
                     .ignoresSafeArea()
@@ -405,26 +422,21 @@ struct EventScrollContent: View {
                         timeDisplayMode: timeDisplayMode,
                         onAddEvent: onAddEvent,
                         onShareCalendar: onShareCalendar,
-                        onBookPartner: onBookPartner
+                        onBookPartner: onBookPartner,
+                        onAddInGap: onAddInGap
                     )
                     .padding(.bottom, eventsOfSelectedDay.isEmpty ? 8 : 16)
 
-                    // Empty-state prompt sits below the system events
-                    if eventsOfSelectedDay.isEmpty {
-                        if isOffDay {
-                            OffDayEmptyStateView(
-                                date: selectedDate,
-                                onViewSummary: {
-                                    onViewSummary(selectedDate)
-                                }
-                            )
-                        } else {
-                            EmptyEventsStateView(
-                                onAdd: onAddEvent,
-                                onShare: onShareCalendar,
-                                onBookPartner: onBookPartner
-                            )
-                        }
+                    // Off days keep their dedicated summary prompt. Normal empty
+                    // days now surface Add / Share / Book as small pills on the
+                    // timeline itself (see DDTimelineActionStack), so no card here.
+                    if eventsOfSelectedDay.isEmpty, isOffDay {
+                        OffDayEmptyStateView(
+                            date: selectedDate,
+                            onViewSummary: {
+                                onViewSummary(selectedDate)
+                            }
+                        )
                     }
                 }
                 // floatingTabBarHeight + 12 (gap) + home-indicator safe area (read in ContentView)
@@ -451,10 +463,26 @@ struct EventScrollContent: View {
         )
     }
 
+    private var monthCard: some View {
+        CustomizableCalendarView(embedded: true, addRequest: $requestMonthAdd)
+            .background(
+                AppBackground.card(scheme)
+                    .ignoresSafeArea(edges: .bottom)
+            )
+            .clipShape(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+            )
+            .shadow(
+                color: AppBackground.panelShadow(scheme),
+                radius: 12,
+                y: -2
+            )
+    }
 
-    
     private var headerBar: some View {
-        HStack {
+        HStack(spacing: 4) {
+
+            modeToggleButton
 
             BigDateHeaderView(
                 date: selectedDate,
@@ -466,27 +494,66 @@ struct EventScrollContent: View {
 
             Spacer()
 
-            Button {
-                onOpenDisplaySettings()
-            } label: {
-                Image(systemName: "paintpalette")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(uiAccent.color)
-                    .frame(width: 44, height: 44)
-                    .background(
-                        Circle()
-                            .fill(AppBackground.card(scheme))
-                    )
-                    .shadow(
-                        color: AppBackground.panelShadow(scheme),
-                        radius: 4,
-                        y: 2
-                    )
+            if viewMode == .month {
+                monthAddButton
             }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
-        // ❌ KHÔNG background ở đây
+    }
+
+    // Single icon toggle (top-left) — collapses the old Day | Month segmented
+    // control into one compact button. The glyph shows the mode you'll switch TO:
+    // grid = jump to Month, day-timeline = jump back to Day.
+    private var modeToggleButton: some View {
+        Button {
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.86)) {
+                viewMode = (viewMode == .day) ? .month : .day
+            }
+            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+        } label: {
+            Image(systemName: viewMode == .day
+                  ? "square.grid.3x3.fill"
+                  : "calendar.day.timeline.left")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(uiAccent.color)
+                .frame(width: 40, height: 40)
+                .background(Circle().fill(uiAccent.color.opacity(0.12)))
+                .overlay(Circle().stroke(uiAccent.color.opacity(0.18), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(
+            viewMode == .day
+            ? Text("switch_to_month")
+            : Text("switch_to_day")
+        )
+    }
+
+    // Primary "add" action for Month mode — top-right of the header, replacing
+    // the old floating FAB that drifted into the empty space below the grid.
+    private var monthAddButton: some View {
+        Button {
+            requestMonthAdd = true
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        } label: {
+            Image(systemName: "plus")
+                .font(.system(size: 18, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(width: 40, height: 40)
+                .background(
+                    Circle().fill(
+                        LinearGradient(
+                            colors: [uiAccent.color, uiAccent.color.opacity(0.78)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                )
+                .shadow(color: uiAccent.color.opacity(0.35), radius: 6, y: 3)
+        }
+        .buttonStyle(.plain)
+        .transition(.scale.combined(with: .opacity))
+        .accessibilityLabel(Text("add_event_label"))
     }
 
 }
@@ -607,6 +674,7 @@ private struct DaySectionView: View {
         let onAddEvent: () -> Void
         let onShareCalendar: () -> Void
         let onBookPartner: () -> Void
+        var onAddInGap: ((Int) -> Void)? = nil
     
     
     @EnvironmentObject var session: SessionStore
@@ -623,34 +691,6 @@ private struct DaySectionView: View {
 
     @EnvironmentObject var uiAccent: UIAccentStore
 
-    private var shouldShowLightSuggestion: Bool {
-        let isTodayOrFuture =
-            Calendar.current.startOfDay(for: day) >=
-            Calendar.current.startOfDay(for: Date())
-
-        let key = dayKey(day)
-
-        return isTodayOrFuture
-            && !dayEvents.isEmpty
-            && dayEvents.count < 4
-            && !collapsedDays.contains(key)
-    }
-
-
-    @AppStorage("collapsed_light_suggestion_days")
-    private var collapsedDaysRaw: String = ""
-
-    private var collapsedDays: Set<String> {
-        Set(collapsedDaysRaw.split(separator: ",").map(String.init))
-    }
-
-    private func dayKey(_ date: Date) -> String {
-        let cal = Calendar.current
-        let comps = cal.dateComponents([.year, .month, .day], from: date)
-        return "\(comps.year!)-\(comps.month!)-\(comps.day!)"
-    }
-
-    
     // Timeline is the only layout. The AppStorage key is kept for compatibility
     // but the rendered layout is always .timeline.
     @AppStorage("event_card_layout")
@@ -686,65 +726,19 @@ private struct DaySectionView: View {
             }
             DragDropTimelineDayView(
                 date: day,
-                events: dayEvents + pastForDay
+                events: dayEvents + pastForDay,
+                onAddInGap: onAddInGap,
+                onAddSelf: onAddEvent,
+                onShare: onShareCalendar,
+                onBookPartner: onBookPartner
             )
             .padding(.top, 8)
             .padding(.horizontal, 16)
-
-            
-    // ===== < 4 EVENTS SUGGESTION (BOTTOM) =====
-            if shouldShowLightSuggestion {
-                LightDaySuggestionView(
-                    onAdd: onAddEvent,
-                    onShare: onShareCalendar,
-                    onBookPartner: onBookPartner,
-                    onCollapse: {
-                        let key = dayKey(day)
-
-                        if !collapsedDays.contains(key) {
-                            let updated = collapsedDays
-                                .union([key])
-                                .joined(separator: ",")
-
-                            collapsedDaysRaw = updated
-                        }
-                    }
-                )
-
-
-                .padding(.horizontal, 16)
-                .padding(.top, 8)
-            }
         }
-        .onAppear {
-            resetCollapseIfNeeded()
-        }
-        .onChange(of: dayEvents.count) { _, _ in
-            resetCollapseIfNeeded()
-        }
-
         .padding(.vertical, 8)
     }
 
 
-
-
-    
-    private func resetCollapseIfNeeded() {
-        let key = dayKey(day)
-
-        guard dayEvents.count >= 4,
-              collapsedDays.contains(key)
-        else { return }
-
-        let updated = collapsedDays
-            .subtracting([key])
-            .joined(separator: ",")
-
-        collapsedDaysRaw = updated
-    }
-
-    
 }
 
 

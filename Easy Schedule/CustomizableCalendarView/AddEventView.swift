@@ -55,9 +55,14 @@ struct AddEventView: View {
     @State private var selectedIcon: String = ""
     @State private var showIconPicker = false
 
+    // Quick-add presets (suggested routine events)
+    @State private var selectedPresetCategory: EventCategory? = nil
+    @State private var appliedPresetID: UUID? = nil
+
     let prefillDate: Date?
     let offDays: Set<Date>
     let busyHours: [(Date, Date)]
+    var prefillStartMinutes: Int? = nil   // optional start time (minutes from midnight) when opened from a free-gap tap
 
     // Core time state
     @State private var title: String = ""
@@ -138,6 +143,9 @@ struct AddEventView: View {
         NavigationStack {
             Form {
 
+                // ── 0. Quick-add presets ──────────────────────────────────
+                presetSection
+
                 // ── 1. Title ───────────────────────────────────────────────
                 Section {
                     HStack(spacing: 12) {
@@ -174,7 +182,7 @@ struct AddEventView: View {
                                     .font(.subheadline.weight(.medium))
                                     .foregroundStyle(.primary)
                                 if selectedIcon.isEmpty {
-                                    Text("Tap to pick an icon for this event")
+                                    Text("addevent_icon_hint")
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                         .lineLimit(1)
@@ -260,7 +268,13 @@ struct AddEventView: View {
             .onAppear {
                 let d = prefillDate ?? date
                 if let prefill = prefillDate { date = prefill }
-                startTime = morningStart(for: d)
+                if let mins = prefillStartMinutes,
+                   let t = Calendar.current.date(bySettingHour: mins / 60, minute: mins % 60, second: 0, of: d) {
+                    startTime = t
+                    hasSelectedSlot = true
+                } else {
+                    startTime = morningStart(for: d)
+                }
                 syncEndTime()
             }
             // React to settings changes from DayBoundsSettingsSheet
@@ -379,7 +393,7 @@ struct AddEventView: View {
                     }
 
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Schedule hours")
+                        Text("schedule_hours")
                             .font(.subheadline.weight(.medium))
                             .foregroundStyle(.primary)
                         Text("\(hourLabel(morningStartHour)) – \(hourLabel(nightSleepHour))")
@@ -416,7 +430,7 @@ struct AddEventView: View {
                         Image(systemName: "exclamationmark.circle")
                             .font(.title2)
                             .foregroundStyle(.secondary)
-                        Text("No hours available — adjust schedule settings above.")
+                        Text("addevent_no_hours")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
@@ -506,7 +520,7 @@ struct AddEventView: View {
                 VStack(alignment: .leading, spacing: 8) {
 
                     Label {
-                        Text("Duration")
+                        Text("duration_label")
                     } icon: {
                         Image(systemName: "timer")
                             .foregroundStyle(selectedColor)
@@ -540,7 +554,7 @@ struct AddEventView: View {
                     HStack(spacing: 4) {
                         Image(systemName: "flag.checkered")
                             .font(.caption2)
-                        Text("Ends \(formattedTime(endTime))")
+                        Text(String(format: String(localized: "addevent_ends_at"), formattedTime(endTime)))
                             .font(.caption)
                             .monospacedDigit()
                     }
@@ -553,9 +567,147 @@ struct AddEventView: View {
         } header: {
             sectionHeader(String(localized: "fine_tune_time"), icon: "slider.horizontal.3")
         } footer: {
-            Text("Tap a preset or spin the wheel to set duration. The start wheel syncs from the grid above.")
+            Text("addevent_duration_hint")
                 .font(.caption)
         }
+    }
+
+    // MARK: – Section 0: Quick-add presets
+
+    private var presetSection: some View {
+        Section {
+            VStack(alignment: .leading, spacing: 10) {
+
+                // Category filter pills
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        presetCategoryPill(nil, label: String(localized: "preset_all"), icon: "sparkles")
+                        ForEach(EventCategory.allCases) { cat in
+                            presetCategoryPill(cat, label: cat.label, icon: cat.icon)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                }
+
+                // Preset cards
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 10) {
+                        ForEach(EventPresetCatalog.filtered(by: selectedPresetCategory)) { preset in
+                            presetCard(preset)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 2)
+                }
+            }
+            .padding(.vertical, 10)
+            .listRowInsets(EdgeInsets())
+            .listRowBackground(Color.clear)
+        } header: {
+            sectionHeader(String(localized: "preset_section_quick_add"), icon: "sparkles")
+        } footer: {
+            Text(String(localized: "preset_footer"))
+        }
+    }
+
+    @ViewBuilder
+    private func presetCategoryPill(_ cat: EventCategory?, label: String, icon: String) -> some View {
+        let selected = selectedPresetCategory == cat
+        Button {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.78)) {
+                selectedPresetCategory = cat
+            }
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: icon)
+                    .font(.system(size: 10, weight: .semibold))
+                Text(label)
+                    .font(.system(size: 12, weight: .semibold))
+            }
+            .padding(.horizontal, 11)
+            .padding(.vertical, 6)
+            .background(
+                selected
+                    ? (cat?.accent ?? Color.accentColor).opacity(0.9)
+                    : Color(.tertiarySystemFill)
+            )
+            .foregroundStyle(selected ? .white : .primary)
+            .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private func presetCard(_ preset: EventPreset) -> some View {
+        let c = Color(hex: preset.colorHex)
+        let isApplied = appliedPresetID == preset.id
+        Button {
+            applyPreset(preset)
+        } label: {
+            VStack(spacing: 7) {
+                ZStack {
+                    Circle()
+                        .fill(c)
+                        .frame(width: 44, height: 44)
+                        .shadow(color: c.opacity(0.45), radius: 5, y: 3)
+                    Image(systemName: preset.icon)
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(.white)
+                }
+                Text(preset.displayName)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                    .frame(maxWidth: 76)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 9)
+            .frame(width: 92)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Color(.secondarySystemGroupedBackground))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(isApplied ? c : Color.primary.opacity(0.08),
+                            lineWidth: isApplied ? 2 : 1)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// Pre-fills title / icon / color / duration (+ a suggested time of day when
+    /// the preset has one and it fits the day bounds / isn't already past).
+    private func applyPreset(_ preset: EventPreset) {
+        let isToday = Calendar.current.isDateInToday(date)
+        var newStart = startTime
+        var didSetTime = false
+
+        if let mins = preset.suggestedMinutes,
+           visibleHours.contains(mins / 60),
+           let slot = Calendar.current.date(bySettingHour: mins / 60, minute: mins % 60, second: 0, of: date),
+           !(isToday && slot <= Date()) {
+            newStart = slot
+            didSetTime = true
+        }
+
+        // Snap preset duration to a valid 30-min option, clamped to the night boundary.
+        let snapped = max(30, ((preset.durationMinutes + 15) / 30) * 30)
+        let clamped = min(snapped, computeMaxDuration(from: newStart))
+
+        withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
+            title              = preset.displayName
+            selectedIcon       = preset.icon
+            selectedColor      = Color(hex: preset.colorHex)
+            selectedColorIndex = -1            // custom color — no palette dot highlighted
+            startTime          = newStart
+            if didSetTime { hasSelectedSlot = true }
+            durationMinutes    = clamped
+            appliedPresetID    = preset.id
+        }
+        syncEndTime()
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
     }
 
     // MARK: – Duration preset chip
@@ -913,7 +1065,7 @@ struct DayBoundsSettingsSheet: View {
                 Section {
                     dayTimelinePreview
                 } header: {
-                    Label("Your day", systemImage: "eye")
+                    Label("schedule_your_day", systemImage: "eye")
                         .textCase(nil)
                         .font(.subheadline.weight(.semibold))
                 } footer: {
@@ -925,7 +1077,7 @@ struct DayBoundsSettingsSheet: View {
                         .foregroundStyle(.green)
                         .font(.caption)
                     } else {
-                        Label("Night must be later than morning.", systemImage: "exclamationmark.triangle.fill")
+                        Label("schedule_night_after_morning", systemImage: "exclamationmark.triangle.fill")
                             .foregroundStyle(.orange)
                             .font(.caption)
                     }
@@ -942,12 +1094,12 @@ struct DayBoundsSettingsSheet: View {
                     .frame(height: 130)
                     .labelsHidden()
                 } header: {
-                    Label("Morning starts at", systemImage: "sunrise.fill")
+                    Label("schedule_morning_starts", systemImage: "sunrise.fill")
                         .textCase(nil)
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.orange)
                 } footer: {
-                    Text("First selectable hour in the time picker. Default: 7 AM.")
+                    Text("schedule_morning_hint")
                         .font(.caption)
                 }
 
@@ -962,24 +1114,24 @@ struct DayBoundsSettingsSheet: View {
                     .frame(height: 130)
                     .labelsHidden()
                 } header: {
-                    Label("Night sleep at", systemImage: "moon.fill")
+                    Label("schedule_night_at", systemImage: "moon.fill")
                         .textCase(nil)
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.indigo)
                 } footer: {
-                    Text("Hours from this time onward are hidden from the picker. Default: 10 PM.")
+                    Text("schedule_night_hint")
                         .font(.caption)
                 }
 
             } // Form
-            .navigationTitle("Schedule Hours")
+            .navigationTitle("schedule_hours")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button("cancel") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
+                    Button("save") {
                         morningStartHour = localMorning
                         nightSleepHour   = localNight
                         dismiss()

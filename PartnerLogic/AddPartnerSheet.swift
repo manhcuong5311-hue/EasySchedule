@@ -11,6 +11,7 @@ struct AddPartnerSheet: View {
     @State private var errorMessage:    String? = nil
     @State private var successMessage:  String? = nil
     @State private var copiedCode:      Bool    = false
+    @State private var showScanner:     Bool    = false
 
     var body: some View {
         NavigationStack {
@@ -32,6 +33,12 @@ struct AddPartnerSheet: View {
                     Button(String(localized: "common.close")) {
                         isPresented = false
                     }
+                }
+            }
+            .sheet(isPresented: $showScanner) {
+                QRScannerSheet { code in
+                    input = code
+                    loadPartner()
                 }
             }
         }
@@ -169,6 +176,18 @@ struct AddPartnerSheet: View {
                         )
                 )
             }
+
+            // 📷 Scan the partner's QR code instead of typing
+            Button { showScanner = true } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "qrcode.viewfinder")
+                    Text(String(localized: "partner.scan_qr"))
+                        .fontWeight(.semibold)
+                }
+                .frame(maxWidth: .infinity, minHeight: 46)
+            }
+            .buttonStyle(.bordered)
+            .clipShape(RoundedRectangle(cornerRadius: 14))
 
             // Status messages
             if let error = errorMessage {

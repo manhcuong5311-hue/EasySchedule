@@ -37,6 +37,8 @@ struct PartnerCalendarTabView: View {
     @State private var alertMessage: String = ""
 
     @State private var didCopy = false
+    @State private var showQR = false
+    @State private var partnerSearch = ""   // search field in the Partners header
     @StateObject private var accessBadgeVM = AccessBadgeViewModel()
 
     let onBookPartner: () -> Void
@@ -46,6 +48,7 @@ struct PartnerCalendarTabView: View {
             ZStack {
                 mainContent
             }
+            .background(Color(.systemBackground).ignoresSafeArea())
             .safeAreaInset(edge: .top) {
                 HStack(alignment: .center) {
                     partnerHeaderView
@@ -53,12 +56,11 @@ struct PartnerCalendarTabView: View {
                     floatingAddButton
                 }
                 .padding(.horizontal, 16)
-                .padding(.top, 6)
-                .padding(.bottom, 8)
-                .background(
-                    Color(.systemBackground)
-                        .shadow(color: Color.black.opacity(0.05), radius: 6, y: 3)
-                )
+                .padding(.top, 4)
+                .padding(.bottom, 10)
+                // Same colour as the screen → the title + add button read as part
+                // of the view, not a floating bar with a drop shadow.
+                .background(Color(.systemBackground).ignoresSafeArea(edges: .top))
             }
         }
         .toolbar(.hidden, for: .navigationBar)
@@ -103,6 +105,11 @@ struct PartnerCalendarTabView: View {
             )
             .environmentObject(eventManager)
             .environmentObject(session)
+        }
+        .sheet(isPresented: $showQR) {
+            if let code = eventManager.invitationCode {
+                InvitationQRSheet(code: code, accent: uiAccent.color)
+            }
         }
         .alert(alertMessage, isPresented: $showAlert) {
             Button(String(localized: "ok"), role: .cancel) {}
@@ -177,7 +184,7 @@ struct PartnerCalendarTabView: View {
     // MARK: – Invitation Card
 
     private var invitationCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 12) {
 
             HStack(spacing: 8) {
                 Image(systemName: "qrcode")
@@ -186,17 +193,41 @@ struct PartnerCalendarTabView: View {
                 Text(String(localized: "partner.invitation_title"))
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.primary)
+                Spacer()
             }
 
             if let code = eventManager.invitationCode {
+
                 HStack(alignment: .center, spacing: 12) {
                     Text(code)
-                        .font(.system(size: 26, weight: .bold, design: .monospaced))
+                        .font(.system(size: 28, weight: .bold, design: .monospaced))
                         .foregroundColor(uiAccent.color)
                         .minimumScaleFactor(0.7)
                         .lineLimit(1)
 
                     Spacer()
+
+                    // QR → opens a big scannable code + share
+                    Button { showQR = true } label: {
+                        Image(systemName: "qrcode")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundStyle(uiAccent.color)
+                            .frame(width: 38, height: 38)
+                            .background(Circle().fill(uiAccent.color.opacity(0.10)))
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                HStack(spacing: 8) {
+                    ShareLink(item: InviteQRCode.shareText(code)) {
+                        actionPill(
+                            icon: "square.and.arrow.up",
+                            title: String(localized: "partner.share_code_short"),
+                            tint: uiAccent.color,
+                            fill: uiAccent.color.opacity(0.12)
+                        )
+                    }
+                    .buttonStyle(.plain)
 
                     Button {
                         UIPasteboard.general.string = code
@@ -206,25 +237,17 @@ struct PartnerCalendarTabView: View {
                             withAnimation(.easeInOut(duration: 0.2)) { didCopy = false }
                         }
                     } label: {
-                        HStack(spacing: 5) {
-                            Image(systemName: didCopy ? "checkmark" : "doc.on.doc.fill")
-                                .font(.system(size: 12, weight: .semibold))
-                            Text(didCopy ? "Copied!" : "Copy")
-                                .font(.caption.weight(.semibold))
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 7)
-                        .background(
-                            RoundedRectangle(cornerRadius: 10)
-                                .fill(didCopy
-                                    ? Color.green.opacity(0.12)
-                                    : uiAccent.color.opacity(0.10))
+                        actionPill(
+                            icon: didCopy ? "checkmark" : "doc.on.doc.fill",
+                            title: didCopy ? String(localized: "copied") : String(localized: "copy"),
+                            tint: didCopy ? .green : .primary,
+                            fill: didCopy ? Color.green.opacity(0.12) : Color(.tertiarySystemFill)
                         )
-                        .foregroundStyle(didCopy ? .green : uiAccent.color)
                     }
                     .buttonStyle(.plain)
                     .animation(.spring(response: 0.3), value: didCopy)
                 }
+
             } else {
                 HStack(spacing: 10) {
                     ProgressView().scaleEffect(0.85)
@@ -235,25 +258,24 @@ struct PartnerCalendarTabView: View {
                 .frame(maxWidth: .infinity, alignment: .center)
                 .padding(.vertical, 4)
             }
-
-            Divider()
-
-            Text(String(localized: "partner.invitation_subtitle"))
-                .font(.caption)
-                .foregroundStyle(.secondary)
         }
         .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 20)
-                .fill(colorScheme == .dark
-                    ? Color(.secondarySystemBackground)
-                    : Color.white)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 20)
-                .strokeBorder(uiAccent.color.opacity(0.18), lineWidth: 1)
-        )
-        .shadow(color: uiAccent.color.opacity(0.10), radius: 12, y: 5)
+        .partnerCardSurface()
+    }
+
+    /// Equal-width pill used by Share / Copy under the invitation code.
+    private func actionPill(icon: String, title: String,
+                            tint: Color, fill: Color) -> some View {
+        HStack(spacing: 5) {
+            Image(systemName: icon)
+                .font(.system(size: 12, weight: .semibold))
+            Text(title)
+                .font(.caption.weight(.semibold))
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 9)
+        .background(RoundedRectangle(cornerRadius: 10).fill(fill))
+        .foregroundStyle(tint)
     }
 
     // MARK: – Manage Access Section
@@ -263,8 +285,7 @@ struct PartnerCalendarTabView: View {
 
             sectionHeader(
                 icon: "lock.shield",
-                title: String(localized: "access.title"),
-                hint: "Control who can view your calendar and book time with you."
+                title: String(localized: "access.title")
             )
 
             manageRow(
@@ -275,46 +296,96 @@ struct PartnerCalendarTabView: View {
             ) {
                 activeSheet = .manageAccess
             }
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color(.secondarySystemBackground))
-            )
+            .partnerCardSurface()
         }
     }
 
     private var pendingAccessHint: String {
         let n = accessBadgeVM.pendingCount
         return n > 0
-            ? "\(n) pending request\(n == 1 ? "" : "s") waiting"
-            : "Approve or deny access requests"
+            ? String(format: String(localized: "access_pending_hint"), n)
+            : String(localized: "access_manage_hint")
     }
 
     // MARK: – Partners Section
 
     private var partnersSection: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
 
-            sectionHeader(
-                icon: "person.2",
-                title: partnersHeaderTitle,
-                hint: "Tap a connected partner to book an appointment on their calendar."
-            )
+            // Header row: "PARTNERS (n)" on the left, search field on the right.
+            HStack(spacing: 8) {
+                HStack(spacing: 6) {
+                    Image(systemName: "person.2")
+                        .font(.caption)
+                        .foregroundStyle(uiAccent.color)
+                    Text(partnersHeaderTitle)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .textCase(.uppercase)
+                        .lineLimit(1)
+                }
 
-            SharedLinksListView { uid in
+                Spacer(minLength: 8)
+
+                if eventManager.sharedLinks.count > 1 {
+                    partnerSearchField
+                }
+            }
+            .padding(.horizontal, 4)
+
+            if eventManager.sharedLinks.isEmpty {
+                Text(String(localized: "partner.tap_to_book_hint"))
+                    .font(.caption2)
+                    .foregroundStyle(Color(.tertiaryLabel))
+                    .padding(.horizontal, 4)
+            }
+
+            SharedLinksListView(searchText: $partnerSearch) { uid in
                 checkAccessAndOpen(uid: uid)
             }
             .environmentObject(eventManager)
         }
     }
 
+    // Compact search field shown to the right of the Partners header.
+    private var partnerSearchField: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.secondary)
+
+            TextField(String(localized: "search_short"), text: $partnerSearch)
+                .font(.subheadline)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled(true)
+                .submitLabel(.search)
+
+            if !partnerSearch.isEmpty {
+                Button {
+                    partnerSearch = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 13))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 11)
+        .padding(.vertical, 7)
+        .background(Capsule().fill(Color(.secondarySystemBackground)))
+        .frame(maxWidth: 196)
+    }
+
     private var partnersHeaderTitle: String {
         let count = eventManager.sharedLinks.count
-        return count > 0 ? "Partners (\(count))" : "Partners"
+        let base = String(localized: "partners")
+        return count > 0 ? "\(base) (\(count))" : base
     }
 
     // MARK: – Section Header Helper
 
-    private func sectionHeader(icon: String, title: String, hint: String) -> some View {
+    private func sectionHeader(icon: String, title: String, hint: String? = nil) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 6) {
                 Image(systemName: icon)
@@ -325,9 +396,11 @@ struct PartnerCalendarTabView: View {
                     .foregroundStyle(.secondary)
                     .textCase(.uppercase)
             }
-            Text(hint)
-                .font(.caption2)
-                .foregroundStyle(Color(.tertiaryLabel))
+            if let hint {
+                Text(hint)
+                    .font(.caption2)
+                    .foregroundStyle(Color(.tertiaryLabel))
+            }
         }
         .padding(.horizontal, 4)
     }

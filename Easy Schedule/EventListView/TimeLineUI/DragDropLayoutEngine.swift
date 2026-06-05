@@ -19,7 +19,8 @@ extension CalendarEvent {
         return c.component(.hour, from: endTime) * 60 + c.component(.minute, from: endTime)
     }
     var durationMinutes: Int {
-        max(0, endMinutes - startMinutes)
+        let raw = endMinutes - startMinutes
+        return raw >= 0 ? raw : raw + 1440   // event ending after midnight
     }
     var formattedStartTime: String {
         String(format: "%02d:%02d", startMinutes / 60, startMinutes % 60)
@@ -94,13 +95,22 @@ struct DragDropLayoutEngine {
                 }
             }
         }
+        // Past the last anchor (Night Sleep 23:59, whose end wraps to 00:00) →
+        // park the indicator on the last node instead of snapping back to 0.
+        if let last = events.last, now >= last.startMinutes {
+            return yPosition(for: events.count - 1, in: events)
+        }
         return 0
     }
 
     static func isNowInsideTimeline(events: [CalendarEvent]) -> Bool {
         guard let first = events.first, let last = events.last else { return false }
         let now = currentMinutes()
-        return now >= first.startMinutes && now <= last.endMinutes
+        // The Night Sleep anchor sits at 23:59, whose endTime rolls over to 00:00
+        // → endMinutes == 0. Fall back to its start so "inside the timeline" stays
+        // true through the whole evening (otherwise the now-time hides after ~18:00).
+        let upper = last.endMinutes >= last.startMinutes ? last.endMinutes : last.startMinutes
+        return now >= first.startMinutes && now <= upper
     }
 
     static func currentMinutes() -> Int {
@@ -113,7 +123,7 @@ struct DragDropLayoutEngine {
     }
 
     static func minuteDelta(from translation: CGFloat) -> Int {
-        Int(translation * 0.7 / 10)
+        Int(translation / 15)
     }
 
     // New start minutes for a regular event — does NOT clamp against system event anchors,
@@ -201,5 +211,78 @@ struct DragDropLayoutEngine {
                 } else { break }
             }
         }
+    }
+}
+
+// MARK: - Proportional timeline (Structured-style) helpers
+//
+// The card's vertical position is a pure function of its start minute, so the
+// finger maps 1:1 to time while dragging — no rubber-band, no compounding.
+
+extension DragDropLayoutEngine {
+
+    /// Pixels per minute — shared with the existing proportional timeline scale.
+    static var minuteHeight: CGFloat { TimelineLayout.minuteHeight }
+
+    /// Minimum card heights so short events / anchors stay readable.
+    static let minCardHeight: CGFloat = 30
+    static let systemCardHeight: CGFloat = 40
+
+    /// Proportional pixel height of a card based on its duration.
+    static func pxHeight(_ event: CalendarEvent) -> CGFloat {
+        if event.id == wakeID || event.id == sleepID { return systemCardHeight }
+        let d = event.durationMinutes
+        return max(minCardHeight, CGFloat(d) * minuteHeight)
+    }
+
+    /// Hour-aligned [start, end] minute bounds of the day grid, derived from the
+    /// wake/sleep anchors (falling back to the events themselves on off-days).
+    static func gridBounds(events: [CalendarEvent]) -> (start: Int, end: Int) {
+        let regular  = events.filter { $0.id != wakeID && $0.id != sleepID }
+        let wakeMin  = events.first(where: { $0.id == wakeID  })?.startMinutes
+        let sleepMin = events.first(where: { $0.id == sleepID })?.startMinutes
+
+        let lo = [wakeMin,  regular.map(\.startMinutes).min()].compactMap { $0 }.min() ?? 480
+        let hi = [sleepMin, regular.map(\.endMinutes).max()].compactMap { $0 }.max() ?? 1320
+
+        let startHour = max(0, lo / 60)
+        let endHour   = min(24, (hi + 59) / 60)
+        return (startHour * 60, max(endHour, startHour + 1) * 60)
+    }
+
+    /// Y offset (pt) of a given minute relative to the grid top.
+    static func y(forMinute minute: Int, gridStartMin: Int) -> CGFloat {
+        CGFloat(minute - gridStartMin) * minuteHeight
+    }
+
+    /// New start minute for a free (1:1) vertical drag: original start + pixel delta
+    /// converted straight to minutes, snapped to the grid, clamped inside the window.
+    static func freeStart(originalStart: Int,
+                          translationPx: CGFloat,
+                          duration: Int,
+                          window: ClosedRange<Int>) -> Int {
+        let deltaMin = Int((translationPx / minuteHeight).rounded())
+        let snapped  = snap(originalStart + deltaMin)
+        return max(window.lowerBound, min(window.upperBound - duration, snapped))
+    }
+
+    /// Magnetic pull toward the previous event's end and the nearest hour mark.
+    static func magneticSnap(_ minutes: Int, movedID: String, in events: [CalendarEvent]) -> Int {
+        var result = minutes
+        let pullRadius = 8
+        let gap = 5
+
+        let neighbors = events.filter { $0.id != movedID && $0.id != wakeID && $0.id != sleepID }
+        if let prev = neighbors
+            .filter({ $0.endMinutes <= minutes + pullRadius })
+            .max(by: { $0.endMinutes < $1.endMinutes }) {
+            let target = prev.endMinutes + gap
+            if abs(result - target) <= pullRadius { result = target }
+        }
+
+        let hourMins = (result / 60) * 60
+        if result - hourMins < 5 { result = hourMins }
+        else if (hourMins + 60) - result < 5 { result = hourMins + 60 }
+        return result
     }
 }

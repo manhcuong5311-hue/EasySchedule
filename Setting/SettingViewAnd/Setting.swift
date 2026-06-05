@@ -39,10 +39,14 @@ struct SettingsView: View {
     @State private var showLogoutAlert = false
     @State private var showPrivacySheet = false
     @State private var showUpgradeSheet = false
+    @State private var showDisplaySettings = false   // moved here from Tab 1's header button
+    @State private var settingsShareItem: ShareItem? = nil   // share booking link (moved from old Tab 2)
 
     // MARK: - Environment Objects
     @EnvironmentObject var session: SessionStore
     @EnvironmentObject var premium: PremiumStoreViewModel
+    @EnvironmentObject var eventManager: EventManager
+    @EnvironmentObject var uiAccent: UIAccentStore
     @State private var didFinishInitialLoad = false
     @State private var showNotificationSettingsAlert = false
 
@@ -61,15 +65,17 @@ struct SettingsView: View {
         NavigationStack {
             Form {
 
+                profileHeader
+
                 if premium.isLoaded && premium.tier != .pro {
                     premiumBanner
                 }
 
                 notificationsSection
                 appearanceSection
+                availabilitySection
                 accountSection
                 supportSection
-                accountActionsSection
                 versionSection
 
             }
@@ -96,6 +102,12 @@ struct SettingsView: View {
             .sheet(isPresented: $showPrivacySheet) {
                 PrivacyPolicyView()
             }
+            .sheet(isPresented: $showDisplaySettings) {
+                DisplaySettingsSheet()
+            }
+            .sheet(item: $settingsShareItem) { item in
+                ActivityView(activityItems: [item.url])
+            }
             .sheet(isPresented: $showPremiumIntro) {
                 PremiumIntroView(
                     isPresented: $showPremiumIntro,
@@ -106,28 +118,123 @@ struct SettingsView: View {
             }
              
             .confirmationDialog(
-                "Developer Menu",
+                "dev_menu_title",
                 isPresented: $showDevMenu,
                 titleVisibility: .visible
             ) {
 
-                Button("Open Onboarding") {
+                Button("dev_open_onboarding") {
                     showDevMenu = false
                     
                     // 🔥 Reset flag như nút cũ
                     UserDefaults.standard.set(false, forKey: "hasSeenOnboarding")
                 }
 
-                Button("Open Premium Intro") {
+                Button("dev_open_premium_intro") {
                     showPremiumIntro = true
                 }
 
-                Button("Open Upgrade Sheet") {
+                Button("dev_open_upgrade") {
                     showUpgradeSheet = true
                 }
 
                 Button("Cancel", role: .cancel) {}
             }
+        }
+    }
+}
+
+import SwiftUI
+
+// MARK: - Profile header + shared row helpers
+
+extension SettingsView {
+
+    /// Account header: avatar + display name + plan badge, taps through to the
+    /// account-management hub (logout / delete). Replaces the buried name row.
+    var profileHeader: some View {
+        Section {
+            NavigationLink {
+                UpdateUserNameView()
+            } label: {
+                HStack(spacing: 14) {
+                    ZStack(alignment: .bottomTrailing) {
+                        ZStack {
+                            Circle()
+                                .fill(
+                                    LinearGradient(
+                                        colors: [uiAccent.color, uiAccent.color.opacity(0.75)],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                                .frame(width: 56, height: 56)
+                            Text(profileInitial)
+                                .font(.system(size: 24, weight: .semibold, design: .rounded))
+                                .foregroundStyle(.white)
+                        }
+
+                        // Editable-avatar pencil badge → signals the row edits the name
+                        Circle()
+                            .fill(Color(.systemBackground))
+                            .frame(width: 22, height: 22)
+                            .overlay(
+                                Image(systemName: "pencil")
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundStyle(uiAccent.color)
+                            )
+                    }
+
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(profileName)
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(.primary)
+                        planBadge
+                    }
+                }
+                .padding(.vertical, 6)
+            }
+        }
+    }
+
+    private var profileName: String {
+        session.currentUserName.isEmpty
+            ? String(localized: "not_set")
+            : session.currentUserName
+    }
+
+    private var profileInitial: String {
+        let trimmed = session.currentUserName.trimmingCharacters(in: .whitespaces)
+        return trimmed.isEmpty ? "?" : trimmed.prefix(1).uppercased()
+    }
+
+    private var planBadge: some View {
+        let isPro = premium.tier != .free
+        let tint: Color = isPro ? .orange : .secondary
+        return HStack(spacing: 4) {
+            Image(systemName: isPro ? "crown.fill" : "person.fill")
+                .font(.system(size: 10, weight: .bold))
+            Text(premium.tier.displayName)
+                .font(.caption.weight(.semibold))
+        }
+        .foregroundStyle(tint)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 3)
+        .background(Capsule().fill(tint.opacity(0.15)))
+    }
+
+    /// A settings row label with a tinted rounded-square icon (iOS-Settings look).
+    func iconLabel(_ title: String, _ systemName: String, _ color: Color) -> some View {
+        Label {
+            Text(title)
+        } icon: {
+            Image(systemName: systemName)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 28, height: 28)
+                .background(
+                    RoundedRectangle(cornerRadius: 7, style: .continuous).fill(color)
+                )
         }
     }
 }
@@ -142,8 +249,13 @@ extension SettingsView {
             footer: bottomSpacer
         ) {
             VStack(spacing: 8) {
+                Image(systemName: "calendar.circle.fill")
+                    .font(.system(size: 30))
+                    .foregroundStyle(uiAccent.color)
+                    .padding(.bottom, 2)
+
                 Text("Easy Schedule")
-                    .font(.footnote)
+                    .font(.footnote.weight(.semibold))
                     .foregroundColor(.secondary)
 
                 Text(appVersionText)
@@ -206,7 +318,7 @@ extension SettingsView {
         Section(header: Text(String(localized: "notifications"))) {
 
             Toggle(isOn: $pushNotificationsEnabled) {
-                Label(String(localized: "notify_before_event"), systemImage: "bell.fill")
+                iconLabel(String(localized: "notify_before_event"), "bell.fill", .red)
             }
             .onChange(of: pushNotificationsEnabled) { _, enabled in
                 guard didFinishInitialLoad else { return }
@@ -222,7 +334,7 @@ extension SettingsView {
                     .tag(value)
                 }
             } label: {
-                Label(String(localized: "remind_before"), systemImage: "clock")
+                iconLabel(String(localized: "remind_before"), "clock", .orange)
             }
             .disabled(!pushNotificationsEnabled)
         }
@@ -261,33 +373,63 @@ extension SettingsView {
                 Text(String(localized: "light")).tag("light")
                 Text(String(localized: "dark")).tag("dark")
             } label: {
-                Label(String(localized: "display_mode"),
-                      systemImage: "circle.lefthalf.filled")
+                iconLabel(String(localized: "display_mode"),
+                          "circle.lefthalf.filled", .indigo)
             }
             .pickerStyle(.segmented)
+
+            // Timeline / card display options (was the paintpalette button on Tab 1)
+            Button {
+                showDisplaySettings = true
+            } label: {
+                HStack {
+                    iconLabel(String(localized: "display_settings"), "paintpalette", .pink)
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.tertiary)
+                }
+            }
+            .tint(.primary)
+        }
+    }
+}
+
+extension SettingsView {
+
+    // Booking-availability controls (moved out of the old Calendar tab to declutter it)
+    var availabilitySection: some View {
+        Section(header: Text("availability_section")) {
+
+            Toggle(isOn: Binding(
+                get: { eventManager.allowDuplicateEvents },
+                set: { eventManager.allowDuplicateEvents = $0 }
+            )) {
+                iconLabel(String(localized: "allow_conflict"),
+                          "arrow.triangle.2.circlepath", .teal)
+            }
+
+            Button {
+                if let uid = Auth.auth().currentUser?.uid,
+                   let url = URL(string: "https://easyschedule-ce98a.web.app/calendar/\(uid)") {
+                    settingsShareItem = ShareItem(url: url)
+                }
+            } label: {
+                HStack {
+                    iconLabel(String(localized: "share_calendar"),
+                              "square.and.arrow.up", .blue)
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.tertiary)
+                }
+            }
+            .tint(.primary)
         }
     }
 }
 
 // Settings+Account.swift
-
-extension SettingsView {
-
-    var accountActionsSection: some View {
-        Section(header: Text(String(localized: "account_section"))) {
-
-            NavigationLink {
-                AccountSettingsView()
-                    .environmentObject(session)
-            } label: {
-                Label(
-                    String(localized: "account_management"),
-                    systemImage: "person.crop.circle"
-                )
-            }
-        }
-    }
-}
 
 import UserNotifications
 import UIKit
@@ -333,23 +475,6 @@ extension SettingsView {
     var accountSection: some View {
         Section(header: Text(String(localized: "account_and_premium"))) {
 
-            HStack {
-                Label(String(localized: "display_name"), systemImage: "person.fill")
-                Spacer()
-                Text(
-                    session.currentUserName.isEmpty
-                    ? String(localized: "not_set")
-                    : session.currentUserName
-                )
-                .foregroundColor(.secondary)
-            }
-
-            NavigationLink {
-                UpdateUserNameView()
-            } label: {
-                Label(String(localized: "change_display_name"), systemImage: "pencil")
-            }
-
             Button {
                 showUpgradeSheet = true
             } label: {
@@ -359,18 +484,26 @@ extension SettingsView {
             NavigationLink {
                 SecuritySettingsView()
             } label: {
-                Label(String(localized: "security_management"), systemImage: "lock.shield")
+                iconLabel(String(localized: "security_management"), "lock.shield", .green)
+            }
+
+            NavigationLink {
+                AccountSettingsView()
+                    .environmentObject(session)
+            } label: {
+                iconLabel(String(localized: "account_management"), "person.crop.circle", .blue)
             }
         }
     }
 
     var premiumRow: some View {
         HStack {
-            Label(
+            iconLabel(
                 premium.tier == .free
                 ? String(localized: "upgrade_account")
                 : String(localized: "pro_active"),
-                systemImage: "crown.fill"
+                "crown.fill",
+                .orange
             )
             Spacer()
             Text(premium.tier.displayName)
@@ -396,8 +529,8 @@ extension SettingsView {
                 )
                 .shadow(
                     color: AppBackground.panelShadow(colorScheme),
-                    radius: 18,
-                    y: 8
+                    radius: 12,
+                    y: 6
                 )
 
         }
@@ -420,20 +553,20 @@ extension SettingsView {
             Button {
                 showPrivacySheet = true
             } label: {
-                Label(String(localized: "privacy_policy_and_info"),
-                      systemImage: "doc.text")
+                iconLabel(String(localized: "privacy_policy_and_info"),
+                          "doc.text", .gray)
             }
 
             Button(action: contactSupport) {
-                Label(String(localized: "contact_support"),
-                      systemImage: "envelope")
+                iconLabel(String(localized: "contact_support"),
+                          "envelope", .blue)
             }
 
             NavigationLink {
                 FAQView()
             } label: {
-                Label(String(localized: "faq"),
-                      systemImage: "questionmark.circle")
+                iconLabel(String(localized: "faq"),
+                          "questionmark.circle", .indigo)
             }
         }
     }

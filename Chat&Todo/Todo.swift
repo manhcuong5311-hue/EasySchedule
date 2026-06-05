@@ -131,7 +131,7 @@ struct TodoListView: View {
     let chatId: String
     let myId: String
     @State private var showPaywall = false
-    @StateObject private var vm: TodoViewModel
+    @ObservedObject private var vm: TodoViewModel
     @ObservedObject private var nameCache = SessionStore.UserNameCache.shared
     
     @ObservedObject private var network = NetworkMonitor.shared
@@ -154,15 +154,15 @@ struct TodoListView: View {
 
 
 
-    init(chatId: String, myId: String) {
-        self.chatId = chatId
-        self.myId = myId
-        _vm = StateObject(wrappedValue: TodoViewModel(chatId: chatId, myId: myId))
+    init(vm: TodoViewModel) {
+        self.vm = vm
+        self.chatId = vm.chatId
+        self.myId = vm.myId
     }
 
     var body: some View {
-        NavigationView {
-            VStack {
+        NavigationStack {
+            VStack(spacing: 0) {
                 
                 // ===== OFFLINE BANNER =====
                 if !network.isOnline {
@@ -172,17 +172,48 @@ struct TodoListView: View {
                    }
 
 
-                  List {
-                      ForEach(vm.todos) { item in
-                          todoRow(item)
-                      }
-                      .onDelete { indexSet in
-                          if let index = indexSet.first {
-                              todoToDelete = vm.todos[index]
-                              showDeleteConfirm = true
-                          }
-                      }
-                  }
+                if !vm.todos.isEmpty {
+                    todoProgressBar
+                }
+
+                if vm.todos.isEmpty {
+                    todoEmptyState
+                } else {
+                    List {
+                        if !activeTodos.isEmpty {
+                            Section {
+                                ForEach(activeTodos) { item in
+                                    todoRow(item)
+                                }
+                                .onDelete { idx in
+                                    if let i = idx.first {
+                                        todoToDelete = activeTodos[i]
+                                        showDeleteConfirm = true
+                                    }
+                                }
+                            } header: {
+                                Text("\(String(localized: "todo_section_active")) (\(activeTodos.count))")
+                            }
+                        }
+
+                        if !doneTodos.isEmpty {
+                            Section {
+                                ForEach(doneTodos) { item in
+                                    todoRow(item)
+                                }
+                                .onDelete { idx in
+                                    if let i = idx.first {
+                                        todoToDelete = doneTodos[i]
+                                        showDeleteConfirm = true
+                                    }
+                                }
+                            } header: {
+                                Text("\(String(localized: "todo_section_done")) (\(doneTodos.count))")
+                            }
+                        }
+                    }
+                    .listStyle(.insetGrouped)
+                }
 
                 HStack(spacing: 8) {
 
@@ -250,10 +281,7 @@ struct TodoListView: View {
             }
             .navigationTitle(String(localized: "todo_list_title"))
             .navigationBarTitleDisplayMode(.inline)
-            .onAppear { vm.listen()
-            }
-            .onDisappear { vm.stop()
-            }
+            // Listener lifecycle is owned by the parent ChatView (shared TodoViewModel).
             .sheet(isPresented: $showPaywall) {
                 PremiumUpgradeSheet(
                     preselectProductID: nil,
@@ -322,6 +350,49 @@ struct TodoListView: View {
         }
     }
 
+    private var activeTodos: [TodoItem] {
+        vm.todos.filter { !($0.doneBy[myId] ?? false) }
+    }
+
+    private var doneTodos: [TodoItem] {
+        vm.todos.filter { $0.doneBy[myId] ?? false }
+    }
+
+    private var todoProgressBar: some View {
+        let total = vm.todos.count
+        let done  = doneTodos.count
+        return VStack(spacing: 6) {
+            HStack {
+                Text(String(format: String(localized: "todo_progress_format"), done, total))
+                    .font(.subheadline.weight(.semibold))
+                Spacer()
+            }
+            ProgressView(value: total == 0 ? 0 : Double(done) / Double(total))
+                .tint(.blue)
+        }
+        .padding(.horizontal)
+        .padding(.top, 10)
+        .padding(.bottom, 2)
+    }
+
+    private var todoEmptyState: some View {
+        VStack(spacing: 12) {
+            Spacer()
+            Image(systemName: "checklist")
+                .font(.system(size: 46))
+                .foregroundStyle(.blue.opacity(0.5))
+            Text(String(localized: "todo_list_empty_title"))
+                .font(.headline)
+            Text(String(localized: "todo_list_empty_subtitle"))
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.horizontal, 40)
+    }
+
     // MARK: - Row View
     private func todoRow(_ item: TodoItem) -> some View {
         HStack(alignment: .top, spacing: 12) {
@@ -334,15 +405,18 @@ struct TodoListView: View {
                        ? "checkmark.circle.fill"
                        : "circle")
                     .font(.system(size: 22))
-                    .foregroundColor(.blue)
+                    .foregroundColor((item.doneBy[myId] ?? false) ? .green : .blue)
             }
+            .buttonStyle(.plain)
 
             VStack(alignment: .leading, spacing: 6) {
 
                 // ⭐⭐ HIỆN TEXT CỦA TODO (MẤT DÒNG NÀY NÊN UI TRỐNG)
+                let isDone = item.doneBy[myId] ?? false
                 Text(item.text)
                     .font(.body)
-                    .foregroundColor(.primary)
+                    .strikethrough(isDone, color: .secondary)
+                    .foregroundColor(isDone ? .secondary : .primary)
                     .lineLimit(nil)
 
                 // Hiện người tick
