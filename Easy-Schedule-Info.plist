@@ -23,5 +23,7 @@
 	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>Used to scan a partner's QR invitation code so you can connect your calendars.</string>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
 </dict>
 </plist>

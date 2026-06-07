@@ -141,130 +141,24 @@ struct AddEventView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            ZStack(alignment: .top) {
 
-                // ── 0. Quick-add presets ──────────────────────────────────
-                presetSection
+                // ── Soft color wash background (Structify-style) ──────────
+                ambientLayer
 
-                // ── 1. Title ───────────────────────────────────────────────
-                Section {
-                    HStack(spacing: 12) {
-                        Image(systemName: "pencil")
-                            .foregroundStyle(.secondary)
-                            .frame(width: 18)
-                        TextField(String(localized: "title_placeholder"), text: $title)
+                // ── Scrollable content ────────────────────────────────────
+                ScrollView {
+                    VStack(spacing: 18) {
+                        heroHeader        // icon + title + time summary
+                        presetsRow        // quick-add presets
+                        frostedPanel      // color · date · hours · fine-tune
                     }
-                } header: {
-                    sectionHeader(String(localized: "info_section"), icon: "doc.text")
-                } footer: {
-                    Text("event_title_hint")
+                    .padding(.top, 6)
+                    .padding(.bottom, 48)
                 }
-
-                // ── 2. Appearance ─────────────────────────────────────────
-                Section {
-                    Button { showIconPicker = true } label: {
-                        HStack(spacing: 14) {
-                            ZStack {
-                                Circle()
-                                    .fill(selectedColor.opacity(0.15))
-                                    .frame(width: 48, height: 48)
-                                Circle()
-                                    .strokeBorder(selectedColor.opacity(0.40), lineWidth: 1.5)
-                                    .frame(width: 48, height: 48)
-                                Image(systemName: selectedIcon.isEmpty ? "face.smiling" : selectedIcon)
-                                    .font(.system(size: 22, weight: .medium))
-                                    .foregroundStyle(selectedColor)
-                            }
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(selectedIcon.isEmpty
-                                     ? String(localized: "choose_icon_title")
-                                     : String(localized: "change"))
-                                    .font(.subheadline.weight(.medium))
-                                    .foregroundStyle(.primary)
-                                if selectedIcon.isEmpty {
-                                    Text("addevent_icon_hint")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                        .lineLimit(1)
-                                }
-                            }
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(.tertiary)
-                        }
-                        .padding(.vertical, 4)
-                    }
-
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("event_color")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                        HStack(spacing: 10) {
-                            ForEach(paletteColors.indices, id: \.self) { idx in
-                                Button {
-                                    withAnimation(.spring(response: 0.28, dampingFraction: 0.7)) {
-                                        selectedColor = paletteColors[idx]
-                                        selectedColorIndex = idx
-                                    }
-                                } label: {
-                                    ZStack {
-                                        Circle()
-                                            .fill(paletteColors[idx])
-                                            .frame(width: 30, height: 30)
-                                            .shadow(
-                                                color: paletteColors[idx].opacity(0.5),
-                                                radius: selectedColorIndex == idx ? 5 : 0,
-                                                y: 2
-                                            )
-                                        if selectedColorIndex == idx {
-                                            Image(systemName: "checkmark")
-                                                .font(.system(size: 11, weight: .bold))
-                                                .foregroundStyle(.white)
-                                        }
-                                    }
-                                    .scaleEffect(selectedColorIndex == idx ? 1.18 : 1.0)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                            Spacer()
-                        }
-                    }
-                    .padding(.vertical, 4)
-
-                } header: {
-                    sectionHeader("Appearance", icon: "paintpalette")
-                } footer: {
-                    Text(String(localized: "event_color_hint"))
-                }
-
-                // ── 3. Date (mini calendar) ───────────────────────────────
-                Section {
-                    CalendarMiniView(
-                        selectedDate: dateBinding,
-                        busySlots: eventManager.events,
-                        offDays: offDays,
-                        maxBookingDays: PremiumLimits.limits(for: premium.tier).maxBookingDaysAhead
-                    )
-                    .padding(.vertical, 6)
-                } header: {
-                    sectionHeader(String(localized: "date_time_section"), icon: "calendar")
-                } footer: {
-                    HStack(spacing: 14) {
-                        legendDot(color: .blue.opacity(0.55),   label: "Today")
-                        legendDot(color: .red.opacity(0.55),    label: "Has event")
-                        legendDot(color: .orange.opacity(0.65), label: "Day off")
-                    }
-                    .font(.caption)
-                }
-
-                // ── 4. Hour grid ──────────────────────────────────────────
-                hourGridSection
-
-                // ── 5. Fine-tune time ─────────────────────────────────────
-                fineTuneSection
-
-            } // Form
+                .scrollDismissesKeyboard(.interactively)
+                .doneKeyboardToolbar()
+            }
             .onAppear {
                 let d = prefillDate ?? date
                 if let prefill = prefillDate { date = prefill }
@@ -291,6 +185,7 @@ struct AddEventView: View {
             }
             .navigationTitle(String(localized: "add_event_title"))
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button(String(localized: "save")) {
@@ -369,14 +264,213 @@ struct AddEventView: View {
         }
     }
 
+    // MARK: – Structify-style shell (ambient · hero · frosted panel)
+
+    /// Soft full-bleed color wash that gently tints the whole sheet with the
+    /// selected event color (kept light so any palette color stays readable).
+    private var ambientLayer: some View {
+        ZStack {
+            Color(.systemGroupedBackground)
+            LinearGradient(
+                colors: [selectedColor.opacity(0.42),
+                         selectedColor.opacity(0.14),
+                         .clear],
+                startPoint: .top,
+                endPoint: UnitPoint(x: 0.5, y: 0.5)
+            )
+            Circle()
+                .fill(selectedColor.opacity(0.22))
+                .blur(radius: 90)
+                .frame(width: 320, height: 320)
+                .offset(x: -90, y: -150)
+            Circle()
+                .fill(selectedColor.opacity(0.14))
+                .blur(radius: 110)
+                .frame(width: 260, height: 260)
+                .offset(x: 150, y: 30)
+        }
+        .ignoresSafeArea()
+        .animation(.easeInOut(duration: 0.35), value: selectedColor)
+    }
+
+    /// Icon + title + time-summary, editorial header style.
+    private var heroHeader: some View {
+        HStack(alignment: .center, spacing: 14) {
+
+            // Icon — opens the icon picker
+            Button { showIconPicker = true } label: {
+                ZStack {
+                    Circle()
+                        .fill(selectedColor)
+                        .frame(width: 60, height: 60)
+                        .shadow(color: selectedColor.opacity(0.45), radius: 8, y: 4)
+                    Image(systemName: selectedIcon.isEmpty ? "face.smiling" : selectedIcon)
+                        .font(.system(size: 24, weight: .bold))
+                        .foregroundStyle(.white)
+                }
+            }
+            .buttonStyle(.plain)
+
+            // Title + time summary grouped together (right column)
+            VStack(alignment: .leading, spacing: 8) {
+
+                TextField(String(localized: "title_placeholder"), text: $title, axis: .vertical)
+                    .font(.title3.weight(.bold))
+                    .textInputAutocapitalization(.sentences)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(.ultraThinMaterial)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .stroke(Color.primary.opacity(0.06), lineWidth: 1)
+                    )
+
+                HStack(spacing: 6) {
+                    Image(systemName: "clock")
+                        .font(.caption2.weight(.semibold))
+                    Text(timeSummaryText)
+                        .font(.caption.weight(.semibold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
+                }
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(.ultraThinMaterial, in: Capsule())
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 8)
+    }
+
+    /// Single frosted rounded card: color · date · hours · fine-tune.
+    private var frostedPanel: some View {
+        VStack(spacing: 0) {
+            colorPaletteRow
+            panelDivider
+            dateRow
+            panelDivider
+            hourGridPanelRow
+            panelDivider
+            fineTunePanelRow
+        }
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
+                .stroke(Color.primary.opacity(0.06), lineWidth: 1)
+        )
+        .padding(.horizontal, 16)
+    }
+
+    private var colorPaletteRow: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            panelRowHeader(icon: "paintpalette", tint: selectedColor,
+                           title: String(localized: "event_color"))
+            HStack(spacing: 10) {
+                ForEach(paletteColors.indices, id: \.self) { idx in
+                    Button {
+                        withAnimation(.spring(response: 0.28, dampingFraction: 0.7)) {
+                            selectedColor = paletteColors[idx]
+                            selectedColorIndex = idx
+                        }
+                    } label: {
+                        ZStack {
+                            Circle()
+                                .fill(paletteColors[idx])
+                                .frame(width: 30, height: 30)
+                                .shadow(color: paletteColors[idx].opacity(0.5),
+                                        radius: selectedColorIndex == idx ? 5 : 0, y: 2)
+                            if selectedColorIndex == idx {
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundStyle(.white)
+                            }
+                        }
+                        .scaleEffect(selectedColorIndex == idx ? 1.18 : 1.0)
+                    }
+                    .buttonStyle(.plain)
+                }
+                Spacer()
+            }
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 16)
+    }
+
+    private var dateRow: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            panelRowHeader(icon: "calendar", tint: .orange,
+                           title: String(localized: "date_time_section"))
+            CalendarMiniView(
+                selectedDate: dateBinding,
+                busySlots: eventManager.events,
+                offDays: offDays,
+                maxBookingDays: PremiumLimits.limits(for: premium.tier).maxBookingDaysAhead
+            )
+            HStack(spacing: 14) {
+                legendDot(color: .blue.opacity(0.55),   label: "Today")
+                legendDot(color: .red.opacity(0.55),    label: "Has event")
+                legendDot(color: .orange.opacity(0.65), label: "Day off")
+            }
+            .font(.caption)
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 16)
+    }
+
+    // MARK: – Panel row helpers (Structify formRow style)
+
+    private func panelRowHeader(icon: String, tint: Color, title: String) -> some View {
+        HStack(spacing: 10) {
+            formRowIcon(icon, tint: tint)
+            formRowLabel(title)
+            Spacer()
+        }
+    }
+
+    private func formRowIcon(_ name: String, tint: Color) -> some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(tint.opacity(0.15))
+                .frame(width: 32, height: 32)
+            Image(systemName: name)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(tint)
+        }
+    }
+
+    private func formRowLabel(_ text: String) -> some View {
+        Text(text)
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .textCase(.uppercase)
+            .tracking(0.5)
+    }
+
+    private var panelDivider: some View {
+        Divider().padding(.leading, 18)
+    }
+
+    private var timeSummaryText: String {
+        "\(formattedDate(date)) · \(formattedTime(startTime)) – \(formattedTime(endTime))"
+    }
+
     // MARK: – Section 4: Hour Grid
 
     @ViewBuilder
-    private var hourGridSection: some View {
+    private var hourGridPanelRow: some View {
         let eventsToday = eventManager.events(for: date)
         let isOffDay    = offDays.contains { Calendar.current.isDate($0, inSameDayAs: date) }
 
-        Section {
+        VStack(alignment: .leading, spacing: 12) {
+
+            panelRowHeader(icon: "clock", tint: .blue,
+                           title: String(localized: "select_time_section"))
 
             // ── Day-bounds settings row ───────────────────────────────────
             Button {
@@ -407,8 +501,13 @@ struct AddEventView: View {
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
-                .padding(.vertical, 2)
+                .padding(10)
+                .background(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(Color.primary.opacity(0.04))
+                )
             }
+            .buttonStyle(.plain)
 
             // ── Off-day banner ────────────────────────────────────────────
             if isOffDay {
@@ -447,29 +546,27 @@ struct AddEventView: View {
                         hourCell(hour: hour, isOffDay: isOffDay, eventsToday: eventsToday)
                     }
                 }
-                .padding(.vertical, 6)
             }
 
-        } header: {
-            sectionHeader(String(localized: "select_time_section"), icon: "clock")
-        } footer: {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(String(localized: "tap_block_quick_select_hint"))
-                HStack(spacing: 14) {
-                    legendDot(color: Color(.systemGray4),  label: String(localized: "availability_available"))
-                    legendDot(color: .red.opacity(0.55),   label: String(localized: "availability_busy"))
-                    legendDot(color: Color(.systemGray3),  label: String(localized: "availability_past"))
-                }
-                .padding(.top, 2)
+            // ── Legend ────────────────────────────────────────────────────
+            HStack(spacing: 14) {
+                legendDot(color: Color(.systemGray4),  label: String(localized: "availability_available"))
+                legendDot(color: .red.opacity(0.55),   label: String(localized: "availability_busy"))
+                legendDot(color: Color(.systemGray3),  label: String(localized: "availability_past"))
             }
             .font(.caption)
+            .padding(.top, 2)
         }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 16)
     }
 
     // MARK: – Section 5: Fine-tune
 
-    private var fineTuneSection: some View {
-        Section {
+    private var fineTunePanelRow: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            panelRowHeader(icon: "slider.horizontal.3", tint: selectedColor,
+                           title: String(localized: "fine_tune_time"))
             HStack(alignment: .top, spacing: 0) {
 
                 // ── LEFT: Start time ──────────────────────────────────────
@@ -562,51 +659,41 @@ struct AddEventView: View {
                 }
                 .padding(.leading, 12)
             }
-            .padding(.vertical, 6)
-
-        } header: {
-            sectionHeader(String(localized: "fine_tune_time"), icon: "slider.horizontal.3")
-        } footer: {
-            Text("addevent_duration_hint")
-                .font(.caption)
         }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 16)
     }
 
     // MARK: – Section 0: Quick-add presets
 
-    private var presetSection: some View {
-        Section {
-            VStack(alignment: .leading, spacing: 10) {
+    private var presetsRow: some View {
+        VStack(alignment: .leading, spacing: 10) {
 
-                // Category filter pills
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 6) {
-                        presetCategoryPill(nil, label: String(localized: "preset_all"), icon: "sparkles")
-                        ForEach(EventCategory.allCases) { cat in
-                            presetCategoryPill(cat, label: cat.label, icon: cat.icon)
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                }
+            panelRowHeader(icon: "sparkles", tint: selectedColor,
+                           title: String(localized: "preset_section_quick_add"))
+                .padding(.horizontal, 20)
 
-                // Preset cards
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 10) {
-                        ForEach(EventPresetCatalog.filtered(by: selectedPresetCategory)) { preset in
-                            presetCard(preset)
-                        }
+            // Category filter pills
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    presetCategoryPill(nil, label: String(localized: "preset_all"), icon: "sparkles")
+                    ForEach(EventCategory.allCases) { cat in
+                        presetCategoryPill(cat, label: cat.label, icon: cat.icon)
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 2)
                 }
+                .padding(.horizontal, 20)
             }
-            .padding(.vertical, 10)
-            .listRowInsets(EdgeInsets())
-            .listRowBackground(Color.clear)
-        } header: {
-            sectionHeader(String(localized: "preset_section_quick_add"), icon: "sparkles")
-        } footer: {
-            Text(String(localized: "preset_footer"))
+
+            // Preset cards
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(EventPresetCatalog.filtered(by: selectedPresetCategory)) { preset in
+                        presetCard(preset)
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 2)
+            }
         }
     }
 
@@ -666,7 +753,7 @@ struct AddEventView: View {
             .frame(width: 92)
             .background(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(Color(.secondarySystemGroupedBackground))
+                    .fill(.ultraThinMaterial)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
@@ -822,12 +909,6 @@ struct AddEventView: View {
             Circle().fill(color).frame(width: 8, height: 8)
             Text(label).foregroundStyle(.secondary)
         }
-    }
-
-    private func sectionHeader(_ title: String, icon: String) -> some View {
-        Label(title, systemImage: icon)
-            .textCase(nil)
-            .font(.subheadline.weight(.semibold))
     }
 
     // MARK: – Duration / time helpers

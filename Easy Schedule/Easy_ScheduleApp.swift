@@ -35,6 +35,7 @@ struct Easy_scheduleApp: App {
     @StateObject private var eventManager = EventManager.shared
     @StateObject private var lockManager = LockManager.shared
     @StateObject private var guideManager = GuideManager()
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
         WindowGroup {
@@ -68,6 +69,12 @@ struct Easy_scheduleApp: App {
                 )
             ) { _ in
                 lockManager.lock()
+            }
+            .onChange(of: scenePhase) { _, phase in
+                // Giữ widget + Live Activity luôn mới khi app vào/ra nền.
+                if phase == .active || phase == .background {
+                    EventManager.shared.refreshSharedSnapshot()
+                }
             }
         }
     }

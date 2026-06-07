@@ -202,6 +202,7 @@ final class EventManager: ObservableObject {
         if let data = try? JSONEncoder().encode(pastEvents) {
             UserDefaults.standard.set(data, forKey: "pastEvents")
         }
+        refreshSharedSnapshot()              // ⭐ Widget + Live Activity
     }
 
     private func loadEvents() {
@@ -214,6 +215,34 @@ final class EventManager: ObservableObject {
             self.pastEvents = decoded
         }
         updateGroupedEvents()
+        refreshSharedSnapshot()              // ⭐ Widget + Live Activity
+    }
+
+    // MARK: - Widget / Live Activity snapshot
+    /// Map event hôm nay → hết ngày mai (bỏ việc đã xong, busy slot và mốc
+    /// ngủ/thức hệ thống) sang snapshot nhẹ cho App Group, đẩy widget refresh
+    /// và đồng bộ Live Activity.
+    func refreshSharedSnapshot() {
+        let cal = Calendar.current
+        let startToday = cal.startOfDay(for: Date())
+        guard let endTomorrow = cal.date(byAdding: .day, value: 2, to: startToday) else { return }
+        let now = Date()
+        let systemIDs: Set<String> = [DragDropLayoutEngine.wakeID, DragDropLayoutEngine.sleepID]
+
+        let items: [ScheduleSnapshotItem] = events
+            .filter { !$0.pendingDelete }
+            .filter { $0.origin != .busySlot }
+            .filter { !systemIDs.contains($0.id) }
+            .filter { $0.endTime > now && $0.startTime < endTomorrow }
+            .map {
+                ScheduleSnapshotItem(id: $0.id, title: $0.title,
+                                     start: $0.startTime, end: $0.endTime,
+                                     colorHex: $0.colorHex)
+            }
+
+        let snapshot = ScheduleSnapshot(items: items)
+        SharedStore.writeSnapshot(snapshot)
+        LiveActivityController.shared.sync(with: snapshot)
     }
 
     func saveSharedLinks() {

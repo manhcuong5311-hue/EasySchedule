@@ -64,6 +64,12 @@ class AppDelegate: NSObject,
     func applicationDidEnterBackground(_ application: UIApplication) {
         ChatForegroundTracker.shared.activeChatEventId = nil
     }
+
+    func applicationDidBecomeActive(_ application: UIApplication) {
+        // Tap anywhere (outside text inputs) to dismiss the keyboard — app-wide.
+        application.installKeyboardDismissTapIfNeeded()
+    }
+
     // APNs device token → Firebase
     func application(_ application: UIApplication,
                      didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {

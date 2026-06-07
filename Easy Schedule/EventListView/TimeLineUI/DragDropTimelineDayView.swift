@@ -815,14 +815,14 @@ struct DDDraggableEventRow: View {
                     onDragEnded(id)
                 }
         )
-        // Tap → open chat / todo (skip system events and events on past days)
+        // Tap → open the event detail sheet (info · note · quick chat) directly
         .onTapGesture {
             guard !isSystemEvent else { return }
             let today = Calendar.current.startOfDay(for: Date())
             let eventDay = Calendar.current.startOfDay(for: event.startTime)
             guard eventDay >= today else { return }
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            showActionSheet = true
+            eventManager.openEvent(eventId: event.id)
         }
         .confirmationDialog(event.title, isPresented: $showActionSheet, titleVisibility: .visible) {
             if isPersonalEvent {
