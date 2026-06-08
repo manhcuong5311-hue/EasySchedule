@@ -102,19 +102,7 @@ struct ChatToPlanAISlide: View {
                     onNext()
                 } label: {
                     Text(String(localized: "common_next"))
-
-                        .font(.system(size: 17, weight: .semibold))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .background(Color.accentColor)
-                        .foregroundColor(.white)
-                        .cornerRadius(18)
-                        .shadow(
-                            color: Color.black.opacity(scheme == .light ? 0.15 : 0.4),
-                            radius: 10,
-                            y: 6
-                        )
-
+                        .onboardingCTALabel()
                 }
             }
             .padding(.horizontal, 24)

@@ -56,7 +56,13 @@ struct HorizontalDayPickerView: View {
                 weekRow(offsetWeeks: 1, width: geo.size.width)
                     .offset(x: geo.size.width + dragOffset)
             }
-            .clipped()
+            // Clip horizontally only (hide prev/next weeks for the swipe) but never
+            // clip vertically — today's primaryIcon glow/scale draws past its row frame
+            // and a plain .clipped() would slice the bottom badge off.
+            .mask(
+                Rectangle()
+                    .padding(.vertical, -200)
+            )
             .contentShape(Rectangle())
             .gesture(
                 DragGesture(minimumDistance: 20, coordinateSpace: .local)
@@ -112,7 +118,8 @@ struct HorizontalDayPickerView: View {
                 let today     = Calendar.current.startOfDay(for: Date())
                 let isPast    = dayStart < today
                 let isOut     = dayStart > maxSelectableDate
-                let isLocked  = isPast || isOut
+                // Past days are viewable (read-only archive); only out-of-range future stays locked.
+                let isLocked  = isOut
                 let key       = dayStart
 
                 let dayEvents = eventManager.events(for: date)

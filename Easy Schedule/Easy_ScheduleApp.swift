@@ -203,6 +203,10 @@ struct OnboardingContainerView: View {
 
     @State private var step: OnboardingStep = .hero
 
+    /// When set (e.g. previewing from Settings) a close button is shown so the
+    /// already-onboarded user can dismiss without going through the paywall flow.
+    var onClose: (() -> Void)? = nil
+
     var body: some View {
         TabView(selection: $step) {
 
@@ -244,5 +248,18 @@ struct OnboardingContainerView: View {
         }
         .tabViewStyle(.page)
         .ignoresSafeArea()
+        .overlay(alignment: .topTrailing) {
+            if let onClose {
+                Button(action: onClose) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 32, height: 32)
+                        .background(.ultraThinMaterial, in: Circle())
+                }
+                .padding(.top, 60)
+                .padding(.trailing, 20)
+            }
+        }
     }
 }

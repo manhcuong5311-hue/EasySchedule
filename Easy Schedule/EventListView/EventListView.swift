@@ -256,14 +256,8 @@ struct EventListView: View {
             eventManager.markDayEventsAsSeen(newDate)
 
             didUserSelectDate = false                 // ⭐ RESET FLAG
-
-            let cal = Calendar.current
-            let today = cal.startOfDay(for: Date())
-            let selected = cal.startOfDay(for: newDate)
-
-            if selected < today {
-                activeSheet = .pastWeek(week(from: newDate))
-            }
+            // Past days now open the read-only day timeline (archive-backed) directly,
+            // instead of auto-popping the weekly summary sheet.
         }
 
    
@@ -322,11 +316,16 @@ struct EventScrollContent: View {
     @Environment(\.colorScheme) private var scheme
     
     private var eventsOfSelectedDay: [CalendarEvent] {
-        events
-            .filter {
-                Calendar.current.isDate($0.startTime, inSameDayAs: selectedDate)
-            }
-            .sorted { $0.startTime < $1.startTime }
+        let liveForDay = events.filter {
+            Calendar.current.isDate($0.startTime, inSameDayAs: selectedDate)
+        }
+        // Include archive-only past events so past days aren't treated as empty.
+        let liveIds = Set(liveForDay.map(\.id))
+        let archiveForDay = eventManager.pastEvents.filter {
+            !liveIds.contains($0.id) &&
+            Calendar.current.isDate($0.startTime, inSameDayAs: selectedDate)
+        }
+        return (liveForDay + archiveForDay).sorted { $0.startTime < $1.startTime }
     }
     
     private var isOffDay: Bool {

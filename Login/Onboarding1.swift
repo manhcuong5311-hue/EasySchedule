@@ -15,6 +15,36 @@ extension Color {
     static let onboardingDarkCard = Color(red: 28/255, green: 31/255, blue: 38/255)
 }
 
+// MARK: - Shared primary-CTA styling (unified look across every onboarding slide)
+struct OnboardingCTALabel: ViewModifier {
+    @Environment(\.colorScheme) private var scheme
+    func body(content: Content) -> some View {
+        content
+            .font(.system(size: 17, weight: .semibold))
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 17)
+            .foregroundColor(.white)
+            .background(
+                LinearGradient(
+                    colors: [Color.accentColor, Color.accentColor.opacity(0.82)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                ),
+                in: RoundedRectangle(cornerRadius: 18, style: .continuous)
+            )
+            .shadow(
+                color: Color.accentColor.opacity(scheme == .light ? 0.32 : 0.5),
+                radius: 14,
+                y: 8
+            )
+    }
+}
+
+extension View {
+    /// Unified primary CTA used by every onboarding slide (gradient fill + accent glow).
+    func onboardingCTALabel() -> some View { modifier(OnboardingCTALabel()) }
+}
+
 struct OnboardingHeroSlide: View {
     
     let onNext: () -> Void
@@ -57,15 +87,10 @@ struct OnboardingHeroSlide: View {
                 VStack(spacing: 14) {
 
                     Button {
-                        onNext() 
+                        onNext()
                     } label: {
                         Text(String(localized: "onboarding_get_started"))
-                            .font(.system(size: 17, weight: .semibold))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 16)
-                            .background(Color.accentColor)
-                            .foregroundColor(.white)
-                            .cornerRadius(18)
+                            .onboardingCTALabel()
                     }
 
                     Text(String(localized: "onboarding_legal"))

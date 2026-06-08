@@ -176,9 +176,6 @@ actor PremiumStore {
     private func markPurchased(_ id: String) async {
         purchasedProductIDs.insert(id)
     }
-    private var isSandbox: Bool {
-        return Bundle.main.appStoreReceiptURL?.lastPathComponent == "sandboxReceipt"
-    }
 
     // MARK: - Verification fix (IMPORTANT FOR APP REVIEW)
     @available(iOS 15.0, *)

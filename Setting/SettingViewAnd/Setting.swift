@@ -116,7 +116,10 @@ struct SettingsView: View {
                     }
                 )
             }
-             
+            .fullScreenCover(isPresented: $showOnboarding) {
+                OnboardingContainerView(onClose: { showOnboarding = false })
+            }
+
             .confirmationDialog(
                 "dev_menu_title",
                 isPresented: $showDevMenu,
@@ -125,9 +128,7 @@ struct SettingsView: View {
 
                 Button("dev_open_onboarding") {
                     showDevMenu = false
-                    
-                    // 🔥 Reset flag như nút cũ
-                    UserDefaults.standard.set(false, forKey: "hasSeenOnboarding")
+                    showOnboarding = true   // present the onboarding preview directly
                 }
 
                 Button("dev_open_premium_intro") {

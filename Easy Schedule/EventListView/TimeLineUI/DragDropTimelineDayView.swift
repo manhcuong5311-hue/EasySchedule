@@ -122,7 +122,7 @@ struct DragDropTimelineDayView: View {
                 // right of the timeline line so it no longer sits on top of it.
                 // Hidden while the action stack owns the gap (0–1 event days).
                 .overlay(alignment: .topLeading) {
-                    if !showActionStack, let onAddInGap, !isDragging,
+                    if !showActionStack, !isViewingPastDay, let onAddInGap, !isDragging,
                        let slot = primaryFreeGap(in: localEvents) {
                         let isPad = UIDevice.current.userInterfaceIdiom == .pad
                         let lineOffset: CGFloat = isPad ? 112 : 87
@@ -308,11 +308,11 @@ struct DragDropTimelineDayView: View {
     }
 
     private func canEdit(_ event: CalendarEvent) -> Bool {
-        // System anchors are always draggable (wake/sleep time adjustment)
-        if event.id == wakeID || event.id == sleepID { return true }
-        // Events on past days are always read-only — no drag, no Firestore writes
+        // Past days are fully read-only — no drag, no Firestore writes (even the anchors).
         let today = Calendar.current.startOfDay(for: Date())
         guard Calendar.current.startOfDay(for: date) >= today else { return false }
+        // System anchors are draggable on today/future (wake/sleep time adjustment)
+        if event.id == wakeID || event.id == sleepID { return true }
         // Events that exist only in local past cache (Firestore already deleted them) are read-only
         guard !eventManager.pastOnlyEventIds.contains(event.id) else { return false }
         guard let uid = session.currentUserId else { return false }
@@ -443,6 +443,11 @@ struct DragDropTimelineDayView: View {
     /// Real (non-system) events on this day.
     private var userEventCount: Int {
         localEvents.filter { $0.id != wakeID && $0.id != sleepID }.count
+    }
+
+    /// True when the timeline is showing a day before today (read-only archive view).
+    private var isViewingPastDay: Bool {
+        Calendar.current.startOfDay(for: date) < Calendar.current.startOfDay(for: Date())
     }
 
     /// Show the Add / Share / Book pill stack only on a today-or-future day with

@@ -465,22 +465,41 @@ final class EventManager: ObservableObject {
 
     func cleanUpPastEvents() {
         let now = Date()
+        let cal = Calendar.current
 
-        // Tách event hết hạn (chỉ trên local)
-        let expired = events.filter { $0.endTime < now }
+        // Move expired live events into the local archive, keep upcoming ones live.
+        let expired  = events.filter { $0.endTime < now }
         let upcoming = events.filter { $0.endTime >= now }
 
-        // Gán ngược
-        if !expired.isEmpty {
-            // Add vào pastEvents local
-            self.pastEvents.append(contentsOf: expired)
-        }
+        archivePastEvents(expired)        // dedup-merge into pastEvents
+        pruneArchive(now: now, cal: cal)  // drop archive older than the retention window
 
-        // Giữ upcoming
-        self.events = upcoming
-
-        // Lưu local
+        self.events = upcoming            // didSet → regroup (now incl. archive)
         saveEvents()
+    }
+
+    /// How long past events are kept on-device for read-only viewing.
+    private let pastRetentionDays = 90
+
+    /// Merge events into the local past archive, de-duplicating by id (newest wins).
+    /// Busy slots and system anchors (wake/sleep) are never archived.
+    private func archivePastEvents(_ incoming: [CalendarEvent]) {
+        let systemIDs: Set<String> = [DragDropLayoutEngine.wakeID, DragDropLayoutEngine.sleepID]
+        let archivable = incoming.filter { $0.origin != .busySlot && !systemIDs.contains($0.id) }
+        guard !archivable.isEmpty else { return }
+        var map = Dictionary(pastEvents.map { ($0.id, $0) }, uniquingKeysWith: { _, new in new })
+        for ev in archivable { map[ev.id] = ev }
+        pastEvents = Array(map.values)
+    }
+
+    /// Retention: keep only archived events whose end time is within the last N days,
+    /// and drop any accidental duplicates by id.
+    private func pruneArchive(now: Date = Date(), cal: Calendar = .current) {
+        let cutoff = cal.date(byAdding: .day, value: -pastRetentionDays,
+                              to: cal.startOfDay(for: now)) ?? .distantPast
+        var map = Dictionary(pastEvents.map { ($0.id, $0) }, uniquingKeysWith: { _, new in new })
+        for (id, ev) in map where ev.endTime < cutoff { map.removeValue(forKey: id) }
+        pastEvents = Array(map.values)
     }
     func savePastEvents() {
         if let encoded = try? JSONEncoder().encode(pastEvents) {
@@ -554,7 +573,11 @@ final class EventManager: ObservableObject {
 
     // MARK: - GROUPING
     func updateGroupedEvents() {
-        groupedByDay = Dictionary(grouping: events) {
+        // Include archive-only past events (removed from Firestore but kept locally)
+        // so past days still surface their old schedule.
+        let liveIds = Set(events.map(\.id))
+        let archiveOnly = pastEvents.filter { !liveIds.contains($0.id) }
+        groupedByDay = Dictionary(grouping: events + archiveOnly) {
             Calendar.current.startOfDay(for: $0.date)
         }
     }
@@ -1874,6 +1897,9 @@ extension EventManager {
                         .compactMap { CalendarEvent.from($0) }
                         .map { self.enrichEventNames($0) }
 
+                    // Archive events that have already passed so they survive once
+                    // Firestore deletes them (keeps past days viewable from local cache).
+                    self.archivePastEvents(incoming.filter { $0.endTime < now })
 
                     // Giữ event chưa hết hạn
                     let firestoreUpcoming = incoming

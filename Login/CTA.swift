@@ -63,17 +63,7 @@ struct FinalOnboardingCTASlide: View {
                     item: URL(string: "https://apps.apple.com/app/id6756092474")!
                 ) {
                     Text(String(localized: "final_cta_invite"))
-                        .font(.system(size: 17, weight: .semibold))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 18)
-                        .background(Color.accentColor)
-                        .foregroundColor(.white)
-                        .cornerRadius(18)
-                        .shadow(
-                            color: Color.black.opacity(scheme == .light ? 0.15 : 0.45),
-                            radius: 12,
-                            y: 8
-                        )
+                        .onboardingCTALabel()
                 }
 
 

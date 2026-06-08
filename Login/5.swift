@@ -48,12 +48,7 @@ struct OnboardingWebBookingSlide: View {
                     onNext()
                 } label: {
                     Text(String(localized: "onboarding_next"))
-                        .font(.system(size: 17, weight: .semibold))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .background(Color.accentColor)
-                        .foregroundColor(.white)
-                        .cornerRadius(18)
+                        .onboardingCTALabel()
                 }
                 .padding(.horizontal, 24)
                 .padding(.bottom, 28)
