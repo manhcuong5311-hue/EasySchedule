@@ -1,5 +1,6 @@
 import SwiftUI
 import FirebaseAuth
+import FirebaseFirestore
 import GoogleSignIn
 import FirebaseCore
 import AuthenticationServices
@@ -358,16 +359,29 @@ struct LoginView: View {
             }
             
             self.isLoggedIn = true
-            
-            // ✅ FIX Ở ĐÂY
-            _ = [
+
+            // Apple returns the user's name ONLY on the first authorization — if
+            // we don't persist it now it's lost forever, leaving the account with
+            // no name. Save it to both Auth (so saveProfileIfNeeded reuses it) and
+            // Firestore (so partners resolve a real name instead of a UID).
+            let appleName = [
                 credential.fullName?.givenName,
                 credential.fullName?.familyName
             ]
                 .compactMap { $0 }
                 .joined(separator: " ")
-            
-           
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+
+            if !appleName.isEmpty, let user = Auth.auth().currentUser {
+                let change = user.createProfileChangeRequest()
+                change.displayName = appleName
+                change.commitChanges(completion: nil)
+
+                Firestore.firestore()
+                    .collection("users")
+                    .document(user.uid)
+                    .setData(["name": appleName], merge: true)
+            }
         }
     }
     

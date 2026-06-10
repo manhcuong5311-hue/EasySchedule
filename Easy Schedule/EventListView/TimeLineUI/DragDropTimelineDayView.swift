@@ -171,6 +171,12 @@ struct DragDropTimelineDayView: View {
         .onChange(of: events)      { _, new in loadLocal(from: new) }
         .onChange(of: storedWake)  { _, _   in if !isDragging { loadLocal() } }
         .onChange(of: storedSleep) { _, _   in if !isDragging { loadLocal() } }
+        // Off-day status loads asynchronously from Firestore. Rebuild when it
+        // flips so Morning Start / Night Sleep are dropped (or restored) instead
+        // of lingering from a build that ran before the off-day cache arrived.
+        .onChange(of: eventManager.isOffDay(date)) { _, _ in
+            if !isDragging { loadLocal() }
+        }
         .onReceive(timer) { _ in
             withAnimation(.easeInOut(duration: 0.3)) {
                 nowMinutes = DragDropLayoutEngine.currentMinutes()

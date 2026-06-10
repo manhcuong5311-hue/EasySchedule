@@ -12,7 +12,6 @@ enum ActiveSheet1: Identifiable {
     case addEvent
     case share(ShareItem)
     case displaySettings
-    case pastWeek(WeekKey)
 
     var id: String {
         switch self {
@@ -20,7 +19,6 @@ enum ActiveSheet1: Identifiable {
         case .addEvent: return "add"
         case .share: return "share"
         case .displaySettings: return "display"
-        case .pastWeek(let w): return "week-\(w.year)-\(w.week)"
         }
     }
 }
@@ -70,14 +68,6 @@ struct EventListView: View {
         return cal.startOfDay(for: raw)
     }
 
-    
-    private func week(from date: Date) -> WeekKey {
-        let cal = Calendar.current
-        return WeekKey(
-            year: cal.component(.yearForWeekOfYear, from: date),
-            week: cal.component(.weekOfYear, from: date)
-        )
-    }
     @State private var activeSheet: ActiveSheet1?
     @State private var monthCursor: Date = Date()
     @State private var isMonthPickerOpen = false
@@ -159,10 +149,6 @@ struct EventListView: View {
                 },
 
                 onBookPartner: onBookPartner,
-                
-                onViewSummary: { date in
-                      activeSheet = .pastWeek(week(from: date))
-                  },
 
                 maxSelectableDate: maxSelectableDate,   // ✅ ĐƯA LÊN TRƯỚC
 
@@ -238,14 +224,6 @@ struct EventListView: View {
 
             case .displaySettings:
                 DisplaySettingsSheet()
-
-            case .pastWeek(let week):
-                PastWeeklySummaryView(
-                    week: (year: week.year, week: week.week)
-                )
-                .environmentObject(eventManager)
-                .presentationDetents([.large])
-                .presentationDragIndicator(.visible)
             }
         }
 
@@ -293,7 +271,6 @@ struct EventScrollContent: View {
     let onAddInGap: (Int) -> Void
     let onShareCalendar: () -> Void
     let onBookPartner: () -> Void
-    let onViewSummary: (Date) -> Void
     let maxSelectableDate: Date
     let timeDisplayMode: EventTimeDisplayMode
     
@@ -338,6 +315,10 @@ struct EventScrollContent: View {
     @State private var viewMode: CalendarViewMode = .day   // Day timeline ↔ Month grid
     @State private var requestMonthAdd = false             // top-right "+" → month add sheet
 
+    // Drag-down reveal of the week-at-a-glance behind the day card (Structify-style).
+    @State private var cardDragOffset: CGFloat = 0
+    @State private var lastCardOffset: CGFloat = 0
+
     let onUserSelectDay: () -> Void
 
     private var headerHeight: CGFloat { isPad ? 72 : 56 }
@@ -363,18 +344,47 @@ struct EventScrollContent: View {
                     .frame(height: headerHeight)
 
                 if viewMode == .day {
-                    HorizontalDayPickerView(
-                        selectedDate: $selectedDate,
-                        maxSelectableDate: maxSelectableDate,
-                        onUserSelectDay: { _ in
-                            onUserSelectDay()
-                        }
-                    )
-                    .frame(height: dayPickerHeight)
+                    // How far the card slides down = how much of the week glance shows.
+                    let weekRevealHeight = min(300, max(160, dayAvail * 0.6))
 
-                    dayCard
-                        .frame(maxWidth: .infinity, maxHeight: dayAvail)
-                        .transition(.opacity)
+                    ZStack(alignment: .top) {
+
+                        // ── Background: day picker + week-at-a-glance ──
+                        VStack(spacing: 0) {
+                            HorizontalDayPickerView(
+                                selectedDate: $selectedDate,
+                                maxSelectableDate: maxSelectableDate,
+                                onUserSelectDay: { _ in
+                                    onUserSelectDay()
+                                }
+                            )
+                            .frame(height: dayPickerHeight)
+
+                            WeekGlanceView(
+                                selectedDate: $selectedDate,
+                                onSelectDate: { date in
+                                    selectedDate = date
+                                    onUserSelectDay()
+                                    collapseWeekGlance()
+                                }
+                            )
+                            .frame(height: weekRevealHeight)
+
+                            Spacer(minLength: 0)
+                        }
+
+                        // ── Foreground: draggable day card (covers the glance) ──
+                        dayCard
+                            .frame(maxWidth: .infinity, maxHeight: dayAvail)
+                            .overlay(alignment: .top) { weekDragHandle(maxDrag: weekRevealHeight) }
+                            .offset(y: dayPickerHeight + cardDragOffset)
+                            .animation(
+                                .spring(response: 0.35, dampingFraction: 0.85),
+                                value: cardDragOffset
+                            )
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    .transition(.opacity)
                 } else {
                     // Month mode = the former Tab 2 (grid + availability), embedded,
                     // now on the same rounded card as the day timeline.
@@ -398,6 +408,39 @@ struct EventScrollContent: View {
     
     
     
+    // Grab-handle on the day card. Dragging it down slides the card to reveal the
+    // week-at-a-glance behind it; release snaps fully open or closed.
+    private func weekDragHandle(maxDrag: CGFloat) -> some View {
+        Capsule()
+            .fill(Color.secondary.opacity(0.4))
+            .frame(width: 40, height: 5)
+            .padding(.top, 8)
+            .padding(.bottom, 14)
+            .padding(.horizontal, 60)        // generous touch target
+            .contentShape(Rectangle())
+            .highPriorityGesture(
+                DragGesture()
+                    .onChanged { value in
+                        let newOffset = lastCardOffset + value.translation.height
+                        cardDragOffset = min(max(newOffset, 0), maxDrag)
+                    }
+                    .onEnded { _ in
+                        let snapped = cardDragOffset > maxDrag * 0.5 ? maxDrag : 0
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                            cardDragOffset = snapped
+                        }
+                        lastCardOffset = snapped
+                    }
+            )
+    }
+
+    private func collapseWeekGlance() {
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+            cardDragOffset = 0
+        }
+        lastCardOffset = 0
+    }
+
     private var dayCard: some View {
 
         // 1️⃣ Chiều cao hint cố định (chrome, không phải content)
@@ -430,14 +473,11 @@ struct EventScrollContent: View {
                     // days now surface Add / Share / Book as small pills on the
                     // timeline itself (see DDTimelineActionStack), so no card here.
                     if eventsOfSelectedDay.isEmpty, isOffDay {
-                        OffDayEmptyStateView(
-                            date: selectedDate,
-                            onViewSummary: {
-                                onViewSummary(selectedDate)
-                            }
-                        )
+                        OffDayEmptyStateView()
                     }
                 }
+                // Clear space for the drag-handle grabber at the card's top edge.
+                .padding(.top, 18)
                 // floatingTabBarHeight + 12 (gap) + home-indicator safe area (read in ContentView)
                 // safeAreaInsets.bottom is not directly available here; use a generous constant
                 // that matches what ContentView adds (bottomSafeArea ≈ 34 on notched devices).

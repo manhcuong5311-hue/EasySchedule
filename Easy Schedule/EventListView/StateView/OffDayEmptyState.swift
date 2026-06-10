@@ -8,10 +8,6 @@ import SwiftUI
 
 struct OffDayEmptyStateView: View {
 
-    let date: Date
-    let onViewSummary: () -> Void
-    
-    
     var body: some View {
         VStack(spacing: 16) {
 
@@ -26,19 +22,6 @@ struct OffDayEmptyStateView: View {
                 .font(.subheadline)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
-            
-            Button {
-                onViewSummary()
-            } label: {
-                Label(
-                    String(localized: "view_weekly_past_events_summary"),
-                    systemImage: "chart.bar"
-                )
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.regular)
-            .tint(.secondary)
-
         }
         .padding(.top, 40)
         .padding(.horizontal)

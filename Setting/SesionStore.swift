@@ -24,6 +24,14 @@ class SessionStore: ObservableObject {
         Auth.auth().currentUser?.uid
     }
 
+    /// True once the user has a real, self-chosen display name — i.e. not empty
+    /// and not the "No name" placeholder we write for brand-new accounts. Used to
+    /// decide whether to nudge them to set a name (so partners don't see a UID).
+    var hasRealName: Bool {
+        let trimmed = currentUserName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return !trimmed.isEmpty && trimmed != String(localized: "no_name")
+    }
+
     init() {
         listen()
     }
@@ -104,28 +112,71 @@ class SessionStore: ObservableObject {
                 self.currentUserName = cachedName
             }
 
-            self.fetchProfile(uid: user.uid)
+            self.fetchProfile(user: user)
             self.cleanUpPastEventsOnFirebase(for: user.uid)
         }
     }
 
 
+    // MARK: - Default name
+    /// A readable display name for accounts created without one — preferring the
+    /// auth provider name, then the email's local-part — so auto-login always has
+    /// a name ready and partners never see a raw UID or the "No name" placeholder.
+    func defaultDisplayName(for user: User) -> String {
+        if let provider = user.displayName?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+           !provider.isEmpty {
+            return provider
+        }
+
+        if let email = user.email,
+           let localPart = email.split(separator: "@").first {
+            // Drop any "+tag" suffix, then turn separators into spaces.
+            let base = localPart.split(separator: "+").first.map(String.init)
+                ?? String(localPart)
+            let cleaned = base
+                .replacingOccurrences(of: ".", with: " ")
+                .replacingOccurrences(of: "_", with: " ")
+                .replacingOccurrences(of: "-", with: " ")
+                .trimmingCharacters(in: .whitespaces)
+            if !cleaned.isEmpty {
+                return cleaned.capitalized
+            }
+        }
+
+        return String(localized: "no_name")
+    }
+
+
     // MARK: - Fetch Firestore 1 lần
-    func fetchProfile(uid: String) {
-        db.collection("users").document(uid).getDocument { snap, _ in
-            if let data = snap?.data(),
-               let rawName = data["name"] as? String {
+    func fetchProfile(user: User) {
+        let uid = user.uid
+        db.collection("users").document(uid).getDocument { [weak self] snap, _ in
+            guard let self else { return }
 
-                let trimmed = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
-                let finalName = trimmed.isEmpty
-                    ? String(localized: "no_name")
-                    : trimmed
+            // Doc not created yet → saveProfileIfNeeded creates it with a default.
+            guard let data = snap?.data() else { return }
 
-                DispatchQueue.main.async {
-                    self.currentUserName = finalName
-                    UserDefaults.standard.set(finalName, forKey: self.nameKey)
-                    UserNameCache.shared.names[uid] = finalName
-                }
+            let stored = (data["name"] as? String)?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+            // Empty or the old "No name" placeholder → upgrade to a real default
+            // so auto-login of older nameless accounts shows a name too.
+            let needsDefault = stored.isEmpty || stored == String(localized: "no_name")
+            let finalName = needsDefault ? self.defaultDisplayName(for: user) : stored
+
+            // Backfill Firestore so partners resolve the same name.
+            if needsDefault,
+               finalName != stored,
+               finalName != String(localized: "no_name") {
+                self.db.collection("users").document(uid)
+                    .setData(["name": finalName], merge: true)
+            }
+
+            DispatchQueue.main.async {
+                self.currentUserName = finalName
+                UserDefaults.standard.set(finalName, forKey: self.nameKey)
+                UserNameCache.shared.names[uid] = finalName
             }
         }
     }
@@ -135,21 +186,23 @@ class SessionStore: ObservableObject {
     func saveProfileIfNeeded(user: User) {
         let ref = db.collection("users").document(user.uid)
 
-        ref.getDocument { snap, _ in
-            if snap?.exists == false {
+        ref.getDocument { [weak self] snap, _ in
+            guard let self, snap?.exists == false else { return }
 
-                let providerName = user.displayName?
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
+            let finalName = self.defaultDisplayName(for: user)
 
-                let finalName = (providerName?.isEmpty == false)
-                    ? providerName!
-                    : String(localized: "no_name")
+            ref.setData([
+                "name": finalName,
+                "email": user.email ?? "",
+                "createdAt": FieldValue.serverTimestamp()
+            ], merge: true)
 
-                ref.setData([
-                    "name": finalName,
-                    "email": user.email ?? "",
-                    "createdAt": FieldValue.serverTimestamp()
-                ], merge: true)
+            // Reflect the default locally right away so the UI doesn't briefly
+            // show an empty name (or a UID) before fetchProfile returns.
+            DispatchQueue.main.async {
+                self.currentUserName = finalName
+                UserDefaults.standard.set(finalName, forKey: self.nameKey)
+                UserNameCache.shared.names[user.uid] = finalName
             }
         }
     }

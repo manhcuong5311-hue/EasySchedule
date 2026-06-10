@@ -42,10 +42,15 @@ enum AppTab: Hashable {
 struct ContentView: View {
 
     @EnvironmentObject var eventManager: EventManager
+    @EnvironmentObject var session: SessionStore
 
     @State private var selectedTab: AppTab = .events
     @State private var openChatEventId: String?
     @State private var pendingChatEventId: String?
+    // One-time name nudge: fresh accounts have no display name, so partners would
+    // see "No name" / a UID. Prompt once per launch when the Partner tab is opened.
+    @State private var showNamePrompt = false
+    @State private var didCheckNamePrompt = false
     @StateObject private var accessBadgeVM = AccessBadgeViewModel()
     /// Physical bottom safe-area inset (home indicator height). Read once on appear.
     @State private var bottomSafeArea: CGFloat = 0
@@ -124,6 +129,15 @@ struct ContentView: View {
             .ignoresSafeArea()
         )
         .animation(.easeInOut(duration: 0.25), value: openChatEventId)
+        // Nudge nameless accounts to set a display name the first time they open
+        // the Partner tab (where the name actually matters for booking).
+        .onChange(of: selectedTab) { _, newTab in
+            guard newTab == .partners else { return }
+            maybePromptForName()
+        }
+        .sheet(isPresented: $showNamePrompt) {
+            NameSetupPromptView()
+        }
         // =========================
         // LIFECYCLE – GIỮ NGUYÊN
         // =========================
@@ -148,6 +162,18 @@ struct ContentView: View {
             DispatchQueue.main.async {
                 pendingChatEventId = id
             }
+        }
+    }
+
+    /// Show the "set your name" sheet at most once per launch, and only for a
+    /// signed-in account that still has no real display name. A short delay lets
+    /// the profile finish loading so returning, already-named users aren't nudged.
+    private func maybePromptForName() {
+        guard !didCheckNamePrompt, session.currentUser != nil else { return }
+        didCheckNamePrompt = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            guard session.currentUser != nil, !session.hasRealName else { return }
+            showNamePrompt = true
         }
     }
 
