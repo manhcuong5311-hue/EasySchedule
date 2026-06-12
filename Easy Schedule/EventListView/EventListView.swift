@@ -314,6 +314,7 @@ struct EventScrollContent: View {
 
     @State private var viewMode: CalendarViewMode = .day   // Day timeline ↔ Month grid
     @State private var requestMonthAdd = false             // top-right "+" → month add sheet
+    @State private var showOffDayConfirm = false           // top-right bed icon → confirm day off
 
     // Drag-down reveal of the week-at-a-glance behind the day card (Structify-style).
     @State private var cardDragOffset: CGFloat = 0
@@ -399,6 +400,22 @@ struct EventScrollContent: View {
             )
         }
         .ignoresSafeArea(edges: .bottom)
+        .alert(
+            eventManager.isOffDay(selectedDate)
+                ? String(localized: "reopen_day")
+                : String(localized: "off_day_warning_title"),
+            isPresented: $showOffDayConfirm
+        ) {
+            Button(
+                String(localized: "confirm"),
+                role: eventManager.isOffDay(selectedDate) ? nil : ButtonRole.destructive
+            ) {
+                eventManager.toggleMyOffDay(for: selectedDate)
+            }
+            Button(String(localized: "cancel"), role: .cancel) {}
+        } message: {
+            Text(offDayConfirmMessage)
+        }
     }
 
 
@@ -535,10 +552,46 @@ struct EventScrollContent: View {
 
             if viewMode == .month {
                 monthAddButton
+            } else if !isPastSelectedDay {
+                dayOffToggleButton
             }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
+    }
+
+    private var isPastSelectedDay: Bool {
+        Calendar.current.startOfDay(for: selectedDate)
+            < Calendar.current.startOfDay(for: Date())
+    }
+
+    // Day-off shortcut for the selected (today/future) day — wired to the same
+    // Firebase-synced mechanism as the Month view's Day Off tile.
+    private var dayOffToggleButton: some View {
+        let isOff = eventManager.isOffDay(selectedDate)
+        return Button {
+            showOffDayConfirm = true
+            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+        } label: {
+            Image(systemName: isOff ? "bed.double.fill" : "bed.double")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(isOff ? .white : uiAccent.color)
+                .frame(width: 40, height: 40)
+                .background(Circle().fill(isOff ? uiAccent.color : uiAccent.color.opacity(0.12)))
+                .overlay(Circle().stroke(uiAccent.color.opacity(0.18), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(isOff ? Text("reopen_day") : Text("set_day_off"))
+    }
+
+    private var offDayConfirmMessage: String {
+        if eventManager.isOffDay(selectedDate) {
+            return String(localized: "day_off_confirm_reopen_message")
+        }
+        // Day already has events → reuse the Month view's stronger warning.
+        return eventsOfSelectedDay.isEmpty
+            ? String(localized: "day_off_confirm_set_message")
+            : String(localized: "off_day_warning_message")
     }
 
     // Single icon toggle (top-left) — collapses the old Day | Month segmented

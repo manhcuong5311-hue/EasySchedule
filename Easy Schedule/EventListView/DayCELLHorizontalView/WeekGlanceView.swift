@@ -77,13 +77,11 @@ struct WeekGlanceView: View {
 
     // MARK: - Data
 
-    // Planning strip: only today and later show badges. Past days pull from the
-    // local archive (including events since deleted elsewhere), which resurfaces
-    // as unrecognizable grey dots — so past columns stay empty instead.
+    // Full-week overview: every day of the week shows its events — past days
+    // included (they come from the local archive via groupedByDay) but rendered
+    // dimmed so the strip still reads as past vs. upcoming.
     private func events(for date: Date) -> [CalendarEvent] {
-        let cal = Calendar.current
-        guard cal.startOfDay(for: date) >= cal.startOfDay(for: Date()) else { return [] }
-        return eventManager.events(for: date)
+        eventManager.events(for: date)
             .filter { $0.origin != .busySlot }
             .sorted { $0.startMinutes < $1.startMinutes }
     }
@@ -139,6 +137,8 @@ struct WeekGlanceView: View {
                     HStack(spacing: 0) {
                         ForEach(weekDates, id: \.self) { date in
                             let dayEvents = events(for: date, period: period)
+                            let isPast = Calendar.current.startOfDay(for: date)
+                                < Calendar.current.startOfDay(for: Date())
 
                             ZStack {
                                 if rowIndex < dayEvents.count {
@@ -147,6 +147,7 @@ struct WeekGlanceView: View {
                             }
                             .frame(maxWidth: .infinity)
                             .frame(height: badgeSize)
+                            .opacity(isPast ? 0.4 : 1)
                             .contentShape(Rectangle())
                             .onTapGesture { onSelectDate(date) }
                         }

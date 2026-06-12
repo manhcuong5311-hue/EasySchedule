@@ -243,19 +243,21 @@ struct AppointmentProSheet: View {
 
     private var partnerHeaderCard: some View {
         HStack(spacing: 14) {
-            ZStack {
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [Color.accentColor.opacity(0.22), Color.accentColor.opacity(0.08)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
+            AvatarView(uid: sharedUserId ?? "", size: 50) {
+                ZStack {
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.accentColor.opacity(0.22), Color.accentColor.opacity(0.08)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
                         )
-                    )
-                    .frame(width: 50, height: 50)
-                Text(partnerInitials)
-                    .font(.system(size: 18, weight: .semibold, design: .rounded))
-                    .foregroundStyle(Color.accentColor)
+                        .frame(width: 50, height: 50)
+                    Text(partnerInitials)
+                        .font(.system(size: 18, weight: .semibold, design: .rounded))
+                        .foregroundStyle(Color.accentColor)
+                }
             }
 
             VStack(alignment: .leading, spacing: 4) {

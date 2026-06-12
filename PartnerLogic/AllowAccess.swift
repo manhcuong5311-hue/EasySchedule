@@ -455,13 +455,15 @@ struct AccessManagementView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 12) {
                 // Avatar
-                ZStack {
-                    Circle()
-                        .fill(Color.accentColor.opacity(0.12))
-                        .frame(width: 42, height: 42)
-                    Text(req.name.isEmpty ? "?" : req.name.prefix(1).uppercased())
-                        .font(.headline)
-                        .foregroundStyle(Color.accentColor)
+                AvatarView(uid: req.uid, size: 42) {
+                    ZStack {
+                        Circle()
+                            .fill(Color.accentColor.opacity(0.12))
+                            .frame(width: 42, height: 42)
+                        Text(req.name.isEmpty ? "?" : req.name.prefix(1).uppercased())
+                            .font(.headline)
+                            .foregroundStyle(Color.accentColor)
+                    }
                 }
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -548,15 +550,17 @@ struct AccessManagementView: View {
     private func allowedUserCard(_ user: AllowedUser) -> some View {
         HStack(spacing: 12) {
             // Avatar
-            ZStack {
-                Circle()
-                    .fill(user.isMutual
-                        ? Color.green.opacity(0.12)
-                        : Color.orange.opacity(0.12))
-                    .frame(width: 42, height: 42)
-                Text((user.name ?? user.uid).prefix(1).uppercased())
-                    .font(.headline)
-                    .foregroundStyle(user.isMutual ? .green : .orange)
+            AvatarView(uid: user.uid, size: 42) {
+                ZStack {
+                    Circle()
+                        .fill(user.isMutual
+                            ? Color.green.opacity(0.12)
+                            : Color.orange.opacity(0.12))
+                        .frame(width: 42, height: 42)
+                    Text((user.name ?? user.uid).prefix(1).uppercased())
+                        .font(.headline)
+                        .foregroundStyle(user.isMutual ? .green : .orange)
+                }
             }
 
             VStack(alignment: .leading, spacing: 3) {

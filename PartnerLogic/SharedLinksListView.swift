@@ -98,14 +98,16 @@ struct SharedLinkCard: View {
 
         HStack(spacing: 14) {
 
-            Circle()
-                .fill(color.opacity(0.15))
-                .frame(width: 44, height: 44)
-                .overlay(
-                    Text(initial)
-                        .font(.headline)
-                        .foregroundColor(color)
-                )
+            AvatarView(uid: link.uid, size: 44) {
+                Circle()
+                    .fill(color.opacity(0.15))
+                    .frame(width: 44, height: 44)
+                    .overlay(
+                        Text(initial)
+                            .font(.headline)
+                            .foregroundColor(color)
+                    )
+            }
 
             Text(displayName)
                 .font(.system(size: 16, weight: .semibold))

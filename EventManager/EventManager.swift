@@ -357,6 +357,7 @@ final class EventManager: ObservableObject {
             .document(uid)
             .getDocument { snap, err in
                 let name = snap?.data()?["name"] as? String ?? uid
+                UserAvatarStore.shared.noteProfileData(snap?.data(), for: uid)
                 DispatchQueue.main.async {
                     self.userNames[uid] = name
                     completion(name)
@@ -379,6 +380,9 @@ final class EventManager: ObservableObject {
                         doc["name"] as? String
                         ?? doc["displayName"] as? String
                         ?? doc.documentID
+                    // Same read also carries the avatar version — record it so
+                    // photo changes are picked up each launch for free.
+                    UserAvatarStore.shared.noteProfileData(doc.data(), for: doc.documentID)
                 }
 
                 DispatchQueue.main.async {
@@ -1528,6 +1532,8 @@ extension EventManager {
                     ?? snap?.data()?["displayName"] as? String
                     ?? uid
 
+                UserAvatarStore.shared.noteProfileData(snap?.data(), for: uid)
+
                 DispatchQueue.main.async {
                     self.userNames[uid] = name
                 }
@@ -2421,6 +2427,20 @@ extension EventManager {
           let key = Calendar.current.startOfDay(for: date)
           return offDays.contains(key)
       }
+
+    /// Toggle MY off-day for a date — same pipeline as the Month view's Day Off
+    /// tile: updates the live cache (drives isOffDay instantly), keeps the Month
+    /// view's local copy ("offDays" in UserDefaults) in sync, and pushes to
+    /// publicCalendar on Firebase so partners see the day blocked.
+    func toggleMyOffDay(for date: Date) {
+        guard let uid = currentUserId else { return }
+        let key = Calendar.current.startOfDay(for: date)
+        var set = offDayCache[uid] ?? []
+        if set.contains(key) { set.remove(key) } else { set.insert(key) }
+        offDayCache[uid] = set
+        UserDefaults.standard.set(set.map { $0.timeIntervalSince1970 }, forKey: "offDays")
+        syncOffDaysToFirebase(offDays: set)
+    }
     
     
     func loadUserCalendar(uid: String) {

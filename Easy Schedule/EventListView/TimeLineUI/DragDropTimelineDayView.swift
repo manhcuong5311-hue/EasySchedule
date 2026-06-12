@@ -1018,6 +1018,7 @@ private struct DDEventCard: View {
     @EnvironmentObject var eventManager: EventManager
     @EnvironmentObject var session: SessionStore
     @ObservedObject private var todoStore = LocalTodoStore.shared
+    @ObservedObject private var avatars = UserAvatarStore.shared
 
     private var myUid: String? { session.currentUserId }
     private var isMyEvent: Bool { event.createdBy == event.owner }
@@ -1124,12 +1125,22 @@ private struct DDEventCard: View {
                     ZStack {
                         RoundedRectangle(cornerRadius: 50)
                             .fill(scheme == .dark ? Color.white.opacity(0.1) : Color.black.opacity(0.07))
+                        // Partner events show the partner's profile photo (cached)
+                        // in the pill; everything else keeps its icon.
+                        if shouldShowOwner, let photo = avatars.image(for: ownerUID) {
+                            Image(uiImage: photo)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: isPad ? 58 : 50, height: pillH)
+                                .clipShape(RoundedRectangle(cornerRadius: 50))
+                        } else {
+                            Image(systemName: EventIconStore.shared.icon(for: event.id) ?? event.originIcon)
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundStyle(event.eventColor)
+                        }
                         if isRunning() {
                             RoundedRectangle(cornerRadius: 50).stroke(event.eventColor, lineWidth: 2.5)
                         }
-                        Image(systemName: EventIconStore.shared.icon(for: event.id) ?? event.originIcon)
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundStyle(event.eventColor)
                     }
                     .frame(width: isPad ? 58 : 50, height: pillH)
                     .background(

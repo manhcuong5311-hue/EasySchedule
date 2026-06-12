@@ -157,6 +157,8 @@ class SessionStore: ObservableObject {
             // Doc not created yet → saveProfileIfNeeded creates it with a default.
             guard let data = snap?.data() else { return }
 
+            UserAvatarStore.shared.noteProfileData(data, for: uid)
+
             let stored = (data["name"] as? String)?
                 .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
 
@@ -289,6 +291,8 @@ class SessionStore: ObservableObject {
             db.collection("users").document(uid).getDocument { snap, _ in
                 let raw = snap?.data()?["name"] as? String
                 let trimmed = raw?.trimmingCharacters(in: .whitespacesAndNewlines)
+
+                UserAvatarStore.shared.noteProfileData(snap?.data(), for: uid)
 
                 let finalName = (trimmed?.isEmpty == false)
                     ? trimmed!

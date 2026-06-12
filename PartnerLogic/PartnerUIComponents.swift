@@ -45,6 +45,41 @@ enum InviteQRCode {
     }
 }
 
+// MARK: - Mini QR thumbnail
+
+/// Small always-visible QR preview for the invitation card. The image is
+/// generated once per code (`.task(id:)`, not every body pass) and sits on a
+/// white tile so scanners can read it in dark mode too.
+struct InviteQRThumbnail: View {
+    let code: String
+    var side: CGFloat = 74
+
+    @State private var image: UIImage?
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color.white)
+            if let image {
+                Image(uiImage: image)
+                    .interpolation(.none)
+                    .resizable()
+                    .scaledToFit()
+                    .padding(7)
+            }
+        }
+        .frame(width: side, height: side)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(Color.primary.opacity(0.10))
+        )
+        .shadow(color: .black.opacity(0.06), radius: 3, y: 1)
+        .task(id: code) {
+            image = InviteQRCode.image(from: code)
+        }
+    }
+}
+
 // MARK: - Invitation QR sheet
 
 struct InvitationQRSheet: View {

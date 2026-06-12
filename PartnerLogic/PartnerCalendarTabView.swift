@@ -198,25 +198,33 @@ struct PartnerCalendarTabView: View {
 
             if let code = eventManager.invitationCode {
 
-                HStack(alignment: .center, spacing: 12) {
-                    Text(code)
-                        .font(.system(size: 28, weight: .bold, design: .monospaced))
-                        .foregroundColor(uiAccent.color)
-                        .minimumScaleFactor(0.7)
-                        .lineLimit(1)
+                // Real scannable QR right on the card — the whole row taps
+                // through to the enlarged sheet.
+                Button { showQR = true } label: {
+                    HStack(alignment: .center, spacing: 14) {
+                        InviteQRThumbnail(code: code)
 
-                    Spacer()
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(code)
+                                .font(.system(size: 26, weight: .bold, design: .monospaced))
+                                .foregroundColor(uiAccent.color)
+                                .minimumScaleFactor(0.6)
+                                .lineLimit(1)
 
-                    // QR → opens a big scannable code + share
-                    Button { showQR = true } label: {
-                        Image(systemName: "qrcode")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundStyle(uiAccent.color)
-                            .frame(width: 38, height: 38)
-                            .background(Circle().fill(uiAccent.color.opacity(0.10)))
+                            HStack(spacing: 4) {
+                                Image(systemName: "arrow.up.left.and.arrow.down.right")
+                                    .font(.system(size: 9, weight: .bold))
+                                Text(String(localized: "partner.qr_tap_hint"))
+                                    .font(.caption2.weight(.medium))
+                            }
+                            .foregroundStyle(.secondary)
+                        }
+
+                        Spacer()
                     }
-                    .buttonStyle(.plain)
+                    .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
 
                 HStack(spacing: 8) {
                     ShareLink(item: InviteQRCode.shareText(code)) {
@@ -557,13 +565,15 @@ struct PartnerRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            ZStack {
-                Circle()
-                    .fill(uiAccent.color.opacity(0.12))
-                    .frame(width: 42, height: 42)
-                Text(initial)
-                    .font(.headline)
-                    .foregroundStyle(uiAccent.color)
+            AvatarView(uid: link.uid, size: 42) {
+                ZStack {
+                    Circle()
+                        .fill(uiAccent.color.opacity(0.12))
+                        .frame(width: 42, height: 42)
+                    Text(initial)
+                        .font(.headline)
+                        .foregroundStyle(uiAccent.color)
+                }
             }
 
             VStack(alignment: .leading, spacing: 4) {

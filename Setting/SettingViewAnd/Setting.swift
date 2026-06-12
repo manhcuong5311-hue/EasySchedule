@@ -160,19 +160,21 @@ extension SettingsView {
             } label: {
                 HStack(spacing: 14) {
                     ZStack(alignment: .bottomTrailing) {
-                        ZStack {
-                            Circle()
-                                .fill(
-                                    LinearGradient(
-                                        colors: [uiAccent.color, uiAccent.color.opacity(0.75)],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
+                        AvatarView(uid: session.currentUserId ?? "", size: 56) {
+                            ZStack {
+                                Circle()
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [uiAccent.color, uiAccent.color.opacity(0.75)],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
                                     )
-                                )
-                                .frame(width: 56, height: 56)
-                            Text(profileInitial)
-                                .font(.system(size: 24, weight: .semibold, design: .rounded))
-                                .foregroundStyle(.white)
+                                    .frame(width: 56, height: 56)
+                                Text(profileInitial)
+                                    .font(.system(size: 24, weight: .semibold, design: .rounded))
+                                    .foregroundStyle(.white)
+                            }
                         }
 
                         // Editable-avatar pencil badge → signals the row edits the name
