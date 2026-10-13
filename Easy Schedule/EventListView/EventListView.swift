@@ -78,6 +78,9 @@ struct EventListView: View {
     // Prefill start time when AddEventView is opened from a free-gap tap
     @State private var pendingPrefillMinutes: Int? = nil
 
+    // Siri / Shortcuts quick add → Add Event sheet with the sentence prefilled
+    @State private var quickAddTitle: String? = nil
+
     
     private var eventsIntroOverlay: some View {
         GeometryReader { geo in
@@ -214,7 +217,8 @@ struct EventListView: View {
                     prefillDate: selectedDate,
                     offDays: [],
                     busyHours: [],
-                    prefillStartMinutes: pendingPrefillMinutes
+                    prefillStartMinutes: pendingPrefillMinutes,
+                    initialTitle: quickAddTitle
                 )
                 .environmentObject(eventManager)
                 .environmentObject(session)
@@ -238,7 +242,37 @@ struct EventListView: View {
             // instead of auto-popping the weekly summary sheet.
         }
 
-   
+        // Siri / Shortcuts "Thêm lịch" → open Add Event with the sentence prefilled.
+        // $pendingText replays its current value on subscribe, so a cold launch works too.
+        .onReceive(QuickAddRouter.shared.$pendingText) { text in
+            guard let text, !text.isEmpty else { return }
+            DispatchQueue.main.async { QuickAddRouter.shared.pendingText = nil }
+            presentQuickAdd(text)
+        }
+        .onChange(of: activeSheet?.id) { _, newID in
+            if newID == nil { quickAddTitle = nil }   // plain "+" never inherits a Siri title
+        }
+
+
+    }
+
+    /// Shows the Add Event sheet with `text` as its initial title. If another
+    /// sheet (or an Add Event sheet) is already up, close it first.
+    private func presentQuickAdd(_ text: String) {
+        if activeSheet == nil {
+            openAddEvent(prefilledWith: text)
+        } else {
+            activeSheet = nil
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                openAddEvent(prefilledWith: text)
+            }
+        }
+    }
+
+    private func openAddEvent(prefilledWith text: String) {
+        quickAddTitle = text
+        pendingPrefillMinutes = nil
+        activeSheet = .addEvent
     }
     
     

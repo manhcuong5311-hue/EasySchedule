@@ -51,7 +51,8 @@ final class LiveActivityController {
             start: target.item.start,
             end: target.item.end,
             colorHex: target.item.colorHex,
-            isUpcoming: target.upcoming
+            isUpcoming: target.upcoming,
+            canChat: target.item.isShared ?? false
         )
         let content = ActivityContent(state: state, staleDate: target.item.end)
 

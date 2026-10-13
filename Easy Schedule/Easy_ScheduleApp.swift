@@ -75,6 +75,9 @@ struct Easy_scheduleApp: App {
                 if phase == .active || phase == .background {
                     EventManager.shared.refreshSharedSnapshot()
                 }
+                if phase == .active {
+                    Task { await DeviceCalendarSync.shared.syncIfNeeded() }
+                }
             }
         }
     }
@@ -149,6 +152,7 @@ struct RootView: View {
                     
                     .onAppear {
                         guideManager.startIfNeeded()
+                        AdsManager.shared.activate()
 
                         if let uid = session.currentUserId {
                             eventManager.configureForUser(uid: uid)

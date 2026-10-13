@@ -18,6 +18,17 @@ struct NextEventEntry: TimelineEntry {
     /// Việc cần làm nổi bật: đang diễn ra > sắp tới.
     var focus: ScheduleSnapshotItem? { current ?? next }
     var focusIsNow: Bool { current != nil }
+
+    /// Nút trả lời nhanh hiện sớm tối đa 3 giờ trước giờ bắt đầu.
+    static let quickReplyLeadTime: TimeInterval = 3 * 60 * 60
+
+    /// Việc nổi bật có người tham gia và đang diễn ra / sắp bắt đầu trong 3 giờ
+    /// → hiện "Tôi đang tới" / "Trễ 10 phút" (widget medium).
+    var quickReplyItem: ScheduleSnapshotItem? {
+        guard let item = focus, item.isShared == true else { return nil }
+        if focusIsNow { return item }
+        return item.start.timeIntervalSince(date) <= Self.quickReplyLeadTime ? item : nil
+    }
 }
 
 // MARK: - Provider
@@ -37,6 +48,11 @@ struct NextEventProvider: TimelineProvider {
         var dates: [Date] = [now]
         dates.append(contentsOf: snap.refreshDates(after: now))
         dates.append(now.addingTimeInterval(30 * 60))          // sàn refresh 30'
+        // Mốc hiện nút trả lời nhanh (3 giờ trước việc có người tham gia).
+        for item in snap.items where item.isShared == true {
+            let opensAt = item.start.addingTimeInterval(-NextEventEntry.quickReplyLeadTime)
+            if opensAt > now { dates.append(opensAt) }
+        }
         let points = Array(Set(dates)).sorted().prefix(12)
 
         let entries = points.map { entry(from: snap, at: $0) }
@@ -124,11 +140,19 @@ struct MediumWidgetView: View {
     var body: some View {
         Group {
             if let item = entry.focus {
-                HStack(alignment: .top, spacing: 14) {
-                    focusColumn(item)
-                    if !laterItems.isEmpty {
-                        Divider()
-                        upcomingColumn
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(alignment: .top, spacing: 14) {
+                        focusColumn(item)
+                        if !laterItems.isEmpty {
+                            Divider()
+                            upcomingColumn
+                        }
+                    }
+                    if let replyItem = entry.quickReplyItem {
+                        // Nút tương tác (iOS 17+): chạy QuickReplyIntent trong app,
+                        // gửi tin nhắn vào chat của sự kiện — cùng kiểu Live Activity.
+                        QuickReplyButtons(eventID: replyItem.id, tint: replyItem.color)
+                            .controlSize(.small)
                     }
                 }
             } else {
@@ -136,9 +160,12 @@ struct MediumWidgetView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-        .padding(14)
+        .padding(showsQuickReplies ? 12 : 14)
         .containerBackground(for: .widget) { Color(uiColor: .systemBackground) }
     }
+
+    /// Có hàng nút trả lời nhanh → thu gọn nội dung phía trên cho vừa khung.
+    private var showsQuickReplies: Bool { entry.quickReplyItem != nil }
 
     private var laterItems: [ScheduleSnapshotItem] {
         let focusID = entry.focus?.id
@@ -146,9 +173,9 @@ struct MediumWidgetView: View {
     }
 
     private func focusColumn(_ item: ScheduleSnapshotItem) -> some View {
-        VStack(alignment: .leading, spacing: 5) {
+        VStack(alignment: .leading, spacing: showsQuickReplies ? 3 : 5) {
             LabelRow(item: item, isNow: entry.focusIsNow)
-            Text(item.title).font(.headline).lineLimit(2)
+            Text(item.title).font(.headline).lineLimit(showsQuickReplies ? 1 : 2)
             if entry.focusIsNow {
                 countdown(to: item.end, prefix: WidgetStrings.endsIn)
             } else {
@@ -161,10 +188,10 @@ struct MediumWidgetView: View {
     }
 
     private var upcomingColumn: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: showsQuickReplies ? 5 : 8) {
             Text(WidgetStrings.today.uppercased())
                 .font(.caption2.weight(.bold)).foregroundStyle(.secondary)
-            ForEach(Array(laterItems.prefix(3))) { item in
+            ForEach(Array(laterItems.prefix(showsQuickReplies ? 2 : 3))) { item in
                 HStack(spacing: 6) {
                     RoundedRectangle(cornerRadius: 2).fill(item.color).frame(width: 3, height: 22)
                     VStack(alignment: .leading, spacing: 1) {

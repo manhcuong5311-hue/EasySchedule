@@ -85,6 +85,10 @@ final class NotificationManager: ObservableObject {
             event.title
         )
         content.sound = .default
+        content.userInfo = ["type": "event_reminder", "eventId": event.id]
+        if event.isShared {
+            content.categoryIdentifier = QuickReply.sharedEventCategory
+        }
 
         let triggerDate =
             Calendar.current.date(

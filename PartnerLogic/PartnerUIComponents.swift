@@ -14,10 +14,20 @@ import CoreImage.CIFilterBuiltins
 extension View {
     /// One consistent surface for every card/row on the Partner tab so the
     /// invite card, "Manage Access" row and partner rows all match.
-    func partnerCardSurface(cornerRadius: CGFloat = 18) -> some View {
-        background(
+    func partnerCardSurface(cornerRadius: CGFloat = AppRadius.card) -> some View {
+        modifier(PartnerCardSurface(cornerRadius: cornerRadius))
+    }
+}
+
+/// White / graphite card on the grey `AppBackground.settings` screen.
+private struct PartnerCardSurface: ViewModifier {
+    let cornerRadius: CGFloat
+    @Environment(\.colorScheme) private var colorScheme
+
+    func body(content: Content) -> some View {
+        content.background(
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .fill(Color(.secondarySystemBackground))
+                .fill(AppBackground.card(colorScheme))
         )
     }
 }

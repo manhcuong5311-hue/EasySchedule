@@ -124,10 +124,10 @@ struct CalendarMiniView: View {
 
             // ── Legend ───────────────────────────────────────────────────
             HStack(spacing: 18) {
-                legendItem(color: Color.red.opacity(0.55),    label: "Busy")
-                legendItem(color: Color.orange.opacity(0.65), label: "Day off")
+                legendItem(color: Color.red.opacity(0.55),    label: String(localized: "availability_busy"))
+                legendItem(color: Color.orange.opacity(0.65), label: String(localized: "day_off"))
             }
-            .font(.caption2)
+            .font(.caption)
             .foregroundStyle(.secondary)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 16)

@@ -41,12 +41,17 @@ struct SettingsView: View {
     @State private var showUpgradeSheet = false
     @State private var showDisplaySettings = false   // moved here from Tab 1's header button
     @State private var settingsShareItem: ShareItem? = nil   // share booking link (moved from old Tab 2)
+    @State private var showBookingHours = false
+    @State private var showBookingLink = false
 
     // MARK: - Environment Objects
     @EnvironmentObject var session: SessionStore
     @EnvironmentObject var premium: PremiumStoreViewModel
     @EnvironmentObject var eventManager: EventManager
     @EnvironmentObject var uiAccent: UIAccentStore
+    @ObservedObject var ads = AdsManager.shared
+    @AppStorage(DeviceCalendarSync.enabledKey) var syncDeviceCalendar = false
+    @State var showCalendarAccessDenied = false
     @State private var didFinishInitialLoad = false
     @State private var showNotificationSettingsAlert = false
 
@@ -107,6 +112,14 @@ struct SettingsView: View {
             }
             .sheet(item: $settingsShareItem) { item in
                 ActivityView(activityItems: [item.url])
+            }
+            .sheet(isPresented: $showBookingHours) {
+                BookingHoursSheet()
+                    .environmentObject(uiAccent)
+            }
+            .sheet(isPresented: $showBookingLink) {
+                BookingLinkSheet()
+                    .environmentObject(uiAccent)
             }
             .sheet(isPresented: $showPremiumIntro) {
                 PremiumIntroView(
@@ -412,10 +425,70 @@ extension SettingsView {
                           "arrow.triangle.2.circlepath", .teal)
             }
 
+            // Busy times from the iPhone Calendar (times only, no titles)
+            Toggle(isOn: Binding(
+                get: { syncDeviceCalendar },
+                set: { on in
+                    Task {
+                        let result = await DeviceCalendarSync.shared.setEnabled(on)
+                        if on && !result { showCalendarAccessDenied = true }
+                    }
+                }
+            )) {
+                VStack(alignment: .leading, spacing: 2) {
+                    iconLabel(String(localized: "device_calendar_sync"),
+                              "calendar.badge.clock", .red)
+                    Text(String(localized: "device_calendar_sync_footer"))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.leading, 40)
+                }
+            }
+            .alert(String(localized: "device_calendar_denied_title"),
+                   isPresented: $showCalendarAccessDenied) {
+                Button(String(localized: "open_settings")) {
+                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                        UIApplication.shared.open(url)
+                    }
+                }
+                Button(String(localized: "cancel"), role: .cancel) {}
+            } message: {
+                Text(String(localized: "device_calendar_denied_message"))
+            }
+
+            // Weekly hours / buffer / max per day that other people can book
             Button {
-                if let uid = Auth.auth().currentUser?.uid,
-                   let url = URL(string: "https://easyschedule-ce98a.web.app/calendar/\(uid)") {
-                    settingsShareItem = ShareItem(url: url)
+                showBookingHours = true
+            } label: {
+                HStack {
+                    iconLabel(String(localized: "booking_hours_title"),
+                              "clock.badge.checkmark", .green)
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.tertiary)
+                }
+            }
+            .tint(.primary)
+
+            // Memorable /c/<handle> booking link
+            Button {
+                showBookingLink = true
+            } label: {
+                HStack {
+                    iconLabel(String(localized: "booking_link_title"),
+                              "link", .indigo)
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.tertiary)
+                }
+            }
+            .tint(.primary)
+
+            Button {
+                if let uid = Auth.auth().currentUser?.uid {
+                    settingsShareItem = ShareItem(url: BookingLink.url(for: uid))
                 }
             } label: {
                 HStack {
@@ -570,6 +643,16 @@ extension SettingsView {
             } label: {
                 iconLabel(String(localized: "faq"),
                           "questionmark.circle", .indigo)
+            }
+
+            // Required by Google for EEA/UK users: let them change ad consent.
+            if ads.adsEnabled && ads.privacyOptionsRequired {
+                Button {
+                    ads.presentPrivacyOptions()
+                } label: {
+                    iconLabel(String(localized: "ads_privacy_options"),
+                              "hand.raised", .teal)
+                }
             }
         }
     }

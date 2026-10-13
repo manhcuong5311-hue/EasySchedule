@@ -45,6 +45,12 @@ class AppDelegate: NSObject,
 
         // Notifications (LOCAL ONLY)
         UNUserNotificationCenter.current().delegate = self
+        QuickReply.registerNotificationCategories()
+
+        // Live Activity buttons run QuickReplyIntent in this process
+        QuickReplyCenter.handler = { eventId, kind in
+            await QuickReply.send(kind, eventId: eventId)
+        }
 
         // Xin quyền thông báo
         UNUserNotificationCenter.current().getNotificationSettings { settings in
@@ -130,6 +136,9 @@ class AppDelegate: NSObject,
             // ✅ Chat vẫn dùng banner hệ thống
             completionHandler([.banner, .sound])
 
+        case "event_reminder", "leave_reminder":
+            completionHandler([.banner, .sound])
+
         case "event":
             completionHandler([]) // ❌ chặn banner iOS
             pushLocalNotification(
@@ -156,5 +165,37 @@ class AppDelegate: NSObject,
         }
     }
 
+    // Tap / action button on a notification
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        let userInfo = response.notification.request.content.userInfo
+        guard let eventId = userInfo["eventId"] as? String else {
+            completionHandler()
+            return
+        }
 
+        if let kind = QuickReply.kind(forAction: response.actionIdentifier) {
+            // "Tôi đang tới" / "Trễ 10 phút" — runs in the background, no UI
+            Task { @MainActor in
+                await QuickReply.send(kind, eventId: eventId)
+                completionHandler()
+            }
+            return
+        }
+
+        if response.actionIdentifier == UNNotificationDefaultActionIdentifier,
+           let type = userInfo["type"] as? String,
+           type == "event_reminder" || type == "leave_reminder" {
+            Task { @MainActor in
+                EventManager.shared.openEvent(eventId: eventId)
+                completionHandler()
+            }
+            return
+        }
+
+        completionHandler()
+    }
 }

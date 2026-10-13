@@ -48,7 +48,7 @@ struct PartnerCalendarTabView: View {
             ZStack {
                 mainContent
             }
-            .background(Color(.systemBackground).ignoresSafeArea())
+            .background(AppBackground.settings(colorScheme).ignoresSafeArea())
             .safeAreaInset(edge: .top) {
                 HStack(alignment: .center) {
                     partnerHeaderView
@@ -60,7 +60,7 @@ struct PartnerCalendarTabView: View {
                 .padding(.bottom, 10)
                 // Same colour as the screen → the title + add button read as part
                 // of the view, not a floating bar with a drop shadow.
-                .background(Color(.systemBackground).ignoresSafeArea(edges: .top))
+                .background(AppBackground.settings(colorScheme).ignoresSafeArea(edges: .top))
             }
         }
         .toolbar(.hidden, for: .navigationBar)
@@ -105,6 +105,7 @@ struct PartnerCalendarTabView: View {
             )
             .environmentObject(eventManager)
             .environmentObject(session)
+            .environmentObject(uiAccent)
         }
         .sheet(isPresented: $showQR) {
             if let code = eventManager.invitationCode {
@@ -134,7 +135,6 @@ struct PartnerCalendarTabView: View {
         .minimumScaleFactor(0.75)
         .allowsTightening(true)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .modifier(TitleShadow.primary(colorScheme))
     }
 
     // MARK: – Floating Add Button
@@ -145,16 +145,8 @@ struct PartnerCalendarTabView: View {
                 .font(.system(size: 19, weight: .semibold))
                 .foregroundColor(.white)
                 .frame(width: 44, height: 44)
-                .background(
-                    Circle().fill(
-                        LinearGradient(
-                            colors: [uiAccent.color, uiAccent.color.opacity(0.8)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                )
-                .shadow(color: uiAccent.color.opacity(0.40), radius: 10, y: 4)
+                .background(Circle().fill(uiAccent.color))
+                .shadow(color: uiAccent.color.opacity(0.35), radius: 8, y: 4)
         }
     }
 
@@ -381,7 +373,7 @@ struct PartnerCalendarTabView: View {
         }
         .padding(.horizontal, 11)
         .padding(.vertical, 7)
-        .background(Capsule().fill(Color(.secondarySystemBackground)))
+        .background(Capsule().fill(AppBackground.card(colorScheme)))
         .frame(maxWidth: 196)
     }
 

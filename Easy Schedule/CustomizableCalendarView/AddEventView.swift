@@ -48,6 +48,7 @@ struct AddEventView: View {
 
     @EnvironmentObject var eventManager: EventManager
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var scheme
 
     // Appearance
     @State private var selectedColor: Color = .blue
@@ -62,7 +63,21 @@ struct AddEventView: View {
     let prefillDate: Date?
     let offDays: Set<Date>
     let busyHours: [(Date, Date)]
+    @ObservedObject private var deviceCalendar = DeviceCalendarSync.shared
+
+    /// Manual busy hours + busy times imported from the iPhone Calendar
+    /// (the latter not enforced when the user allows overlapping events).
+    private var allBusyHours: [(Date, Date)] {
+        eventManager.allowDuplicateEvents
+            ? busyHours
+            : busyHours + deviceCalendar.intervals(on: date)
+    }
     var prefillStartMinutes: Int? = nil   // optional start time (minutes from midnight) when opened from a free-gap tap
+    var initialTitle: String? = nil       // sentence handed over by Siri / Shortcuts (parsed into a suggestion)
+
+    // Quick add from a sentence — suggestion chip under the title (never auto-applied)
+    @State private var quickSuggestion: QuickAddResult?
+    @State private var quickSuppressedTitle: String?   // title we just wrote ourselves → no chip until it changes
 
     // Core time state
     @State private var title: String = ""
@@ -78,6 +93,7 @@ struct AddEventView: View {
     @AppStorage("nightSleepHour")   private var nightSleepHour:   Int = 22
 
     @State private var showDayBoundsSettings = false
+    @State private var showsTimeWheels = false   // fine-tune wheels collapsed by default
 
     @EnvironmentObject var premium: PremiumStoreViewModel
     @EnvironmentObject var session: SessionStore
@@ -87,6 +103,12 @@ struct AddEventView: View {
     @State private var activeAlert: AddEventAlert?
     @State private var showUpgradeSheet = false
     @State private var showPremiumIntro = false
+    @State private var showRewardedOffer = false
+    @State private var location: EventLocation?
+    @State private var showLocationPicker = false
+    @State private var repeatRule: RepeatRule = .none
+    @State private var repeatCount = 4
+    @State private var seriesResultMessage: String?
     @Environment(\.requestReview) private var requestReview
 
     private let paletteColors: [Color] = [
@@ -170,6 +192,12 @@ struct AddEventView: View {
                     startTime = morningStart(for: d)
                 }
                 syncEndTime()
+                if title.isEmpty,
+                   let initial = initialTitle?.trimmingCharacters(in: .whitespacesAndNewlines),
+                   !initial.isEmpty {
+                    title = initial
+                    runQuickParse()   // show the suggestion right away, no debounce
+                }
             }
             // React to settings changes from DayBoundsSettingsSheet
             .onChange(of: nightSleepHour) {
@@ -188,55 +216,7 @@ struct AddEventView: View {
             .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(String(localized: "save")) {
-                        guard !isSaving else { return }
-                        isSaving = true
-
-                        if let error = validateBeforeSave() {
-                            switch error {
-                            case .overBookingDays, .overEventsPerDay:
-                                if PremiumIntroGate.shouldShowToday() {
-                                    PremiumIntroGate.markShown()
-                                    showPremiumIntro = true
-                                } else {
-                                    activeAlert = .save(error)
-                                }
-                            default:
-                                activeAlert = .save(error)
-                            }
-                            isSaving = false
-                            return
-                        }
-
-                        let start = combine(date: date, time: startTime)
-                        let end   = combine(date: date, time: endTime)
-
-                        let newEventId = eventManager.addEvent(
-                            title: title,
-                            ownerName: session.currentUserName,
-                            date: date,
-                            startTime: start,
-                            endTime: end,
-                            colorHex: selectedColor.toHex() ?? "#007AFF"
-                        )
-
-                        if let eventId = newEventId {
-                            if !selectedIcon.isEmpty {
-                                EventIconStore.shared.setIcon(selectedIcon, for: eventId)
-                            }
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                                ReviewManager.shared.requestAfterEventSuccess(requestReview)
-                            }
-                            dismiss()
-                        } else {
-                            activeAlert = nil
-                            DispatchQueue.main.async {
-                                activeAlert = .save(.cannotCreate)
-                            }
-                        }
-
-                        isSaving = false
-                    }
+                    Button(String(localized: "save")) { save() }
                     .disabled(isSaving)
                 }
 
@@ -245,6 +225,13 @@ struct AddEventView: View {
                 }
             }
             .alert(item: $activeAlert) { buildAlert($0) }
+            .alert(String(localized: "limit_reached"), isPresented: $showRewardedOffer) {
+                Button(String(localized: "ads_watch_for_extra_event")) { watchAdForExtraEvent() }
+                Button(String(localized: "upgrade_to_premium")) { showUpgradeSheet = true }
+                Button(String(localized: "cancel"), role: .cancel) {}
+            } message: {
+                Text(String(format: String(localized: "ads_extra_event_message"), premium.limits.maxEventsPerDay))
+            }
             .fullScreenCover(isPresented: $showPremiumIntro) {
                 PremiumIntroView(isPresented: $showPremiumIntro) {
                     showUpgradeSheet = true
@@ -261,6 +248,16 @@ struct AddEventView: View {
             .sheet(isPresented: $showDayBoundsSettings) {
                 DayBoundsSettingsSheet()
             }
+            .sheet(isPresented: $showLocationPicker) {
+                LocationPickerSheet { picked in location = picked }
+            }
+            .alert(String(localized: "repeat_result_title"),
+                   isPresented: Binding(get: { seriesResultMessage != nil },
+                                        set: { if !$0 { seriesResultMessage = nil } })) {
+                Button(String(localized: "ok")) { dismiss() }
+            } message: {
+                Text(seriesResultMessage ?? "")
+            }
         }
     }
 
@@ -272,22 +269,12 @@ struct AddEventView: View {
         ZStack {
             Color(.systemGroupedBackground)
             LinearGradient(
-                colors: [selectedColor.opacity(0.42),
-                         selectedColor.opacity(0.14),
+                colors: [selectedColor.opacity(0.26),
+                         selectedColor.opacity(0.08),
                          .clear],
                 startPoint: .top,
                 endPoint: UnitPoint(x: 0.5, y: 0.5)
             )
-            Circle()
-                .fill(selectedColor.opacity(0.22))
-                .blur(radius: 90)
-                .frame(width: 320, height: 320)
-                .offset(x: -90, y: -150)
-            Circle()
-                .fill(selectedColor.opacity(0.14))
-                .blur(radius: 110)
-                .frame(width: 260, height: 260)
-                .offset(x: 150, y: 30)
         }
         .ignoresSafeArea()
         .animation(.easeInOut(duration: 0.35), value: selectedColor)
@@ -321,13 +308,15 @@ struct AddEventView: View {
                     .padding(.vertical, 12)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        RoundedRectangle(cornerRadius: AppRadius.control, style: .continuous)
                             .fill(.ultraThinMaterial)
                     )
                     .overlay(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        RoundedRectangle(cornerRadius: AppRadius.control, style: .continuous)
                             .stroke(Color.primary.opacity(0.06), lineWidth: 1)
                     )
+
+                quickAddChip
 
                 HStack(spacing: 6) {
                     Image(systemName: "clock")
@@ -341,13 +330,122 @@ struct AddEventView: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
                 .background(.ultraThinMaterial, in: Capsule())
+
+                freeEventsCaption
             }
         }
         .padding(.horizontal, 20)
         .padding(.top, 8)
+        // Debounced sentence parsing while typing (restarts on every keystroke).
+        .task(id: title) {
+            try? await Task.sleep(for: .milliseconds(300))
+            guard !Task.isCancelled else { return }
+            runQuickParse()
+        }
     }
 
-    /// Single frosted rounded card: color · date · hours · fine-tune.
+    // MARK: – Quick add from a sentence
+
+    /// "✨ Dùng T4 14/10 · 15:00–16:00" — tap to apply the parsed date/time.
+    @ViewBuilder
+    private var quickAddChip: some View {
+        if let suggestion = quickSuggestion, let start = suggestion.start {
+            Button {
+                applyQuickSuggestion(suggestion)
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "sparkles")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(selectedColor)
+                    Text("quick_add_apply \(quickSummary(start: start, minutes: suggestion.durationMinutes ?? 60))")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .background(Capsule().fill(selectedColor.opacity(0.14)))
+                .overlay(Capsule().stroke(selectedColor.opacity(0.35), lineWidth: 1))
+            }
+            .buttonStyle(.plain)
+            .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .topLeading)))
+        }
+    }
+
+    private func quickSummary(start: Date, minutes: Int) -> String {
+        let end = start.addingTimeInterval(Double(minutes) * 60)
+        let day = start.formatted(.dateTime.weekday(.abbreviated).day().month(.twoDigits))
+        return "\(day) · \(formattedTime(start))–\(formattedTime(end))"
+    }
+
+    private func runQuickParse() {
+        let text = title
+        if let suppressed = quickSuppressedTitle {
+            if suppressed == text {
+                quickSuggestion = nil
+                return
+            }
+            quickSuppressedTitle = nil
+        }
+        let result = QuickAddParser.parse(text)
+        guard result != quickSuggestion else { return }
+        withAnimation(.easeInOut(duration: 0.2)) {
+            quickSuggestion = result?.start != nil ? result : nil
+        }
+    }
+
+    /// Goes through the same state the calendar / hour grid / duration chips use,
+    /// so validation, conflict checks and end-time sync behave exactly as usual.
+    private func applyQuickSuggestion(_ result: QuickAddResult) {
+        guard let start = result.start else { return }
+        AppAnalytics.log(AppAnalyticsEvent.quickAddParsed,
+                         ["has_duration": result.durationMinutes != nil])
+
+        // Same path as picking a day in the mini calendar.
+        dateBinding.wrappedValue = Calendar.current.startOfDay(for: start)
+
+        let wanted = max(1, result.durationMinutes ?? 60)
+        let clamped = min(wanted, computeMaxDuration(from: start))
+
+        withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
+            hasSelectedSlot = true
+            startTime = start
+            durationMinutes = clamped
+            if !result.title.isEmpty { title = result.title }
+            quickSuggestion = nil
+        }
+        quickSuppressedTitle = title
+        syncEndTime()
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+    }
+
+    // MARK: – Free-tier counter
+
+    /// "Còn 3/5 lịch miễn phí hôm nay" — free plan only, follows the selected day.
+    @ViewBuilder
+    private var freeEventsCaption: some View {
+        if premium.tier == .free {
+            let calendar = Calendar.current
+            let used = eventManager.events.filter { calendar.isDate($0.date, inSameDayAs: date) }.count
+            let maxPerDay = premium.maxEventsPerDay(on: date)
+            let left = max(0, maxPerDay - used)
+            Group {
+                if calendar.isDateInToday(date) {
+                    Text("free_events_left \(left) \(maxPerDay)")
+                } else {
+                    Text("free_events_left_on \(left) \(maxPerDay)")
+                }
+            }
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(left == 0 ? Color.orange : Color.secondary)
+            .lineLimit(1)
+            .minimumScaleFactor(0.85)
+            .padding(.leading, 4)
+        }
+    }
+
+    /// Single solid rounded card: color · date · hours · fine-tune.
     private var frostedPanel: some View {
         VStack(spacing: 0) {
             colorPaletteRow
@@ -357,12 +455,15 @@ struct AddEventView: View {
             hourGridPanelRow
             panelDivider
             fineTunePanelRow
+            panelDivider
+            locationPanelRow
+            panelDivider
+            repeatPanelRow
         }
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 26, style: .continuous)
-                .stroke(Color.primary.opacity(0.06), lineWidth: 1)
+        .background(
+            RoundedRectangle(cornerRadius: AppRadius.panel, style: .continuous)
+                .fill(AppBackground.card(scheme))
+                .shadow(color: .black.opacity(0.05), radius: 3, y: 1)
         )
         .padding(.horizontal, 16)
     }
@@ -412,12 +513,91 @@ struct AddEventView: View {
                 offDays: offDays,
                 maxBookingDays: PremiumLimits.limits(for: premium.tier).maxBookingDaysAhead
             )
-            HStack(spacing: 14) {
-                legendDot(color: .blue.opacity(0.55),   label: "Today")
-                legendDot(color: .red.opacity(0.55),    label: "Has event")
-                legendDot(color: .orange.opacity(0.65), label: "Day off")
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 16)
+    }
+
+    // MARK: – Location row
+
+    private var locationPanelRow: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            panelRowHeader(icon: "mappin.and.ellipse", tint: selectedColor,
+                           title: String(localized: "location_title"))
+
+            if let location {
+                HStack(spacing: 10) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(location.name).font(.subheadline.weight(.semibold))
+                        if let address = location.address, !address.isEmpty {
+                            Text(address).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                        }
+                    }
+                    Spacer()
+                    Button {
+                        self.location = nil
+                    } label: {
+                        Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                    }
+                    .accessibilityLabel(Text(String(localized: "location_remove")))
+                }
+                .contentShape(Rectangle())
+                .onTapGesture { showLocationPicker = true }
+            } else {
+                Button {
+                    showLocationPicker = true
+                } label: {
+                    Label(String(localized: "location_add"), systemImage: "plus.circle.fill")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(selectedColor)
+                }
             }
-            .font(.caption)
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 16)
+    }
+
+    // MARK: – Repeat row (Premium / Pro)
+
+    private var repeatPanelRow: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 10) {
+                formRowIcon("repeat", tint: selectedColor)
+                formRowLabel(String(localized: "repeat_title"))
+                if !premium.isPremium {
+                    Text("PREMIUM")
+                        .font(.caption2.weight(.bold))
+                        .padding(.horizontal, 6).padding(.vertical, 2)
+                        .background(Capsule().fill(Color.orange.opacity(0.18)))
+                        .foregroundStyle(.orange)
+                }
+                Spacer()
+                Menu {
+                    ForEach(RepeatRule.allCases) { rule in
+                        Button(String(localized: String.LocalizationValue(rule.titleKey))) {
+                            if rule != .none && !premium.isPremium {
+                                showUpgradeSheet = true
+                            } else {
+                                repeatRule = rule
+                            }
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Text(String(localized: String.LocalizationValue(repeatRule.titleKey)))
+                        Image(systemName: "chevron.up.chevron.down").font(.caption2)
+                    }
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(selectedColor)
+                }
+            }
+
+            if repeatRule != .none {
+                Stepper(value: $repeatCount, in: 2...26) {
+                    Text(String(format: String(localized: "repeat_count_format"), repeatCount))
+                        .font(.subheadline)
+                }
+            }
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 16)
@@ -437,9 +617,9 @@ struct AddEventView: View {
         ZStack {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(tint.opacity(0.15))
-                .frame(width: 32, height: 32)
+                .frame(width: 28, height: 28)
             Image(systemName: name)
-                .font(.system(size: 14, weight: .semibold))
+                .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(tint)
         }
     }
@@ -503,7 +683,7 @@ struct AddEventView: View {
                 }
                 .padding(10)
                 .background(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    RoundedRectangle(cornerRadius: AppRadius.control, style: .continuous)
                         .fill(Color.primary.opacity(0.04))
                 )
             }
@@ -567,98 +747,122 @@ struct AddEventView: View {
         VStack(alignment: .leading, spacing: 12) {
             panelRowHeader(icon: "slider.horizontal.3", tint: selectedColor,
                            title: String(localized: "fine_tune_time"))
-            HStack(alignment: .top, spacing: 0) {
 
-                // ── LEFT: Start time ──────────────────────────────────────
-                VStack(alignment: .leading, spacing: 10) {
-
-                    Label {
-                        Text(String(localized: "start_label"))
-                    } icon: {
-                        Image(systemName: "clock.fill")
-                            .foregroundStyle(selectedColor)
+            // ── Compact summary: [start] → end · hint ─────────────────────
+            HStack(spacing: 10) {
+                Button {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+                        showsTimeWheels.toggle()
                     }
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-
-                    // Wheel picker for start time — compact and constrained
-                    DatePicker(
-                        "",
-                        selection: $startTime,
-                        displayedComponents: .hourAndMinute
-                    )
-                    .labelsHidden()
-                    .datePickerStyle(.wheel)
-                    .frame(width: 126, height: 120)
-                    .clipped()
-                    .onChange(of: startTime) {
-                        clampDuration()
-                    }
-
-                    // Live end-time preview
-                    HStack(spacing: 4) {
-                        Image(systemName: "arrow.right.circle.fill")
-                            .font(.caption2)
-                        Text(formattedTime(endTime))
-                            .font(.caption.weight(.semibold))
-                            .monospacedDigit()
-                    }
-                    .foregroundStyle(selectedColor.opacity(0.9))
+                } label: {
+                    Text(formattedTime(startTime))
+                        .font(.system(size: 18, weight: .bold, design: .rounded).monospacedDigit())
+                        .foregroundStyle(.primary)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(
+                            RoundedRectangle(cornerRadius: AppRadius.chip, style: .continuous)
+                                .fill(Color(.systemGray6))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: AppRadius.chip, style: .continuous)
+                                .strokeBorder(showsTimeWheels ? selectedColor : .clear, lineWidth: 1.5)
+                        )
                 }
-                .padding(.trailing, 12)
+                .buttonStyle(.plain)
+                .fixedSize()
 
-                // Thin vertical separator
-                Rectangle()
-                    .fill(Color(.separator))
-                    .frame(width: 0.5)
-                    .padding(.vertical, 8)
-
-                // ── RIGHT: Duration ───────────────────────────────────────
-                VStack(alignment: .leading, spacing: 8) {
-
-                    Label {
-                        Text("duration_label")
-                    } icon: {
-                        Image(systemName: "timer")
-                            .foregroundStyle(selectedColor)
-                    }
-                    .font(.caption.weight(.semibold))
+                Image(systemName: "arrow.right")
+                    .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(.secondary)
 
-                    // 2 × 2 preset chips
-                    LazyVGrid(
-                        columns: [GridItem(.flexible()), GridItem(.flexible())],
-                        spacing: 6
-                    ) {
-                        ForEach([30, 60, 90, 120], id: \.self) { mins in
-                            durationChip(mins)
-                        }
-                    }
+                Text(formattedTime(endTime))
+                    .font(.system(size: 18, weight: .bold, design: .rounded).monospacedDigit())
+                    .foregroundStyle(selectedColor)
+                    .fixedSize()
 
-                    // Duration wheel — custom Picker, 30-min steps
-                    Picker("", selection: $durationMinutes) {
-                        ForEach(durationOptions, id: \.self) { mins in
-                            Text(formatDuration(mins)).tag(mins)
-                        }
-                    }
-                    .pickerStyle(.wheel)
-                    .frame(height: 82)
-                    .onChange(of: durationMinutes) {
-                        syncEndTime()
-                    }
+                Spacer(minLength: 6)
 
-                    // End-time label beneath wheel
-                    HStack(spacing: 4) {
-                        Image(systemName: "flag.checkered")
-                            .font(.caption2)
-                        Text(String(format: String(localized: "addevent_ends_at"), formattedTime(endTime)))
-                            .font(.caption)
-                            .monospacedDigit()
-                    }
+                Text(String(localized: "tap_time_to_adjust"))
+                    .font(.caption)
                     .foregroundStyle(.secondary)
-                }
-                .padding(.leading, 12)
+                    .multilineTextAlignment(.trailing)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.85)
             }
+
+            // ── Duration presets: one row of 4 ────────────────────────────
+            HStack(spacing: 8) {
+                ForEach([30, 60, 90, 120], id: \.self) { mins in
+                    durationChip(mins)
+                }
+            }
+
+            // ── Wheels (revealed by tapping the start time) ───────────────
+            if showsTimeWheels {
+                HStack(alignment: .top, spacing: 0) {
+
+                    // LEFT: Start time
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label {
+                            Text(String(localized: "start_label"))
+                        } icon: {
+                            Image(systemName: "clock.fill")
+                                .foregroundStyle(selectedColor)
+                        }
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+
+                        // Wheel picker for start time — compact and constrained
+                        DatePicker(
+                            "",
+                            selection: $startTime,
+                            displayedComponents: .hourAndMinute
+                        )
+                        .labelsHidden()
+                        .datePickerStyle(.wheel)
+                        .frame(width: 126, height: 120)
+                        .clipped()
+                    }
+                    .padding(.trailing, 12)
+
+                    // Thin vertical separator
+                    Rectangle()
+                        .fill(Color(.separator))
+                        .frame(width: 0.5)
+                        .padding(.vertical, 8)
+
+                    // RIGHT: Duration wheel — custom Picker, 30-min steps
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label {
+                            Text("duration_label")
+                        } icon: {
+                            Image(systemName: "timer")
+                                .foregroundStyle(selectedColor)
+                        }
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+
+                        Picker("", selection: $durationMinutes) {
+                            ForEach(durationOptions, id: \.self) { mins in
+                                Text(formatDuration(mins)).tag(mins)
+                            }
+                        }
+                        .pickerStyle(.wheel)
+                        .frame(height: 120)
+                        .clipped()
+                    }
+                    .padding(.leading, 12)
+                }
+                .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
+            }
+        }
+        // Kept outside the collapsible wheels so they fire exactly as before.
+        .onChange(of: startTime) {
+            clampDuration()
+        }
+        .onChange(of: durationMinutes) {
+            syncEndTime()
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 16)
@@ -752,11 +956,11 @@ struct AddEventView: View {
             .padding(.vertical, 9)
             .frame(width: 92)
             .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous)
                     .fill(.ultraThinMaterial)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous)
                     .stroke(isApplied ? c : Color.primary.opacity(0.08),
                             lineWidth: isApplied ? 2 : 1)
             )
@@ -812,11 +1016,12 @@ struct AddEventView: View {
             }
         } label: {
             Text(formatDuration(mins))
-                .font(.caption.weight(.semibold))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 7)
+                .font(.subheadline.weight(.semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+                .frame(maxWidth: .infinity, minHeight: 34)
                 .background(
-                    RoundedRectangle(cornerRadius: 8)
+                    RoundedRectangle(cornerRadius: AppRadius.chip, style: .continuous)
                         .fill(
                             isSelected
                                 ? selectedColor.opacity(0.9)
@@ -826,7 +1031,7 @@ struct AddEventView: View {
                         )
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 8)
+                    RoundedRectangle(cornerRadius: AppRadius.chip, style: .continuous)
                         .strokeBorder(isSelected ? selectedColor : .clear, lineWidth: 1.5)
                 )
                 .foregroundStyle(
@@ -850,7 +1055,7 @@ struct AddEventView: View {
         let isPastSlot = isDayPast || (isToday && slotEnd <= Date())
 
         let busyEvent  = eventsToday.first { $0.startTime < slotEnd && $0.endTime > slotStart }
-        let busyHour   = busyHours.first   { $0.0 < slotEnd && $0.1 > slotStart }
+        let busyHour   = allBusyHours.first { $0.0 < slotEnd && $0.1 > slotStart }
         let isBusy     = (busyEvent != nil) || (busyHour != nil) || isOffDay || isPastSlot
 
         let selectedHour = Calendar.current.component(.hour, from: startTime)
@@ -867,12 +1072,12 @@ struct AddEventView: View {
                            : .primary
 
         Text(String(format: "%02d:00", hour))
-            .font(.system(size: 13, weight: isSelected ? .bold : .regular, design: .monospaced))
+            .font(.system(size: 15, weight: isSelected ? .heavy : .semibold, design: .rounded).monospacedDigit())
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 10)
-            .background(RoundedRectangle(cornerRadius: 10).fill(bgColor))
+            .padding(.vertical, 11)
+            .background(RoundedRectangle(cornerRadius: AppRadius.chip, style: .continuous).fill(bgColor))
             .overlay(
-                RoundedRectangle(cornerRadius: 10)
+                RoundedRectangle(cornerRadius: AppRadius.chip, style: .continuous)
                     .strokeBorder(isSelected ? selectedColor : .clear, lineWidth: 1.5)
             )
             .foregroundStyle(fgColor)
@@ -959,6 +1164,122 @@ struct AddEventView: View {
         return m == 0 ? "\(h)h" : "\(h)h \(m)m"
     }
 
+    // MARK: – Save
+
+    private func save() {
+        guard !isSaving else { return }
+        isSaving = true
+
+        if let error = validateBeforeSave() {
+            switch error {
+            case .overEventsPerDay where AdsManager.shared.canOfferRewardedEvent(for: date):
+                showRewardedOffer = true
+            case .overBookingDays, .overEventsPerDay:
+                if PremiumIntroGate.shouldShowToday() {
+                    PremiumIntroGate.markShown()
+                    showPremiumIntro = true
+                } else {
+                    activeAlert = .save(error)
+                }
+            default:
+                activeAlert = .save(error)
+            }
+            isSaving = false
+            return
+        }
+
+        let start = combine(date: date, time: startTime)
+        let end   = combine(date: date, time: endTime)
+
+        if repeatRule != .none && premium.isPremium {
+            saveSeries(start: start, end: end)
+            return
+        }
+
+        let newEventId = eventManager.addEvent(
+            title: title,
+            ownerName: session.currentUserName,
+            date: date,
+            startTime: start,
+            endTime: end,
+            colorHex: selectedColor.toHex() ?? "#007AFF",
+            location: location
+        )
+
+        if let eventId = newEventId {
+            AppAnalytics.log(AppAnalyticsEvent.eventCreated,
+                             ["has_location": location != nil])
+            if !selectedIcon.isEmpty {
+                EventIconStore.shared.setIcon(selectedIcon, for: eventId)
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                // Free users may get an interstitial here — never stack it with the review prompt.
+                guard !AdsManager.shared.showInterstitialAfterEventCreated() else { return }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
+                    ReviewManager.shared.requestAfterEventSuccess(requestReview)
+                }
+            }
+            dismiss()
+        } else {
+            activeAlert = nil
+            DispatchQueue.main.async {
+                activeAlert = .save(.cannotCreate)
+            }
+        }
+
+        isSaving = false
+    }
+
+    /// Repeating event: one doc per occurrence, capped by the plan's booking window.
+    private func saveSeries(start: Date, end: Date) {
+        let duration = end.timeIntervalSince(start)
+        let maxDays = PremiumLimits.limits(for: premium.tier).maxBookingDaysAhead
+        let horizon = Calendar.current.date(byAdding: .day, value: maxDays, to: Date()) ?? end
+
+        let occurrences = repeatRule
+            .occurrences(from: start, count: repeatCount)
+            .filter { $0 <= horizon }
+            .map { (start: $0, end: $0.addingTimeInterval(duration)) }
+
+        Task {
+            let result = await eventManager.addRecurringEvents(
+                title: title,
+                occurrences: occurrences,
+                colorHex: selectedColor.toHex() ?? "#007AFF",
+                location: location
+            )
+            isSaving = false
+
+            guard result.created > 0 else {
+                activeAlert = .save(.cannotCreate)
+                return
+            }
+            let requested = repeatCount
+            if result.created < requested {
+                seriesResultMessage = String(format: String(localized: "repeat_result_partial_format"),
+                                             result.created, requested)
+            } else {
+                dismiss()
+            }
+        }
+    }
+
+    /// Free user hit the daily cap → watch a rewarded ad, unlock +1 event for
+    /// this day, then save right away.
+    private func watchAdForExtraEvent() {
+        let day = date
+        // Wait for the alert to finish dismissing so the ad has a VC to present on.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            let shown = AdsManager.shared.showRewarded {
+                RewardedEventBonus.grant(for: day)
+                save()
+            }
+            if !shown {
+                activeAlert = .save(.overEventsPerDay)
+            }
+        }
+    }
+
     // MARK: – Validation
 
     private func validateBeforeSave() -> SaveEventAlert? {
@@ -974,7 +1295,7 @@ struct AddEventView: View {
         if calendar.isDateInToday(date) && start < now { return .pastTime }
         if offDays.contains(where: { calendar.isDate($0, inSameDayAs: date) }) { return .offDay(date) }
 
-        let busyHourConflict = busyHours.contains { $0.0 < end && $0.1 > start }
+        let busyHourConflict = allBusyHours.contains { $0.0 < end && $0.1 > start }
         if busyHourConflict { return .busyHours }
 
         let eventConflict = eventManager.events.contains {
@@ -992,7 +1313,7 @@ struct AddEventView: View {
         let sameDayEvents = eventManager.events.filter {
             calendar.isDate($0.date, inSameDayAs: date)
         }
-        if sameDayEvents.count >= limits.maxEventsPerDay { return .overEventsPerDay }
+        if sameDayEvents.count >= premium.maxEventsPerDay(on: date) { return .overEventsPerDay }
 
         return nil
     }

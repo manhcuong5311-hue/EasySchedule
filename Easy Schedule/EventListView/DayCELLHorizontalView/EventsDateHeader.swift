@@ -67,9 +67,7 @@ struct BigDateHeaderView: View {
             .lineLimit(1)
             .minimumScaleFactor(0.9)
             .lineSpacing(0)
-            .compositingGroup()
-            .modifier(TitleShadow.primary(colorScheme))
-   // ⭐ GẮN Ở ĐÂY
+            // Flat title — no heavy text shadows
             .padding(.horizontal, 16)
             .padding(.top, 4)
             .padding(.bottom, 4)

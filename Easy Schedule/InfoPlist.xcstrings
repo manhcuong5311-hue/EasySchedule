@@ -1,0 +1,112 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "CFBundleName" : {
+      "comment" : "Bundle name",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Easy Schedule"
+          }
+        }
+      }
+    },
+    "NSCalendarsFullAccessUsageDescription" : {
+      "comment" : "Privacy - Calendars Full Access Usage Description",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Easy Schedule reads only the times you are busy, so nobody can book you over existing plans. Event names are never shared."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Easy Scheduleは予定が入っている時間帯だけを読み取り、既存の予定と重なる予約を防ぎます。予定名が共有されることはありません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Easy Schedule은 바쁜 시간대만 읽어 기존 일정과 겹치는 예약을 막아요. 일정 이름은 절대 공유되지 않아요."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Easy Schedule chỉ đọc các khung giờ bạn bận để không ai đặt lịch trùng với kế hoạch sẵn có. Tên sự kiện không bao giờ được chia sẻ."
+          }
+        }
+      }
+    },
+    "NSCameraUsageDescription" : {
+      "comment" : "Privacy - Camera Usage Description",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Used to scan a partner's QR invitation code so you can connect your calendars."
+          }
+        }
+      }
+    },
+    "NSFaceIDUsageDescription" : {
+      "comment" : "Privacy - Face ID Usage Description",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Face ID is used to protect your account and secure your data.\n"
+          }
+        }
+      }
+    },
+    "NSLocationWhenInUseUsageDescription" : {
+      "comment" : "Privacy - Location When In Use Usage Description",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "This app uses your location so you can share your position in chat and help others find the meeting place.\n"
+          }
+        }
+      }
+    },
+    "NSUserTrackingUsageDescription" : {
+      "comment" : "Privacy - Tracking Usage Description",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This identifier will be used to deliver more relevant ads to you. Premium users never see ads."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この識別子は、より関連性の高い広告を表示するために使用されます。プレミアムユーザーには広告は表示されません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 식별자는 더 관련성 높은 광고를 보여 드리는 데 사용됩니다. 프리미엄 사용자에게는 광고가 표시되지 않습니다."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mã định danh này được dùng để hiển thị quảng cáo phù hợp hơn với bạn. Người dùng Premium không bao giờ thấy quảng cáo."
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

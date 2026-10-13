@@ -56,6 +56,11 @@ struct PremiumIntroView: View {
                     VStack(alignment: .leading, spacing: 14) {
 
                         PremiumFeatureRow(
+                            icon: "nosign",
+                            text: String(localized: "premium_feature_no_ads")
+                        )
+
+                        PremiumFeatureRow(
                             icon: "calendar.badge.clock",
                             text: String(localized: "premium_feature_extended_schedule")
                         )

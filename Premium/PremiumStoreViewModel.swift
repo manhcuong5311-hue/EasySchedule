@@ -45,6 +45,13 @@ final class PremiumStoreViewModel: ObservableObject {
         PremiumLimits.limits(for: tier)
     }
 
+    /// Daily event cap for the current user on `date`, including extra slots a
+    /// free user unlocked for that day by watching a rewarded ad.
+    func maxEventsPerDay(on date: Date) -> Int {
+        let bonus = tier == .free ? RewardedEventBonus.count(for: date) : 0
+        return limits.maxEventsPerDay + bonus
+    }
+
     /// How many icons from a category to show (free users get first 8, paid users get all).
     func visibleIconCount(total: Int) -> Int {
         isPremium ? total : min(total, PremiumLimits.maxFreeIconsPerCategory)
@@ -185,7 +192,7 @@ struct PremiumLimits {
         switch tier {
         case .free:
             return .init(
-                maxEventsPerDay: 4,
+                maxEventsPerDay: 5,
                 maxBookingDaysAhead: 7,
                 maxChatMessagesPerEvent: 100,
                 maxTodosPerEvent: 5

@@ -52,8 +52,14 @@ struct ContentView: View {
     @State private var showNamePrompt = false
     @State private var didCheckNamePrompt = false
     @StateObject private var accessBadgeVM = AccessBadgeViewModel()
+    @ObservedObject private var ads = AdsManager.shared
     /// Physical bottom safe-area inset (home indicator height). Read once on appear.
     @State private var bottomSafeArea: CGFloat = 0
+    @Environment(\.colorScheme) private var scheme
+
+    /// Card frame around the ad banner (padding only — the ad itself is never clipped).
+    private let adFramePadding: CGFloat = 4
+    private var hasBanner: Bool { ads.bannerInset > 0 }
 
     var body: some View {
 
@@ -97,6 +103,14 @@ struct ContentView: View {
                     }
                 }
             }
+            // Free users: keep scroll content clear of the ad banner above the tab bar.
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                Color.clear.frame(
+                    height: openChatEventId == nil
+                        ? ads.bannerInset + (hasBanner ? adFramePadding * 2 : 0)
+                        : 0
+                )
+            }
             // ⭐ QUAN TRỌNG: cho content ăn full màn hình
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .ignoresSafeArea(edges: .bottom)
@@ -105,11 +119,29 @@ struct ContentView: View {
             // FLOATING TAB BAR
             // =========================
             if openChatEventId == nil {
-                AppFloatingTabBar(
-                    selectedTab: $selectedTab,
-                    partnersBadge: accessBadgeVM.pendingCount
-                )
-                .padding(.horizontal, 24)
+                VStack(spacing: ads.bannerHeight > 0 ? AdsConfig.bannerSpacing : 0) {
+                    // Free users only — renders nothing for Premium/Pro.
+                    // Tidy card frame drawn BEHIND the banner (padding + background only):
+                    // never clip / cover the ad itself (AdMob policy).
+                    AdBannerView()
+                        .padding(hasBanner ? adFramePadding : 0)
+                        .background(
+                            ZStack {
+                                RoundedRectangle(cornerRadius: AppRadius.control, style: .continuous)
+                                    .fill(AppBackground.card(scheme))
+                                RoundedRectangle(cornerRadius: AppRadius.control, style: .continuous)
+                                    .strokeBorder(Color.primary.opacity(0.06), lineWidth: 1)
+                            }
+                            .opacity(hasBanner ? 1 : 0)
+                            .allowsHitTesting(false)
+                        )
+
+                    AppFloatingTabBar(
+                        selectedTab: $selectedTab,
+                        partnersBadge: accessBadgeVM.pendingCount
+                    )
+                    .padding(.horizontal, 24)
+                }
                 // bottomSafeArea accounts for the home-indicator zone so the bar
                 // sits 12 pt above the indicator on all devices (0 on older iPhones).
                 .padding(.bottom, bottomSafeArea + 12)
@@ -149,6 +181,8 @@ struct ContentView: View {
                 accessBadgeVM.load(ownerUid: uid)
             }
         }
+        // Share buttons use the short /c/<handle> link when the user set one
+        .task { await BookingLink.refreshCachedHandle() }
 
         // 🔔 CHAT PUSH – GIỮ NGUYÊN
         .onChange(of: eventManager.selectedChatEventId) { _, id in
@@ -239,10 +273,8 @@ struct AppFloatingTabBar: View {
                     lineWidth: 0.8
                 )
         )
-        // Layered shadows: a soft accent glow + depth + a tight contact shadow.
-        .shadow(color: accent.opacity(scheme == .dark ? 0.0 : 0.12), radius: 16, y: 8)
-        .shadow(color: .black.opacity(scheme == .dark ? 0.45 : 0.12), radius: 18, y: 8)
-        .shadow(color: .black.opacity(0.05), radius: 3, y: 1)
+        // Single soft shadow (stronger in dark mode so the bar still lifts off the background).
+        .shadow(color: .black.opacity(scheme == .dark ? 0.40 : 0.10), radius: 12, y: 6)
     }
 
     @ViewBuilder
@@ -295,7 +327,7 @@ struct AppFloatingTabBar: View {
                 }
 
                 Text(LocalizedStringKey(label))
-                    .font(.system(size: 10, weight: isSelected ? .semibold : .medium))
+                    .font(.system(size: 11, weight: isSelected ? .semibold : .medium))
                     .foregroundStyle(isSelected ? accent : Color.secondary)
             }
             .frame(maxWidth: .infinity)

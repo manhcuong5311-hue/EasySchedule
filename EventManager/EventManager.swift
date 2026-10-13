@@ -55,7 +55,17 @@ struct CalendarEvent: Identifiable, Hashable, Codable {
     var colorHex: String = "#007AFF"
     var pendingDelete: Bool = false
     var origin: EventOrigin = .myEvent
-    
+
+    // MARK: - v2.4 extras
+    // All OPTIONAL: the local JSON cache is decoded strictly and old app
+    // versions write events without these keys.
+    var location: EventLocation? = nil
+    /// uid → "accepted" | "declined" (see `EventResponse`).
+    var responses: [String: String]? = nil
+    /// Pending "can we move it to …?" request from a participant.
+    var proposal: TimeProposal? = nil
+    /// Shared by every occurrence of a repeating event.
+    var seriesId: String? = nil
 }
 
 
@@ -63,6 +73,10 @@ struct CalendarEvent: Identifiable, Hashable, Codable {
 final class EventManager: ObservableObject {
     static let shared = EventManager()
     private var partnerTierCache: [String: PremiumTier] = [:]
+    /// Partner's "Giờ nhận lịch" from publicCalendar/{uid}.bookingHours (absent → no key).
+    @Published var partnerBookingHours: [String: BookingHours] = [:]
+    /// Start times of the partner's busy slots with source "event" (for maxPerDay).
+    @Published var partnerEventStarts: [String: [Date]] = [:]
     private(set) var currentUserId: String?
     private var configuredUid: String?
     // Firestore listeners
@@ -151,7 +165,10 @@ final class EventManager: ObservableObject {
     @Published var alertMessage: String = ""
     @Published var showAlert = false
     @Published var sharedLinks: [SharedLink] = [] {
-        didSet { saveSharedLinks() }
+        didSet {
+            saveSharedLinks()
+            fetchUnknownUserNames(sharedLinks.map(\.uid))
+        }
     }
 
     @Published var events: [CalendarEvent] = [] {
@@ -159,6 +176,7 @@ final class EventManager: ObservableObject {
            
             updateGroupedEvents()
             recomputeDayBadges()
+            fetchUnknownUserNames(events.flatMap { $0.participants + [$0.owner, $0.createdBy] })
         }
     }
 
@@ -171,6 +189,8 @@ final class EventManager: ObservableObject {
         return Set(pastEvents.map(\.id)).subtracting(liveIds)
     }
     @Published var userNameCache: [String: String] = [:]
+    /// UIDs whose name lookup is already running (see `fetchUserNameIfNeeded`).
+    private var nameFetchesInFlight = Set<String>()
 
     private let db = Firestore.firestore()
 
@@ -237,7 +257,8 @@ final class EventManager: ObservableObject {
             .map {
                 ScheduleSnapshotItem(id: $0.id, title: $0.title,
                                      start: $0.startTime, end: $0.endTime,
-                                     colorHex: $0.colorHex)
+                                     colorHex: $0.colorHex,
+                                     isShared: $0.isShared)
             }
 
         let snapshot = ScheduleSnapshot(items: items)
@@ -365,30 +386,56 @@ final class EventManager: ObservableObject {
             }
      }
 
+    /// Refreshes names + avatar versions only for people this user deals with
+    /// (event participants, partners, anyone already cached) — never the whole
+    /// `users` collection, which exposed every profile and cost reads per launch.
     func preloadUsersIfNeeded() {
+        var uids = Set(userNames.keys)
+        for ev in events {
+            uids.formUnion(ev.participants)
+            uids.insert(ev.owner)
+            uids.insert(ev.createdBy)
+        }
+        uids.formUnion(sharedLinks.map(\.uid))
+        if let me = currentUserId { uids.insert(me) }
+        uids.remove("")
 
-        Firestore.firestore()
-            .collection("users")
-            .getDocuments { snap, _ in
+        let ids = Array(uids)
+        // Firestore `in` queries accept at most 30 values.
+        for start in stride(from: 0, to: ids.count, by: 30) {
+            let chunk = Array(ids[start..<min(start + 30, ids.count)])
 
-                guard let docs = snap?.documents else { return }
+            Firestore.firestore()
+                .collection("users")
+                .whereField(FieldPath.documentID(), in: chunk)
+                .getDocuments { snap, _ in
 
-                var temp = self.userNames   // giữ cache cũ
+                    guard let docs = snap?.documents else { return }
 
-                for doc in docs {
-                    temp[doc.documentID] =
-                        doc["name"] as? String
-                        ?? doc["displayName"] as? String
-                        ?? doc.documentID
-                    // Same read also carries the avatar version — record it so
-                    // photo changes are picked up each launch for free.
-                    UserAvatarStore.shared.noteProfileData(doc.data(), for: doc.documentID)
+                    var fetched: [String: String] = [:]
+                    for doc in docs {
+                        fetched[doc.documentID] =
+                            doc["name"] as? String
+                            ?? doc["displayName"] as? String
+                            ?? doc.documentID
+                        // Same read also carries the avatar version — record it so
+                        // photo changes are picked up each launch for free.
+                        UserAvatarStore.shared.noteProfileData(doc.data(), for: doc.documentID)
+                    }
+
+                    DispatchQueue.main.async {
+                        self.userNames.merge(fetched) { _, new in new }   // giữ cache cũ
+                    }
                 }
+        }
+    }
 
-                DispatchQueue.main.async {
-                    self.userNames = temp
-                }
-            }
+    /// Loads names for people we haven't seen yet (new events / new partners),
+    /// since there is no longer a full `users` download to cover them.
+    private func fetchUnknownUserNames<S: Sequence>(_ uids: S) where S.Element == String {
+        for uid in uids where userNames[uid] == nil {
+            fetchUserNameIfNeeded(uid: uid)
+        }
     }
 
 
@@ -736,29 +783,6 @@ final class EventManager: ObservableObject {
         return false
     }
 
-    func sendNewEventNotification(to uid: String, title: String, body: String) {
-        guard let url = URL(string: "https://us-central1-easyschedule-ce98a.cloudfunctions.net/sendToUser") else { return }
-
-        let payload: [String: Any] = [
-            "uid": uid,
-            "title": title,
-            "body": body
-        ]
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try? JSONSerialization.data(withJSONObject: payload)
-
-        URLSession.shared.dataTask(with: request) { data, response, error in
-            if let error = error {
-                print("❌ send notification error:", error.localizedDescription)
-            } else {
-                print("📨 notification sent!")
-            }
-        }.resume()
-    }
-
     func validateUserExists(uid: String, completion: @escaping (Bool) -> Void) {
         Firestore.firestore()
             .collection("users")
@@ -844,7 +868,8 @@ extension EventManager {
                   date: Date,
                   startTime: Date,
                   endTime: Date,
-                  colorHex: String = "#007AFF") -> String? {
+                  colorHex: String = "#007AFF",
+                  location: EventLocation? = nil) -> String? {
 
         guard let uid = currentUserId else { return nil }
 
@@ -900,13 +925,12 @@ extension EventManager {
 
         // PREMIUM / PRO LIMIT CHECK (Tier-based)
         let premium = PremiumStoreViewModel.shared
-        let limits = premium.limits
 
         let eventsSameDay = events.filter {
             Calendar.current.isDate($0.date, inSameDayAs: date)
         }
 
-        guard eventsSameDay.count < limits.maxEventsPerDay else {
+        guard eventsSameDay.count < premium.maxEventsPerDay(on: date) else {
             self.alertMessage = String(localized: "event_limit_reached")
             self.showAlert = true
             return nil
@@ -927,7 +951,8 @@ extension EventManager {
             admins: [uid],
             colorHex: colorHex,
             pendingDelete: false,
-            origin: .myEvent
+            origin: .myEvent,
+            location: location
         )
 
         let ref = db.collection("events").document(newEvent.id)
@@ -1032,21 +1057,11 @@ extension EventManager {
             self.addBusySlot(for: newUid, event: event)
 
             // ⬅️ đảm bảo event nhóm sync đúng cho tất cả
-            let updatedEvent = CalendarEvent(
-                id: event.id,
-                title: event.title,
-                date: event.date,
-                startTime: event.startTime,
-                endTime: event.endTime,
-                owner: event.owner,
-                sharedUser: event.sharedUser,
-                createdBy: event.createdBy,
-                participants: updatedParticipants,
-                admins: updatedAdmins,
-                colorHex: event.colorHex,
-                pendingDelete: false,
-                origin: event.origin
-            )
+            // Copy (not rebuild) so location / responses / seriesId survive.
+            var updatedEvent = event
+            updatedEvent.participants = updatedParticipants
+            updatedEvent.admins = updatedAdmins
+            updatedEvent.pendingDelete = false
 
             self.syncBusySlots(for: updatedEvent)
 
@@ -1227,22 +1242,14 @@ extension EventManager {
         ]) { error in
             guard error == nil else { return }
 
-            // Rebuild event preserving all original fields (especially origin)
-            let updatedEvent = CalendarEvent(
-                id:           event.id,
-                title:        newTitle,
-                date:         newDate,
-                startTime:    newStart,
-                endTime:      newEnd,
-                owner:        event.owner,
-                sharedUser:   event.sharedUser,
-                createdBy:    event.createdBy,
-                participants: event.participants,
-                admins:       event.admins,
-                colorHex:     newColorHex,
-                pendingDelete: false,
-                origin:       event.origin   // preserve — was wrongly hardcoded .myEvent
-            )
+            // Copy the event so every other field (origin, location, …) is preserved
+            var updatedEvent = event
+            updatedEvent.title = newTitle
+            updatedEvent.date = newDate
+            updatedEvent.startTime = newStart
+            updatedEvent.endTime = newEnd
+            updatedEvent.colorHex = newColorHex
+            updatedEvent.pendingDelete = false
             self.syncBusySlots(for: updatedEvent)
         }
     }
@@ -1507,6 +1514,21 @@ extension EventManager {
                 }
 
 
+                // Off days live in the same doc → refresh that cache too
+                let offDays = Set((data["offDays"] as? [Double] ?? [])
+                    .map { Date(timeIntervalSince1970: $0) })
+
+                // Booking hours + appointment starts (maxPerDay counts every
+                // "event" slot that starts on the day, finished ones included)
+                let bookingHours = (data["bookingHours"] as? [String: Any])
+                    .flatMap { BookingHours(from: $0) }
+                let eventStarts: [Date] = rawSlots.compactMap { dict in
+                    guard (dict["source"] as? String ?? "event") == "event",
+                          let start = dict["start"] as? TimeInterval
+                    else { return nil }
+                    return Date(timeIntervalSince1970: start)
+                }
+
                 // ===============================
                 // 3️⃣ CACHE
                 // ===============================
@@ -1514,13 +1536,23 @@ extension EventManager {
                     self.partnerBusySlotCache[userId] = slots
                     self.partnerTierCache[userId] = tier
                     self.partnerBusySlots[userId] = slots
+                    self.offDayCache[userId] = offDays
+                    if let bookingHours {
+                        self.partnerBookingHours[userId] = bookingHours
+                    } else {
+                        self.partnerBookingHours.removeValue(forKey: userId)
+                    }
+                    self.partnerEventStarts[userId] = eventStarts
                 }
 
                 completion(slots, tier)
             }
     }
     func fetchUserNameIfNeeded(uid: String) {
-        guard userNames[uid] == nil else { return }
+        guard !uid.isEmpty,
+              userNames[uid] == nil,
+              !nameFetchesInFlight.contains(uid) else { return }
+        nameFetchesInFlight.insert(uid)
 
         Firestore.firestore()
             .collection("users")
@@ -1535,6 +1567,7 @@ extension EventManager {
                 UserAvatarStore.shared.noteProfileData(snap?.data(), for: uid)
 
                 DispatchQueue.main.async {
+                    self.nameFetchesInFlight.remove(uid)
                     self.userNames[uid] = name
                 }
             }
@@ -1708,8 +1741,7 @@ extension EventManager {
             // ===============================
             // 4️⃣ LIMIT EVENT / NGÀY — THEO CREATOR (B)
             // ===============================
-            let creatorTier = PremiumStoreViewModel.shared.tier
-            let creatorLimits = PremiumLimits.limits(for: creatorTier)
+            let creatorMaxEvents = PremiumStoreViewModel.shared.maxEventsPerDay(on: start)
 
             let calendar = Calendar.current
             let eventsCreatedByMeToday = self.events.filter {
@@ -1717,7 +1749,7 @@ extension EventManager {
                 calendar.isDate($0.startTime, inSameDayAs: start)
             }
 
-            if eventsCreatedByMeToday.count >= creatorLimits.maxEventsPerDay {
+            if eventsCreatedByMeToday.count >= creatorMaxEvents {
                 self.fail(
                     String(localized: "event_limit_reached"),
                     completion: completion
@@ -2485,7 +2517,9 @@ extension EventManager {
             return
         }
 
-        let leadTime = UserDefaults.standard.integer(forKey: "leadTime")
+        // @AppStorage("leadTime") = 15 isn't written until the user changes it,
+        // so `integer(forKey:)` used to return 0 and remind at start time.
+        let leadTime = UserDefaults.standard.object(forKey: "leadTime") as? Int ?? 15
         let now = Date()
 
         // ❗ Xoá toàn bộ trước (tránh duplicate)
@@ -2501,6 +2535,9 @@ extension EventManager {
                 leadTime: leadTime
             )
         }
+
+        // "Đến giờ đi" for appointments with a location
+        LeaveReminderScheduler.schedule(for: events)
 
         print("🔔 Rescheduled local notifications:", events.count)
     }

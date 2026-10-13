@@ -189,13 +189,18 @@ class SessionStore: ObservableObject {
         let ref = db.collection("users").document(user.uid)
 
         ref.getDocument { [weak self] snap, _ in
+            // Older versions copied the email here, where any signed-in user could
+            // read it. Firebase Auth already keeps it, so drop our copy.
+            if snap?.data()?["email"] != nil {
+                ref.updateData(["email": FieldValue.delete()])
+            }
+
             guard let self, snap?.exists == false else { return }
 
             let finalName = self.defaultDisplayName(for: user)
 
             ref.setData([
                 "name": finalName,
-                "email": user.email ?? "",
                 "createdAt": FieldValue.serverTimestamp()
             ], merge: true)
 

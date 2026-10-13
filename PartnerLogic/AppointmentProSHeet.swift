@@ -4,6 +4,7 @@
 //
 
 import SwiftUI
+import StoreKit
 import FirebaseAuth
 import FirebaseFirestore
 
@@ -24,6 +25,13 @@ struct AppointmentProSheet: View {
     @EnvironmentObject var eventManager: EventManager
     @EnvironmentObject var session: SessionStore
     @EnvironmentObject var network: NetworkMonitor
+    @EnvironmentObject var uiAccent: UIAccentStore
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.requestReview) private var requestReview
+
+    /// User-chosen accent (Settings), not the static asset-catalog blue.
+    private var accent: Color { uiAccent.color }
+    @Namespace private var timeModeNS
 
     @Binding var isPresented: Bool
     let sharedUserId:   String?
@@ -37,6 +45,12 @@ struct AppointmentProSheet: View {
     @State private var partnerTier:    PremiumTier   = .free
     @State private var busyIntervals:  [(Date, Date)] = []
     @State private var loading:        Bool           = true
+
+    // Partner's booking hours ("Giờ nhận lịch") — nil = no restriction
+    @State private var bookingHours:       BookingHours? = nil
+    @State private var partnerEventStarts: [Date]        = []
+    /// My-local days (inside the booking window) with no open booking time.
+    @State private var bookingClosedDays:  Set<Date>     = []
 
     // Custom time
     @State private var useCustomTime: Bool = false
@@ -160,8 +174,10 @@ struct AppointmentProSheet: View {
                     partnerHeaderCard
                     calendarCard
 
-                    if partnerOffDays.contains(Calendar.current.startOfDay(for: selectedDate)) {
+                    if calendarOffDays.contains(Calendar.current.startOfDay(for: selectedDate)) {
                         offDayBanner
+                    } else if selectedDayFullyBooked {
+                        dayFullBanner
                     }
 
                     titleCard
@@ -181,10 +197,15 @@ struct AppointmentProSheet: View {
                     Button { handleCreate() } label: {
                         if eventManager.isAdding {
                             ProgressView()
+                                .tint(.white)
                         } else {
                             Text(String(localized: "book")).fontWeight(.semibold)
                         }
                     }
+                    .buttonStyle(.borderedProminent)
+                    .buttonBorderShape(.capsule)
+                    .controlSize(.small)
+                    .tint(accent)
                     .disabled(
                         eventManager.isAdding
                         || (effectiveSlot == nil)
@@ -248,7 +269,7 @@ struct AppointmentProSheet: View {
                     Circle()
                         .fill(
                             LinearGradient(
-                                colors: [Color.accentColor.opacity(0.22), Color.accentColor.opacity(0.08)],
+                                colors: [accent.opacity(0.22), accent.opacity(0.08)],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             )
@@ -256,7 +277,7 @@ struct AppointmentProSheet: View {
                         .frame(width: 50, height: 50)
                     Text(partnerInitials)
                         .font(.system(size: 18, weight: .semibold, design: .rounded))
-                        .foregroundStyle(Color.accentColor)
+                        .foregroundStyle(accent)
                 }
             }
 
@@ -283,7 +304,7 @@ struct AppointmentProSheet: View {
         }
         .padding(14)
         .background(Color(.secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .clipShape(RoundedRectangle(cornerRadius: AppRadius.card))
     }
 
     @ViewBuilder
@@ -294,7 +315,7 @@ struct AppointmentProSheet: View {
                     .fill(tierColor)
                     .frame(width: 6, height: 6)
                 Text(tierLabel)
-                    .font(.caption2.weight(.medium))
+                    .font(.caption.weight(.medium))
                     .foregroundStyle(tierColor)
             }
         }
@@ -310,9 +331,9 @@ struct AppointmentProSheet: View {
 
     private var tierLabel: String {
         switch partnerTier {
-        case .free:    return "Free · Book up to \(partnerMaxBookingDays) days ahead"
-        case .premium: return "Premium · Book up to \(partnerMaxBookingDays) days ahead"
-        case .pro:     return "Pro · Book up to \(partnerMaxBookingDays) days ahead"
+        case .free:    return String(format: String(localized: "tier_badge_free"), partnerMaxBookingDays)
+        case .premium: return String(format: String(localized: "tier_badge_premium"), partnerMaxBookingDays)
+        case .pro:     return String(format: String(localized: "tier_badge_pro"), partnerMaxBookingDays)
         }
     }
 
@@ -345,12 +366,12 @@ struct AppointmentProSheet: View {
             CalendarMiniView(
                 selectedDate: $selectedDate,
                 busySlots:    busySlots,
-                offDays:      partnerOffDays,
+                offDays:      calendarOffDays,
                 maxBookingDays: partnerMaxBookingDays
             )
         }
         .background(Color(.secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .clipShape(RoundedRectangle(cornerRadius: AppRadius.card))
     }
 
     // MARK: – Off-day banner
@@ -367,6 +388,22 @@ struct AppointmentProSheet: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            Spacer()
+        }
+        .padding(14)
+        .background(Color.orange.opacity(0.09))
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+    }
+
+    // MARK: – Day-full banner (partner's maxPerDay reached)
+
+    private var dayFullBanner: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "calendar.badge.exclamationmark")
+                .foregroundStyle(.orange)
+            Text(String(localized: "day_fully_booked"))
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.orange)
             Spacer()
         }
         .padding(14)
@@ -392,14 +429,10 @@ struct AppointmentProSheet: View {
             .padding(14)
             .background(Color(.tertiarySystemGroupedBackground))
             .clipShape(RoundedRectangle(cornerRadius: 12))
-
-            Text("appointment_name_hint")
-                .font(.caption)
-                .foregroundStyle(.secondary)
         }
         .padding(16)
         .background(Color(.secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .clipShape(RoundedRectangle(cornerRadius: AppRadius.card))
     }
 
     // MARK: – Unified time picker card
@@ -421,33 +454,16 @@ struct AppointmentProSheet: View {
                     .foregroundStyle(.secondary)
                 Spacer()
 
-                // Custom-time toggle (pill style)
-                Button {
-                    withAnimation(.easeInOut(duration: 0.22)) {
-                        useCustomTime.toggle()
-                        selectedSlot = nil
-                        if useCustomTime {
-                            clampDuration(from: customStart)
-                        }
-                    }
-                } label: {
-                    HStack(spacing: 5) {
-                        Image(systemName: useCustomTime ? "pencil.circle.fill" : "pencil.circle")
-                            .font(.caption)
-                        Text(useCustomTime ? "Custom" : "Grid")
-                            .font(.caption.weight(.semibold))
-                    }
-                    .foregroundStyle(useCustomTime ? Color.accentColor : .secondary)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .background(
-                        Capsule()
-                            .fill(useCustomTime
-                                  ? Color.accentColor.opacity(0.12)
-                                  : Color(.systemGray5))
-                    )
+                // Grid / Custom mode — small two-segment control
+                HStack(spacing: 0) {
+                    timeModeSegment("Grid", custom: false)
+                    timeModeSegment("Custom", custom: true)
                 }
-                .buttonStyle(.plain)
+                .padding(2)
+                .background(
+                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        .fill(Color.primary.opacity(0.06))
+                )
             }
             .padding(.horizontal, 16)
             .padding(.top, 14)
@@ -455,6 +471,10 @@ struct AppointmentProSheet: View {
 
             Divider()
                 .padding(.horizontal, 16)
+
+            if !useCustomTime {
+                suggestionsRow
+            }
 
             if useCustomTime {
                 // ── Custom start time ─────────────────────────────────────
@@ -474,9 +494,42 @@ struct AppointmentProSheet: View {
             }
         }
         .background(Color(.secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .clipShape(RoundedRectangle(cornerRadius: AppRadius.card))
         .animation(.easeInOut(duration: 0.22), value: useCustomTime)
         .animation(.easeInOut(duration: 0.18), value: selectedSlot?.start)
+    }
+
+    /// One segment of the Grid / Custom control. Same toggle behaviour as
+    /// before — tapping the already-active segment does nothing.
+    private func timeModeSegment(_ title: LocalizedStringKey, custom: Bool) -> some View {
+        let isActive = useCustomTime == custom
+        return Button {
+            guard !isActive else { return }
+            withAnimation(.easeInOut(duration: 0.22)) {
+                useCustomTime.toggle()
+                selectedSlot = nil
+                if useCustomTime {
+                    clampDuration(from: customStart)
+                }
+            }
+        } label: {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(isActive ? Color.primary : Color.secondary)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background {
+                    if isActive {
+                        RoundedRectangle(cornerRadius: 7, style: .continuous)
+                            .fill(colorScheme == .dark ? Color(.systemGray4) : Color(.systemBackground))
+                            .shadow(color: .black.opacity(0.10), radius: 1.5, y: 1)
+                            .matchedGeometryEffect(id: "timeModeThumb", in: timeModeNS)
+                    }
+                }
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isActive ? .isSelected : [])
     }
 
     // MARK: – Custom start row
@@ -490,7 +543,7 @@ struct AppointmentProSheet: View {
                         Text(String(localized: "start_time"))
                     } icon: {
                         Image(systemName: "clock.fill")
-                            .foregroundStyle(Color.accentColor)
+                            .foregroundStyle(accent)
                     }
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
@@ -511,12 +564,12 @@ struct AppointmentProSheet: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
 
                 // Conflict warning (right side of custom start row)
-                if let slot = effectiveSlot, checkBusy(slot) {
+                if let slot = effectiveSlot, let message = conflictMessage(for: slot) {
                     VStack(spacing: 6) {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .font(.title3)
                             .foregroundStyle(.red)
-                        Text(String(localized: "time_unavailable"))
+                        Text(message)
                             .font(.caption)
                             .foregroundStyle(.red)
                             .multilineTextAlignment(.center)
@@ -571,7 +624,9 @@ struct AppointmentProSheet: View {
                     ForEach(Array(slotsForSelectedDate.enumerated()), id: \.element.start) { _, slot in
                         let pastSlot = isPastSlot(slot)
                         let busy     = checkBusy(slot)
-                        let blocked  = isDayBlocked || pastSlot
+                        // Partner's booking hours / buffer / daily cap → looks like a past cell
+                        let outside  = !busy && isBlockedByBookingHours(slot)
+                        let blocked  = isDayBlocked || pastSlot || outside
                         let hl       = slotHighlight(for: slot)
 
                         // Stagger delay: slots farther from the range start
@@ -583,7 +638,7 @@ struct AppointmentProSheet: View {
                             return max(0, steps) * 0.045
                         }()
 
-                        slotCell(slot: slot, isBusy: busy, isPast: pastSlot, highlight: hl)
+                        slotCell(slot: slot, isBusy: busy, isPast: pastSlot || outside, highlight: hl)
                             .opacity(blocked ? 0.30 : 1.0)
                             .allowsHitTesting(!blocked)
                             // Per-cell spring with stagger — triggers whenever this
@@ -594,7 +649,7 @@ struct AppointmentProSheet: View {
                                 value: hl
                             )
                             .onTapGesture {
-                                guard !isDayBlocked, !busy, !pastSlot else { return }
+                                guard !isDayBlocked, !busy, !pastSlot, !outside else { return }
                                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
                                 withAnimation(.spring(response: 0.22)) {
                                     if selectedSlot?.start == slot.start {
@@ -615,17 +670,13 @@ struct AppointmentProSheet: View {
 
                 // Legend
                 HStack(spacing: 14) {
-                    legendDot(color: Color(.systemGray4),             label: "Available")
-                    legendDot(color: .red.opacity(0.55),              label: "Busy")
-                    legendDot(color: Color.accentColor.opacity(0.90), label: "Start")
-                    legendDot(color: Color.accentColor.opacity(0.50), label: "Range")
+                    legendDot(color: Color(.systemGray4),  label: String(localized: "availability_available"))
+                    legendDot(color: .red.opacity(0.55),   label: String(localized: "availability_busy"))
+                    legendDot(color: accent.opacity(0.90), label: String(localized: "start_label"))
+                    legendDot(color: accent.opacity(0.50), label: String(localized: "legend_range"))
                 }
-                .font(.caption2)
+                .font(.caption)
                 .padding(.top, 4)
-
-                Text("appt_slot_hint")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
         }
         .padding(16)
@@ -642,7 +693,7 @@ struct AppointmentProSheet: View {
             HStack(spacing: 8) {
                 Image(systemName: "timer")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(accent)
                 Text("duration_label")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
@@ -658,12 +709,12 @@ struct AppointmentProSheet: View {
                             .font(.caption.weight(.semibold))
                             .monospacedDigit()
                     }
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(accent)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .background(
                         Capsule()
-                            .fill(Color.accentColor.opacity(0.10))
+                            .fill(accent.opacity(0.10))
                     )
                 }
             }
@@ -688,20 +739,16 @@ struct AppointmentProSheet: View {
                 Spacer()
             }
 
-            // ── Busy conflict warning ─────────────────────────────────────
-            if let slot = effectiveSlot, checkBusy(slot) {
+            // ── Busy / booking-hours conflict warning ─────────────────────
+            if let slot = effectiveSlot, let message = conflictMessage(for: slot) {
                 HStack(spacing: 6) {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundStyle(.red)
-                    Text(String(localized: "time_unavailable"))
+                    Text(message)
                         .font(.caption)
                         .foregroundStyle(.red)
                 }
             }
-
-            Text("appt_duration_hint")
-                .font(.caption)
-                .foregroundStyle(.secondary)
         }
         .padding(16)
     }
@@ -726,19 +773,19 @@ struct AppointmentProSheet: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 8)
                 .background(
-                    RoundedRectangle(cornerRadius: 9)
+                    RoundedRectangle(cornerRadius: AppRadius.chip)
                         .fill(
                             isSelected
-                                ? Color.accentColor.opacity(0.88)
+                                ? accent.opacity(0.88)
                                 : isAvailable
                                     ? Color(.systemGray5)
                                     : Color(.systemGray6)
                         )
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 9)
+                    RoundedRectangle(cornerRadius: AppRadius.chip)
                         .strokeBorder(
-                            isSelected ? Color.accentColor : Color.clear,
+                            isSelected ? accent : Color.clear,
                             lineWidth: 1.5
                         )
                 )
@@ -769,9 +816,9 @@ struct AppointmentProSheet: View {
         // doesn't conform to View).
         let bgColor: Color = {
             switch highlight {
-            case .rangeSole, .rangeStart: return Color.accentColor.opacity(0.92)
-            case .rangeEnd:               return Color.accentColor.opacity(0.68)
-            case .rangeMid:               return Color.accentColor.opacity(0.46)
+            case .rangeSole, .rangeStart: return accent.opacity(0.92)
+            case .rangeEnd:               return accent.opacity(0.68)
+            case .rangeMid:               return accent.opacity(0.46)
             case .outside:
                 return isBusy ? Color.red.opacity(0.14)
                       : isPast ? Color(.systemGray5)
@@ -791,9 +838,8 @@ struct AppointmentProSheet: View {
 
         let weight: Font.Weight = {
             switch highlight {
-            case .rangeSole, .rangeStart: return .bold
-            case .rangeEnd:               return .semibold
-            case .rangeMid, .outside:     return .regular
+            case .rangeSole, .rangeStart:          return .bold
+            case .rangeEnd, .rangeMid, .outside:   return .semibold
             }
         }()
 
@@ -802,14 +848,16 @@ struct AppointmentProSheet: View {
         let hasBorder = (highlight == .rangeSole || highlight == .rangeStart)
 
         Text(label)
-            .font(.system(size: 11, weight: weight, design: .monospaced))
+            .font(.system(size: 14, weight: weight, design: .rounded).monospacedDigit())
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 9)
-            .background(RoundedRectangle(cornerRadius: 9).fill(bgColor))
+            .padding(.vertical, 11)
+            .background(RoundedRectangle(cornerRadius: AppRadius.chip).fill(bgColor))
             .overlay(
-                RoundedRectangle(cornerRadius: 9)
+                RoundedRectangle(cornerRadius: AppRadius.chip)
                     .strokeBorder(
-                        hasBorder ? Color.accentColor : Color.clear,
+                        hasBorder ? accent : Color.clear,
                         lineWidth: 1.5
                     )
             )
@@ -831,12 +879,68 @@ struct AppointmentProSheet: View {
         return selectedDate > maxDate
     }
 
+    // Same windows as the paywall / web booking page (free 7 · premium 90 · pro 270)
     private var partnerMaxBookingDays: Int {
-        switch partnerTier {
-        case .free:    return 7
-        case .premium: return 180
-        case .pro:     return 270
+        PremiumLimits.limits(for: partnerTier).maxBookingDaysAhead
+    }
+
+    // MARK: – Booking hours (partner's "Giờ nhận lịch")
+
+    /// Off days for the mini calendar: real off days + weekdays the partner
+    /// doesn't take bookings on.
+    private var calendarOffDays: Set<Date> {
+        bookingClosedDays.isEmpty ? partnerOffDays : partnerOffDays.union(bookingClosedDays)
+    }
+
+    /// Outside the partner's hours, too close to another of their slots
+    /// (buffer), or on a day that already has their max appointments.
+    private func isBlockedByBookingHours(_ slot: ProSlot) -> Bool {
+        guard let hours = bookingHours else { return false }
+        return !hours.allows(start: slot.start, end: slot.end)
+            || hours.isDayFull(slot.start, eventStarts: partnerEventStarts)
+            || hours.violatesBuffer(start: slot.start, end: slot.end, busy: busyIntervals)
+    }
+
+    /// Red caption under the time picker: busy/off day first, then booking hours.
+    private func conflictMessage(for slot: ProSlot) -> String? {
+        if checkBusy(slot) { return String(localized: "time_unavailable") }
+        guard let hours = bookingHours else { return nil }
+        if hours.isDayFull(slot.start, eventStarts: partnerEventStarts) {
+            return String(localized: "day_fully_booked")
         }
+        return isBlockedByBookingHours(slot) ? String(localized: "outside_booking_hours") : nil
+    }
+
+    /// The partner already has `maxPerDay` appointments on the selected day.
+    private var selectedDayFullyBooked: Bool {
+        guard let hours = bookingHours, hours.maxPerDay > 0 else { return false }
+        let dayStart = cal.startOfDay(for: selectedDate)
+        guard let nextDay = cal.date(byAdding: .day, value: 1, to: dayStart) else { return false }
+        // Owner may be in another time zone → both owner days touching my day must be full
+        return hours.isDayFull(dayStart, eventStarts: partnerEventStarts)
+            && hours.isDayFull(nextDay.addingTimeInterval(-1), eventStarts: partnerEventStarts)
+    }
+
+    /// My-local days from today through the booking window that have no open
+    /// booking time at all (closed weekdays in the partner's time zone).
+    private func closedDays(for hours: BookingHours?) -> Set<Date> {
+        guard let hours else { return [] }
+        let today = cal.startOfDay(for: Date())
+        var result: Set<Date> = []
+        for offset in 0...max(0, partnerMaxBookingDays) {
+            guard let day = cal.date(byAdding: .day, value: offset, to: today),
+                  let next = cal.date(byAdding: .day, value: 1, to: day)
+            else { break }
+            if !hours.hasOpenTime(from: day, to: next) { result.insert(day) }
+        }
+        return result
+    }
+
+    private func applyBookingHours(for uid: String) {
+        let hours = eventManager.partnerBookingHours[uid]
+        bookingHours       = (hours?.enabled == true) ? hours : nil
+        partnerEventStarts = eventManager.partnerEventStarts[uid] ?? []
+        bookingClosedDays  = closedDays(for: bookingHours)
     }
 
     // MARK: – Data loading
@@ -861,13 +965,17 @@ struct AppointmentProSheet: View {
                 self.busySlots     = slots
                 self.partnerTier   = tier
                 self.busyIntervals = slots.map { ($0.startTime, $0.endTime) }
-            }
-        }
 
-        eventManager.fetchOffDays(for: uid, forceRefresh: true) { offDays in
-            DispatchQueue.main.async {
-                self.partnerOffDays = offDays
-                self.loading        = false
+                // fetchBusySlots just refreshed the off-day cache from the same
+                // publicCalendar doc → no second read here.
+                self.eventManager.fetchOffDays(for: uid) { offDays in
+                    DispatchQueue.main.async {
+                        self.partnerOffDays = offDays
+                        // Same doc, cached by fetchBusySlots → booking hours too
+                        self.applyBookingHours(for: uid)
+                        self.loading        = false
+                    }
+                }
             }
         }
     }
@@ -912,6 +1020,20 @@ struct AppointmentProSheet: View {
             return
         }
 
+        // ── Booking-hours guard (partner's hours / buffer / daily cap) ─────
+        // Plain overlaps with their busy slots stay with addAppointment's check.
+        if let hours = bookingHours {
+            if hours.isDayFull(slot.start, eventStarts: partnerEventStarts) {
+                errorMessage = String(localized: "day_fully_booked")
+                return
+            }
+            if !hours.allows(start: slot.start, end: slot.end)
+                || (!checkBusy(slot) && hours.violatesBuffer(start: slot.start, end: slot.end, busy: busyIntervals)) {
+                errorMessage = String(localized: "outside_booking_hours")
+                return
+            }
+        }
+
         // ── Booking range guard ────────────────────────────────────────────
         let maxDate = cal.date(byAdding: .day, value: partnerMaxBookingDays, to: Date())!
         if selectedDate > maxDate {
@@ -929,8 +1051,8 @@ struct AppointmentProSheet: View {
             $0.createdBy == creatorUid &&
             Calendar.current.isDate($0.startTime, inSameDayAs: selectedDate)
         }
-        let limits = PremiumStoreViewModel.shared.limits
-        if myEventsToday.count >= limits.maxEventsPerDay {
+        let maxEvents = PremiumStoreViewModel.shared.maxEventsPerDay(on: selectedDate)
+        if myEventsToday.count >= maxEvents {
             errorMessage = String(localized: "event_limit_reached")
             return
         }
@@ -969,6 +1091,9 @@ struct AppointmentProSheet: View {
             DispatchQueue.main.async {
                 if success {
                     UINotificationFeedbackGenerator().notificationOccurred(.success)
+                    AppAnalytics.log(AppAnalyticsEvent.bookingCreated,
+                                     ["minutes": Int(slot.end.timeIntervalSince(slot.start) / 60)])
+                    ReviewManager.shared.requestAfterEventSuccess(self.requestReview)
                     self.loadBusy()
                     self.selectedSlot = nil
                     self.showSuccessAlert = true
@@ -988,6 +1113,123 @@ struct AppointmentProSheet: View {
     private func checkMyOwnConflict(_ slot: ProSlot) -> Bool {
         eventManager.events.contains {
             $0.startTime < slot.end && $0.endTime > slot.start
+        } || DeviceCalendarSync.shared.isBusy(from: slot.start, to: slot.end)
+    }
+
+    // MARK: – Suggested common free slots
+
+    /// My own busy intervals: events, manual busy hours, iPhone Calendar.
+    private func myBusyIntervals(on day: Date) -> [(Date, Date)] {
+        eventManager.events
+            .filter { cal.isDate($0.startTime, inSameDayAs: day) || cal.isDate($0.endTime, inSameDayAs: day) }
+            .map { ($0.startTime, $0.endTime) }
+        + eventManager.myManualBusySlots
+            .filter { cal.isDate($0.startTime, inSameDayAs: day) }
+            .map { ($0.startTime, $0.endTime) }
+        + DeviceCalendarSync.shared.intervals(on: day)
+    }
+
+    /// Up to `limit` start times on `day` when both of us are free for the chosen
+    /// duration, spread ≥ 2h apart so the options feel different.
+    private func suggestedSlots(on day: Date, limit: Int = 3) -> [ProSlot] {
+        let dayStart = cal.startOfDay(for: day)
+        guard !partnerOffDays.contains(dayStart),
+              !bookingClosedDays.contains(dayStart),
+              let dayEnd = cal.date(bySettingHour: nightSleepHour, minute: 0, second: 0, of: dayStart)
+        else { return [] }
+
+        let duration = TimeInterval(durationMinutes * 60)
+        let earliest = Date().addingTimeInterval(15 * 60)
+        let mine = myBusyIntervals(on: dayStart)
+        var picked: [ProSlot] = []
+
+        for cell in generateSlots(for: dayStart) {
+            let hour = cal.component(.hour, from: cell.start)
+            guard hour >= morningStartHour else { continue }
+
+            let candidate = ProSlot(start: cell.start, end: cell.start.addingTimeInterval(duration))
+            guard candidate.start >= earliest, candidate.end <= dayEnd else { continue }
+            guard !busyIntervals.contains(where: { $0.0 < candidate.end && $0.1 > candidate.start }) else { continue }
+            guard !mine.contains(where: { $0.0 < candidate.end && $0.1 > candidate.start }) else { continue }
+            guard !isBlockedByBookingHours(candidate) else { continue }
+            if let last = picked.last, candidate.start < last.start.addingTimeInterval(2 * 3600) { continue }
+
+            picked.append(candidate)
+            if picked.count == limit { break }
+        }
+        return picked
+    }
+
+    /// Suggestions for the selected day, or the next day (within the partner's
+    /// booking window) that has any.
+    private var suggestions: [ProSlot] {
+        guard !loading, sharedUserId != nil else { return [] }
+        let horizon = min(partnerMaxBookingDays, 14)
+        for offset in 0...horizon {
+            guard let day = cal.date(byAdding: .day, value: offset, to: cal.startOfDay(for: selectedDate)),
+                  let maxDate = cal.date(byAdding: .day, value: partnerMaxBookingDays, to: Date()),
+                  day <= maxDate
+            else { break }
+            let found = suggestedSlots(on: day)
+            if !found.isEmpty { return found }
+        }
+        return []
+    }
+
+    private func applySuggestion(_ slot: ProSlot) {
+        useCustomTime = false
+        let select = {
+            clampDuration(from: slot.start)
+            selectedSlot = ProSlot(start: slot.start,
+                                   end: slot.start.addingTimeInterval(TimeInterval(durationMinutes * 60)))
+        }
+        if cal.isDate(slot.start, inSameDayAs: selectedDate) {
+            select()
+        } else {
+            // onChange(selectedDate) clears the selection — pick the slot after it runs.
+            selectedDate = cal.startOfDay(for: slot.start)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { select() }
+        }
+    }
+
+    @ViewBuilder
+    private var suggestionsRow: some View {
+        let items = suggestions
+        if !items.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                Label(String(localized: "suggested_free_slots"), systemImage: "sparkles")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                HStack(spacing: 8) {
+                    ForEach(items, id: \.self) { slot in
+                        let isChosen = selectedSlot?.start == slot.start
+                        Button {
+                            applySuggestion(slot)
+                        } label: {
+                            VStack(spacing: 2) {
+                                Text(slot.start.formatted(date: .omitted, time: .shortened))
+                                    .font(.subheadline.weight(.semibold))
+                                    .monospacedDigit()
+                                if !cal.isDate(slot.start, inSameDayAs: selectedDate) {
+                                    Text(slot.start.formatted(.dateTime.weekday(.abbreviated).day()))
+                                        .font(.caption2)
+                                        .opacity(0.8)
+                                }
+                            }
+                            .foregroundStyle(isChosen ? Color.white : accent)
+                            .padding(.vertical, 11)
+                            .frame(maxWidth: .infinity, minHeight: 44)
+                            .background(
+                                RoundedRectangle(cornerRadius: AppRadius.chip, style: .continuous)
+                                    .fill(isChosen ? accent : accent.opacity(0.12))
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
         }
     }
 
@@ -1055,6 +1297,7 @@ struct AppointmentProSheet_Previews: PreviewProvider {
                 sharedUserName: "Demo User"
             )
             .environmentObject(EventManager.shared)
+            .environmentObject(UIAccentStore())
         }
     }
 }
@@ -1110,7 +1353,11 @@ extension CalendarEvent {
             creatorName:      creatorName,
             colorHex:         colorHex,
             pendingDelete:    false,
-            origin:           origin
+            origin:           origin,
+            location:         EventLocation.from(data["location"]),
+            responses:        data["responses"] as? [String: String],
+            proposal:         TimeProposal.from(data["proposal"]),
+            seriesId:         data["seriesId"] as? String
         )
     }
 

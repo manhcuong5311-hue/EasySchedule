@@ -45,3 +45,15 @@ enum AppBackground {
         Color.black.opacity(scheme == .dark ? 0.45 : 0.14)
     }
 }
+
+/// Bo góc dùng chung — thay cho ~19 giá trị rải rác trước đây.
+enum AppRadius {
+    /// Thẻ / nhóm nội dung (card)
+    static let card: CGFloat = 16
+    /// Panel lớn (form Thêm lịch)
+    static let panel: CGFloat = 20
+    /// Ô nhập, nút lớn
+    static let control: CGFloat = 12
+    /// Chip, ô giờ, nút nhỏ
+    static let chip: CGFloat = 10
+}

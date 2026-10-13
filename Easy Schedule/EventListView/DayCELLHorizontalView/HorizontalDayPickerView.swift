@@ -240,34 +240,10 @@ private extension DayCell {
                 .frame(height: 20)
 
             } else {
-                // No user events — show Morning + Night sleep placeholder icons
-                let isToday = Calendar.current.isDateInToday(day)
-                HStack(spacing: 6) {
-                    placeholderIcon(systemName: "sunrise.fill",   color: .orange.opacity(0.65))
-                    placeholderIcon(systemName: "moon.stars.fill", color: Color(red: 0.45, green: 0.45, blue: 0.9).opacity(0.75))
-                }
-                .frame(height: 20)
-                .offset(x: isToday ? (isPulsing ? 1.5 : -1.5) : 0)
-                .animation(
-                    isToday
-                        ? .easeInOut(duration: 2.0).repeatForever(autoreverses: true)
-                        : .default,
-                    value: isPulsing
-                )
+                // No user events — keep an empty slot of the same height so the strip doesn't shift
+                Color.clear
+                    .frame(height: 20)
             }
-        }
-    }
-
-    // Placeholder icon shown when a day has no user events
-    func placeholderIcon(systemName: String, color: Color) -> some View {
-        let size: CGFloat = 14
-        return ZStack {
-            Circle()
-                .fill(color.opacity(0.18))
-                .frame(width: size, height: size)
-            Image(systemName: systemName)
-                .font(.system(size: 7, weight: .medium))
-                .foregroundStyle(color)
         }
     }
 
@@ -370,7 +346,14 @@ private extension DayCell {
                 .overlay(todayRing)
                 .overlay(darkSelectedRing)
                 .overlay(offDayIcon, alignment: .bottomTrailing)
-                .dayCellShadow(scheme: colorScheme, isSelected: isSelected)
+                // Single soft accent shadow under the selected circle
+                .shadow(
+                    color: isSelected
+                        ? uiAccent.color.opacity(colorScheme == .dark ? 0.40 : 0.30)
+                        : .clear,
+                    radius: 5,
+                    y: 2
+                )
         }
     }
 

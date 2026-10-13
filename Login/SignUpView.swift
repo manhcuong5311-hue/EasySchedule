@@ -137,7 +137,6 @@ struct SignUpView: View {
                 .document(user.uid)
                 .setData([
                     "name":      trimmedName,
-                    "email":     user.email ?? "",
                     "createdAt": FieldValue.serverTimestamp()
                 ], merge: true)
 

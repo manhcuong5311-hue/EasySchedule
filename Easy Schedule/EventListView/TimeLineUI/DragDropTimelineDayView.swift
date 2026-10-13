@@ -290,12 +290,13 @@ struct DragDropTimelineDayView: View {
         var result: [CalendarEvent] = []
         let isOff = eventManager.isOffDay(date)
         if !isOff {
-            result.append(buildSystemEvent(id: wakeID,  label: "Morning Start",
+            // Display-only title (anchors are never persisted) — localized
+            result.append(buildSystemEvent(id: wakeID,  label: String(localized: "anchor_morning_start"),
                                            hex: "#F4A261", minutes: effectiveWake))
         }
         result.append(contentsOf: src)
         if !isOff {
-            result.append(buildSystemEvent(id: sleepID, label: "Night Sleep",
+            result.append(buildSystemEvent(id: sleepID, label: String(localized: "anchor_night_sleep"),
                                            hex: "#6C7AA6", minutes: effectiveSleep))
         }
         localEvents = result
@@ -1123,8 +1124,13 @@ private struct DDEventCard: View {
                     .frame(width: isPad ? 58 : 50, height: isPad ? 58 : 50)
                 } else {
                     ZStack {
+                        // Flat tinted pill (no material halo / resting shadow).
+                        // Solid card-colour base first so the timeline line behind
+                        // doesn't show through the light tint.
                         RoundedRectangle(cornerRadius: 50)
-                            .fill(scheme == .dark ? Color.white.opacity(0.1) : Color.black.opacity(0.07))
+                            .fill(AppBackground.card(scheme))
+                        RoundedRectangle(cornerRadius: 50)
+                            .fill(event.eventColor.opacity(scheme == .dark ? 0.22 : 0.14))
                         // Partner events show the partner's profile photo (cached)
                         // in the pill; everything else keeps its icon.
                         if shouldShowOwner, let photo = avatars.image(for: ownerUID) {
@@ -1143,11 +1149,6 @@ private struct DDEventCard: View {
                         }
                     }
                     .frame(width: isPad ? 58 : 50, height: pillH)
-                    .background(
-                        RoundedRectangle(cornerRadius: 55)
-                            .fill(.ultraThinMaterial)
-                            .frame(width: (isPad ? 58 : 50) + 10, height: pillH + 10)
-                    )
                     .overlay(
                         RoundedRectangle(cornerRadius: 50)
                             .stroke(Color.white.opacity(isHolding ? 0.25 : 0.1), lineWidth: 1)
@@ -1155,10 +1156,11 @@ private struct DDEventCard: View {
                 }
             }
             .scaleEffect(isHolding ? 1.12 : 1)
+            // Lift shadow only while holding — flat at rest
             .shadow(
-                color: event.eventColor.opacity(isHolding ? 0.35 : 0.15),
-                radius: isHolding ? 10 : 4,
-                y: isHolding ? 5 : 2
+                color: event.eventColor.opacity(isHolding ? 0.35 : 0),
+                radius: isHolding ? 10 : 0,
+                y: isHolding ? 5 : 0
             )
             .animation(.spring(response: 0.25, dampingFraction: 0.8), value: isHolding)
 
@@ -1167,7 +1169,7 @@ private struct DDEventCard: View {
                 Text(event.title)
                     .font(isPad ? .title3.weight(.semibold) : .headline)
                     .foregroundStyle(isSystemEvent ? event.eventColor : (isCompleted ? Color.secondary : .primary))
-                    .strikethrough(isCompleted && !isSystemEvent, color: .primary.opacity(0.55))
+                    .strikethrough(isCompleted && !isSystemEvent, color: Color.secondary.opacity(0.5))
                     .lineLimit(1)
 
                 if shouldShowOwner {
@@ -1193,6 +1195,23 @@ private struct DDEventCard: View {
                             Text("• \(durationText)")
                                 .font(.caption).monospacedDigit().foregroundStyle(.secondary)
                         }
+                        if event.seriesId != nil {
+                            Image(systemName: "repeat")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                        }
+                        if event.proposal != nil {
+                            Image(systemName: "clock.arrow.2.circlepath")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(.orange)
+                        }
+                    }
+
+                    if let place = event.location?.name {
+                        Label(place, systemImage: "mappin.and.ellipse")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
                     }
 
                     if isRunning() {

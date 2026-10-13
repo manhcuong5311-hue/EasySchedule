@@ -51,8 +51,12 @@ struct SharedLinksListView: View {
 
             } else {
 
-                VStack(spacing: 12) {
-                    ForEach(filteredLinks) { link in
+                // All partners in ONE card, rows separated by inset dividers.
+                VStack(spacing: 0) {
+                    ForEach(Array(filteredLinks.enumerated()), id: \.element.id) { index, link in
+                        if index > 0 {
+                            Divider().padding(.leading, 52)
+                        }
                         SharedLinkCard(
                             link: link,
                             displayName: eventManager.displayName(for: link.uid),
@@ -66,6 +70,7 @@ struct SharedLinksListView: View {
                         )
                     }
                 }
+                .partnerCardSurface()
             }
         }
         .onAppear {
@@ -96,12 +101,12 @@ struct SharedLinkCard: View {
 
     var body: some View {
 
-        HStack(spacing: 14) {
+        HStack(spacing: 12) {
 
-            AvatarView(uid: link.uid, size: 44) {
+            AvatarView(uid: link.uid, size: 40) {
                 Circle()
                     .fill(color.opacity(0.15))
-                    .frame(width: 44, height: 44)
+                    .frame(width: 40, height: 40)
                     .overlay(
                         Text(initial)
                             .font(.headline)
@@ -109,16 +114,23 @@ struct SharedLinkCard: View {
                     )
             }
 
-            Text(displayName)
-                .font(.system(size: 16, weight: .semibold))
-                .lineLimit(1)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(displayName)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
 
-            Spacer()
+                statusLine
+            }
 
-            statusBadge
+            Spacer(minLength: 8)
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(Color(.tertiaryLabel))
         }
-        .padding()
-        .partnerCardSurface()
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
         .contentShape(Rectangle())
         .onTapGesture { onTap() }
 
@@ -153,21 +165,27 @@ struct SharedLinkCard: View {
         displayName.prefix(1).uppercased()
     }
 
+    /// Status line under the name: green dot + "Connected", or clock + "Pending".
     @ViewBuilder
-    private var statusBadge: some View {
+    private var statusLine: some View {
         switch link.status {
         case .connected:
-            // Connected is the expected state → a quiet green dot, no label.
-            Circle()
-                .fill(.green)
-                .frame(width: 9, height: 9)
-                .accessibilityLabel(Text(String(localized: "connected")))
+            HStack(spacing: 5) {
+                Circle()
+                    .fill(.green)
+                    .frame(width: 7, height: 7)
+                Text(String(localized: "connected"))
+                    .foregroundStyle(.secondary)
+            }
+            .font(.caption)
 
         case .pending:
-            Label(String(localized: "pending"),
-                  systemImage: "clock.fill")
-                .font(.caption2)
-                .foregroundColor(.orange)
+            HStack(spacing: 4) {
+                Image(systemName: "clock.fill")
+                Text(String(localized: "pending"))
+            }
+            .font(.caption)
+            .foregroundColor(.orange)
         }
     }
 }

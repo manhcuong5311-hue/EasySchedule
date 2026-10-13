@@ -15,6 +15,8 @@ struct ScheduleSnapshotItem: Codable, Identifiable, Hashable {
     var start: Date
     var end: Date
     var colorHex: String
+    /// Has other participants (optional: snapshots written by older builds lack it).
+    var isShared: Bool? = nil
 
     /// Màu SwiftUI suy ra từ `colorHex`.
     var color: Color { snapshotColor(from: colorHex) }

@@ -127,6 +127,8 @@ struct EventDetailView: View {
     @State private var showAddMemberSheet = false
     @State private var note: String = ""
     @State private var showDeleteConfirm = false
+    @State private var showSeriesDelete = false
+    @State private var showAddToCalendar = false
     @FocusState private var chatFocused: Bool
     @StateObject private var chatVM: ChatViewModel
 
@@ -137,6 +139,11 @@ struct EventDetailView: View {
         return uid == event.owner ||
                uid == event.createdBy ||
                event.admins?.contains(uid) == true
+    }
+
+    /// Latest copy from EventManager, so responses / location update live.
+    private var current: CalendarEvent {
+        eventManager.events.first(where: { $0.id == event.id }) ?? event
     }
 
     /// Chat shows only for events shared with at least one other person.
@@ -166,6 +173,13 @@ struct EventDetailView: View {
                     ScrollView {
                         VStack(spacing: 16) {
                             headerCard
+                            if current.location != nil || canManage {
+                                EventLocationCard(event: current, canManage: canManage)
+                            }
+                            if hasChat && current.endTime > Date() {
+                                EventResponseCard(event: current, canManage: canManage)
+                            }
+                            addToCalendarButton
                             noteCard
                             todoCard
                             if canManage && !eventManager.pastOnlyEventIds.contains(event.id) {
@@ -215,6 +229,16 @@ struct EventDetailView: View {
                 }
             }
             .onDisappear { chatVM.stopListening() }
+            .sheet(isPresented: $showAddToCalendar) {
+                AddToDeviceCalendarSheet(event: current) { showAddToCalendar = false }
+                    .ignoresSafeArea()
+            }
+            .confirmationDialog(String(localized: "delete_event"),
+                                isPresented: $showSeriesDelete, titleVisibility: .visible) {
+                Button(String(localized: "repeat_delete_this"), role: .destructive) { performDelete() }
+                Button(String(localized: "repeat_delete_following"), role: .destructive) { performDeleteSeries() }
+                Button(String(localized: "cancel"), role: .cancel) {}
+            }
             .alert(String(localized: "delete_event"), isPresented: $showDeleteConfirm) {
                 Button(String(localized: "delete"), role: .destructive) { performDelete() }
                 Button(String(localized: "cancel"), role: .cancel) {}
@@ -227,25 +251,43 @@ struct EventDetailView: View {
     // MARK: - Top cards (info · note · tasks)
 
     private var headerCard: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 10) {
-                Circle()
-                    .fill(Color(hex: event.colorHex))
-                    .frame(width: 12, height: 12)
-                Text(event.title)
-                    .font(.title3)
-                    .fontWeight(.semibold)
+        HStack(spacing: 12) {
+            // Event icon tile — same symbol as the timeline pill
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
+                .fill(Color(hex: event.colorHex).opacity(0.16))
+                .frame(width: 44, height: 44)
+                .overlay(
+                    Image(systemName: EventIconStore.shared.icon(for: event.id) ?? event.originIcon)
+                        .font(.system(size: 19, weight: .semibold))
+                        .foregroundStyle(Color(hex: event.colorHex))
+                )
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(event.title)
+                        .font(.system(size: 20, weight: .bold))
+                    if current.seriesId != nil {
+                        Image(systemName: "repeat")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Text(headerDateTimeText)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
             }
-            Text(EventTimeDisplayMode.timeRange.primaryText(for: event))
-                .font(.subheadline)
-                .foregroundColor(.secondary)
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
+            RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous)
                 .fill(Color(.secondarySystemGroupedBackground))
         )
+    }
+
+    /// "Wed, 14/10 · 2:30 PM–3:30 PM" — weekday/day/month follow the user's locale.
+    private var headerDateTimeText: String {
+        let day = event.startTime.formatted(.dateTime.weekday(.abbreviated).day().month(.defaultDigits))
+        return "\(day) · \(EventTimeDisplayMode.timeRange.primaryText(for: event))"
     }
 
     private var noteCard: some View {
@@ -270,7 +312,7 @@ struct EventDetailView: View {
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
+            RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous)
                 .fill(Color(.secondarySystemGroupedBackground))
         )
     }
@@ -284,21 +326,41 @@ struct EventDetailView: View {
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
+            RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous)
                 .fill(Color(.secondarySystemGroupedBackground))
         )
     }
 
+    private var addToCalendarButton: some View {
+        Button {
+            showAddToCalendar = true
+        } label: {
+            Label(String(localized: "add_to_iphone_calendar"), systemImage: "calendar.badge.plus")
+                .font(.subheadline.weight(.semibold))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(
+                    RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous)
+                        .fill(Color(.secondarySystemGroupedBackground))
+                )
+        }
+        .buttonStyle(.plain)
+    }
+
     private var deleteButton: some View {
         Button(role: .destructive) {
-            showDeleteConfirm = true
+            if current.seriesId != nil {
+                showSeriesDelete = true
+            } else {
+                showDeleteConfirm = true
+            }
         } label: {
             Label(String(localized: "delete_event"), systemImage: "trash")
                 .font(.subheadline.weight(.semibold))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
                 .background(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous)
                         .fill(Color.red.opacity(0.12))
                 )
                 .foregroundStyle(.red)
@@ -311,6 +373,15 @@ struct EventDetailView: View {
         eventManager.selectedEventWrapper = nil   // dismiss sheet first
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             withAnimation { eventManager.deleteEvent(ev) }
+        }
+    }
+
+    /// This occurrence and every later one in the same repeating series.
+    private func performDeleteSeries() {
+        let ev = current
+        eventManager.selectedEventWrapper = nil
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            withAnimation { eventManager.deleteSeries(from: ev) }
         }
     }
 

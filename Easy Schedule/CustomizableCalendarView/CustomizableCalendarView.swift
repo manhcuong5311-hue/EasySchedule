@@ -211,9 +211,8 @@ struct CustomizableCalendarView: View {
 
             // Share calendar card
             Button {
-                if let uid = Auth.auth().currentUser?.uid,
-                   let url = URL(string: "https://easyschedule-ce98a.web.app/calendar/\(uid)") {
-                    shareItem = ShareItem(url: url)
+                if let uid = Auth.auth().currentUser?.uid {
+                    shareItem = ShareItem(url: BookingLink.url(for: uid))
                 }
             } label: {
                 HStack(spacing: 14) {

@@ -184,7 +184,7 @@ struct PremiumUpgradeSheet: View {
     // MARK: - Benefits
 
     private var benefitRows: [FeatureRow] {
-        [.eventsPerDay, .advanceDays, .chat, .todo, .offDays, .sync]
+        [.noAds, .eventsPerDay, .advanceDays, .chat, .todo, .offDays, .sync]
     }
 
     private var benefitsCard: some View {
@@ -477,6 +477,7 @@ struct PremiumUpgradeSheet: View {
 
     private func handleAppear() {
         if currentTier == .premium { selectedPlan = .pro }
+        AppAnalytics.log(AppAnalyticsEvent.paywallShown, ["tier": "\(currentTier)"])
 
         Task {
             if !premium.isLoaded {
@@ -545,6 +546,7 @@ enum PlanType: String, CaseIterable {
 }
 
 enum FeatureRow: CaseIterable {
+    case noAds
     case eventsPerDay
     case advanceDays
     case members
@@ -557,6 +559,7 @@ enum FeatureRow: CaseIterable {
 
 func featureTitle(_ row: FeatureRow) -> LocalizedStringKey {
     switch row {
+    case .noAds:        return "feature_no_ads"
     case .eventsPerDay: return "feature_events_per_day"
     case .advanceDays:  return "feature_advance_days"
     case .members:      return "feature_members"

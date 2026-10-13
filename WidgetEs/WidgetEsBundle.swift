@@ -29,6 +29,8 @@ enum WidgetStrings {
     static var free: String       { pick(en: "All clear", vi: "Đang rảnh", ja: "予定なし", ko: "여유 시간") }
     static var today: String      { pick(en: "Today", vi: "Hôm nay", ja: "今日", ko: "오늘") }
     static var widgetName: String { pick(en: "Next Event", vi: "Việc tiếp theo", ja: "次の予定", ko: "다음 일정") }
+    static var onMyWay: String     { pick(en: "On my way", vi: "Tôi đang tới", ja: "向かっています", ko: "가는 중") }
+    static var runningLate: String { pick(en: "10 min late", vi: "Trễ 10 phút", ja: "10分遅れます", ko: "10분 늦어요") }
     static var widgetDesc: String {
         pick(en: "Your current or upcoming event at a glance.",
              vi: "Việc đang diễn ra hoặc sắp tới, xem nhanh.",

@@ -19,6 +19,9 @@ struct ScheduleActivityAttributes: ActivityAttributes {
         /// `true` khi việc chưa bắt đầu (đếm ngược tới `start`);
         /// `false` khi đang diễn ra (đếm ngược tới `end`).
         var isUpcoming: Bool
+        /// Shared with someone → show "Tôi đang tới" / "Trễ 10 phút".
+        /// Optional so states encoded by older builds still decode.
+        var canChat: Bool? = nil
 
         var color: Color { snapshotColor(from: colorHex) }
         /// Mốc thời gian để đếm ngược (start nếu sắp tới, end nếu đang chạy).
