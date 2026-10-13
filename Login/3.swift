@@ -9,9 +9,15 @@
 import SwiftUI
 import Combine
 
-struct ChatToPlanAISlide: View {
+/// "Agree on a time, together" — a proposal card (2/3 agreed) between two chat
+/// bubbles: confirm, suggest another time or vote; the event moves on majority.
+struct OnboardingAgreeSlide: View {
     let onNext: () -> Void
     @Environment(\.colorScheme) private var scheme
+
+    private var proposer: String { String(localized: "onboarding_mock_name_lina") }
+    private var voter: String { String(localized: "onboarding_mock_name_alex") }
+    private var timeRange: String { OnboardingMock.range(15, 0, 16, 0) }
 
     var body: some View {
         ZStack {
@@ -34,69 +40,52 @@ struct ChatToPlanAISlide: View {
 
             VStack(spacing: 18) {
 
-                Text(String(localized: "chat_to_plan_title"))
+                Text(String(localized: "onboarding_agree_title"))
                     .font(.system(size: 36, weight: .bold))
                     .tracking(-0.8)
                     .multilineTextAlignment(.center)
+                    .minimumScaleFactor(0.75)
 
-                Text(String(localized: "chat_to_plan_subtitle"))
+                Text(String(localized: "onboarding_agree_subtitle"))
                     .font(.system(size: 15))
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
 
 
-                Spacer()
+                Spacer(minLength: 8)
 
-                ZStack {
+                VStack(spacing: 16) {
 
-                    // Alex – question (top-left)
+                    // Proposer asks to move the event (top-left)
                     ChatUserBubble(
-                        tag: String(localized: "chat_tag_alex"),
-                        text: String(localized: "chat_message_alex"),
+                        tag: proposer,
+                        text: String(format: String(localized: "chat_auto_proposed_format"), timeRange),
+                        highlight: timeRange,
+                        x: 0,
+                        y: 0
+                    )
+                    .frame(maxWidth: 270, alignment: .leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    // Proposal card — the visual focus
+                    OnboardingProposalMockCard(
+                        proposer: proposer,
+                        timeRange: timeRange
+                    )
+
+                    // Someone votes yes (bottom-right)
+                    ChatUserBubble(
+                        tag: voter,
+                        text: String(format: String(localized: "chat_auto_vote_yes_format"), timeRange, 2, 3),
                         highlight: nil,
-                        x: -70,
-                        y: -100
+                        x: 0,
+                        y: 0
                     )
-
-                    // Lina – suggest time (top-right, visual focus)
-                    ChatUserBubble(
-                        tag: String(localized: "chat_tag_lina"),
-                        text: String(localized: "chat_message_lina"),
-                        highlight: String(localized: "chat_time_3pm"),
-                        x: 50,
-                        y: -40
-                    )
-
-                    // Sam – confirm (slightly below center)
-                    ChatUserBubble(
-                        tag: String(localized: "chat_tag_sam"),
-                        text: String(localized: "chat_message_sam"),
-                        highlight: String(localized: "chat_time_3pm"),
-                        x: -40,
-                        y: 30
-                    )
-
-                    // Noah – agreement (bottom-right)
-                    ChatUserBubble(
-                        tag: String(localized: "chat_tag_noah"),
-                        text: String(localized: "chat_message_noah"),
-                        highlight: nil,
-                        x: 60,
-                        y: 90
-                    )
-
-                    // Todo – action, close to chat
-                    TodoUserBubble(
-                        text: String(localized: "chat_todo_prepare"),
-                        x: -10,
-                        y: 175
-                    )
+                    .frame(maxWidth: 280, alignment: .trailing)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
                 }
 
-
-                .frame(height: 340)
-
-                Spacer()
+                Spacer(minLength: 8)
 
                 Button {
                     onNext()
@@ -106,44 +95,106 @@ struct ChatToPlanAISlide: View {
                 }
             }
             .padding(.horizontal, 24)
+            .padding(.top, 40)       // clears the top-trailing "Skip"
             .padding(.bottom, 28)
         }
     }
 }
 
 
-
-
-struct TodoUserBubble: View {
+/// Mock of the in-app time-change proposal: "<name> suggests …", a vote
+/// progress bar and the Agree / New time actions.
+struct OnboardingProposalMockCard: View {
     @Environment(\.colorScheme) private var scheme
 
-    let text: String
-    let x: CGFloat
-    let y: CGFloat
+    let proposer: String
+    let timeRange: String
 
     var body: some View {
-        HStack(spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
 
-            Image(systemName: "checkmark.circle.fill")
-                .foregroundColor(Color.accentColor)
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: "clock.arrow.2.circlepath")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundColor(Color.accentColor)
+                    .frame(width: 36, height: 36)
+                    .background(
+                        Circle().fill(Color.accentColor.opacity(scheme == .light ? 0.12 : 0.22))
+                    )
 
-            Text(text)
-                .font(.system(size: 15, weight: .medium))
+                Text(highlightedProposal)
+                    .font(.system(size: 15, weight: .semibold))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                ProgressView(value: 2, total: 3)
+                    .progressViewStyle(.linear)
+                    .tint(Color.accentColor)
+
+                Text(String(format: String(localized: "proposal_tally_format"), 2, 3, 2))
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.secondary)
+            }
+
+            HStack(spacing: 10) {
+                Text(String(localized: "response_propose"))
+                    .font(.system(size: 14, weight: .semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .foregroundColor(.primary)
+                    .background(
+                        Capsule().fill(
+                            scheme == .light
+                            ? Color(.systemGray6)
+                            : Color.white.opacity(0.08)
+                        )
+                    )
+
+                HStack(spacing: 6) {
+                    Image(systemName: "hand.thumbsup.fill")
+                        .font(.system(size: 13, weight: .semibold))
+                    Text(String(localized: "proposal_accept"))
+                        .font(.system(size: 14, weight: .semibold))
+                        .lineLimit(1)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                .foregroundColor(.white)
+                .background(Capsule().fill(Color.accentColor))
+            }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        .padding(16)
+        .frame(maxWidth: 330)
         .background(
-            RoundedRectangle(cornerRadius: 18)
+            RoundedRectangle(cornerRadius: 20)
                 .fill(
-                    Color.accentColor.opacity(scheme == .light ? 0.12 : 0.22)
+                    scheme == .light
+                    ? Color.white
+                    : Color.onboardingDarkCard
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20)
+                        .stroke(Color.accentColor.opacity(scheme == .light ? 0.25 : 0.35), lineWidth: 1)
                 )
                 .shadow(
-                    color: Color.accentColor.opacity(scheme == .light ? 0.25 : 0.45),
-                    radius: 12,
-                    y: 6
+                    color: Color.accentColor.opacity(scheme == .light ? 0.18 : 0.35),
+                    radius: 14,
+                    y: 8
                 )
-)
-        .offset(x: x, y: y)
+        )
+    }
+
+    private var highlightedProposal: AttributedString {
+        var result = AttributedString(
+            String(format: String(localized: "proposal_other_format"), proposer, timeRange)
+        )
+        if let range = result.range(of: timeRange) {
+            result[range].foregroundColor = Color.accentColor
+        }
+        return result
     }
 }
 

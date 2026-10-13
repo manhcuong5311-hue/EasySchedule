@@ -19,6 +19,8 @@ struct DisplaySettingsSheet: View {
 
     // MARK: - Env
     @EnvironmentObject var uiAccent: UIAccentStore
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dismiss) private var dismiss
 
     // MARK: - Body
 
@@ -28,12 +30,21 @@ struct DisplaySettingsSheet: View {
                 uiAccentSection
                 chatColorSection
             }
+            .scrollContentBackground(.hidden)
+            .background(AppBackground.settings(colorScheme).ignoresSafeArea())
             .navigationTitle(String(localized: "display_settings_navigation_title"))
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(String(localized: "done")) { dismiss() }
+                        .fontWeight(.semibold)
+                }
+            }
             .onAppear {
                 cardLayoutRaw = EventCardLayout.timeline.rawValue
             }
         }
+        .tint(uiAccent.color)
     }
 
     // MARK: - Sections
@@ -41,25 +52,22 @@ struct DisplaySettingsSheet: View {
     private var uiAccentSection: some View {
         Section(String(localized: "display_settings_ui_accent")) {
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
+                HStack(spacing: 14) {
                     ForEach(UIAccentPreset.allCases, id: \.rawValue) { preset in
-                        Circle()
-                            .fill(Color(hex: preset.hex))
-                            .frame(width: 28, height: 28)
-                            .overlay(
-                                Circle()
-                                    .stroke(
-                                        uiAccent.hex == preset.hex
-                                            ? Color.primary
-                                            : Color.clear,
-                                        lineWidth: 2
-                                    )
-                            )
-                            .onTapGesture { uiAccent.set(hex: preset.hex) }
+                        DisplayColorSwatch(
+                            color: Color(hex: preset.hex),
+                            isSelected: uiAccent.hex == preset.hex,
+                            title: preset.title
+                        ) {
+                            uiAccent.set(hex: preset.hex)
+                        }
                     }
                 }
+                .padding(.vertical, 6)
+                .padding(.horizontal, 2)
             }
         }
+        .listRowBackground(AppBackground.card(colorScheme))
     }
 
     // MARK: - Helpers
@@ -75,6 +83,7 @@ struct DisplaySettingsSheet: View {
                 selectedRaw: $otherPresetRaw
             )
         }
+        .listRowBackground(AppBackground.card(colorScheme))
     }
 
 }
@@ -86,32 +95,61 @@ struct ChatColorPresetPicker: View {
     @Binding var selectedRaw: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
 
             Text(title)
-                .font(.caption)
-                .foregroundColor(.secondary)
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.secondary)
 
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
+                HStack(spacing: 14) {
                     ForEach(ChatColorPreset.allCases, id: \.rawValue) { preset in
-                        Circle()
-                            .fill(Color(hex: preset.hex))
-                            .frame(width: 28, height: 28)
-                            .overlay(
-                                Circle()
-                                    .stroke(
-                                        selectedRaw == preset.rawValue
-                                            ? Color.primary
-                                            : Color.clear,
-                                        lineWidth: 2
-                                    )
-                            )
-                            .onTapGesture { selectedRaw = preset.rawValue }
+                        DisplayColorSwatch(
+                            color: Color(hex: preset.hex),
+                            isSelected: selectedRaw == preset.rawValue,
+                            title: preset.title
+                        ) {
+                            selectedRaw = preset.rawValue
+                        }
                     }
                 }
+                .padding(.vertical, 4)
+                .padding(.horizontal, 2)
             }
-            .padding(.vertical, 4)
         }
+        .padding(.vertical, 4)
+    }
+}
+
+/// Round color chip: selected = ring with a small gap + checkmark.
+private struct DisplayColorSwatch: View {
+    let color: Color
+    let isSelected: Bool
+    let title: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Circle()
+                .fill(color)
+                .frame(width: 30, height: 30)
+                .overlay {
+                    if isSelected {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(.white)
+                    }
+                }
+                .padding(3)
+                .overlay(
+                    Circle()
+                        .stroke(isSelected ? color : Color.clear, lineWidth: 2)
+                )
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .animation(.easeInOut(duration: 0.15), value: isSelected)
     }
 }

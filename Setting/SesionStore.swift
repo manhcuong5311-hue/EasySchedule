@@ -344,17 +344,30 @@ class SessionStore: ObservableObject {
     func registerForPushIfNeeded(user: User) {
 
         // 1️⃣ Xin permission (idempotent – iOS tự bỏ qua nếu đã có)
-        UNUserNotificationCenter.current()
-            .requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
-                guard granted else {
-                    print("🚫 Notification permission denied")
-                    return
-                }
+        // New users (onboarding not finished) are asked on the onboarding
+        // "Never be late" slide instead — here we only re-register if they
+        // already granted it, so the system prompt never shows right after login.
+        if UserDefaults.standard.bool(forKey: "hasSeenOnboarding") {
+            UNUserNotificationCenter.current()
+                .requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
+                    guard granted else {
+                        print("🚫 Notification permission denied")
+                        return
+                    }
 
+                    DispatchQueue.main.async {
+                        UIApplication.shared.registerForRemoteNotifications()
+                    }
+                }
+        } else {
+            UNUserNotificationCenter.current().getNotificationSettings { settings in
+                guard settings.authorizationStatus == .authorized
+                        || settings.authorizationStatus == .provisional else { return }
                 DispatchQueue.main.async {
                     UIApplication.shared.registerForRemoteNotifications()
                 }
             }
+        }
 
         // 2️⃣ Lấy FCM token hiện tại
         Messaging.messaging().token { token, error in

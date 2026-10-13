@@ -12,7 +12,8 @@ import Combine
 struct FinalOnboardingCTASlide: View {
     @Environment(\.colorScheme) private var scheme
 
-    @Binding var hasSeenOnboarding: Bool
+    /// Leaves onboarding (sets hasSeenOnboarding; closes the Settings preview).
+    let onFinish: () -> Void
     @State private var showPaywall = false
 
     var body: some View {
@@ -58,20 +59,20 @@ struct FinalOnboardingCTASlide: View {
 
                 Spacer()
 
-                // MARK: - Primary CTA
-                ShareLink(
-                    item: URL(string: "https://apps.apple.com/app/id6756092474")!
-                ) {
-                    Text(String(localized: "final_cta_invite"))
+                // MARK: - Primary CTA — straight into the app (free tier)
+                Button {
+                    onFinish()
+                } label: {
+                    Text(String(localized: "final_cta_start_free"))
                         .onboardingCTALabel()
                 }
 
 
-                // MARK: - Secondary CTA
+                // MARK: - Secondary CTA — optional paywall
                 Button {
                     showPaywall = true
                 } label: {
-                    Text(String(localized: "final_cta_see_plans"))
+                    Text(String(localized: "final_cta_view_premium"))
                         .font(.system(size: 15))
                         .foregroundColor(
                             scheme == .light
@@ -99,7 +100,7 @@ struct FinalOnboardingCTASlide: View {
             )
             .environmentObject(PremiumStoreViewModel.shared)
             .onDisappear {
-                hasSeenOnboarding = true
+                onFinish()
             }
         }
 

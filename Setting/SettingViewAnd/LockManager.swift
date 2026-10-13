@@ -19,13 +19,15 @@ struct SecuritySettingsView: View {
     // MARK: - State
     @State private var showAuthError = false
     @ObservedObject private var lockManager = LockManager.shared
-    
+    @EnvironmentObject var uiAccent: UIAccentStore
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
         ZStack {
             Form {
-                Section(String(localized: "security_account")) {
+                Section {
                     // Face ID / Touch ID Toggle
-                    Toggle(String(localized: "security_biometric"), isOn: Binding(
+                    Toggle(isOn: Binding(
                         get: { useBiometricAuth },
                         set: { newValue in
                             if newValue {
@@ -34,16 +36,35 @@ struct SecuritySettingsView: View {
                                 useBiometricAuth = false
                             }
                         }
-                    ))
+                    )) {
+                        SettingsRowLabel(
+                            title: String(localized: "security_biometric"),
+                            systemName: "faceid",
+                            color: .green
+                        )
+                    }
                     .alert(String(localized: "security_biometric_fail"), isPresented: $showAuthError) {
                         Button(String(localized:"ok"), role: .cancel) {}
                     }
-                    
+
                     // Auto Lock Toggle
-                    Toggle(String(localized: "security_auto_lock"), isOn: $autoLockEnabled)
+                    Toggle(isOn: $autoLockEnabled) {
+                        SettingsRowLabel(
+                            title: String(localized: "security_auto_lock"),
+                            systemName: "lock.fill",
+                            color: .blue
+                        )
+                    }
+                } header: {
+                    Text(String(localized: "security_account"))
                 }
+                .listRowBackground(AppBackground.card(colorScheme))
             }
+            .scrollContentBackground(.hidden)
+            .background(AppBackground.settings(colorScheme).ignoresSafeArea())
+            .tint(uiAccent.color)
             .navigationTitle(String(localized: "security_nav"))
+            .navigationBarTitleDisplayMode(.inline)
             .onTapGesture {
                 lockManager.userDidInteract()
             }

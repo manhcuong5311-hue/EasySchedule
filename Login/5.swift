@@ -84,12 +84,15 @@ struct WebBookingHeader: View {
                         .font(.system(size: 16, weight: .semibold))
                 }
 
-                Text(String(localized: "onboarding_web_booking_title"))
+                Text(String(localized: "onboarding_booking_link_title"))
                     .font(.system(size: 34, weight: .bold))
                     .tracking(-0.8)
                     .multilineTextAlignment(.center)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                    .padding(.horizontal, 20)
 
-                Text(String(localized: "onboarding_web_booking_subtitle"))
+                Text(String(localized: "onboarding_booking_link_subtitle"))
                     .font(.system(size: 15, weight: .medium))
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
@@ -153,24 +156,92 @@ struct WebBookingPhoneMock: View {
             VStack(spacing: 14) {
                 Spacer()
 
-                Text("https://easyschedule-ce98a.web.app")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.secondary)
+                // Memorable link in a browser-style address bar
+                HStack(spacing: 6) {
+                    Image(systemName: "lock.fill")
+                        .font(.system(size: 10, weight: .semibold))
+                    Text(verbatim: BookingLink.handlePrefix + String(localized: "onboarding_mock_handle"))
+                        .font(.system(size: 12, weight: .medium))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                }
+                .foregroundColor(.secondary)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(
+                    Capsule().fill(
+                        scheme == .light
+                        ? Color(.secondarySystemBackground)
+                        : Color.onboardingDarkCard
+                    )
+                )
+                .padding(.horizontal, 14)
+
+                // Booking hours
+                HStack(spacing: 6) {
+                    Image(systemName: "clock")
+                        .font(.system(size: 12, weight: .semibold))
+                    Text(verbatim: "\(String(localized: "onboarding_mock_weekdays")) · \(OnboardingMock.range(9, 0, 18, 0))")
+                        .font(.system(size: 13, weight: .semibold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                }
+                .foregroundColor(Color.accentColor)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(
+                    Capsule().fill(Color.accentColor.opacity(scheme == .light ? 0.12 : 0.22))
+                )
 
                 Text(String(localized: "mock_select_time"))
                     .font(.system(size: 15, weight: .medium))
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background(Color.accentColor.opacity(0.15))
-                    .cornerRadius(14)
+                    .padding(.top, 6)
 
-                Text(String(localized: "mock_confirm_booking"))
-                    .font(.system(size: 14))
-                    .foregroundColor(.secondary)
+                // Free slots (one picked)
+                VStack(spacing: 8) {
+                    HStack(spacing: 8) {
+                        slotChip(OnboardingMock.time(9), selected: false)
+                        slotChip(OnboardingMock.time(10, 30), selected: false)
+                        slotChip(OnboardingMock.time(13), selected: false)
+                    }
+                    HStack(spacing: 8) {
+                        slotChip(OnboardingMock.time(14, 30), selected: true)
+                        slotChip(OnboardingMock.time(16), selected: false)
+                        slotChip(OnboardingMock.time(17), selected: false)
+                    }
+                }
+                .padding(.horizontal, 16)
+
+                HStack(spacing: 6) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(.green)
+                    Text(String(localized: "mock_confirm_booking"))
+                        .foregroundColor(.secondary)
+                }
+                .font(.system(size: 14))
+                .padding(.top, 4)
 
                 Spacer()
             }
             .frame(width: 246, height: 506)
         }
+    }
+
+    private func slotChip(_ label: String, selected: Bool) -> some View {
+        Text(verbatim: label)
+            .font(.system(size: 12, weight: selected ? .semibold : .medium))
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
+            .foregroundColor(selected ? .white : .primary)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(
+                        selected
+                        ? Color.accentColor
+                        : Color.accentColor.opacity(scheme == .light ? 0.10 : 0.18)
+                    )
+            )
     }
 }

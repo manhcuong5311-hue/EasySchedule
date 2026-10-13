@@ -9,6 +9,8 @@ import SwiftUI
 struct FAQView: View {
 
     @State private var expandedSection: String? = nil
+    @EnvironmentObject var uiAccent: UIAccentStore
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         List {
@@ -52,7 +54,9 @@ struct FAQView: View {
                     ("help_section_access_title",
                      "help_section_access_desc")
                 ],
-                expandedSection: $expandedSection
+                expandedSection: $expandedSection,
+                icon: "person.2.fill",
+                color: .blue
             )
 
 
@@ -86,7 +90,9 @@ struct FAQView: View {
                     ("help_section_add_event_title",
                      "help_section_add_event_desc")
                 ],
-                expandedSection: $expandedSection
+                expandedSection: $expandedSection,
+                icon: "crown.fill",
+                color: .orange
             )
 
 
@@ -99,10 +105,16 @@ struct FAQView: View {
                 questions: [
                     ("faq_7_q", "faq_7_a")
                 ],
-                expandedSection: $expandedSection
+                expandedSection: $expandedSection,
+                icon: "bell.fill",
+                color: .red
             )
         }
-        .navigationTitle(String(localized: "faq"))
+        .scrollContentBackground(.hidden)
+        .background(AppBackground.settings(colorScheme).ignoresSafeArea())
+        .tint(uiAccent.color)
+        .navigationTitle(SettingsText.plain(String(localized: "faq")))
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 struct FAQSectionView: View {
@@ -112,40 +124,64 @@ struct FAQSectionView: View {
 
     @Binding var expandedSection: String?
 
+    /// Leading icon tile for the section header row.
+    var icon: String = "questionmark"
+    var color: Color = .gray
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var isExpanded: Bool { expandedSection == id }
+
     var body: some View {
         Section {
             Button {
-                withAnimation(.easeInOut) {
-                    expandedSection = expandedSection == id ? nil : id
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    expandedSection = isExpanded ? nil : id
                 }
             } label: {
-                HStack {
+                HStack(spacing: 12) {
+                    SettingsIconTile(systemName: icon, color: color)
+
                     Text(LocalizedStringKey(titleKey))
-                        .font(.headline)
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(.primary)
+                        .multilineTextAlignment(.leading)
 
-                    Spacer()
+                    Spacer(minLength: 8)
 
-                    Image(systemName: expandedSection == id ? "chevron.down" : "chevron.right")
-                        .foregroundColor(.secondary)
+                    Text(verbatim: "\(questions.count)")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.tertiary)
+                        .rotationEffect(.degrees(isExpanded ? 90 : 0))
                 }
+                .padding(.vertical, 2)
                 .contentShape(Rectangle())
             }
 
-            if expandedSection == id {
+            if isExpanded {
                 ForEach(questions, id: \.0) { q, a in
                     VStack(alignment: .leading, spacing: 6) {
                         Text(LocalizedStringKey(q))
-                            .font(.subheadline)
-                            .bold()
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.primary)
+                            .fixedSize(horizontal: false, vertical: true)
 
                         Text(LocalizedStringKey(a))
-                            .font(.footnote)
-                            .foregroundColor(.secondary)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .lineSpacing(3)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
-                    .padding(.vertical, 4)
+                    .padding(.vertical, 8)
                 }
             }
         }
+        .listRowBackground(AppBackground.card(colorScheme))
     }
 }
 
@@ -161,12 +197,16 @@ struct FAQItem: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(LocalizedStringKey(qKey))
-                .font(.headline)
+                .font(.subheadline.weight(.semibold))
+                .fixedSize(horizontal: false, vertical: true)
 
             Text(LocalizedStringKey(aKey))
-                .font(.body)
-                .foregroundColor(.secondary)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .lineSpacing(3)
+                .fixedSize(horizontal: false, vertical: true)
         }
+        .padding(.vertical, 8)
     }
 }
 
@@ -175,20 +215,112 @@ struct FAQItem: View {
 
 // MARK: - Privacy Policy View
 struct PrivacyPolicyView: View {
+    @EnvironmentObject var uiAccent: UIAccentStore
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dismiss) private var dismiss
+
+    private let policyURL = URL(string: "https://manhcuong5311-hue.github.io/easyschedule-privacy/")!
+
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    Text(String(localized: "privacy_title"))
-                        .font(.headline)
-                    Text(String(localized: "privacy_text"))
-                        .font(.body)
-                    Link(String(localized: "privacy_policy_link"), destination: URL(string: "https://manhcuong5311-hue.github.io/easyschedule-privacy/")!)
+
+                    // Heading card
+                    VStack(alignment: .leading, spacing: 16) {
+                        HStack(spacing: 12) {
+                            Image(systemName: "hand.raised.fill")
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundStyle(.white)
+                                .frame(width: 40, height: 40)
+                                .background(
+                                    RoundedRectangle(cornerRadius: AppRadius.chip, style: .continuous)
+                                        .fill(uiAccent.color.gradient)
+                                )
+                                .accessibilityHidden(true)
+
+                            Text(SettingsText.plain(String(localized: "privacy_title")))
+                                .font(.title3.weight(.bold))
+                                .foregroundStyle(.primary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+
+                        Divider()
+
+                        policyBody
+                    }
+                    .padding(20)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(
+                        RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous)
+                            .fill(AppBackground.card(colorScheme))
+                    )
+
+                    // Full policy on the web
+                    Link(destination: policyURL) {
+                        HStack(spacing: 10) {
+                            Image(systemName: "safari")
+                                .font(.system(size: 16, weight: .semibold))
+                            Text(SettingsText.plain(String(localized: "privacy_policy_link")))
+                                .font(.subheadline.weight(.semibold))
+                                .multilineTextAlignment(.leading)
+                            Spacer(minLength: 8)
+                            Image(systemName: "arrow.up.right")
+                                .font(.system(size: 13, weight: .semibold))
+                        }
+                        .foregroundStyle(uiAccent.color)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+                        .background(
+                            RoundedRectangle(cornerRadius: AppRadius.control, style: .continuous)
+                                .fill(uiAccent.color.opacity(0.12))
+                        )
+                    }
                 }
-                .padding()
+                .padding(16)
             }
+            .background(AppBackground.settings(colorScheme).ignoresSafeArea())
             .navigationTitle(String(localized: "privacy_nav_title"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(String(localized: "done")) { dismiss() }
+                        .fontWeight(.semibold)
+                }
+            }
         }
+        .tint(uiAccent.color)
+    }
+
+    /// "privacy_text" rendered paragraph by paragraph; "• " lines get a hanging indent.
+    private var policyBody: some View {
+        let lines = String(localized: "privacy_text")
+            .components(separatedBy: "\n")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+
+        return VStack(alignment: .leading, spacing: 12) {
+            ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
+                if line.hasPrefix("•") {
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Circle()
+                            .fill(uiAccent.color)
+                            .frame(width: 5, height: 5)
+                            .alignmentGuide(.firstTextBaseline) { d in d[.bottom] + 1 }
+                        Text(line.dropFirst().trimmingCharacters(in: .whitespaces))
+                            .lineSpacing(4)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                } else {
+                    Text(line)
+                        .lineSpacing(4)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+        .font(.subheadline)
+        .foregroundStyle(.primary)
+        .textSelection(.enabled)
     }
 }
 

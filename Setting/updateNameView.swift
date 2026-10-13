@@ -14,6 +14,7 @@ struct UpdateUserNameView: View {
     @State private var newName: String = ""
     @State private var showSaved = false
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
     @EnvironmentObject var network: NetworkMonitor
     @State private var showOfflineAlert = false
     @State private var showEmptyNameAlert = false
@@ -27,36 +28,50 @@ struct UpdateUserNameView: View {
         Form {
 
             if !network.isOnline {
-                    OfflineBannerView()
-                        .listRowInsets(EdgeInsets())
-                        .listRowBackground(Color.clear)
-                }
+                OfflineBannerView()
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+            }
 
             photoSection
 
-            Section(String(localized: "enter_new_display_name")) {
+            Section {
                 TextField(String(localized: "display_name"), text: $newName)
                     .textInputAutocapitalization(.words)
+                    .submitLabel(.done)
+            } header: {
+                Text(String(localized: "enter_new_display_name"))
+            } footer: {
+                Text(String(localized: "profile_display_name_hint"))
             }
+            .listRowBackground(AppBackground.card(colorScheme))
 
-            Button(String(localized: "save")) {
-                let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
-
-                guard !trimmed.isEmpty else {
-                    showEmptyNameAlert = true
-                    return
+            Section {
+                Button {
+                    save()
+                } label: {
+                    Text(String(localized: "save"))
+                        .font(.headline)
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 48)
+                        .background(
+                            RoundedRectangle(cornerRadius: AppRadius.control, style: .continuous)
+                                .fill(uiAccent.color.opacity(network.isOnline ? 1 : 0.4))
+                        )
+                        .contentShape(Rectangle())
                 }
-
-                session.updateUserName(trimmed) { ok in
-                    if ok { showSaved = true }
-                }
-
+                .buttonStyle(.plain)
+                .disabled(!network.isOnline)
             }
-            .buttonStyle(.borderedProminent)
-            .disabled(!network.isOnline)
+            .listRowInsets(EdgeInsets())
+            .listRowBackground(Color.clear)
         }
-
+        .scrollContentBackground(.hidden)
+        .background(AppBackground.settings(colorScheme).ignoresSafeArea())
+        .tint(uiAccent.color)
         .navigationTitle(String(localized: "change_display_name"))
+        .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             let name = session.currentUserName
             newName = (name == String(localized: "no_name")) ? "" : name
@@ -85,10 +100,23 @@ struct UpdateUserNameView: View {
 
     }
 
+    private func save() {
+        let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !trimmed.isEmpty else {
+            showEmptyNameAlert = true
+            return
+        }
+
+        session.updateUserName(trimmed) { ok in
+            if ok { showSaved = true }
+        }
+    }
+
     // MARK: - Profile photo
 
     private var photoSection: some View {
-        Section(String(localized: "profile_photo")) {
+        Section {
             HStack(spacing: 16) {
                 AvatarView(uid: session.currentUserId ?? "", size: 64) {
                     ZStack {
@@ -106,8 +134,19 @@ struct UpdateUserNameView: View {
                             .foregroundStyle(.white)
                     }
                 }
+                .overlay {
+                    if isUploadingPhoto {
+                        ZStack {
+                            Circle()
+                                .fill(.black.opacity(0.35))
+                                .frame(width: 64, height: 64)
+                            ProgressView().tint(.white)
+                        }
+                    }
+                }
+                .accessibilityHidden(true)
 
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 10) {
                     PhotosPicker(selection: $photoItem, matching: .images) {
                         Label(
                             isUploadingPhoto
@@ -115,8 +154,9 @@ struct UpdateUserNameView: View {
                                 : String(localized: "change_photo"),
                             systemImage: "camera.fill"
                         )
-                        .font(.subheadline.weight(.medium))
+                        .font(.subheadline.weight(.semibold))
                     }
+                    .buttonStyle(.borderless)
                     .disabled(isUploadingPhoto || !network.isOnline)
 
                     if avatars.hasOwnPhoto, !isUploadingPhoto {
@@ -127,12 +167,18 @@ struct UpdateUserNameView: View {
                             Label(String(localized: "remove_photo"), systemImage: "trash")
                                 .font(.subheadline)
                         }
+                        .buttonStyle(.borderless)
                         .disabled(!network.isOnline)
                     }
                 }
+
+                Spacer(minLength: 0)
             }
-            .padding(.vertical, 4)
+            .padding(.vertical, 6)
+        } header: {
+            Text(String(localized: "profile_photo"))
         }
+        .listRowBackground(AppBackground.card(colorScheme))
         .onChange(of: photoItem) { _, item in
             guard let item else { return }
             isUploadingPhoto = true

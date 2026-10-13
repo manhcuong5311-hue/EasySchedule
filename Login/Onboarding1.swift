@@ -2,13 +2,38 @@
 import SwiftUI
 import Combine
 
-enum OnboardingStep: Int {
+/// Onboarding pages, in display order:
+/// 4 feature slides → setup (name + booking link) → CTA.
+enum OnboardingStep: Int, CaseIterable {
     case hero = 0
-    case availability
-    case chat
-    case planning
-    case webBooking 
+    case webBooking
+    case agree
+    case reminders
+    case setup
     case cta
+
+    /// Feature slides show a top-trailing "Skip" that jumps to `.setup`.
+    var isFeatureSlide: Bool { rawValue < OnboardingStep.setup.rawValue }
+}
+
+/// Locale-aware sample values for the onboarding mocks (times follow the
+/// user's 12/24h format; e.g. "3:00 – 4:00 PM" in en, "15:00 – 16:00" in vi).
+enum OnboardingMock {
+
+    static func date(_ hour: Int, _ minute: Int = 0) -> Date {
+        Calendar.current.date(bySettingHour: hour, minute: minute, second: 0, of: Date()) ?? Date()
+    }
+
+    static func time(_ hour: Int, _ minute: Int = 0) -> String {
+        date(hour, minute).formatted(date: .omitted, time: .shortened)
+    }
+
+    static func range(_ startHour: Int, _ startMinute: Int, _ endHour: Int, _ endMinute: Int) -> String {
+        let formatter = DateIntervalFormatter()
+        formatter.dateStyle = .none
+        formatter.timeStyle = .short
+        return formatter.string(from: date(startHour, startMinute), to: date(endHour, endMinute))
+    }
 }
 extension Color {
     static let onboardingDarkBackground = Color(red: 14/255, green: 17/255, blue: 22/255)

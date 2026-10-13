@@ -14,6 +14,7 @@ struct NameSetupPromptView: View {
     @EnvironmentObject var network: NetworkMonitor
     @EnvironmentObject var uiAccent: UIAccentStore
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
 
     @State private var name: String = ""
     @State private var isSaving = false
@@ -23,9 +24,15 @@ struct NameSetupPromptView: View {
         VStack(spacing: 20) {
 
             Image(systemName: "person.text.rectangle.fill")
-                .font(.system(size: 44))
-                .foregroundStyle(uiAccent.color.gradient)
-                .padding(.top, 28)
+                .font(.system(size: 24, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 56, height: 56)
+                .background(
+                    RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous)
+                        .fill(uiAccent.color.gradient)
+                )
+                .padding(.top, 24)
+                .accessibilityHidden(true)
 
             VStack(spacing: 8) {
                 Text(String(localized: "name_setup_title"))
@@ -34,8 +41,9 @@ struct NameSetupPromptView: View {
 
                 Text(String(localized: "name_setup_message"))
                     .font(.subheadline)
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .padding(.horizontal, 24)
 
@@ -51,32 +59,50 @@ struct NameSetupPromptView: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 14)
                 .background(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(Color(.secondarySystemBackground))
+                    RoundedRectangle(cornerRadius: AppRadius.control, style: .continuous)
+                        .fill(AppBackground.card(colorScheme))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: AppRadius.control, style: .continuous)
+                        .stroke(Color.primary.opacity(0.08), lineWidth: 1)
                 )
                 .padding(.horizontal, 24)
 
-            VStack(spacing: 10) {
+            VStack(spacing: 6) {
                 Button(action: save) {
-                    Text(String(localized: "save"))
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
+                    ZStack {
+                        if isSaving {
+                            ProgressView().tint(.white)
+                        } else {
+                            Text(String(localized: "save"))
+                                .font(.headline)
+                        }
+                    }
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 50)
+                    .background(
+                        RoundedRectangle(cornerRadius: AppRadius.control, style: .continuous)
+                            .fill(uiAccent.color.opacity(network.isOnline ? 1 : 0.4))
+                    )
+                    .contentShape(Rectangle())
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(uiAccent.color)
+                .buttonStyle(.plain)
                 .disabled(!network.isOnline || isSaving)
 
                 Button(String(localized: "name_setup_later")) {
                     dismiss()
                 }
-                .font(.subheadline)
-                .tint(.secondary)
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.secondary)
+                .frame(height: 36)
             }
             .padding(.horizontal, 24)
 
             Spacer(minLength: 12)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(AppBackground.settings(colorScheme).ignoresSafeArea())
         .presentationDetents([.medium])
         .presentationDragIndicator(.visible)
         .interactiveDismissDisabled(false)

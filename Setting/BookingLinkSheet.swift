@@ -171,7 +171,7 @@ struct BookingLinkSheet: View {
             .navigationTitle(String(localized: "booking_link_title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .confirmationAction) {
                     Button(String(localized: "done")) { dismiss() }
                         .fontWeight(.semibold)
                 }
@@ -228,7 +228,7 @@ struct BookingLinkSheet: View {
                     .minimumScaleFactor(0.8)
                     .layoutPriority(1)
 
-                TextField("", text: $input, prompt: Text(verbatim: "yourname"))
+                TextField("", text: $input, prompt: Text(String(localized: "booking_link_placeholder")))
                     .keyboardType(.URL)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
@@ -380,12 +380,13 @@ struct BookingLinkSheet: View {
         Button(role: .destructive) {
             confirmRemove = true
         } label: {
-            Text(String(localized: "booking_link_remove"))
+            Label(String(localized: "booking_link_remove"), systemImage: "trash")
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.red)
                 .frame(maxWidth: .infinity)
-                .frame(height: 46)
+                .frame(height: 48)
                 .background(cardBackground)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .disabled(isSaving)

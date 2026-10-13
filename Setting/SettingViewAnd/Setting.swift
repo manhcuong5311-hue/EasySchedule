@@ -65,7 +65,7 @@ struct SettingsView: View {
     @State private var showPremiumIntro = false
     @State private var showOnboarding = false
     @State private var showDevMenu = false
-    
+
     var body: some View {
         NavigationStack {
             Form {
@@ -89,8 +89,8 @@ struct SettingsView: View {
                 AppBackground.settings(colorScheme)
                     .ignoresSafeArea()
             )
+            .tint(uiAccent.color)
 
-            
             .navigationTitle(String(localized: "settings"))
             .onAppear { didFinishInitialLoad = true }
             .onReceive(NotificationCenter.default.publisher(for: .OpenPaywall)) {
@@ -106,9 +106,11 @@ struct SettingsView: View {
             }
             .sheet(isPresented: $showPrivacySheet) {
                 PrivacyPolicyView()
+                    .environmentObject(uiAccent)
             }
             .sheet(isPresented: $showDisplaySettings) {
                 DisplaySettingsSheet()
+                    .environmentObject(uiAccent)
             }
             .sheet(item: $settingsShareItem) { item in
                 ActivityView(activityItems: [item.url])
@@ -152,9 +154,124 @@ struct SettingsView: View {
                     showUpgradeSheet = true
                 }
 
-                Button("Cancel", role: .cancel) {}
+                Button(String(localized: "cancel"), role: .cancel) {}
             }
         }
+    }
+}
+
+// MARK: - Shared settings styling
+//
+// One row look for Settings and its sub-screens (iOS-Settings style):
+// 30×30 rounded colored tile + white SF Symbol, title, optional trailing value,
+// chevron only on rows that open another screen / sheet.
+
+/// 30×30 rounded (r8) colored tile with a white SF Symbol.
+struct SettingsIconTile: View {
+    let systemName: String
+    let color: Color
+    @Environment(\.isEnabled) private var isEnabled
+
+    var body: some View {
+        Image(systemName: systemName)
+            .font(.system(size: 15, weight: .semibold))
+            .foregroundStyle(.white)
+            .frame(width: 30, height: 30)
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(color.gradient)
+            )
+            .opacity(isEnabled ? 1 : 0.45)
+            .accessibilityHidden(true)
+    }
+}
+
+/// Icon tile + title with a fixed 12pt gap, so every row's text starts at the same x.
+struct SettingsTileLabelStyle: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 12) {
+            configuration.icon
+            configuration.title
+                // Separators start under the title, not under the tile.
+                .alignmentGuide(.listRowSeparatorLeading) { d in d[.leading] }
+        }
+    }
+}
+
+/// Standard settings row label (used for toggles, pickers, links and buttons).
+struct SettingsRowLabel: View {
+    let title: String
+    let systemName: String
+    let color: Color
+    @Environment(\.isEnabled) private var isEnabled
+
+    var body: some View {
+        Label {
+            Text(SettingsText.plain(title))
+                // Buttons in a tinted Form would otherwise paint the title in the accent.
+                .foregroundStyle(isEnabled ? Color.primary : Color.secondary)
+        } icon: {
+            SettingsIconTile(systemName: systemName, color: color)
+        }
+        .labelStyle(SettingsTileLabelStyle())
+    }
+}
+
+/// Row for Buttons: label + optional trailing value + optional chevron
+/// (NavigationLink rows get the system chevron automatically).
+struct SettingsActionRow: View {
+    let title: String
+    let systemName: String
+    let color: Color
+    var value: String? = nil
+    var showsChevron: Bool = true
+
+    var body: some View {
+        HStack(spacing: 8) {
+            SettingsRowLabel(title: title, systemName: systemName, color: color)
+            Spacer(minLength: 8)
+            if let value, !value.isEmpty {
+                Text(value)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            if showsChevron {
+                SettingsChevron()
+            }
+        }
+        .contentShape(Rectangle())
+    }
+}
+
+/// Same look as the chevron NavigationLink draws in a Form.
+struct SettingsChevron: View {
+    var body: some View {
+        Image(systemName: "chevron.right")
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundStyle(.tertiary)
+            .accessibilityHidden(true)
+    }
+}
+
+enum SettingsText {
+    /// Some catalog titles carry a decorative emoji ("📞 Contact support") or a stray
+    /// trailing newline; the icon tile already shows a symbol, so drop both.
+    static func plain(_ text: String) -> String {
+        let words = text
+            .filter { !$0.isDecorativeEmoji }
+            .components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+        return words.isEmpty
+            ? text.trimmingCharacters(in: .whitespacesAndNewlines)
+            : words.joined(separator: " ")
+    }
+}
+
+private extension Character {
+    var isDecorativeEmoji: Bool {
+        unicodeScalars.contains { $0.properties.isEmojiPresentation || $0.value == 0xFE0F }
     }
 }
 
@@ -164,52 +281,53 @@ import SwiftUI
 
 extension SettingsView {
 
+    /// Card-style row background shared by every section.
+    var rowBackground: Color { AppBackground.card(colorScheme) }
+
     /// Account header: avatar + display name + plan badge, taps through to the
-    /// account-management hub (logout / delete). Replaces the buried name row.
+    /// profile editor (name + photo).
     var profileHeader: some View {
         Section {
             NavigationLink {
                 UpdateUserNameView()
             } label: {
                 HStack(spacing: 14) {
-                    ZStack(alignment: .bottomTrailing) {
-                        AvatarView(uid: session.currentUserId ?? "", size: 56) {
-                            ZStack {
-                                Circle()
-                                    .fill(
-                                        LinearGradient(
-                                            colors: [uiAccent.color, uiAccent.color.opacity(0.75)],
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        )
+                    AvatarView(uid: session.currentUserId ?? "", size: 56) {
+                        ZStack {
+                            Circle()
+                                .fill(
+                                    LinearGradient(
+                                        colors: [uiAccent.color, uiAccent.color.opacity(0.75)],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
                                     )
-                                    .frame(width: 56, height: 56)
-                                Text(profileInitial)
-                                    .font(.system(size: 24, weight: .semibold, design: .rounded))
-                                    .foregroundStyle(.white)
-                            }
+                                )
+                                .frame(width: 56, height: 56)
+                            Text(profileInitial)
+                                .font(.system(size: 24, weight: .semibold, design: .rounded))
+                                .foregroundStyle(.white)
                         }
-
-                        // Editable-avatar pencil badge → signals the row edits the name
-                        Circle()
-                            .fill(Color(.systemBackground))
-                            .frame(width: 22, height: 22)
-                            .overlay(
-                                Image(systemName: "pencil")
-                                    .font(.system(size: 10, weight: .bold))
-                                    .foregroundStyle(uiAccent.color)
-                            )
                     }
+                    .accessibilityHidden(true)
 
-                    VStack(alignment: .leading, spacing: 5) {
+                    VStack(alignment: .leading, spacing: 6) {
                         Text(profileName)
-                            .font(.system(size: 17, weight: .semibold))
+                            .font(.system(size: 20, weight: .semibold))
                             .foregroundStyle(.primary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
                         planBadge
                     }
+
+                    Spacer(minLength: 8)
+
+                    Text(String(localized: "edit"))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
                 }
-                .padding(.vertical, 6)
+                .padding(.vertical, 8)
             }
+            .listRowBackground(rowBackground)
         }
     }
 
@@ -239,19 +357,9 @@ extension SettingsView {
         .background(Capsule().fill(tint.opacity(0.15)))
     }
 
-    /// A settings row label with a tinted rounded-square icon (iOS-Settings look).
+    /// A settings row label with a 30×30 colored rounded icon tile (iOS-Settings look).
     func iconLabel(_ title: String, _ systemName: String, _ color: Color) -> some View {
-        Label {
-            Text(title)
-        } icon: {
-            Image(systemName: systemName)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.white)
-                .frame(width: 28, height: 28)
-                .background(
-                    RoundedRectangle(cornerRadius: 7, style: .continuous).fill(color)
-                )
-        }
+        SettingsRowLabel(title: title, systemName: systemName, color: color)
     }
 }
 
@@ -264,7 +372,7 @@ extension SettingsView {
         Section(
             footer: bottomSpacer
         ) {
-            VStack(spacing: 8) {
+            VStack(spacing: 6) {
                 Image(systemName: "calendar.circle.fill")
                     .font(.system(size: 30))
                     .foregroundStyle(uiAccent.color)
@@ -272,14 +380,15 @@ extension SettingsView {
 
                 Text("Easy Schedule")
                     .font(.footnote.weight(.semibold))
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(.secondary)
 
-                Text(appVersionText)
+                Text(verbatim: appVersionText)
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(.tertiary)
+                    .monospacedDigit()
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 24)
+            .padding(.vertical, 20)
             .contentShape(Rectangle()) // ⭐ QUAN TRỌNG
             .onTapGesture {
                 handleVersionTap()
@@ -287,7 +396,7 @@ extension SettingsView {
         }
         .listRowBackground(Color.clear)
     }
-    
+
     private func handleVersionTap() {
         let now = Date()
 
@@ -310,6 +419,7 @@ extension SettingsView {
     }
 
     // MARK: - App Version (đọc từ Info.plist)
+    /// Language-neutral "v2.4 (57)".
     private var appVersionText: String {
         let version =
             Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
@@ -319,7 +429,7 @@ extension SettingsView {
             Bundle.main.infoDictionary?["CFBundleVersion"] as? String
             ?? "—"
 
-        return "Version \(version) (\(build))"
+        return "v\(version) (\(build))"
     }
 }
 
@@ -331,7 +441,7 @@ import UserNotifications
 extension SettingsView {
 
     var notificationsSection: some View {
-        Section(header: Text(String(localized: "notifications"))) {
+        Section {
 
             Toggle(isOn: $pushNotificationsEnabled) {
                 iconLabel(String(localized: "notify_before_event"), "bell.fill", .red)
@@ -350,10 +460,13 @@ extension SettingsView {
                     .tag(value)
                 }
             } label: {
-                iconLabel(String(localized: "remind_before"), "clock", .orange)
+                iconLabel(String(localized: "remind_before"), "clock.fill", .orange)
             }
             .disabled(!pushNotificationsEnabled)
+        } header: {
+            Text("notifications")
         }
+        .listRowBackground(rowBackground)
     }
 
     func handlePushToggle(_ enabled: Bool) {
@@ -383,31 +496,36 @@ import SwiftUI
 extension SettingsView {
 
     var appearanceSection: some View {
-        Section(header: Text(String(localized: "appearance"))) {
-            Picker(selection: $appTheme) {
-                Text(String(localized: "system")).tag("system")
-                Text(String(localized: "light")).tag("light")
-                Text(String(localized: "dark")).tag("dark")
-            } label: {
-                iconLabel(String(localized: "display_mode"),
-                          "circle.lefthalf.filled", .indigo)
+        Section {
+            // Segmented controls hide their label in a Form → show the tile beside it.
+            HStack(spacing: 12) {
+                SettingsIconTile(systemName: "circle.lefthalf.filled", color: .indigo)
+
+                Picker(String(localized: "display_mode"), selection: $appTheme) {
+                    Text(String(localized: "system")).tag("system")
+                    Text(String(localized: "light")).tag("light")
+                    Text(String(localized: "dark")).tag("dark")
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .alignmentGuide(.listRowSeparatorLeading) { d in d[.leading] }
             }
-            .pickerStyle(.segmented)
+            .padding(.vertical, 2)
 
             // Timeline / card display options (was the paintpalette button on Tab 1)
             Button {
                 showDisplaySettings = true
             } label: {
-                HStack {
-                    iconLabel(String(localized: "display_settings"), "paintpalette", .pink)
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(.tertiary)
-                }
+                SettingsActionRow(
+                    title: String(localized: "display_settings"),
+                    systemName: "paintpalette.fill",
+                    color: .pink
+                )
             }
-            .tint(.primary)
+        } header: {
+            Text("appearance")
         }
+        .listRowBackground(rowBackground)
     }
 }
 
@@ -415,17 +533,55 @@ extension SettingsView {
 
     // Booking-availability controls (moved out of the old Calendar tab to declutter it)
     var availabilitySection: some View {
-        Section(header: Text("availability_section")) {
+        Section {
+
+            // 1. Share my booking link
+            Button {
+                if let uid = Auth.auth().currentUser?.uid {
+                    settingsShareItem = ShareItem(url: BookingLink.url(for: uid))
+                }
+            } label: {
+                SettingsActionRow(
+                    title: String(localized: "share_calendar"),
+                    systemName: "square.and.arrow.up",
+                    color: .blue,
+                    showsChevron: false
+                )
+            }
+
+            // 2. Memorable /c/<handle> booking link
+            Button {
+                showBookingLink = true
+            } label: {
+                SettingsActionRow(
+                    title: String(localized: "booking_link_title"),
+                    systemName: "link",
+                    color: .indigo,
+                    value: BookingLink.cachedHandle.map { "/c/\($0)" }
+                )
+            }
+
+            // 3. Weekly hours / buffer / max per day that other people can book
+            Button {
+                showBookingHours = true
+            } label: {
+                SettingsActionRow(
+                    title: String(localized: "booking_hours_title"),
+                    systemName: "clock.badge.checkmark",
+                    color: .green
+                )
+            }
 
             Toggle(isOn: Binding(
                 get: { eventManager.allowDuplicateEvents },
                 set: { eventManager.allowDuplicateEvents = $0 }
             )) {
                 iconLabel(String(localized: "allow_conflict"),
-                          "arrow.triangle.2.circlepath", .teal)
+                          "rectangle.on.rectangle", .teal)
             }
 
-            // Busy times from the iPhone Calendar (times only, no titles)
+            // Busy times from the iPhone Calendar (times only, no titles).
+            // Last row, so the section footer below explains it.
             Toggle(isOn: Binding(
                 get: { syncDeviceCalendar },
                 set: { on in
@@ -435,14 +591,8 @@ extension SettingsView {
                     }
                 }
             )) {
-                VStack(alignment: .leading, spacing: 2) {
-                    iconLabel(String(localized: "device_calendar_sync"),
-                              "calendar.badge.clock", .red)
-                    Text(String(localized: "device_calendar_sync_footer"))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .padding(.leading, 40)
-                }
+                iconLabel(String(localized: "device_calendar_sync"),
+                          "calendar.badge.clock", .red)
             }
             .alert(String(localized: "device_calendar_denied_title"),
                    isPresented: $showCalendarAccessDenied) {
@@ -455,53 +605,12 @@ extension SettingsView {
             } message: {
                 Text(String(localized: "device_calendar_denied_message"))
             }
-
-            // Weekly hours / buffer / max per day that other people can book
-            Button {
-                showBookingHours = true
-            } label: {
-                HStack {
-                    iconLabel(String(localized: "booking_hours_title"),
-                              "clock.badge.checkmark", .green)
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(.tertiary)
-                }
-            }
-            .tint(.primary)
-
-            // Memorable /c/<handle> booking link
-            Button {
-                showBookingLink = true
-            } label: {
-                HStack {
-                    iconLabel(String(localized: "booking_link_title"),
-                              "link", .indigo)
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(.tertiary)
-                }
-            }
-            .tint(.primary)
-
-            Button {
-                if let uid = Auth.auth().currentUser?.uid {
-                    settingsShareItem = ShareItem(url: BookingLink.url(for: uid))
-                }
-            } label: {
-                HStack {
-                    iconLabel(String(localized: "share_calendar"),
-                              "square.and.arrow.up", .blue)
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(.tertiary)
-                }
-            }
-            .tint(.primary)
+        } header: {
+            Text("availability_section")
+        } footer: {
+            Text(String(localized: "device_calendar_sync_footer"))
         }
+        .listRowBackground(rowBackground)
     }
 }
 
@@ -549,7 +658,7 @@ extension NotificationManager {
 extension SettingsView {
 
     var accountSection: some View {
-        Section(header: Text(String(localized: "account_and_premium"))) {
+        Section {
 
             Button {
                 showUpgradeSheet = true
@@ -558,60 +667,46 @@ extension SettingsView {
             }
 
             NavigationLink {
-                SecuritySettingsView()
-            } label: {
-                iconLabel(String(localized: "security_management"), "lock.shield", .green)
-            }
-
-            NavigationLink {
                 AccountSettingsView()
                     .environmentObject(session)
             } label: {
-                iconLabel(String(localized: "account_management"), "person.crop.circle", .blue)
+                iconLabel(String(localized: "account_management"), "person.crop.circle.fill", .blue)
             }
+
+            NavigationLink {
+                SecuritySettingsView()
+            } label: {
+                iconLabel(String(localized: "security_management"), "lock.shield.fill", .green)
+            }
+        } header: {
+            Text("account_and_premium")
         }
+        .listRowBackground(rowBackground)
     }
 
     var premiumRow: some View {
-        HStack {
-            iconLabel(
-                premium.tier == .free
-                ? String(localized: "upgrade_account")
-                : String(localized: "pro_active"),
-                "crown.fill",
-                .orange
-            )
-            Spacer()
-            Text(premium.tier.displayName)
-                .font(.caption)
-                .foregroundColor(.secondary)
-        }
+        SettingsActionRow(
+            title: premium.tier == .pro
+                ? String(localized: "pro_active")
+                : String(localized: "upgrade_account"),
+            systemName: "crown.fill",
+            color: .orange,
+            value: premium.tier.displayName
+        )
     }
 }
 
 extension SettingsView {
 
+    /// The banner is its own accent card — no extra white card around it.
     var premiumBanner: some View {
         Section {
             SettingsPremiumBanner()
                 .environmentObject(premium)
-                .padding()
-                .background(AppBackground.card(colorScheme))
-                .clipShape(
-                    RoundedRectangle(
-                        cornerRadius: 16,
-                        style: .continuous
-                    )
-                )
-                .shadow(
-                    color: AppBackground.panelShadow(colorScheme),
-                    radius: 12,
-                    y: 6
-                )
-
+                .environmentObject(uiAccent)
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
         }
-        .listRowInsets(.init())
-        .listRowBackground(Color.clear)
     }
 }
 
@@ -624,25 +719,32 @@ import SwiftUI
 extension SettingsView {
 
     var supportSection: some View {
-        Section(header: Text(String(localized: "info_support"))) {
-
-            Button {
-                showPrivacySheet = true
-            } label: {
-                iconLabel(String(localized: "privacy_policy_and_info"),
-                          "doc.text", .gray)
-            }
-
-            Button(action: contactSupport) {
-                iconLabel(String(localized: "contact_support"),
-                          "envelope", .blue)
-            }
+        Section {
 
             NavigationLink {
                 FAQView()
             } label: {
                 iconLabel(String(localized: "faq"),
-                          "questionmark.circle", .indigo)
+                          "questionmark.circle.fill", .purple)
+            }
+
+            Button(action: contactSupport) {
+                SettingsActionRow(
+                    title: String(localized: "contact_support"),
+                    systemName: "envelope.fill",
+                    color: .blue,
+                    showsChevron: false
+                )
+            }
+
+            Button {
+                showPrivacySheet = true
+            } label: {
+                SettingsActionRow(
+                    title: String(localized: "privacy_policy_and_info"),
+                    systemName: "doc.text.fill",
+                    color: .gray
+                )
             }
 
             // Required by Google for EEA/UK users: let them change ad consent.
@@ -650,11 +752,18 @@ extension SettingsView {
                 Button {
                     ads.presentPrivacyOptions()
                 } label: {
-                    iconLabel(String(localized: "ads_privacy_options"),
-                              "hand.raised", .teal)
+                    SettingsActionRow(
+                        title: String(localized: "ads_privacy_options"),
+                        systemName: "hand.raised.fill",
+                        color: .teal,
+                        showsChevron: false
+                    )
                 }
             }
+        } header: {
+            Text("info_support")
         }
+        .listRowBackground(rowBackground)
     }
 }
 
@@ -698,14 +807,15 @@ extension SettingsView {
 
 extension PremiumTier {
 
+    /// Plain tier name (no emoji) — used by the Settings plan badge / premium row.
     var displayName: String {
         switch self {
         case .free:
             return String(localized: "free")
         case .premium:
-            return String(localized: "premium")
+            return String(localized: "plan_premium")
         case .pro:
-            return String(localized: "pro")
+            return String(localized: "plan_pro")
         }
     }
 }

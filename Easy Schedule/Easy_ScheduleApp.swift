@@ -212,47 +212,72 @@ struct OnboardingContainerView: View {
     var onClose: (() -> Void)? = nil
 
     var body: some View {
-        TabView(selection: $step) {
+        // ZStack (not .overlay on the TabView) so the top bar stays inside the
+        // safe area while the pages extend edge to edge.
+        ZStack(alignment: .topTrailing) {
+            TabView(selection: $step) {
 
-            // 1️⃣ HERO
-            OnboardingHeroSlide(
-                onNext: { step = .webBooking }   // 👉 đi thẳng sang Web Booking
-            )
-            .tag(OnboardingStep.hero)
+                // 1️⃣ HERO
+                OnboardingHeroSlide(
+                    onNext: { go(.webBooking) }
+                )
+                .tag(OnboardingStep.hero)
 
-            // 2️⃣ WEB BOOKING (đưa lên đây)
-            OnboardingWebBookingSlide(
-                onNext: { step = .availability }
-            )
-            .tag(OnboardingStep.webBooking)
+                // 2️⃣ BOOKING LINK (+ booking hours)
+                OnboardingWebBookingSlide(
+                    onNext: { go(.agree) }
+                )
+                .tag(OnboardingStep.webBooking)
 
-            // 3️⃣ AVAILABILITY
-            AvailabilityFeatureSlide(
-                onNext: { step = .chat }
-            )
-            .tag(OnboardingStep.availability)
+                // 3️⃣ AGREE ON A TIME (proposal + vote + chat)
+                OnboardingAgreeSlide(
+                    onNext: { go(.reminders) }
+                )
+                .tag(OnboardingStep.agree)
 
-            // 4️⃣ CHAT AI
-            ChatToPlanAISlide(
-                onNext: { step = .planning }
-            )
-            .tag(OnboardingStep.chat)
+                // 4️⃣ NEVER BE LATE (asks notification permission in context)
+                OnboardingRemindersSlide(
+                    onNext: { go(.setup) }
+                )
+                .tag(OnboardingStep.reminders)
 
-            // 5️⃣ SMART PLANNING AI
-            SmartPlanningAISlide(
-                onNext: { step = .cta }
-            )
-            .tag(OnboardingStep.planning)
+                // 5️⃣ SETUP: name + booking link + booking hours
+                OnboardingSetupSlide(
+                    onNext: { go(.cta) }
+                )
+                .tag(OnboardingStep.setup)
 
-            // 6️⃣ CTA
-            FinalOnboardingCTASlide(
-                hasSeenOnboarding: $hasSeenOnboarding
-            )
-            .tag(OnboardingStep.cta)
+                // 6️⃣ CTA
+                FinalOnboardingCTASlide(
+                    onFinish: finish
+                )
+                .tag(OnboardingStep.cta)
+            }
+            .tabViewStyle(.page)
+            .ignoresSafeArea()
+
+            topBar
         }
-        .tabViewStyle(.page)
-        .ignoresSafeArea()
-        .overlay(alignment: .topTrailing) {
+    }
+
+    @ViewBuilder
+    private var topBar: some View {
+        HStack(spacing: 12) {
+            // Skip the feature tour → setup step (not straight into the app)
+            if step.isFeatureSlide {
+                Button {
+                    go(.setup)
+                } label: {
+                    Text(String(localized: "onboarding_skip"))
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 6)
+                        .contentShape(Rectangle())
+                }
+                .transition(.opacity)
+            }
+
             if let onClose {
                 Button(action: onClose) {
                     Image(systemName: "xmark")
@@ -261,9 +286,21 @@ struct OnboardingContainerView: View {
                         .frame(width: 32, height: 32)
                         .background(.ultraThinMaterial, in: Circle())
                 }
-                .padding(.top, 60)
-                .padding(.trailing, 20)
             }
         }
+        .padding(.top, 6)
+        .padding(.trailing, 16)
+        .animation(.easeInOut(duration: 0.2), value: step)
+    }
+
+    private func go(_ next: OnboardingStep) {
+        withAnimation { step = next }
+    }
+
+    /// Leaves onboarding. In the Settings preview the flag is already true, so
+    /// this just closes the preview.
+    private func finish() {
+        hasSeenOnboarding = true
+        onClose?()
     }
 }

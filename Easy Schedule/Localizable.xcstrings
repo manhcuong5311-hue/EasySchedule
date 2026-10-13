@@ -30,534 +30,730 @@
         }
       }
     },
-    "booking_buffer" : {
+    "booking_link_placeholder" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Break between appointments"
+            "value" : "yourname"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "予約の間の休憩"
+            "value" : "yourname"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "약속 사이 휴식"
+            "value" : "yourname"
           }
         },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nghỉ giữa các lịch hẹn"
+            "value" : "tencuaban"
           }
         }
       }
     },
-    "booking_hours_enable" : {
+    "final_cta_start_free" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Only accept bookings in these hours"
+            "value" : "Start for free"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "この時間だけ予約を受け付ける"
+            "value" : "無料ではじめる"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "이 시간에만 예약 받기"
+            "value" : "무료로 시작하기"
           }
         },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Chỉ nhận lịch trong giờ này"
+            "value" : "Bắt đầu dùng miễn phí"
           }
         }
       }
     },
-    "booking_hours_footer" : {
+    "final_cta_view_premium" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "People booking you see only these times. Your own events are not affected."
+            "value" : "See Premium plans"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "あなたを予約する人にはこの時間だけが表示されます。自分の予定には影響しません。"
+            "value" : "Premiumプランを見る"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "나를 예약하는 사람에게는 이 시간만 보입니다. 내 일정에는 영향이 없습니다."
+            "value" : "프리미엄 플랜 보기"
           }
         },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Người đặt lịch với bạn chỉ thấy các giờ này. Lịch của chính bạn không bị ảnh hưởng."
+            "value" : "Xem gói Premium"
           }
         }
       }
     },
-    "booking_hours_title" : {
+    "onboarding_agree_subtitle" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Booking hours"
+            "value" : "Confirm, suggest another time or vote in groups — the event moves when most agree."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "予約受付時間"
+            "value" : "確認、別の時間の提案、グループでの投票。過半数が賛成すると予定が移動します。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "예약 가능 시간"
+            "value" : "확인, 다른 시간 제안, 그룹 투표까지. 과반수가 동의하면 일정이 바뀝니다."
           }
         },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Giờ nhận lịch"
+            "value" : "Xác nhận, đề xuất giờ khác hoặc bình chọn trong nhóm — đủ phiếu là lịch tự dời."
           }
         }
       }
     },
-    "booking_link_available" : {
+    "onboarding_agree_title" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Available"
+            "value" : "Agree on a time, together"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "利用できます"
+            "value" : "みんなで時間を決めよう"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "사용 가능"
+            "value" : "함께 시간을 정해요"
           }
         },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Có thể dùng"
+            "value" : "Chốt giờ hẹn thật dễ"
           }
         }
       }
     },
-    "booking_link_invalid" : {
+    "onboarding_booking_hours_toggle" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "3–30 characters: a–z, 0–9 and -"
+            "value" : "Accept bookings Mon–Fri, 9:00–18:00"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "3〜30文字：a–z、0–9、-"
+            "value" : "月〜金 9:00〜18:00 に予約を受け付ける"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "3~30자: a–z, 0–9, -"
+            "value" : "월~금 9:00~18:00 예약 받기"
           }
         },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "3–30 ký tự: a–z, 0–9 và -"
+            "value" : "Nhận lịch T2–T6, 9:00–18:00"
           }
         }
       }
     },
-    "booking_link_remove" : {
+    "onboarding_booking_link_subtitle" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Remove custom link"
+            "value" : "Share one short link — people pick a free time within your booking hours."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "カスタムリンクを削除"
+            "value" : "短いリンクをひとつ共有するだけ。相手が受付時間内の空き時間を選べます。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "맞춤 링크 삭제"
+            "value" : "짧은 링크 하나만 공유하면 상대가 예약 가능 시간 중 빈 시간을 골라요."
           }
         },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Bỏ link tuỳ chỉnh"
+            "value" : "Chia sẻ một link ngắn — mọi người tự chọn giờ trống trong giờ nhận lịch của bạn."
           }
         }
       }
     },
-    "booking_link_taken" : {
+    "onboarding_booking_link_title" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "This link is already taken"
+            "value" : "Your booking link"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "このリンクは使用されています"
+            "value" : "あなたの予約リンク"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "이미 사용 중인 링크입니다"
+            "value" : "나만의 예약 링크"
           }
         },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Link này đã có người dùng"
+            "value" : "Link đặt lịch của bạn"
           }
         }
       }
     },
-    "booking_link_title" : {
+    "onboarding_enable_notifications" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Booking link"
+            "value" : "Turn on notifications"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "予約リンク"
+            "value" : "通知をオンにする"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "예약 링크"
+            "value" : "알림 켜기"
           }
         },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Link đặt lịch"
+            "value" : "Bật thông báo"
           }
         }
       }
     },
-    "booking_max_per_day" : {
+    "onboarding_mock_event_title" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Max appointments per day"
+            "value" : "Coffee with Lina"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "1日の最大予約数"
+            "value" : "さくらとカフェ"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "하루 최대 예약 수"
+            "value" : "지은 님과 커피"
           }
         },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tối đa lịch hẹn mỗi ngày"
+            "value" : "Cà phê với Lan"
           }
         }
       }
     },
-    "day_fully_booked" : {
+    "onboarding_mock_handle" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "This day is fully booked."
+            "value" : "your-name"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "この日は予約がいっぱいです。"
+            "value" : "your-name"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "이 날은 예약이 꽉 찼습니다."
+            "value" : "your-name"
           }
         },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ngày này đã kín lịch hẹn."
+            "value" : "ten-ban"
           }
         }
       }
     },
-    "free_events_left %lld %lld" : {
+    "onboarding_mock_leave_format" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%1$lld of %2$lld free events left today"
+            "value" : "Leave at %@ · 18 min drive"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "本日の無料予定 残り%1$lld/%2$lld件"
+            "value" : "%@に出発 · 車で18分"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "오늘 무료 일정 %1$lld/%2$lld개 남음"
+            "value" : "%@ 출발 · 차로 18분"
           }
         },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Còn %1$lld/%2$lld lịch miễn phí hôm nay"
+            "value" : "Nên đi lúc %@ · 18 phút lái xe"
           }
         }
       }
     },
-    "free_events_left_on %lld %lld" : {
+    "onboarding_mock_name_alex" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%1$lld of %2$lld free events left that day"
+            "value" : "Alex"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "この日の無料予定 残り%1$lld/%2$lld件"
+            "value" : "健太"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "이날 무료 일정 %1$lld/%2$lld개 남음"
+            "value" : "민준"
           }
         },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Còn %1$lld/%2$lld lịch miễn phí ngày này"
+            "value" : "Minh"
           }
         }
       }
     },
-    "intent_ask_text" : {
+    "onboarding_mock_name_lina" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "What's the event and when?"
+            "value" : "Lina"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "どんな予定、いつ？"
+            "value" : "さくら"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "무슨 일정, 언제?"
+            "value" : "지은"
           }
         },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Lịch gì, lúc nào?"
+            "value" : "Lan"
           }
         }
       }
     },
-    "intent_param_text" : {
+    "onboarding_mock_weekdays" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "What and when"
+            "value" : "Mon–Fri"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "内容と日時"
+            "value" : "月〜金"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "내용과 시간"
+            "value" : "월~금"
           }
         },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nội dung và thời gian"
+            "value" : "T2–T6"
           }
         }
       }
     },
-    "intent_quick_add_title" : {
+    "onboarding_not_now" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Add event"
+            "value" : "Not now"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "予定を追加"
+            "value" : "あとで"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "일정 추가"
+            "value" : "나중에"
           }
         },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Thêm lịch"
+            "value" : "Để sau"
           }
         }
       }
     },
-    "none_option" : {
+    "onboarding_reminders_subtitle" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "None"
+            "value" : "Reminders when it's time to leave, directions, and one-tap “On my way”."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "なし"
+            "value" : "出発時刻のお知らせ、ルート案内、ワンタップで「向かっています」。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "없음"
+            "value" : "출발 시간 알림, 길 안내, 한 번에 “가는 중” 알리기."
           }
         },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Không"
+            "value" : "Nhắc giờ nên đi, chỉ đường và báo “Đang tới” chỉ với một chạm."
           }
         }
       }
     },
-    "outside_booking_hours" : {
+    "onboarding_reminders_title" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Outside this person's booking hours"
+            "value" : "Never be late"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "この方の予約受付時間外です"
+            "value" : "もう遅れない"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "이 사람의 예약 가능 시간이 아닙니다"
+            "value" : "약속에 늦지 않게"
           }
         },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ngoài giờ nhận lịch của người này"
+            "value" : "Không bao giờ trễ hẹn"
           }
         }
       }
     },
-    "quick_add_apply %@" : {
+    "onboarding_setup_done" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Use %@"
+            "value" : "Your link is ready"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@を使う"
+            "value" : "リンクの準備ができました"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ 사용"
+            "value" : "링크가 준비되었어요"
           }
         },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Dùng %@"
+            "value" : "Link của bạn đã sẵn sàng"
+          }
+        }
+      }
+    },
+    "onboarding_setup_save" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save & get my link"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存してリンクを取得"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "저장하고 링크 받기"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lưu & lấy link"
+          }
+        }
+      }
+    },
+    "onboarding_setup_subtitle" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your name and a short link people can use to book time with you."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "表示名と、相手があなたに予約できる短いリンク。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "내 이름과 상대가 나에게 예약할 수 있는 짧은 링크."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tên của bạn và một link ngắn để mọi người đặt lịch với bạn."
+          }
+        }
+      }
+    },
+    "onboarding_setup_title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set up in 30 seconds"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "30秒でセットアップ"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "30초 만에 설정하기"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thiết lập trong 30 giây"
+          }
+        }
+      }
+    },
+    "onboarding_share_link" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send link to friends"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "友だちにリンクを送る"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "친구에게 링크 보내기"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gửi link cho bạn bè"
+          }
+        }
+      }
+    },
+    "onboarding_skip" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skip"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "スキップ"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "건너뛰기"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bỏ qua"
+          }
+        }
+      }
+    },
+    "onboarding_skip_setup" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skip"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "スキップ"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "건너뛰기"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bỏ qua"
+          }
+        }
+      }
+    },
+    "settings_banner_upgrade" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Go Premium — no ads, more events"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premiumにアップグレード — 広告なし・予定を追加"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "프리미엄으로 업그레이드 — 광고 없이 더 많은 일정"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nâng cấp Premium — không quảng cáo, thêm lịch"
           }
         }
       }
@@ -596,6 +792,7 @@
     },
     "%@ - %@" : {
       "comment" : "A subheading showing the start and end time of an event.",
+      "extractionState" : "stale",
       "isCommentAutoGenerated" : true,
       "localizations" : {
         "en" : {
@@ -3932,6 +4129,34 @@
         }
       }
     },
+    "booking_buffer" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Break between appointments"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "予約の間の休憩"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "약속 사이 휴식"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nghỉ giữa các lịch hẹn"
+          }
+        }
+      }
+    },
     "booking_created_successfully" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3961,6 +4186,90 @@
         }
       }
     },
+    "booking_hours_enable" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only accept bookings in these hours"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この時間だけ予約を受け付ける"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 시간에만 예약 받기"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chỉ nhận lịch trong giờ này"
+          }
+        }
+      }
+    },
+    "booking_hours_footer" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "People booking you see only these times. Your own events are not affected."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "あなたを予約する人にはこの時間だけが表示されます。自分の予定には影響しません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "나를 예약하는 사람에게는 이 시간만 보입니다. 내 일정에는 영향이 없습니다."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Người đặt lịch với bạn chỉ thấy các giờ này. Lịch của chính bạn không bị ảnh hưởng."
+          }
+        }
+      }
+    },
+    "booking_hours_title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Booking hours"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "予約受付時間"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "예약 가능 시간"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Giờ nhận lịch"
+          }
+        }
+      }
+    },
     "booking_limit_7_days" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3986,6 +4295,174 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Gói miễn phí chỉ cho phép đặt lịch trước tối đa 7 ngày."
+          }
+        }
+      }
+    },
+    "booking_link_available" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Available"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "利用できます"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "사용 가능"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Có thể dùng"
+          }
+        }
+      }
+    },
+    "booking_link_invalid" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "3–30 characters: a–z, 0–9 and -"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "3〜30文字：a–z、0–9、-"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "3~30자: a–z, 0–9, -"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "3–30 ký tự: a–z, 0–9 và -"
+          }
+        }
+      }
+    },
+    "booking_link_remove" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove custom link"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "カスタムリンクを削除"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "맞춤 링크 삭제"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bỏ link tuỳ chỉnh"
+          }
+        }
+      }
+    },
+    "booking_link_taken" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This link is already taken"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このリンクは使用されています"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이미 사용 중인 링크입니다"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Link này đã có người dùng"
+          }
+        }
+      }
+    },
+    "booking_link_title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Booking link"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "予約リンク"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "예약 링크"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Link đặt lịch"
+          }
+        }
+      }
+    },
+    "booking_max_per_day" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Max appointments per day"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1日の最大予約数"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "하루 최대 예약 수"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tối đa lịch hẹn mỗi ngày"
           }
         }
       }
@@ -4079,6 +4556,7 @@
     },
     "busiest_day" : {
       "comment" : "A label describing the busiest day of the week.",
+      "extractionState" : "stale",
       "isCommentAutoGenerated" : true,
       "localizations" : {
         "en" : {
@@ -6822,6 +7300,7 @@
     },
     "created_by_you" : {
       "comment" : "A label describing the number of events you've created.",
+      "extractionState" : "stale",
       "isCommentAutoGenerated" : true,
       "localizations" : {
         "en" : {
@@ -7218,6 +7697,34 @@
           "stringUnit" : {
             "state" : "needs_review",
             "value" : "MỚI · %d"
+          }
+        }
+      }
+    },
+    "day_fully_booked" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This day is fully booked."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この日は予約がいっぱいです。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 날은 예약이 꽉 찼습니다."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ngày này đã kín lịch hẹn."
           }
         }
       }
@@ -10206,6 +10713,7 @@
     },
     "events" : {
       "comment" : "A header label for a section displaying a list of events.",
+      "extractionState" : "stale",
       "isCommentAutoGenerated" : true,
       "localizations" : {
         "en" : {
@@ -10630,6 +11138,7 @@
     },
     "events_vs_last_week" : {
       "comment" : "A label describing the comparison of events to the previous week.",
+      "extractionState" : "stale",
       "isCommentAutoGenerated" : true,
       "localizations" : {
         "en" : {
@@ -12403,6 +12912,62 @@
         }
       }
     },
+    "free_events_left %lld %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld of %2$lld free events left today"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本日の無料予定 残り%1$lld/%2$lld件"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "오늘 무료 일정 %1$lld/%2$lld개 남음"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Còn %1$lld/%2$lld lịch miễn phí hôm nay"
+          }
+        }
+      }
+    },
+    "free_events_left_on %lld %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld of %2$lld free events left that day"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この日の無料予定 残り%1$lld/%2$lld件"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이날 무료 일정 %1$lld/%2$lld개 남음"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Còn %1$lld/%2$lld lịch miễn phí ngày này"
+          }
+        }
+      }
+    },
     "generating_code" : {
       "comment" : "A text that appears while generating an invitation code.",
       "isCommentAutoGenerated" : true,
@@ -13613,6 +14178,90 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Thông tin & Hỗ trợ"
+          }
+        }
+      }
+    },
+    "intent_ask_text" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What's the event and when?"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "どんな予定、いつ？"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "무슨 일정, 언제?"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lịch gì, lúc nào?"
+          }
+        }
+      }
+    },
+    "intent_param_text" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What and when"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "内容と日時"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "내용과 시간"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nội dung và thời gian"
+          }
+        }
+      }
+    },
+    "intent_quick_add_title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add event"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "予定を追加"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "일정 추가"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thêm lịch"
           }
         }
       }
@@ -15748,6 +16397,7 @@
     },
     "month" : {
       "comment" : "A segment option in the toolbar that filters the view to show monthly summaries.",
+      "extractionState" : "stale",
       "isCommentAutoGenerated" : true,
       "localizations" : {
         "en" : {
@@ -15926,6 +16576,7 @@
     },
     "most_active_hours" : {
       "comment" : "A label for the most active hours of the week.",
+      "extractionState" : "stale",
       "isCommentAutoGenerated" : true,
       "localizations" : {
         "en" : {
@@ -16735,6 +17386,7 @@
     },
     "no_events_this_week" : {
       "comment" : "A message indicating that there are no events scheduled for the current week.",
+      "extractionState" : "stale",
       "isCommentAutoGenerated" : true,
       "localizations" : {
         "en" : {
@@ -17138,6 +17790,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Chưa có lịch nào sắp tới."
+          }
+        }
+      }
+    },
+    "none_option" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "None"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "なし"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "없음"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không"
           }
         }
       }
@@ -18608,6 +19288,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Lịch của tôi"
+          }
+        }
+      }
+    },
+    "outside_booking_hours" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Outside this person's booking hours"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この方の予約受付時間外です"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 사람의 예약 가능 시간이 아닙니다"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ngoài giờ nhận lịch của người này"
           }
         }
       }
@@ -23222,6 +23930,34 @@
     "Quick reply" : {
       "comment" : "Title of the Live Activity that appears in the app's Activity List.",
       "isCommentAutoGenerated" : true
+    },
+    "quick_add_apply %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@を使う"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 사용"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dùng %@"
+          }
+        }
+      }
     },
     "quick_late_button" : {
       "localizations" : {
@@ -28169,6 +28905,7 @@
     },
     "total_events" : {
       "comment" : "The title of a row in the \"Past Weekly Summary\" view that shows the total number of events in a week.",
+      "extractionState" : "stale",
       "isCommentAutoGenerated" : true,
       "localizations" : {
         "en" : {
@@ -29249,6 +29986,7 @@
     },
     "week" : {
       "comment" : "The label for the \"Week\" segment in the \"Past Weekly Summary\" view's toolbar.",
+      "extractionState" : "stale",
       "isCommentAutoGenerated" : true,
       "localizations" : {
         "en" : {
@@ -29423,6 +30161,7 @@
       }
     },
     "with_others" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {

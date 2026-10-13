@@ -12,6 +12,8 @@ import FirebaseFunctions
 struct AccountSettingsView: View {
 
     @EnvironmentObject var session: SessionStore
+    @EnvironmentObject var uiAccent: UIAccentStore
+    @Environment(\.colorScheme) private var colorScheme
 
     @State private var showLogoutConfirm = false
     @State private var showDeleteConfirm = false
@@ -28,34 +30,48 @@ struct AccountSettingsView: View {
                 Button {
                     showLogoutConfirm = true
                 } label: {
-                    Label(String(localized: "logout"), systemImage: "rectangle.portrait.and.arrow.right")
+                    SettingsActionRow(
+                        title: String(localized: "logout"),
+                        systemName: "rectangle.portrait.and.arrow.right",
+                        color: .gray,
+                        showsChevron: false
+                    )
                 }
-                .foregroundColor(.primary)
             }
+            .listRowBackground(AppBackground.card(colorScheme))
 
-            // MARK: - Delete Account
+            // MARK: - Delete Account (destructive → own section, last)
             Section {
                 Button(role: .destructive) {
                     showPasswordSheet = true
                 } label: {
-                    if isDeleting {
-                        HStack {
+                    HStack(spacing: 12) {
+                        if isDeleting {
                             ProgressView()
+                                .frame(width: 30, height: 30)
                             Text(String(localized: "deleting_account"))
+                                .foregroundStyle(.secondary)
+                        } else {
+                            SettingsIconTile(systemName: "trash.fill", color: .red)
+                            Text(String(localized: "delete_account"))
+                                .foregroundStyle(.red)
                         }
-                    } else {
-                        Label(String(localized: "delete_account"), systemImage: "trash")
+                        Spacer(minLength: 0)
                     }
+                    .contentShape(Rectangle())
                 }
                 .disabled(isDeleting)
 
             } footer: {
-                Text(String(localized: "delete_account_warning"))
-                    .foregroundColor(.secondary)
+                Text(SettingsText.plain(String(localized: "delete_account_warning")))
             }
+            .listRowBackground(AppBackground.card(colorScheme))
 
 
         }
+        .scrollContentBackground(.hidden)
+        .background(AppBackground.settings(colorScheme).ignoresSafeArea())
+        .tint(uiAccent.color)
         .navigationTitle(String(localized: "account_management"))
         .navigationBarTitleDisplayMode(.inline)
 
@@ -79,31 +95,50 @@ struct AccountSettingsView: View {
             Text(String(localized: "delete_account_warning"))
         }
         .sheet(isPresented: $showPasswordSheet) {
-            NavigationView {
-                Form {
+            passwordSheet
+        }
+
+    }
+
+    // MARK: - Re-auth sheet
+
+    private var passwordSheet: some View {
+        NavigationStack {
+            Form {
+                Section {
                     SecureField(String(localized: "enter_password_to_delete"), text: $deletePassword)
-
+                        .submitLabel(.done)
+                } footer: {
                     if let deleteError = deleteError {
-                        Text(deleteError)
-                            .foregroundColor(.red)
+                        Label(deleteError, systemImage: "exclamationmark.circle.fill")
+                            .foregroundStyle(.red)
                     }
+                }
+                .listRowBackground(AppBackground.card(colorScheme))
 
+                Section {
                     Button(role: .destructive) {
                         Task { await reauthenticateAndDelete() }
                     } label: {
                         Text(String(localized: "confirm_delete_account"))
+                            .font(.body.weight(.semibold))
+                            .frame(maxWidth: .infinity)
                     }
                     .disabled(deletePassword.isEmpty)
                 }
-                .navigationTitle(String(localized: "delete_confirmation_title"))
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button(String(localized:"cancel")) { showPasswordSheet = false }
-                    }
+                .listRowBackground(AppBackground.card(colorScheme))
+            }
+            .scrollContentBackground(.hidden)
+            .background(AppBackground.settings(colorScheme).ignoresSafeArea())
+            .navigationTitle(String(localized: "delete_confirmation_title"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(String(localized:"cancel")) { showPasswordSheet = false }
                 }
             }
         }
-
+        .tint(uiAccent.color)
     }
 
     func reauthenticateAndDelete() async {

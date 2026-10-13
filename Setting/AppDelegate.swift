@@ -52,9 +52,14 @@ class AppDelegate: NSObject,
             await QuickReply.send(kind, eventId: eventId)
         }
 
-        // Xin quyền thông báo
+        // Xin quyền thông báo — only for users who already finished onboarding
+        // (unchanged behaviour). New users are asked in context on the
+        // onboarding "Never be late" slide (OnboardingRemindersSlide).
+        // APNs registration above stays unconditional, so the FCM token keeps
+        // flowing for everyone who granted permission.
+        let hasSeenOnboarding = UserDefaults.standard.bool(forKey: "hasSeenOnboarding")
         UNUserNotificationCenter.current().getNotificationSettings { settings in
-            if settings.authorizationStatus == .notDetermined {
+            if hasSeenOnboarding, settings.authorizationStatus == .notDetermined {
                 UNUserNotificationCenter.current()
                     .requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
                         if let error = error {

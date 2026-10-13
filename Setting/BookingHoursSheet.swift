@@ -91,10 +91,17 @@ struct BookingHoursSheet: View {
     private var form: some View {
         Form {
             Section {
-                Toggle(String(localized: "booking_hours_enable"), isOn: $enabled.animation())
+                Toggle(isOn: $enabled.animation()) {
+                    SettingsRowLabel(
+                        title: String(localized: "booking_hours_enable"),
+                        systemName: "clock.badge.checkmark",
+                        color: .green
+                    )
+                }
             } footer: {
                 Text(String(localized: "booking_hours_footer"))
             }
+            .listRowBackground(rowBackground)
 
             if enabled {
                 Section {
@@ -102,37 +109,52 @@ struct BookingHoursSheet: View {
                         dayRow(weekday)
                     }
                 }
+                .listRowBackground(rowBackground)
 
                 Section {
-                    Picker(String(localized: "booking_buffer"), selection: $bufferMin) {
+                    Picker(selection: $bufferMin) {
                         ForEach(BookingHours.bufferOptions, id: \.self) { mins in
                             Text(bufferLabel(mins)).tag(mins)
                         }
+                    } label: {
+                        SettingsRowLabel(
+                            title: String(localized: "booking_buffer"),
+                            systemName: "cup.and.saucer.fill",
+                            color: .orange
+                        )
                     }
 
                     Stepper(value: $maxPerDay, in: 0...20) {
-                        HStack {
-                            Text(String(localized: "booking_max_per_day"))
-                            Spacer()
+                        HStack(spacing: 8) {
+                            SettingsRowLabel(
+                                title: String(localized: "booking_max_per_day"),
+                                systemName: "number",
+                                color: .indigo
+                            )
+                            Spacer(minLength: 4)
                             Text(maxPerDay == 0 ? String(localized: "unlimited") : "\(maxPerDay)")
                                 .foregroundStyle(.secondary)
                                 .monospacedDigit()
                         }
                     }
                 }
+                .listRowBackground(rowBackground)
             }
         }
         .scrollContentBackground(.hidden)
     }
 
+    private var rowBackground: Color { AppBackground.card(colorScheme) }
+
     // MARK: - Day row
 
     private func dayRow(_ weekday: Int) -> some View {
         let range = days[weekday]
-        return VStack(alignment: .leading, spacing: 8) {
+        return VStack(alignment: .leading, spacing: 10) {
             Toggle(isOn: dayEnabledBinding(weekday).animation()) {
                 Text(weekdayName(weekday))
-                    .font(.body.weight(.medium))
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(range == nil ? Color.secondary : Color.primary)
             }
 
             if let range {
@@ -142,7 +164,7 @@ struct BookingHoursSheet: View {
                         .labelsHidden()
                     Image(systemName: "arrow.right")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.tertiary)
                     DatePicker("", selection: timeBinding(weekday, isStart: false),
                                displayedComponents: .hourAndMinute)
                         .labelsHidden()
@@ -150,13 +172,13 @@ struct BookingHoursSheet: View {
                 }
 
                 if range.start >= range.end {
-                    Text(String(localized: "invalid_time_range"))
-                        .font(.caption)
+                    Label(String(localized: "invalid_time_range"), systemImage: "exclamationmark.circle.fill")
+                        .font(.caption.weight(.medium))
                         .foregroundStyle(.red)
                 }
             }
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, 4)
     }
 
     // MARK: - Bindings
