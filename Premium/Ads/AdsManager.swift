@@ -86,13 +86,17 @@ final class AdsManager: NSObject, ObservableObject {
 
         isStarting = true
         Task {
+            defer { isStarting = false }
+
             // Cho UI ổn định rồi mới hiện form đồng ý / popup ATT
             try? await Task.sleep(nanoseconds: 1_500_000_000)
+
+            // Purchases may have resolved to ad-free meanwhile — then never prompt.
+            guard adsEnabled else { return }
 
             await gatherConsent()
             await requestTrackingAuthorization()
 
-            defer { isStarting = false }
             guard ConsentInformation.shared.canRequestAds, adsEnabled else { return }
 
             _ = await MobileAds.shared.start()
