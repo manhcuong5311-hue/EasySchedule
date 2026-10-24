@@ -15,26 +15,31 @@ actor PremiumStore {
     static let shared = PremiumStore()
 
     // MARK: - Product IDs
-    /// One-time purchase that turns ads off. Since 2.5 it is the only product on sale.
+    /// One-time purchase that turns ads off for good.
     static let removeAdsProductID = "com.SamCorp.EasySchedule.removeads"
 
     private let productIDs: Set<String> = [
         removeAdsProductID,
 
-        // Legacy subscriptions (no longer sold) — kept so existing subscribers
-        // are still recognised and restore keeps working.
-        "com.SamCorp.EasySchedule.premium.monthly",
-        "com.SamCorp.EasySchedule.premium.yearly",
+        // PRO — still sold: higher limits, no ads while active
         "com.SamCorp.EasySchedule.pro.monthly",
-        "com.SamCorp.EasySchedule.pro.yearly"
+        "com.SamCorp.EasySchedule.pro.yearly",
+
+        // PREMIUM — no longer sold (every feature is free); kept so existing
+        // subscribers are still recognised and restore keeps working.
+        "com.SamCorp.EasySchedule.premium.monthly",
+        "com.SamCorp.EasySchedule.premium.yearly"
     ]
+
+    /// Premium / Pro bought before every feature went free keeps the app ad-free
+    /// for good. Subscriptions bought later only remove ads while they're active.
+    private static let freeSwitchDate = ISO8601DateFormatter().date(from: "2026-10-24T00:00:00+07:00")!
 
     // MARK: - Stored properties
     private var products: [Product] = []
     private var purchasedProductIDs: Set<String> = []
-    /// Any purchase ever (Remove Ads, or a Premium / Pro subscription even if it
-    /// has since expired) — those users never see ads.
-    private var everPurchased = false
+    /// Remove Ads, or a Premium / Pro plan bought before `freeSwitchDate` (even if expired).
+    private var lifetimeAdFree = false
     // MARK: - Init
     init() {
         if #available(iOS 15.0, *) {
@@ -55,8 +60,8 @@ actor PremiumStore {
         purchasedProductIDs
     }
 
-    func hasEverPurchased() -> Bool {
-        everPurchased
+    func hasLifetimeAdFree() -> Bool {
+        lifetimeAdFree
     }
 
     // MARK: - Load Products
@@ -151,7 +156,7 @@ actor PremiumStore {
 
         await updateEntitlements()
         notifyUpdate()
-        return everPurchased
+        return lifetimeAdFree || !purchasedProductIDs.isEmpty
     }
 
     // MARK: - Listen for updates
@@ -182,22 +187,24 @@ actor PremiumStore {
             } catch {}
         }
 
-        // Expired subscriptions are no longer entitlements but still count as a purchase.
-        var purchasedBefore = !purchasedProductIDs.isEmpty
-        if !purchasedBefore {
-            for await result in Transaction.all {
-                if let transaction = try? checkVerified(result),
-                   transaction.revocationDate == nil {
-                    purchasedBefore = true
-                    break
-                }
+        // Expired legacy subscriptions are no longer entitlements but still count.
+        var adFreeForGood = false
+        for await result in Transaction.all {
+            if let transaction = try? checkVerified(result),
+               transaction.revocationDate == nil,
+               transaction.productID == Self.removeAdsProductID
+                || transaction.originalPurchaseDate < Self.freeSwitchDate {
+                adFreeForGood = true
+                break
             }
         }
-        everPurchased = purchasedBefore
+        lifetimeAdFree = adFreeForGood
     }
     private func markPurchased(_ id: String) async {
         purchasedProductIDs.insert(id)
-        everPurchased = true
+        if id == Self.removeAdsProductID {
+            lifetimeAdFree = true
+        }
     }
 
     // MARK: - Verification fix (IMPORTANT FOR APP REVIEW)

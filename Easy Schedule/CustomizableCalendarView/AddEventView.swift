@@ -101,6 +101,7 @@ struct AddEventView: View {
     @State private var isSaving = false
 
     @State private var activeAlert: AddEventAlert?
+    @State private var showProSheet = false
     @State private var location: EventLocation?
     @State private var showLocationPicker = false
     @State private var repeatRule: RepeatRule = .none
@@ -222,6 +223,10 @@ struct AddEventView: View {
                 }
             }
             .alert(item: $activeAlert) { buildAlert($0) }
+            .sheet(isPresented: $showProSheet) {
+                ProUpgradeSheet()
+                    .environmentObject(premium)
+            }
             .sheet(isPresented: $showIconPicker) {
                 IconPicker(icon: $selectedIcon, color: $selectedColor)
             }
@@ -1280,17 +1285,9 @@ struct AddEventView: View {
                 dismissButton: okDismiss
             )
         case .overBookingDays(let days):
-            return Alert(
-                title: Text(String(localized: "limit_reached")),
-                message: Text(String(format: String(localized: "limit_days_format"), days)),
-                dismissButton: okDismiss
-            )
+            return limitAlert(String(format: String(localized: "limit_days_format"), days))
         case .overEventsPerDay:
-            return Alert(
-                title: Text(String(localized: "limit_reached")),
-                message: Text(String(localized: "event_limit_reached")),
-                dismissButton: okDismiss
-            )
+            return limitAlert(String(localized: "event_limit_reached"))
         case .cannotCreate:
             return Alert(
                 title: Text(String(localized: "error")),
@@ -1325,6 +1322,26 @@ struct AddEventView: View {
 
     private var okDismiss: Alert.Button {
         .default(Text(String(localized: "ok"))) { activeAlert = nil }
+    }
+
+    /// Daily-event / booking-window limit — Pro raises both, so offer it unless the user has it.
+    private func limitAlert(_ message: String) -> Alert {
+        guard !premium.isPro else {
+            return Alert(
+                title: Text(String(localized: "limit_reached")),
+                message: Text(message),
+                dismissButton: okDismiss
+            )
+        }
+        return Alert(
+            title: Text(String(localized: "limit_reached")),
+            message: Text(message),
+            primaryButton: .default(Text(String(localized: "upgrade_to_pro"))) {
+                activeAlert = nil
+                showProSheet = true
+            },
+            secondaryButton: .cancel(Text(String(localized: "ok"))) { activeAlert = nil }
+        )
     }
 
     // MARK: – Date helpers

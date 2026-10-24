@@ -40,6 +40,7 @@ struct SettingsView: View {
     @State private var showLogoutAlert = false
     @State private var showPrivacySheet = false
     @State private var showRemoveAdsSheet = false
+    @State private var showProSheet = false
     @State private var showDisplaySettings = false   // moved here from Tab 1's header button
     @State private var settingsShareItem: ShareItem? = nil   // share booking link (moved from old Tab 2)
     @State private var showBookingHours = false
@@ -98,6 +99,10 @@ struct SettingsView: View {
                 RemoveAdsSheet()
                     .environmentObject(premium)
             }
+            .sheet(isPresented: $showProSheet) {
+                ProUpgradeSheet()
+                    .environmentObject(premium)
+            }
             .sheet(isPresented: $showPrivacySheet) {
                 PrivacyPolicyView()
                     .environmentObject(uiAccent)
@@ -133,7 +138,7 @@ struct SettingsView: View {
                 }
 
                 Button("dev_open_upgrade") {
-                    showRemoveAdsSheet = true
+                    showProSheet = true
                 }
 
                 Button(String(localized: "cancel"), role: .cancel) {}
@@ -647,12 +652,17 @@ extension SettingsView {
         Section {
 
             Button {
+                showProSheet = true
+            } label: {
+                proRow
+            }
+
+            Button {
                 showRemoveAdsSheet = true
             } label: {
                 removeAdsRow
             }
 
-            // Legacy Premium / Pro subscribers: nothing needs the subscription anymore.
             if premium.hasActiveSubscription {
                 Button {
                     if let url = URL(string: "https://apps.apple.com/account/subscriptions") {
@@ -682,19 +692,28 @@ extension SettingsView {
         } header: {
             Text("account_and_premium")
         } footer: {
-            if premium.hasActiveSubscription {
+            // Premium is free for everyone now — its subscribers can cancel.
+            if premium.hasActivePremiumSubscription {
                 Text(String(localized: "legacy_subscription_note"))
             }
         }
         .listRowBackground(rowBackground)
     }
 
+    var proRow: some View {
+        SettingsActionRow(
+            title: String(localized: premium.isPro ? "pro_active" : "upgrade_to_pro"),
+            systemName: "crown.fill",
+            color: .orange
+        )
+    }
+
     var removeAdsRow: some View {
         SettingsActionRow(
-            title: String(localized: premium.isAdFree ? "ads_removed" : "remove_ads"),
+            title: String(localized: premium.isLifetimeAdFree ? "ads_removed" : "remove_ads"),
             systemName: "sparkles",
-            color: .orange,
-            value: premium.isAdFree ? nil : premium.removeAdsProduct?.displayPrice
+            color: .pink,
+            value: premium.isLifetimeAdFree ? nil : premium.removeAdsProduct?.displayPrice
         )
     }
 }

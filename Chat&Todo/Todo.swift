@@ -139,6 +139,7 @@ struct TodoListView: View {
     @State private var isSending = false
 
     @EnvironmentObject var premium: PremiumStoreViewModel
+    @State private var showProSheet = false
     @State private var newTodo = ""
     @State private var showDeleteConfirm = false
     @State private var todoToDelete: TodoItem? = nil
@@ -273,6 +274,10 @@ struct TodoListView: View {
             .navigationTitle(String(localized: "todo_list_title"))
             .navigationBarTitleDisplayMode(.inline)
             // Listener lifecycle is owned by the parent ChatView (shared TodoViewModel).
+            .sheet(isPresented: $showProSheet) {
+                ProUpgradeSheet()
+                    .environmentObject(premium)
+            }
             .alert(String(localized: "delete_confirm_title"), isPresented: $showDeleteConfirm) {
                 Button(String(localized:"cancel"), role: .cancel) {}
 
@@ -285,7 +290,19 @@ struct TodoListView: View {
             .alert(item: $limitAlert) { type in
                 switch type {
 
-                // ===== Đủ số việc tối đa =====
+                // ===== Đủ số việc tối đa (Pro được nhiều hơn) =====
+                case .chatMaxReached where !premium.isPro:
+                    return Alert(
+                        title: Text(String(localized: "todo_limit_title")),
+                        message: Text(String(localized: "todo_limit_reached_message")),
+                        primaryButton: .default(Text(String(localized: "upgrade_to_pro"))) {
+                            limitAlert = nil
+                            showProSheet = true
+                        },
+                        secondaryButton: .cancel(Text(String(localized: "ok"))) {
+                            limitAlert = nil
+                        }
+                    )
                 case .chatMaxReached:
                     return Alert(
                         title: Text(String(localized: "todo_limit_title")),

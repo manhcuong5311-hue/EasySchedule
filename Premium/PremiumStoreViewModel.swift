@@ -2,9 +2,9 @@
 // PremiumStoreViewModel.swift
 //
 // Since 2.5 every feature is free: everyone gets what Premium used to include,
-// paid for by ads. The only thing on sale is a one-time "Remove Ads".
-// Anyone who ever bought Premium / Pro never sees ads, and an active legacy
-// Pro subscription keeps the Pro limits.
+// paid for by ads. On sale: a one-time "Remove Ads", and the Pro subscription
+// (higher limits, no ads while active). Premium / Pro bought before 2.5 keeps
+// the app ad-free for good.
 //
 
 import SwiftUI
@@ -19,13 +19,18 @@ final class PremiumStoreViewModel: ObservableObject {
     static let shared = PremiumStoreViewModel()
 
     @Published var products: [Product] = []
-    /// Effective plan for limits. `.premium` for everyone; `.pro` while a legacy Pro subscription is active.
+    /// Effective plan for limits. `.premium` for everyone; `.pro` while a Pro subscription is active.
     @Published var tier: PremiumTier = .premium
     @Published var isLoaded: Bool = false
-    /// Bought Remove Ads, or ever bought Premium / Pro → no ads. Cached so ads never flash at launch.
+    /// No ads: ad-free for good, or a subscription is active. Starts from the last
+    /// known value so ads never flash at launch.
     @Published private(set) var isAdFree: Bool = UserDefaults.standard.bool(forKey: adFreeKey)
-    /// A legacy Premium / Pro subscription is still renewing (Settings offers to manage it).
+    /// Bought Remove Ads, or Premium / Pro before 2.5 — Remove Ads has nothing left to offer.
+    @Published private(set) var isLifetimeAdFree = false
+    /// A Premium / Pro subscription is renewing (Settings offers to manage it).
     @Published private(set) var hasActiveSubscription = false
+    /// Premium is free for everyone now — Settings tells these subscribers they can cancel.
+    @Published private(set) var hasActivePremiumSubscription = false
 
     // Legacy – KHÔNG LƯU STATE
     var isPremium: Bool {
@@ -38,6 +43,11 @@ final class PremiumStoreViewModel: ObservableObject {
 
     var removeAdsProduct: Product? {
         products.first { $0.id == PremiumStore.removeAdsProductID }
+    }
+
+    /// Pro monthly + yearly.
+    var proProducts: [Product] {
+        products.filter { $0.id.contains(".pro.") }
     }
 
     @Published var loading: Bool = false
@@ -61,7 +71,7 @@ final class PremiumStoreViewModel: ObservableObject {
     }
 
     private func resolveTier(from entitlements: Set<String>) -> PremiumTier {
-        // Pro subscribers keep Pro limits while the subscription runs; everyone else gets Premium.
+        // Pro limits while the subscription runs; everyone else gets Premium.
         entitlements.contains(where: { $0.contains(".pro.") }) ? .pro : .premium
     }
 
@@ -81,16 +91,14 @@ final class PremiumStoreViewModel: ObservableObject {
 
         products = await PremiumStore.shared.getProducts()
         let entitlements = await PremiumStore.shared.getPurchasedIDs()
-        let everPurchased = await PremiumStore.shared.hasEverPurchased()
 
         tier = resolveTier(from: entitlements)
         hasActiveSubscription = entitlements.contains { $0 != PremiumStore.removeAdsProductID }
+        hasActivePremiumSubscription = entitlements.contains { $0.contains(".premium.") }
+        isLifetimeAdFree = await PremiumStore.shared.hasLifetimeAdFree()
 
-        // Sticky: once ad-free, always ad-free on this device.
-        if everPurchased && !isAdFree {
-            isAdFree = true
-            UserDefaults.standard.set(true, forKey: Self.adFreeKey)
-        }
+        isAdFree = isLifetimeAdFree || hasActiveSubscription
+        UserDefaults.standard.set(isAdFree, forKey: Self.adFreeKey)
 
         isLoaded = true          // ⭐ DÒNG QUAN TRỌNG NHẤT
 
@@ -136,7 +144,7 @@ final class PremiumStoreViewModel: ObservableObject {
     }
 
     // MARK: - RESTORE
-    /// True when any purchase (Remove Ads or a past subscription) was found.
+    /// True when any purchase (Remove Ads, an active or pre-2.5 subscription) was found.
     func restore() async -> Bool {
         let found = await PremiumStore.shared.restore()
         await refresh()

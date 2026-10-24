@@ -10847,25 +10847,25 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Everyone can create up to 20 events per day and schedule up to 90 days ahead, for free."
+            "value" : "Everyone can create up to 20 events per day and schedule up to 90 days ahead, for free. Pro raises this to 50 events per day and 270 days."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "誰でも無料で、1日最大20件のイベントを作成し、90日先まで予定を入れられます。"
+            "value" : "誰でも無料で、1日最大20件のイベントを作成し、90日先まで予定を入れられます。Proでは1日50件、270日先まで広がります。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "누구나 무료로 하루 최대 20개의 이벤트를 만들고 최대 90일 후까지 일정을 잡을 수 있습니다."
+            "value" : "누구나 무료로 하루 최대 20개의 이벤트를 만들고 최대 90일 후까지 일정을 잡을 수 있습니다. Pro는 하루 50개, 270일까지 늘려 줍니다."
           }
         },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Mọi người đều có thể tạo tối đa 20 sự kiện mỗi ngày và lên lịch trước tối đa 90 ngày, hoàn toàn miễn phí."
+            "value" : "Mọi người đều có thể tạo tối đa 20 sự kiện mỗi ngày và lên lịch trước tối đa 90 ngày, hoàn toàn miễn phí. Gói Pro nâng lên 50 sự kiện mỗi ngày và 270 ngày."
           }
         }
       }
@@ -10905,25 +10905,25 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Yes. Every feature is free for everyone, supported by ads. A one-time Remove Ads purchase turns off banner and full-screen ads for good.\n\nIf you bought Premium or Pro before, you're ad-free automatically, and an active Pro plan keeps its higher limits (50 events per day, 270 days ahead)."
+            "value" : "Yes. Every feature is free for everyone, supported by ads.\n\nRemove Ads is a one-time purchase that turns off banner and full-screen ads for good.\n\nPro is an optional monthly or yearly subscription for busy schedules: 50 events per day, bookings up to 270 days ahead, 50 to-dos per event, and no ads while it's active.\n\nIf you bought Premium or Pro before version 2.5, you stay ad-free automatically."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "はい。すべての機能は広告によって誰でも無料で使えます。「広告を削除」を1回購入すると、バナー広告と全画面広告がずっと表示されなくなります。\n\n以前にPremiumまたはProを購入した方は自動的に広告なしになり、有効なProプランでは引き続き上限が高くなります（1日50件、270日先まで）。"
+            "value" : "はい。すべての機能は広告によって誰でも無料で使えます。\n\n「広告を削除」は1回きりの購入で、バナー広告と全画面広告がずっと表示されなくなります。\n\nProは予定が多い方向けの月額・年額サブスクリプション（任意）です。1日50件、270日先までの予約、1イベント50件のToDoが使え、登録中は広告も表示されません。\n\nバージョン2.5より前にPremiumまたはProを購入した方は、自動的に広告なしになります。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "네. 모든 기능은 광고 덕분에 누구나 무료로 사용할 수 있어요. ‘광고 제거’를 한 번 구매하면 배너 광고와 전면 광고가 영구히 사라져요.\n\n이전에 Premium 또는 Pro를 구매했다면 자동으로 광고 없이 사용할 수 있으며, 이용 중인 Pro 플랜은 더 높은 한도(하루 50개, 270일 전 예약)가 유지돼요."
+            "value" : "네. 모든 기능은 광고 덕분에 누구나 무료로 사용할 수 있어요.\n\n‘광고 제거’는 한 번만 구매하면 배너 광고와 전면 광고가 영구히 사라지는 상품이에요.\n\nPro는 일정이 많은 분을 위한 월간·연간 구독(선택)이에요. 하루 50개 이벤트, 최대 270일 전 예약, 이벤트당 50개 할 일을 쓸 수 있고, 구독 중에는 광고가 없어요.\n\n버전 2.5 이전에 Premium 또는 Pro를 구매했다면 자동으로 광고 없이 사용할 수 있어요."
           }
         },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Có. Mọi tính năng đều miễn phí cho tất cả, nhờ quảng cáo. Mua “Xoá quảng cáo” một lần để tắt quảng cáo banner và toàn màn hình vĩnh viễn.\n\nNếu trước đây bạn đã mua Premium hoặc Pro, bạn tự động không bị quảng cáo, và gói Pro còn hạn vẫn giữ giới hạn cao hơn (50 sự kiện mỗi ngày, đặt trước 270 ngày)."
+            "value" : "Có. Mọi tính năng đều miễn phí cho tất cả, nhờ quảng cáo.\n\n“Xoá quảng cáo” là gói mua một lần, tắt quảng cáo banner và toàn màn hình vĩnh viễn.\n\nPro là gói đăng ký theo tháng hoặc năm (không bắt buộc) dành cho lịch bận rộn: 50 sự kiện mỗi ngày, đặt lịch trước 270 ngày, 50 việc mỗi sự kiện và không quảng cáo khi còn hạn.\n\nNếu bạn đã mua Premium hoặc Pro trước bản 2.5, bạn tự động không bị quảng cáo."
           }
         }
       }
@@ -10934,25 +10934,25 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Is EasySchedule free? What does Remove Ads do?"
+            "value" : "Is EasySchedule free? What are Remove Ads and Pro?"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "EasyScheduleは無料ですか？「広告を削除」とは？"
+            "value" : "EasyScheduleは無料ですか？「広告を削除」とProとは？"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "EasySchedule은 무료인가요? 광고 제거는 무엇인가요?"
+            "value" : "EasySchedule은 무료인가요? 광고 제거와 Pro는 무엇인가요?"
           }
         },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "EasySchedule có miễn phí không? Xoá quảng cáo để làm gì?"
+            "value" : "EasySchedule có miễn phí không? Xoá quảng cáo và Pro là gì?"
           }
         }
       }
@@ -10963,25 +10963,25 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "You've reached the daily limit of 20 events. Pick another day, or delete events you no longer need."
+            "value" : "You've reached the daily limit of 20 events (50 with Pro). Pick another day, or delete events you no longer need."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "1日の上限（20件）に達しました。別の日を選ぶか、不要なイベントを削除してください。"
+            "value" : "1日の上限（20件、Proは50件）に達しました。別の日を選ぶか、不要なイベントを削除してください。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "하루 한도(20개)에 도달했어요. 다른 날을 선택하거나 필요 없는 이벤트를 삭제해 주세요."
+            "value" : "하루 한도(20개, Pro는 50개)에 도달했어요. 다른 날을 선택하거나 필요 없는 이벤트를 삭제해 주세요."
           }
         },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Bạn đã đạt giới hạn 20 sự kiện mỗi ngày. Hãy chọn ngày khác hoặc xoá bớt sự kiện không cần nữa."
+            "value" : "Bạn đã đạt giới hạn 20 sự kiện mỗi ngày (Pro: 50). Hãy chọn ngày khác hoặc xoá bớt sự kiện không cần nữa."
           }
         }
       }
@@ -11311,25 +11311,25 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Limits & Remove Ads"
+            "value" : "Limits & Plans"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "制限と広告の削除"
+            "value" : "制限とプラン"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "제한 및 광고 제거"
+            "value" : "제한 및 플랜"
           }
         },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Giới hạn & Xoá quảng cáo"
+            "value" : "Giới hạn & Các gói"
           }
         }
       }
@@ -11398,25 +11398,25 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Each event can have up to 20 to-do items."
+            "value" : "Each event can have up to 20 to-do items (50 with Pro)."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "1つのイベントにつき最大20件のToDoを作成できます。"
+            "value" : "1つのイベントにつき最大20件のToDoを作成できます（Proは50件）。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "이벤트마다 최대 20개의 할 일을 만들 수 있어요."
+            "value" : "이벤트마다 최대 20개의 할 일을 만들 수 있어요(Pro는 50개)."
           }
         },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Mỗi sự kiện có thể có tối đa 20 việc cần làm."
+            "value" : "Mỗi sự kiện có thể có tối đa 20 việc cần làm (Pro: 50)."
           }
         }
       }
@@ -14238,25 +14238,25 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Every feature is now free, and you stay ad-free even if you cancel your subscription. An active Pro plan keeps its higher limits."
+            "value" : "Premium is now free for everyone, so you can cancel your Premium subscription anytime."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "現在はすべての機能が無料です。サブスクリプションを解約しても広告は表示されません。有効なProプランでは引き続き上限が高くなります。"
+            "value" : "Premiumの機能は現在すべての方に無料で提供しています。Premiumのサブスクリプションはいつでも解約できます。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "이제 모든 기능이 무료예요. 구독을 해지해도 광고는 표시되지 않아요. 이용 중인 Pro 플랜은 더 높은 한도가 유지돼요."
+            "value" : "이제 Premium 기능은 누구나 무료로 쓸 수 있어요. Premium 구독은 언제든지 해지할 수 있어요."
           }
         },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Giờ mọi tính năng đều miễn phí và bạn vẫn không bị quảng cáo kể cả khi huỷ gói đăng ký. Gói Pro còn hạn vẫn giữ giới hạn cao hơn."
+            "value" : "Premium giờ đã miễn phí cho mọi người, bạn có thể huỷ gói Premium bất cứ lúc nào."
           }
         }
       }
@@ -23620,6 +23620,62 @@
         }
       }
     },
+    "pro_sheet_subtitle" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Every feature is free. Pro is for busy schedules: higher limits, and no ads while you're subscribed."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "すべての機能は無料です。Proは予定が多い方向けで、上限が高くなり、登録中は広告も表示されません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "모든 기능은 무료예요. Pro는 일정이 많은 분을 위한 플랜으로, 한도가 더 높고 구독 중에는 광고가 없어요."
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mọi tính năng đều miễn phí. Pro dành cho lịch bận rộn: giới hạn cao hơn và không quảng cáo khi còn hạn."
+          }
+        }
+      }
+    },
+    "pro_sheet_title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "EasySchedule Pro"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "EasySchedule Pro"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "EasySchedule Pro"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "EasySchedule Pro"
+          }
+        }
+      }
+    },
     "profile_display_name_hint" : {
       "comment" : "A hint displayed below the name text field, explaining that it will be used as the user's display name.",
       "isCommentAutoGenerated" : true,
@@ -30023,6 +30079,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nâng cấp Premium"
+          }
+        }
+      }
+    },
+    "upgrade_to_pro" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Upgrade to Pro"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Proにアップグレード"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pro로 업그레이드"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nâng cấp Pro"
           }
         }
       }

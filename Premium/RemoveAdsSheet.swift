@@ -1,6 +1,7 @@
 // RemoveAdsSheet.swift
 //
-// The only purchase since 2.5: a one-time "Remove Ads". Every feature stays free.
+// One-time "Remove Ads". Every feature stays free; Pro (ProUpgradeSheet) is the
+// subscription for higher limits.
 //
 
 import SwiftUI
@@ -44,7 +45,7 @@ struct RemoveAdsSheet: View {
         }
         .background(backgroundView)
         .safeAreaInset(edge: .bottom) {
-            if !premium.isAdFree { ctaBar }
+            if !premium.isLifetimeAdFree { ctaBar }
         }
         .overlay(alignment: .topTrailing) { closeButton }
         .onAppear {
@@ -95,7 +96,7 @@ struct RemoveAdsSheet: View {
 
     @ViewBuilder
     private var content: some View {
-        if premium.isAdFree {
+        if premium.isLifetimeAdFree {
             VStack(spacing: 12) {
                 Image(systemName: "checkmark.seal.fill")
                     .font(.largeTitle)
