@@ -242,14 +242,6 @@ struct ChatView: View {
                                        Image(systemName: "person.badge.plus")
                                    }
                                }
-                    // ⭐ Premium indicator
-                    if premium.isPremium {
-                        Image(systemName: "star.fill")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundColor(AppColors.premiumGold)
-                            .opacity(0.8)
-                    }
-
                     Button {
                         activeSheet = .todo
                     } label: {
@@ -271,13 +263,7 @@ struct ChatView: View {
                 return Alert(
                     title: Text(String(localized: "chat_limit_title")),
                     message: Text(String(localized: "chat_limit_message")),
-                    primaryButton: .default(
-                        Text(String(localized: "upgrade_to_premium")),
-                        action: {
-                            activeSheet = .premium
-                        }
-                    ),
-                    secondaryButton: .cancel(
+                    dismissButton: .cancel(
                         Text(String(localized: "wait_ok"))
                     )
                 )
@@ -358,13 +344,6 @@ struct ChatView: View {
                 )
                 .environmentObject(eventManager)
 
-            case .premium:
-                PremiumUpgradeSheet(
-                    preselectProductID: "com.SamCorp.EasySchedule.premium.yearly",
-                    autoPurchase: false
-                )
-                .environmentObject(premium)
-                
             case .todo:
                 TodoListView(vm: todoVM)
             }
@@ -802,7 +781,6 @@ enum ChatAlert: Identifiable {
 
 enum ChatSheet: Identifiable {
     case mapPicker
-    case premium
     case todo
     // ⭐ ADD
     case addMember

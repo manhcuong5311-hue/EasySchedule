@@ -17,8 +17,12 @@ struct AdBannerView: View {
         if ads.adsEnabled && ads.isReady {
             let size = AdSizeBanner.size
 
+            // The banner view itself always keeps its full 320×50 frame — the SDK
+            // rejects a load from a zero-height view ("Invalid ad width or height").
+            // Only the outer slot collapses until an ad has actually loaded.
             BannerRepresentable()
-                .frame(width: size.width, height: ads.bannerHeight > 0 ? size.height : 0)
+                .frame(width: size.width, height: size.height)
+                .frame(height: ads.bannerHeight > 0 ? size.height : 0, alignment: .top)
                 .clipped()
         }
     }

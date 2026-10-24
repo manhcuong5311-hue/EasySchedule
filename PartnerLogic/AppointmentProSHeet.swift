@@ -321,19 +321,18 @@ struct AppointmentProSheet: View {
         }
     }
 
+    // Everyone shares the same free plan; only a legacy Pro plan still has its own badge.
     private var tierColor: Color {
         switch partnerTier {
-        case .free:    return .secondary
-        case .premium: return Color(hex: "#F5A623")
-        case .pro:     return Color(hex: "#7B68EE")
+        case .free, .premium: return .secondary
+        case .pro:            return Color(hex: "#7B68EE")
         }
     }
 
     private var tierLabel: String {
         switch partnerTier {
-        case .free:    return String(format: String(localized: "tier_badge_free"), partnerMaxBookingDays)
-        case .premium: return String(format: String(localized: "tier_badge_premium"), partnerMaxBookingDays)
-        case .pro:     return String(format: String(localized: "tier_badge_pro"), partnerMaxBookingDays)
+        case .free, .premium: return String(format: String(localized: "booking_window_badge"), partnerMaxBookingDays)
+        case .pro:            return String(format: String(localized: "tier_badge_pro"), partnerMaxBookingDays)
         }
     }
 
@@ -879,7 +878,7 @@ struct AppointmentProSheet: View {
         return selectedDate > maxDate
     }
 
-    // Same windows as the paywall / web booking page (free 7 · premium 90 · pro 270)
+    // Same windows as the web booking page (90 days for everyone · legacy Pro 270)
     private var partnerMaxBookingDays: Int {
         PremiumLimits.limits(for: partnerTier).maxBookingDaysAhead
     }
@@ -1038,9 +1037,8 @@ struct AppointmentProSheet: View {
         let maxDate = cal.date(byAdding: .day, value: partnerMaxBookingDays, to: Date())!
         if selectedDate > maxDate {
             switch partnerTier {
-            case .free:    errorMessage = String(localized: "booking_limit_7_days")
-            case .premium: errorMessage = String(localized: "premium_booking_limit_90_days")
-            case .pro:     errorMessage = String(localized: "pro_booking_limit_270_days")
+            case .free, .premium: errorMessage = String(localized: "premium_booking_limit_90_days")
+            case .pro:            errorMessage = String(localized: "pro_booking_limit_270_days")
             }
             return
         }
@@ -1051,7 +1049,7 @@ struct AppointmentProSheet: View {
             $0.createdBy == creatorUid &&
             Calendar.current.isDate($0.startTime, inSameDayAs: selectedDate)
         }
-        let maxEvents = PremiumStoreViewModel.shared.maxEventsPerDay(on: selectedDate)
+        let maxEvents = PremiumStoreViewModel.shared.limits.maxEventsPerDay
         if myEventsToday.count >= maxEvents {
             errorMessage = String(localized: "event_limit_reached")
             return

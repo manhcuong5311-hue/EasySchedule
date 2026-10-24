@@ -1,8 +1,8 @@
 //
 // AdsManager.swift
 //
-// Google AdMob for FREE users only: banner, interstitial after creating events,
-// and a rewarded ad that unlocks one extra event for a day.
+// Google AdMob for everyone who hasn't bought Remove Ads (or an old Premium /
+// Pro plan): a banner above the tab bar and an interstitial after creating events.
 // Startup order: GDPR consent (UMP, EEA/UK only) → ATT prompt → start SDK → preload.
 //
 
@@ -18,11 +18,10 @@ final class AdsManager: NSObject, ObservableObject {
 
     static let shared = AdsManager()
 
-    /// Free tier resolved → ads allowed. Premium/Pro → always false.
+    /// Purchases resolved and the user isn't ad-free → ads allowed.
     @Published private(set) var adsEnabled = false
     /// Consent + ATT done and the SDK is started.
     @Published private(set) var isReady = false
-    @Published private(set) var isRewardedReady = false
     /// Height of the loaded banner (0 while loading / no fill / ads off).
     @Published private(set) var bannerHeight: CGFloat = 0
     /// EEA/UK users must be able to reopen the consent form (shown in Settings).
@@ -37,14 +36,10 @@ final class AdsManager: NSObject, ObservableObject {
     private var isStarting = false
 
     private var interstitial: InterstitialAd?
-    private var rewarded: RewardedAd?
     private var isLoadingInterstitial = false
-    private var isLoadingRewarded = false
 
     private var eventsSinceInterstitial = 0
     private var lastFullScreenAdAt: Date?
-    private var rewardEarned = false
-    private var onRewardDismissed: (() -> Void)?
 
     private var cancellables = Set<AnyCancellable>()
 
@@ -53,8 +48,8 @@ final class AdsManager: NSObject, ObservableObject {
 
         let premium = PremiumStoreViewModel.shared
         premium.$isLoaded
-            .combineLatest(premium.$tier)
-            .map { isLoaded, tier in isLoaded && tier == .free }
+            .combineLatest(premium.$isAdFree)
+            .map { isLoaded, isAdFree in isLoaded && !isAdFree }
             .removeDuplicates()
             .sink { [weak self] enabled in self?.setAdsEnabled(enabled) }
             .store(in: &cancellables)
@@ -75,10 +70,8 @@ final class AdsManager: NSObject, ObservableObject {
         if enabled {
             startIfNeeded()
         } else {
-            // Vừa nâng cấp Premium → bỏ hết quảng cáo đã tải
+            // Vừa mua Remove Ads → bỏ hết quảng cáo đã tải
             interstitial = nil
-            rewarded = nil
-            isRewardedReady = false
             bannerHeight = 0
         }
     }
@@ -87,7 +80,7 @@ final class AdsManager: NSObject, ObservableObject {
         guard adsEnabled, uiReady, !isStarting else { return }
 
         if isReady {
-            preloadFullScreenAds()
+            loadInterstitial()
             return
         }
 
@@ -104,7 +97,7 @@ final class AdsManager: NSObject, ObservableObject {
 
             _ = await MobileAds.shared.start()
             isReady = true
-            preloadFullScreenAds()
+            loadInterstitial()
         }
     }
 
@@ -192,69 +185,11 @@ final class AdsManager: NSObject, ObservableObject {
         }
     }
 
-    // MARK: - Rewarded
-
-    /// Free user hit the daily limit on `date` → can we offer "watch an ad for +1 event"?
-    func canOfferRewardedEvent(for date: Date) -> Bool {
-        adsEnabled && isRewardedReady && RewardedEventBonus.canGrant(for: date)
-    }
-
-    /// Shows the rewarded ad. `onReward` runs AFTER the ad is closed, and only if
-    /// the user watched it to the end. Returns false if nothing could be shown.
-    @discardableResult
-    func showRewarded(onReward: @escaping () -> Void) -> Bool {
-        guard adsEnabled, let ad = rewarded, let vc = Self.topViewController() else {
-            loadRewarded()
-            return false
-        }
-
-        rewarded = nil
-        isRewardedReady = false
-        rewardEarned = false
-        onRewardDismissed = onReward
-        lastFullScreenAdAt = Date()
-
-        ad.present(from: vc) { [weak self] in
-            self?.rewardEarned = true
-            AppAnalytics.log(AppAnalyticsEvent.rewardedAdCompleted)
-        }
-        return true
-    }
-
-    private func loadRewarded() {
-        guard adsEnabled, isReady, rewarded == nil, !isLoadingRewarded else { return }
-        isLoadingRewarded = true
-
-        Task {
-            defer { isLoadingRewarded = false }
-            do {
-                let ad = try await RewardedAd.load(with: AdsConfig.rewardedUnitID, request: Request())
-                ad.fullScreenContentDelegate = self
-                rewarded = adsEnabled ? ad : nil
-                isRewardedReady = rewarded != nil
-            } catch {
-                print("⚠️ Rewarded load failed:", error.localizedDescription)
-            }
-        }
-    }
-
     // MARK: - Helpers
-
-    private func preloadFullScreenAds() {
-        loadInterstitial()
-        loadRewarded()
-    }
 
     private var isFullScreenAdOnCooldown: Bool {
         guard let last = lastFullScreenAdAt else { return false }
         return Date().timeIntervalSince(last) < AdsConfig.minSecondsBetweenFullScreenAds
-    }
-
-    private func finishRewardedFlow() {
-        let callback = rewardEarned ? onRewardDismissed : nil
-        onRewardDismissed = nil
-        rewardEarned = false
-        callback?()
     }
 
     private static func topViewController() -> UIViewController? {
@@ -273,18 +208,12 @@ final class AdsManager: NSObject, ObservableObject {
 extension AdsManager: FullScreenContentDelegate {
 
     func adDidDismissFullScreenContent(_ ad: FullScreenPresentingAd) {
-        if ad is RewardedAd {
-            finishRewardedFlow()
-        }
-        preloadFullScreenAds()
+        loadInterstitial()
     }
 
     func ad(_ ad: FullScreenPresentingAd,
             didFailToPresentFullScreenContentWithError error: Error) {
         print("⚠️ Full-screen ad failed to present:", error.localizedDescription)
-        if ad is RewardedAd {
-            finishRewardedFlow()
-        }
-        preloadFullScreenAds()
+        loadInterstitial()
     }
 }

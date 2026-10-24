@@ -51,7 +51,6 @@ nonisolated enum AppAnalyticsEvent {
     static let proposalVoted       = "proposal_voted"
     static let quickReplySent      = "quick_reply_sent"
     static let paywallShown        = "paywall_shown"
-    static let rewardedAdCompleted = "rewarded_ad_completed"
     static let interstitialShown   = "interstitial_shown"
     static let bookingLinkSet      = "booking_link_set"
     static let bookingHoursSaved   = "booking_hours_saved"

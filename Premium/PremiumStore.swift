@@ -15,12 +15,16 @@ actor PremiumStore {
     static let shared = PremiumStore()
 
     // MARK: - Product IDs
+    /// One-time purchase that turns ads off. Since 2.5 it is the only product on sale.
+    static let removeAdsProductID = "com.SamCorp.EasySchedule.removeads"
+
     private let productIDs: Set<String> = [
-        // PREMIUM
+        removeAdsProductID,
+
+        // Legacy subscriptions (no longer sold) — kept so existing subscribers
+        // are still recognised and restore keeps working.
         "com.SamCorp.EasySchedule.premium.monthly",
         "com.SamCorp.EasySchedule.premium.yearly",
-
-        // PRO
         "com.SamCorp.EasySchedule.pro.monthly",
         "com.SamCorp.EasySchedule.pro.yearly"
     ]
@@ -28,11 +32,16 @@ actor PremiumStore {
     // MARK: - Stored properties
     private var products: [Product] = []
     private var purchasedProductIDs: Set<String> = []
+    /// Any purchase ever (Remove Ads, or a Premium / Pro subscription even if it
+    /// has since expired) — those users never see ads.
+    private var everPurchased = false
     // MARK: - Init
     init() {
         if #available(iOS 15.0, *) {
             Task {
                 await updateEntitlements()
+                // The view model may have refreshed before this finished.
+                await self.notifyUpdate()
                 await self.listenForTransactions() }
         }
     }
@@ -44,6 +53,10 @@ actor PremiumStore {
 
     func getPurchasedIDs() -> Set<String> {
         purchasedProductIDs
+    }
+
+    func hasEverPurchased() -> Bool {
+        everPurchased
     }
 
     // MARK: - Load Products
@@ -126,23 +139,19 @@ actor PremiumStore {
     }
 
     // MARK: - Restore
+    /// Re-syncs with the App Store. Returns true when any purchase was found.
     func restore() async -> Bool {
-        purchasedProductIDs.removeAll()
-       
         guard #available(iOS 15.0, *) else { return false }
 
         do {
-            for await entitlement in Transaction.currentEntitlements {
-                let verified = try checkVerified(entitlement)
-                await markPurchased(verified.productID)
-            }
-            notifyUpdate()
-            return true
-
+            try await AppStore.sync()
         } catch {
             print("❌ Restore failed:", error.localizedDescription)
-            return false
         }
+
+        await updateEntitlements()
+        notifyUpdate()
+        return everPurchased
     }
 
     // MARK: - Listen for updates
@@ -172,9 +181,23 @@ actor PremiumStore {
                 purchasedProductIDs.insert(transaction.productID)
             } catch {}
         }
+
+        // Expired subscriptions are no longer entitlements but still count as a purchase.
+        var purchasedBefore = !purchasedProductIDs.isEmpty
+        if !purchasedBefore {
+            for await result in Transaction.all {
+                if let transaction = try? checkVerified(result),
+                   transaction.revocationDate == nil {
+                    purchasedBefore = true
+                    break
+                }
+            }
+        }
+        everPurchased = purchasedBefore
     }
     private func markPurchased(_ id: String) async {
         purchasedProductIDs.insert(id)
+        everPurchased = true
     }
 
     // MARK: - Verification fix (IMPORTANT FOR APP REVIEW)
@@ -197,30 +220,6 @@ actor PremiumStore {
         }
     }
 
-    @available(iOS 15.0, *)
-    func startFreeTrial() async -> Bool {
-
-        // Ensure products loaded
-        if products.isEmpty {
-            await start()
-        }
-
-        // 1️⃣ Chọn Premium product có free trial
-        guard let trialProduct = products.first(where: {
-            $0.id.contains(".premium.") &&
-            $0.subscription?.introductoryOffer?.paymentMode == .freeTrial
-        }) else {
-            print("❌ No Premium product with free trial found")
-            return false
-        }
-
-        // 2️⃣ Purchase trực tiếp → Apple tự cấp trial
-        return await purchase(trialProduct)
-    }
-
-    
-    
-    
     // MARK: - Error Types
     enum PremiumError: LocalizedError {
         case unverified
@@ -236,13 +235,4 @@ actor PremiumStore {
         }
     }
 
-}
-extension Product {
-    var isPremium: Bool {
-        id.contains(".premium.")
-    }
-
-    var hasFreeTrial: Bool {
-        subscription?.introductoryOffer?.paymentMode == .freeTrial
-    }
 }

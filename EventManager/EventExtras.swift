@@ -495,7 +495,7 @@ extension EventManager {
 
             guard occ.end > now,
                   !clashes,
-                  sameDay.count < premium.maxEventsPerDay(on: day)
+                  sameDay.count < premium.limits.maxEventsPerDay
             else { continue }
 
             pending.append(CalendarEvent(

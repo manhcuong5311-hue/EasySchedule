@@ -1,6 +1,11 @@
 //
 // PremiumStoreViewModel.swift
 //
+// Since 2.5 every feature is free: everyone gets what Premium used to include,
+// paid for by ads. The only thing on sale is a one-time "Remove Ads".
+// Anyone who ever bought Premium / Pro never sees ads, and an active legacy
+// Pro subscription keeps the Pro limits.
+//
 
 import SwiftUI
 import StoreKit
@@ -14,8 +19,13 @@ final class PremiumStoreViewModel: ObservableObject {
     static let shared = PremiumStoreViewModel()
 
     @Published var products: [Product] = []
-    @Published var tier: PremiumTier = .free
+    /// Effective plan for limits. `.premium` for everyone; `.pro` while a legacy Pro subscription is active.
+    @Published var tier: PremiumTier = .premium
     @Published var isLoaded: Bool = false
+    /// Bought Remove Ads, or ever bought Premium / Pro → no ads. Cached so ads never flash at launch.
+    @Published private(set) var isAdFree: Bool = UserDefaults.standard.bool(forKey: adFreeKey)
+    /// A legacy Premium / Pro subscription is still renewing (Settings offers to manage it).
+    @Published private(set) var hasActiveSubscription = false
 
     // Legacy – KHÔNG LƯU STATE
     var isPremium: Bool {
@@ -26,8 +36,13 @@ final class PremiumStoreViewModel: ObservableObject {
         tier == .pro
     }
 
+    var removeAdsProduct: Product? {
+        products.first { $0.id == PremiumStore.removeAdsProductID }
+    }
 
     @Published var loading: Bool = false
+
+    private static let adFreeKey = "premium.isAdFree"
 
     private init() {
         NotificationCenter.default.addObserver(
@@ -40,36 +55,14 @@ final class PremiumStoreViewModel: ObservableObject {
 
         Task { await refresh() }
     }
- 
+
     var limits: PremiumLimits {
         PremiumLimits.limits(for: tier)
     }
 
-    /// Daily event cap for the current user on `date`, including extra slots a
-    /// free user unlocked for that day by watching a rewarded ad.
-    func maxEventsPerDay(on date: Date) -> Int {
-        let bonus = tier == .free ? RewardedEventBonus.count(for: date) : 0
-        return limits.maxEventsPerDay + bonus
-    }
-
-    /// How many icons from a category to show (free users get first 8, paid users get all).
-    func visibleIconCount(total: Int) -> Int {
-        isPremium ? total : min(total, PremiumLimits.maxFreeIconsPerCategory)
-    }
-
     private func resolveTier(from entitlements: Set<String>) -> PremiumTier {
-
-        // Ưu tiên Pro
-        if entitlements.contains(where: { $0.contains("pro") }) {
-            return .pro
-        }
-
-        // Premium thường
-        if entitlements.contains(where: { $0.contains("premium") }) {
-            return .premium
-        }
-
-        return .free
+        // Pro subscribers keep Pro limits while the subscription runs; everyone else gets Premium.
+        entitlements.contains(where: { $0.contains(".pro.") }) ? .pro : .premium
     }
 
     // MARK: - START
@@ -88,35 +81,41 @@ final class PremiumStoreViewModel: ObservableObject {
 
         products = await PremiumStore.shared.getProducts()
         let entitlements = await PremiumStore.shared.getPurchasedIDs()
+        let everPurchased = await PremiumStore.shared.hasEverPurchased()
 
-        let resolvedTier = resolveTier(from: entitlements)
-        let oldTier = tier
+        tier = resolveTier(from: entitlements)
+        hasActiveSubscription = entitlements.contains { $0 != PremiumStore.removeAdsProductID }
 
-        tier = resolvedTier
+        // Sticky: once ad-free, always ad-free on this device.
+        if everPurchased && !isAdFree {
+            isAdFree = true
+            UserDefaults.standard.set(true, forKey: Self.adFreeKey)
+        }
+
         isLoaded = true          // ⭐ DÒNG QUAN TRỌNG NHẤT
 
-        if oldTier != resolvedTier {
-            syncPremiumStatusToFirestore()
-        }
+        syncPremiumStatusToFirestoreIfNeeded()
 
         loading = false
     }
 
+    // MARK: - SYNC TO FIRESTORE
+    //
+    // Other users' apps and the web booking page read `tier` from publicCalendar
+    // to know how far ahead this calendar can be booked.
 
-
-
-
-    // MARK: - SYNC TO FIRESTORE (A là người mua Premium)
-    func syncPremiumStatusToFirestore() {
+    private func syncPremiumStatusToFirestoreIfNeeded() {
         guard let uid = Auth.auth().currentUser?.uid else { return }
-        let db = Firestore.firestore()
+        let key = "premium.syncedTier.\(uid)"
+        guard UserDefaults.standard.string(forKey: key) != tier.firestoreValue else { return }
 
         let data: [String: Any] = [
-            "tier": tier == .free ? "free" : (tier == .premium ? "premium" : "pro"),
+            "tier": tier.firestoreValue,
             "isPremium": isPremium,
             "updatedAt": Timestamp(date: Date())
         ]
 
+        let db = Firestore.firestore()
 
         db.collection("premiumStatus")
             .document(uid)
@@ -125,48 +124,23 @@ final class PremiumStoreViewModel: ObservableObject {
         db.collection("publicCalendar")
             .document(uid)
             .setData(data, merge: true)
-    }
 
+        UserDefaults.standard.set(tier.firestoreValue, forKey: key)
+    }
 
     // MARK: - BUY
     func buy(_ product: Product) async -> Bool {
         let success = await PremiumStore.shared.purchase(product)
         await refresh()
-
-        if success {
-            syncPremiumStatusToFirestore()
-        }
-
         return success
-    }
-    // MARK: - START FREE TRIAL
-    func startFreeTrial() {
-        guard tier == .free else { return }
-
-        Task {
-            loading = true
-
-            let success = await PremiumStore.shared.startFreeTrial()
-            await refresh()
-
-            if success {
-                syncPremiumStatusToFirestore()
-            }
-
-            loading = false
-        }
     }
 
     // MARK: - RESTORE
+    /// True when any purchase (Remove Ads or a past subscription) was found.
     func restore() async -> Bool {
-        let success = await PremiumStore.shared.restore()
+        let found = await PremiumStore.shared.restore()
         await refresh()
-
-        if success {
-            syncPremiumStatusToFirestore()
-        }
-
-        return success
+        return found
     }
 }
 
@@ -179,6 +153,15 @@ enum PremiumTier: Int, Comparable, Codable {
     static func < (lhs: PremiumTier, rhs: PremiumTier) -> Bool {
         lhs.rawValue < rhs.rawValue
     }
+
+    /// Value stored in premiumStatus / publicCalendar `tier`.
+    var firestoreValue: String {
+        switch self {
+        case .free: return "free"
+        case .premium: return "premium"
+        case .pro: return "pro"
+        }
+    }
 }
 struct PremiumLimits {
     let maxEventsPerDay: Int
@@ -186,19 +169,11 @@ struct PremiumLimits {
     let maxChatMessagesPerEvent: Int
     let maxTodosPerEvent: Int
 
-    static let maxFreeIconsPerCategory = 8
-
     static func limits(for tier: PremiumTier) -> PremiumLimits {
         switch tier {
-        case .free:
-            return .init(
-                maxEventsPerDay: 5,
-                maxBookingDaysAhead: 7,
-                maxChatMessagesPerEvent: 100,
-                maxTodosPerEvent: 5
-            )
-
-        case .premium:
+        // `.free` only still shows up for calendars whose owner runs an app older
+        // than 2.5 — they get the same (free-for-everyone) limits.
+        case .free, .premium:
             return .init(
                 maxEventsPerDay: 20,
                 maxBookingDaysAhead: 90,

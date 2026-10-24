@@ -9,14 +9,12 @@ struct IconPicker: View {
 
     @Environment(\.dismiss) var dismiss
     @Environment(\.colorScheme) var colorScheme
-    @EnvironmentObject var premium: PremiumStoreViewModel
 
     @State private var selectedIcon: String = ""
     @State private var selectedColor: Color = .blue
     @State private var recentIcons: [String] =
         UserDefaults.standard.stringArray(forKey: "recentIcons") ?? []
     @State private var showHexEditor = false
-    @State private var showPremiumSheet = false
 
     var body: some View {
         NavigationStack {
@@ -77,10 +75,6 @@ struct IconPicker: View {
                     EventColorPalette.colors = current
                 }
             }
-        }
-        .sheet(isPresented: $showPremiumSheet) {
-            PremiumUpgradeSheet(preselectProductID: nil, autoPurchase: false)
-                .environmentObject(premium)
         }
     }
 
@@ -204,41 +198,14 @@ extension IconPicker {
                 VStack(alignment: .leading, spacing: 10) {
                     sectionLabel(category.title)
 
-                    let visible = Array(category.icons.prefix(
-                        premium.visibleIconCount(total: category.icons.count)
-                    ))
-
                     LazyVGrid(
                         columns: Array(repeating: GridItem(.fixed(52), spacing: 10), count: 6),
                         spacing: 10
                     ) {
-                        ForEach(visible) { item in
+                        ForEach(category.icons) { item in
                             IconCell(symbol: item.symbol, accentColor: selectedColor,
                                      isSelected: selectedIcon == item.symbol) {
                                 selectIcon(item.symbol)
-                            }
-                        }
-
-                        if !premium.isPremium &&
-                            category.icons.count > PremiumLimits.maxFreeIconsPerCategory {
-                            Button { showPremiumSheet = true } label: {
-                                ZStack {
-                                    RoundedRectangle(cornerRadius: 14)
-                                        .fill(Color.yellow.opacity(0.12))
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 14)
-                                                .stroke(Color.yellow.opacity(0.3), lineWidth: 1)
-                                        )
-                                    VStack(spacing: 2) {
-                                        Image(systemName: "crown.fill")
-                                            .font(.system(size: 16))
-                                            .foregroundStyle(.yellow)
-                                        Text("+\(category.icons.count - PremiumLimits.maxFreeIconsPerCategory)")
-                                            .font(.system(size: 10, weight: .bold))
-                                            .foregroundStyle(.yellow)
-                                    }
-                                }
-                                .frame(width: 52, height: 52)
                             }
                         }
                     }

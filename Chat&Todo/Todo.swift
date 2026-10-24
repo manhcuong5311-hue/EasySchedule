@@ -130,7 +130,6 @@ class TodoViewModel: ObservableObject {
 struct TodoListView: View {
     let chatId: String
     let myId: String
-    @State private var showPaywall = false
     @ObservedObject private var vm: TodoViewModel
     @ObservedObject private var nameCache = SessionStore.UserNameCache.shared
     
@@ -144,8 +143,7 @@ struct TodoListView: View {
     @State private var showDeleteConfirm = false
     @State private var todoToDelete: TodoItem? = nil
     enum TodoLimitAlertType: Identifiable {
-        case freeLimit        // Free user vượt 5
-        case chatMaxReached   // Chat premium vượt 20
+        case chatMaxReached   // Đã đủ số việc tối đa của sự kiện
         case emptyTodo
         var id: Int { hashValue }
     }
@@ -248,14 +246,7 @@ struct TodoListView: View {
                         let limit = limits.maxTodosPerEvent
 
                         if limit != .max && vm.todos.count >= limit {
-                            switch premium.tier {
-                            case .free:
-                                limitAlert = .freeLimit
-                            case .premium:
-                                limitAlert = .chatMaxReached
-                            case .pro:
-                                break
-                            }
+                            limitAlert = .chatMaxReached
                             return
                         }
 
@@ -282,13 +273,6 @@ struct TodoListView: View {
             .navigationTitle(String(localized: "todo_list_title"))
             .navigationBarTitleDisplayMode(.inline)
             // Listener lifecycle is owned by the parent ChatView (shared TodoViewModel).
-            .sheet(isPresented: $showPaywall) {
-                PremiumUpgradeSheet(
-                    preselectProductID: nil,
-                    autoPurchase: false
-                )
-                .environmentObject(premium)
-            }
             .alert(String(localized: "delete_confirm_title"), isPresented: $showDeleteConfirm) {
                 Button(String(localized:"cancel"), role: .cancel) {}
 
@@ -301,29 +285,7 @@ struct TodoListView: View {
             .alert(item: $limitAlert) { type in
                 switch type {
 
-                // ===== Free user vượt 5 =====
-                case .freeLimit:
-                    return Alert(
-                        title: Text(String(localized: "todo_limit_title")),
-                        message: Text(
-                            String(
-                                format: String(localized: "todo_free_limit_message"),
-                                PremiumLimits
-                                    .limits(for: .free)
-                                    .maxTodosPerEvent
-                            )
-
-                        ),
-                        primaryButton: .default(Text(String(localized: "upgrade_to_premium"))) {
-                            showPaywall = true
-                            limitAlert = nil
-                        },
-                        secondaryButton: .cancel {
-                            limitAlert = nil
-                        }
-                    )
-
-                // ===== Chat premium chạm 20 =====
+                // ===== Đủ số việc tối đa =====
                 case .chatMaxReached:
                     return Alert(
                         title: Text(String(localized: "todo_limit_title")),

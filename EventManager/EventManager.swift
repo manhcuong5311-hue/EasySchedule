@@ -930,7 +930,7 @@ extension EventManager {
             Calendar.current.isDate($0.date, inSameDayAs: date)
         }
 
-        guard eventsSameDay.count < premium.maxEventsPerDay(on: date) else {
+        guard eventsSameDay.count < premium.limits.maxEventsPerDay else {
             self.alertMessage = String(localized: "event_limit_reached")
             self.showAlert = true
             return nil
@@ -1712,9 +1712,7 @@ extension EventManager {
 
                 let msg = {
                     switch ownerTier {
-                    case .free:
-                        return String(localized: "booking_limit_7_days")
-                    case .premium:
+                    case .free, .premium:
                         return String(localized: "premium_booking_limit_90_days")
                     case .pro:
                         return String(localized: "pro_booking_limit_270_days")
@@ -1741,7 +1739,7 @@ extension EventManager {
             // ===============================
             // 4️⃣ LIMIT EVENT / NGÀY — THEO CREATOR (B)
             // ===============================
-            let creatorMaxEvents = PremiumStoreViewModel.shared.maxEventsPerDay(on: start)
+            let creatorMaxEvents = PremiumStoreViewModel.shared.limits.maxEventsPerDay
 
             let calendar = Calendar.current
             let eventsCreatedByMeToday = self.events.filter {

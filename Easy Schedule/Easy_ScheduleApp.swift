@@ -88,7 +88,7 @@ extension Easy_scheduleApp {
 
     @ViewBuilder
     var appMainContent: some View {
-        
+
         if showLaunch {
             LaunchView()
                 .preferredColorScheme(colorScheme)
@@ -135,8 +135,6 @@ struct RootView: View {
     @EnvironmentObject var premium: PremiumStoreViewModel
     @EnvironmentObject var eventManager: EventManager
 
-    @State private var showPremiumIntro = false
-    @State private var showPaywall = false
     @EnvironmentObject var network: NetworkMonitor
     @EnvironmentObject var guideManager: GuideManager
 
@@ -163,16 +161,6 @@ struct RootView: View {
 
                         ReviewManager.shared.tryRequestReview(requestReview)
                     }
-                    .onChange(of: premium.tier) { _, tier in
-                        guard premium.isLoaded else { return }
-
-                        if tier == .free,
-                           PremiumIntroGate.shouldShowToday() {
-
-                            showPremiumIntro = true
-                            PremiumIntroGate.markShown()
-                        }
-                    }
             }
         }
         // ⭐⭐⭐ INJECT Ở ĐÂY — NGOÀI GROUP ⭐⭐⭐
@@ -181,22 +169,6 @@ struct RootView: View {
         .environmentObject(network)
         .environmentObject(uiAccent)
         .tint(uiAccent.color)
-        .sheet(isPresented: $showPremiumIntro) {
-            PremiumIntroView(
-                isPresented: $showPremiumIntro,
-                onUpgrade: {
-                    showPaywall = true
-                }
-            )
-        }
-        
-        .sheet(isPresented: $showPaywall) {
-            PremiumUpgradeSheet(
-                preselectProductID: "com.SamCorp.EasySchedule.premium.yearly",
-                autoPurchase: true
-            )
-            .environmentObject(premium)
-        }
     }
 }
 

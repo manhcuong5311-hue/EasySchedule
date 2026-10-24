@@ -15,6 +15,7 @@ import UIKit
 import FirebaseFirestore
 import FirebaseFunctions
 import FirebaseMessaging
+import StoreKit
 
 
 
@@ -38,7 +39,7 @@ struct SettingsView: View {
     // MARK: - State
     @State private var showLogoutAlert = false
     @State private var showPrivacySheet = false
-    @State private var showUpgradeSheet = false
+    @State private var showRemoveAdsSheet = false
     @State private var showDisplaySettings = false   // moved here from Tab 1's header button
     @State private var settingsShareItem: ShareItem? = nil   // share booking link (moved from old Tab 2)
     @State private var showBookingHours = false
@@ -62,7 +63,6 @@ struct SettingsView: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var versionTapCount = 0
     @State private var lastVersionTap = Date()
-    @State private var showPremiumIntro = false
     @State private var showOnboarding = false
     @State private var showDevMenu = false
 
@@ -72,8 +72,8 @@ struct SettingsView: View {
 
                 profileHeader
 
-                if premium.isLoaded && premium.tier != .pro {
-                    premiumBanner
+                if premium.isLoaded && !premium.isAdFree {
+                    removeAdsBanner
                 }
 
                 notificationsSection
@@ -93,16 +93,10 @@ struct SettingsView: View {
 
             .navigationTitle(String(localized: "settings"))
             .onAppear { didFinishInitialLoad = true }
-            .onReceive(NotificationCenter.default.publisher(for: .OpenPaywall)) {
-                _ in showUpgradeSheet = true
-            }
             .alertNotificationSettings($showNotificationSettingsAlert)
-            .sheet(isPresented: $showUpgradeSheet) {
-                PremiumUpgradeSheet(
-                    preselectProductID: "com.SamCorp.EasySchedule.premium.yearly",
-                    autoPurchase: false
-                )
-                .environmentObject(premium)
+            .sheet(isPresented: $showRemoveAdsSheet) {
+                RemoveAdsSheet()
+                    .environmentObject(premium)
             }
             .sheet(isPresented: $showPrivacySheet) {
                 PrivacyPolicyView()
@@ -123,14 +117,6 @@ struct SettingsView: View {
                 BookingLinkSheet()
                     .environmentObject(uiAccent)
             }
-            .sheet(isPresented: $showPremiumIntro) {
-                PremiumIntroView(
-                    isPresented: $showPremiumIntro,
-                    onUpgrade: {
-                        showUpgradeSheet = true
-                    }
-                )
-            }
             .fullScreenCover(isPresented: $showOnboarding) {
                 OnboardingContainerView(onClose: { showOnboarding = false })
             }
@@ -146,12 +132,8 @@ struct SettingsView: View {
                     showOnboarding = true   // present the onboarding preview directly
                 }
 
-                Button("dev_open_premium_intro") {
-                    showPremiumIntro = true
-                }
-
                 Button("dev_open_upgrade") {
-                    showUpgradeSheet = true
+                    showRemoveAdsSheet = true
                 }
 
                 Button(String(localized: "cancel"), role: .cancel) {}
@@ -342,13 +324,17 @@ extension SettingsView {
         return trimmed.isEmpty ? "?" : trimmed.prefix(1).uppercased()
     }
 
+    /// "Pro" while a legacy Pro plan runs, "Ad-free" after any purchase, otherwise "Free".
     private var planBadge: some View {
-        let isPro = premium.tier != .free
-        let tint: Color = isPro ? .orange : .secondary
+        let isPaid = premium.isPro || premium.isAdFree
+        let tint: Color = isPaid ? .orange : .secondary
+        let title = premium.isPro
+            ? String(localized: "plan_pro")
+            : String(localized: premium.isAdFree ? "ad_free" : "free")
         return HStack(spacing: 4) {
-            Image(systemName: isPro ? "crown.fill" : "person.fill")
+            Image(systemName: isPaid ? "crown.fill" : "person.fill")
                 .font(.system(size: 10, weight: .bold))
-            Text(premium.tier.displayName)
+            Text(title)
                 .font(.caption.weight(.semibold))
         }
         .foregroundStyle(tint)
@@ -661,9 +647,24 @@ extension SettingsView {
         Section {
 
             Button {
-                showUpgradeSheet = true
+                showRemoveAdsSheet = true
             } label: {
-                premiumRow
+                removeAdsRow
+            }
+
+            // Legacy Premium / Pro subscribers: nothing needs the subscription anymore.
+            if premium.hasActiveSubscription {
+                Button {
+                    if let url = URL(string: "https://apps.apple.com/account/subscriptions") {
+                        UIApplication.shared.open(url)
+                    }
+                } label: {
+                    SettingsActionRow(
+                        title: String(localized: "manage_subscription"),
+                        systemName: "arrow.triangle.2.circlepath",
+                        color: .gray
+                    )
+                }
             }
 
             NavigationLink {
@@ -680,18 +681,20 @@ extension SettingsView {
             }
         } header: {
             Text("account_and_premium")
+        } footer: {
+            if premium.hasActiveSubscription {
+                Text(String(localized: "legacy_subscription_note"))
+            }
         }
         .listRowBackground(rowBackground)
     }
 
-    var premiumRow: some View {
+    var removeAdsRow: some View {
         SettingsActionRow(
-            title: premium.tier == .pro
-                ? String(localized: "pro_active")
-                : String(localized: "upgrade_account"),
-            systemName: "crown.fill",
+            title: String(localized: premium.isAdFree ? "ads_removed" : "remove_ads"),
+            systemName: "sparkles",
             color: .orange,
-            value: premium.tier.displayName
+            value: premium.isAdFree ? nil : premium.removeAdsProduct?.displayPrice
         )
     }
 }
@@ -699,9 +702,9 @@ extension SettingsView {
 extension SettingsView {
 
     /// The banner is its own accent card — no extra white card around it.
-    var premiumBanner: some View {
+    var removeAdsBanner: some View {
         Section {
-            SettingsPremiumBanner()
+            SettingsRemoveAdsBanner { showRemoveAdsSheet = true }
                 .environmentObject(premium)
                 .environmentObject(uiAccent)
                 .listRowInsets(EdgeInsets())
@@ -802,21 +805,6 @@ extension SettingsView {
 
         try? Auth.auth().signOut()
         session.currentUser = nil
-    }
-}
-
-extension PremiumTier {
-
-    /// Plain tier name (no emoji) — used by the Settings plan badge / premium row.
-    var displayName: String {
-        switch self {
-        case .free:
-            return String(localized: "free")
-        case .premium:
-            return String(localized: "plan_premium")
-        case .pro:
-            return String(localized: "plan_pro")
-        }
     }
 }
 

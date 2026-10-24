@@ -1,7 +1,8 @@
 //
 // AdsConfig.swift
 //
-// AdMob IDs + frequency caps. Ads are only ever shown to the FREE tier.
+// AdMob IDs + frequency caps. Ads are never shown to users who bought Remove Ads
+// (or an old Premium / Pro plan).
 //
 
 import Foundation
@@ -15,11 +16,9 @@ enum AdsConfig {
     #if DEBUG
     static let bannerUnitID       = "ca-app-pub-3940256099942544/2934735716"
     static let interstitialUnitID = "ca-app-pub-3940256099942544/4411468910"
-    static let rewardedUnitID     = "ca-app-pub-3940256099942544/1712485313"
     #else
     static let bannerUnitID       = "ca-app-pub-5982140566133654/2339691981"   // ES Banner - Tab bar
     static let interstitialUnitID = "ca-app-pub-5982140566133654/8816725567"   // ES Interstitial - After event created
-    static let rewardedUnitID     = "ca-app-pub-5982140566133654/7947241882"   // ES Rewarded - Extra event
     #endif
 
     // MARK: - Frequency caps
@@ -27,7 +26,7 @@ enum AdsConfig {
     /// Interstitial shows after every Nth event the user creates.
     static let interstitialEveryNEvents = 2
 
-    /// Minimum gap between any two full-screen ads (interstitial or rewarded).
+    /// Minimum gap between two interstitials.
     static let minSecondsBetweenFullScreenAds: TimeInterval = 120
 
     /// Gap between the banner and the floating tab bar.

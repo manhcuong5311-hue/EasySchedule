@@ -14,7 +14,6 @@ struct FinalOnboardingCTASlide: View {
 
     /// Leaves onboarding (sets hasSeenOnboarding; closes the Settings preview).
     let onFinish: () -> Void
-    @State private var showPaywall = false
 
     var body: some View {
         ZStack {
@@ -59,27 +58,12 @@ struct FinalOnboardingCTASlide: View {
 
                 Spacer()
 
-                // MARK: - Primary CTA — straight into the app (free tier)
+                // MARK: - Primary CTA — straight into the app (everything is free)
                 Button {
                     onFinish()
                 } label: {
                     Text(String(localized: "final_cta_start_free"))
                         .onboardingCTALabel()
-                }
-
-
-                // MARK: - Secondary CTA — optional paywall
-                Button {
-                    showPaywall = true
-                } label: {
-                    Text(String(localized: "final_cta_view_premium"))
-                        .font(.system(size: 15))
-                        .foregroundColor(
-                            scheme == .light
-                            ? .secondary
-                            : .white.opacity(0.85)
-                        )
-                        .padding(.top, 4)
                 }
 
 
@@ -92,16 +76,6 @@ struct FinalOnboardingCTASlide: View {
                 Spacer(minLength: 24)
             }
             .padding(.horizontal, 28)
-        }
-        .fullScreenCover(isPresented: $showPaywall) {
-            PremiumUpgradeSheet(
-                preselectProductID: "com.SamCorp.EasySchedule.premium.yearly",
-                autoPurchase: false   // đổi true nếu muốn auto mua
-            )
-            .environmentObject(PremiumStoreViewModel.shared)
-            .onDisappear {
-                onFinish()
-            }
         }
 
 

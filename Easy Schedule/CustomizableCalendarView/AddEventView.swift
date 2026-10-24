@@ -101,9 +101,6 @@ struct AddEventView: View {
     @State private var isSaving = false
 
     @State private var activeAlert: AddEventAlert?
-    @State private var showUpgradeSheet = false
-    @State private var showPremiumIntro = false
-    @State private var showRewardedOffer = false
     @State private var location: EventLocation?
     @State private var showLocationPicker = false
     @State private var repeatRule: RepeatRule = .none
@@ -225,25 +222,8 @@ struct AddEventView: View {
                 }
             }
             .alert(item: $activeAlert) { buildAlert($0) }
-            .alert(String(localized: "limit_reached"), isPresented: $showRewardedOffer) {
-                Button(String(localized: "ads_watch_for_extra_event")) { watchAdForExtraEvent() }
-                Button(String(localized: "upgrade_to_premium")) { showUpgradeSheet = true }
-                Button(String(localized: "cancel"), role: .cancel) {}
-            } message: {
-                Text(String(format: String(localized: "ads_extra_event_message"), premium.limits.maxEventsPerDay))
-            }
-            .fullScreenCover(isPresented: $showPremiumIntro) {
-                PremiumIntroView(isPresented: $showPremiumIntro) {
-                    showUpgradeSheet = true
-                }
-            }
-            .sheet(isPresented: $showUpgradeSheet) {
-                PremiumUpgradeSheet(preselectProductID: nil, autoPurchase: false)
-                    .environmentObject(premium)
-            }
             .sheet(isPresented: $showIconPicker) {
                 IconPicker(icon: $selectedIcon, color: $selectedColor)
-                    .environmentObject(premium)
             }
             .sheet(isPresented: $showDayBoundsSettings) {
                 DayBoundsSettingsSheet()
@@ -330,8 +310,6 @@ struct AddEventView: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
                 .background(.ultraThinMaterial, in: Capsule())
-
-                freeEventsCaption
             }
         }
         .padding(.horizontal, 20)
@@ -418,31 +396,6 @@ struct AddEventView: View {
         quickSuppressedTitle = title
         syncEndTime()
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-    }
-
-    // MARK: – Free-tier counter
-
-    /// "Còn 3/5 lịch miễn phí hôm nay" — free plan only, follows the selected day.
-    @ViewBuilder
-    private var freeEventsCaption: some View {
-        if premium.tier == .free {
-            let calendar = Calendar.current
-            let used = eventManager.events.filter { calendar.isDate($0.date, inSameDayAs: date) }.count
-            let maxPerDay = premium.maxEventsPerDay(on: date)
-            let left = max(0, maxPerDay - used)
-            Group {
-                if calendar.isDateInToday(date) {
-                    Text("free_events_left \(left) \(maxPerDay)")
-                } else {
-                    Text("free_events_left_on \(left) \(maxPerDay)")
-                }
-            }
-            .font(.caption2.weight(.semibold))
-            .foregroundStyle(left == 0 ? Color.orange : Color.secondary)
-            .lineLimit(1)
-            .minimumScaleFactor(0.85)
-            .padding(.leading, 4)
-        }
     }
 
     /// Single solid rounded card: color · date · hours · fine-tune.
@@ -557,29 +510,18 @@ struct AddEventView: View {
         .padding(.vertical, 16)
     }
 
-    // MARK: – Repeat row (Premium / Pro)
+    // MARK: – Repeat row
 
     private var repeatPanelRow: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 10) {
                 formRowIcon("repeat", tint: selectedColor)
                 formRowLabel(String(localized: "repeat_title"))
-                if !premium.isPremium {
-                    Text("PREMIUM")
-                        .font(.caption2.weight(.bold))
-                        .padding(.horizontal, 6).padding(.vertical, 2)
-                        .background(Capsule().fill(Color.orange.opacity(0.18)))
-                        .foregroundStyle(.orange)
-                }
                 Spacer()
                 Menu {
                     ForEach(RepeatRule.allCases) { rule in
                         Button(String(localized: String.LocalizationValue(rule.titleKey))) {
-                            if rule != .none && !premium.isPremium {
-                                showUpgradeSheet = true
-                            } else {
-                                repeatRule = rule
-                            }
+                            repeatRule = rule
                         }
                     }
                 } label: {
@@ -1171,19 +1113,7 @@ struct AddEventView: View {
         isSaving = true
 
         if let error = validateBeforeSave() {
-            switch error {
-            case .overEventsPerDay where AdsManager.shared.canOfferRewardedEvent(for: date):
-                showRewardedOffer = true
-            case .overBookingDays, .overEventsPerDay:
-                if PremiumIntroGate.shouldShowToday() {
-                    PremiumIntroGate.markShown()
-                    showPremiumIntro = true
-                } else {
-                    activeAlert = .save(error)
-                }
-            default:
-                activeAlert = .save(error)
-            }
+            activeAlert = .save(error)
             isSaving = false
             return
         }
@@ -1191,7 +1121,7 @@ struct AddEventView: View {
         let start = combine(date: date, time: startTime)
         let end   = combine(date: date, time: endTime)
 
-        if repeatRule != .none && premium.isPremium {
+        if repeatRule != .none {
             saveSeries(start: start, end: end)
             return
         }
@@ -1213,7 +1143,7 @@ struct AddEventView: View {
                 EventIconStore.shared.setIcon(selectedIcon, for: eventId)
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-                // Free users may get an interstitial here — never stack it with the review prompt.
+                // Users who still see ads may get an interstitial here — never stack it with the review prompt.
                 guard !AdsManager.shared.showInterstitialAfterEventCreated() else { return }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
                     ReviewManager.shared.requestAfterEventSuccess(requestReview)
@@ -1264,22 +1194,6 @@ struct AddEventView: View {
         }
     }
 
-    /// Free user hit the daily cap → watch a rewarded ad, unlock +1 event for
-    /// this day, then save right away.
-    private func watchAdForExtraEvent() {
-        let day = date
-        // Wait for the alert to finish dismissing so the ad has a VC to present on.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-            let shown = AdsManager.shared.showRewarded {
-                RewardedEventBonus.grant(for: day)
-                save()
-            }
-            if !shown {
-                activeAlert = .save(.overEventsPerDay)
-            }
-        }
-    }
-
     // MARK: – Validation
 
     private func validateBeforeSave() -> SaveEventAlert? {
@@ -1313,7 +1227,7 @@ struct AddEventView: View {
         let sameDayEvents = eventManager.events.filter {
             calendar.isDate($0.date, inSameDayAs: date)
         }
-        if sameDayEvents.count >= premium.maxEventsPerDay(on: date) { return .overEventsPerDay }
+        if sameDayEvents.count >= premium.limits.maxEventsPerDay { return .overEventsPerDay }
 
         return nil
     }
